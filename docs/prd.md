@@ -1,56 +1,78 @@
 # Tài liệu Yêu cầu Sản phẩm (PRD)
 
 > Module **nhận diện chữ Kanji viết tay** trong `ai-service`.
-> **Chỉ** mô tả chức năng nhận diện Kanji. Chatbot, RAG, embedding, các route khác — **ngoài phạm vi**.
 
 | Thuộc tính | Giá trị |
 |-----------|---------|
-| Tên module | Kanji Recognizer (trong `ai-service`) |
-| Phiên bản tài liệu | 0.1 (Draft) |
+| Tên module | Kanji Recognizer |
+| Phiên bản tài liệu | 1.0 |
 | Model | EfficientNet-B3 (`efficientnet_b3_kanji_n4_n5.pt`) |
-| Tập ký tự | 250 class Kanji (JLPT — xem mục phạm vi cần chốt) |
+| Số class | 250 ký tự Kanji |
+| Kích thước ảnh | 300 × 300 |
+| Endpoint chính | `POST /api/kanji/recognize` |
 
 ---
 
-## 1. Tầm nhìn
+## 1. Tổng quan
 
-> "Cho phép client gửi một ảnh chữ Kanji viết tay và nhận lại đúng ký tự cùng thông tin của nó, thông qua một API ổn định trong `ai-service`."
+Kanji Recognizer là một module AI nhận vào **một ảnh chữ Kanji viết tay** và trả về **ký tự được nhận diện** cùng thông tin chi tiết của nó. Người học tiếng Nhật thường nhìn thấy một chữ Kanji nhưng không biết cách đọc, nên khó tra cứu bằng từ điển truyền thống. Module này biến thao tác tra cứu thành: *đưa ảnh vào — nhận kết quả ngay*.
 
-## 2. Mục tiêu (Goals)
+Module chạy trong service Python `ai-service`, dùng mô hình học sâu **EfficientNet-B3** đã được huấn luyện trên dữ liệu chữ viết tay ETL9B/ETL10, nhận diện **250 ký tự Kanji** và trả về **top-5** phương án khả năng cao nhất kèm metadata tra từ từ điển `jlpt-kanji.json`.
 
-1. Nhận ảnh Kanji (base64 **hoặc** multipart) và nhận diện bằng EfficientNet-B3.
-2. Trả **top-5** kết quả, sắp xếp giảm dần theo độ tin cậy.
-3. Bổ sung thông tin mỗi ký tự từ `jlpt-kanji.json`.
-4. Tiền xử lý inference **đồng bộ tuyệt đối** với transform lúc train.
-5. Ổn định vận hành: load model một lần khi khởi động, validate đầu vào, xử lý lỗi rõ ràng.
+## 2. Tầm nhìn
 
-### Non-Goals
-- Không làm chatbot/RAG/embedding hay bất kỳ route nào khác.
-- Không nhận diện nhiều ký tự / cả câu.
-- Không có tài khoản / lịch sử tra cứu.
+> "Cho phép một client gửi một ảnh chữ Kanji viết tay và nhận lại đúng ký tự cùng thông tin của nó, thông qua một API ổn định, chính xác và dễ tích hợp."
 
-## 3. Phạm vi (Scope)
+## 3. Mục tiêu (Goals)
 
-### In-Scope
-- Endpoint chính `POST /api/kanji/recognize` (+ alias `POST /predict`).
-- Nhận ảnh base64/data URL hoặc multipart field `image`.
-- Pipeline tiền xử lý → inference → ghép metadata → trả JSON.
-- Kiểm tra tồn tại model/JSON/mapping khi khởi động.
+1. **Nhận diện chính xác:** dự đoán đúng ký tự Kanji từ ảnh viết tay bằng EfficientNet-B3.
+2. **Đầu vào linh hoạt:** chấp nhận ảnh ở dạng base64/data URL (JSON) và dạng multipart upload.
+3. **Kết quả có thứ hạng:** trả về top-5 ký tự, sắp xếp giảm dần theo độ tin cậy để client hiển thị kết quả tốt nhất và các phương án thay thế.
+4. **Thông tin phong phú:** mỗi kết quả kèm metadata đầy đủ (âm đọc, nghĩa, số nét, cấp JLPT, ví dụ...).
+5. **Nhất quán train ↔ inference:** tiền xử lý ảnh khi suy luận khớp tuyệt đối với transform lúc huấn luyện.
+6. **Vận hành ổn định:** load model một lần khi khởi động, kiểm tra cấu hình trước khi chạy, xử lý lỗi đầu vào rõ ràng.
 
-### Out-of-Scope
-- Mọi chức năng ngoài nhận diện Kanji của project lớn.
+## 4. Người dùng & Vai trò
 
-## 4. Metrics Thành công
+| Vai trò | Mô tả | Cách tương tác |
+|---------|-------|----------------|
+| **Người học tiếng Nhật** | Người dùng cuối, trình độ N5–N4 | Viết/chụp một chữ Kanji và xem kết quả qua ứng dụng client |
+| **Client ứng dụng** | Frontend web/app tích hợp module | Gọi API, gửi ảnh, hiển thị `predictions` |
+| **Người vận hành** | Kỹ sư triển khai & giám sát service | Cấu hình biến môi trường, theo dõi metrics, khởi động service |
+
+## 5. Phạm vi (Scope)
+
+Module cung cấp các năng lực sau:
+
+- **API nhận diện:** endpoint chính `POST /api/kanji/recognize` và alias `POST /predict` (cùng logic).
+- **Tiếp nhận ảnh:** đọc ảnh từ JSON (base64/data URL) hoặc multipart field `image`, chuyển sang RGB bằng Pillow.
+- **Tiền xử lý ảnh:** chuẩn hóa ảnh về đúng định dạng dữ liệu huấn luyện.
+- **Suy luận:** chạy EfficientNet-B3 và lấy top-5 kết quả kèm độ tin cậy.
+- **Bổ sung metadata:** tra thông tin từng ký tự từ `jlpt-kanji.json`.
+- **Khởi động an toàn:** kiểm tra sự tồn tại của model checkpoint, từ điển và mapping trước khi phục vụ.
+
+## 6. Yêu cầu Chức năng (tóm tắt)
+
+| Mã | Chức năng |
+|----|-----------|
+| FR-01 | Nhận ảnh Kanji qua JSON (base64) hoặc multipart |
+| FR-02 | Tiền xử lý ảnh đồng bộ với transform lúc train |
+| FR-03 | Dự đoán bằng EfficientNet-B3, trả top-5 kèm confidence |
+| FR-04 | Bổ sung metadata Kanji từ `jlpt-kanji.json` |
+
+> Chi tiết đầy đủ xem [requirements-analysis.md](./requirements-analysis.md) và [feature-specification.md](./feature-specification.md).
+
+## 7. Metrics Thành công
 
 | Metric | Mục tiêu | Ghi chú |
 |--------|----------|---------|
-| Top-1 accuracy | Theo dõi & báo cáo | Trên tập validation |
+| Top-1 accuracy | Theo dõi & báo cáo | Tỷ lệ ký tự đầu tiên đúng, trên tập validation |
 | Top-5 accuracy | Theo dõi & báo cáo | Client dùng phần tử đầu làm kết quả chính |
-| Latency p50 / p95 | Đo & báo cáo | Đo thời gian inference một request |
-| Confusion matrix | Có | Phát hiện cặp Kanji hay nhầm |
-| Confidence hợp lệ | 100% | Nằm trong `[0, 1]`, giảm dần |
+| Latency p50 / p95 | Đo & báo cáo | Thời gian xử lý một request |
+| Confusion matrix | Có | Phát hiện các cặp Kanji hay bị nhầm |
+| Confidence hợp lệ | 100% | Nằm trong `[0, 1]`, sắp xếp giảm dần |
 
-## 5. Kiến trúc & Hiện trạng
+## 8. Kiến trúc
 
 ```
 [ Client ]
@@ -59,33 +81,72 @@
 [ ai-service/app.py ]  -- route bật khi ENABLE_KANJI_ROUTES = true/1/yes
    v
 [ kanji_routes.py ]
-   |-- Tiền xử lý ảnh (Otsu → bounding box → padding → canvas vuông → 300x300 → normalize ImageNet)
-   |-- EfficientNet-B3 (weights=None, eval, no_grad, softmax) → top-5
+   |-- Tiền xử lý ảnh (Otsu → bounding box → padding 25% → canvas vuông → 300x300 → normalize ImageNet)
+   |-- EfficientNet-B3 (eval, no_grad, softmax) → top-5
    |-- Ghép metadata từ data/jlpt-kanji.json (theo json_id)
    v
-[ JSON response: predictions[] ]
+[ JSON response: predictions[] ]  (sắp xếp giảm dần theo confidence)
 ```
 
-### Thành phần đã xác nhận
-- Model: `ai-service/models/efficientnet_b3_kanji_n4_n5.pt` (`num_classes=250`, `image_size=300`).
-- Mapping (lưu trong checkpoint, bất biến): `train_idx_to_kanji`, `train_idx_to_json_id` (và chiều ngược lại).
-- Từ điển: `ai-service/data/jlpt-kanji.json`.
-- Thiết bị: CUDA nếu có, ngược lại CPU. Model load **một lần** khi khởi động.
+### Luồng xử lý chi tiết
+1. Client gửi ảnh tới endpoint.
+2. Service đọc ảnh, kiểm tra hợp lệ, chuyển sang RGB.
+3. Tiền xử lý: Otsu → cắt bounding box + padding 25% → căn giữa canvas vuông → resize 300×300 → grayscale 3 kênh → normalize ImageNet.
+4. Model EfficientNet-B3 suy luận, áp dụng softmax, lấy top-5 chỉ số xác suất cao nhất.
+5. Ánh xạ mỗi chỉ số sang `kanji` và `json_id` qua mapping trong checkpoint.
+6. Tra metadata từ `jlpt-kanji.json` và ghép vào từng kết quả.
+7. Trả JSON `predictions[]` sắp xếp giảm dần theo `confidence`.
 
-## 6. Giả định & Phụ thuộc
+## 9. Thành phần Hệ thống
 
-- Checkpoint chứa `model_state_dict`, `num_classes`, `image_size` và đầy đủ mapping.
-- `jlpt-kanji.json` là whitelist + nguồn metadata.
-- Dependencies trong `ai-service/requirements.txt`; chạy từ thư mục repository để đường dẫn tương đối đúng.
+| Thành phần | Vị trí | Vai trò |
+|-----------|--------|--------|
+| Entry point | `ai-service/app.py` | Khởi tạo service, đăng ký route khi `ENABLE_KANJI_ROUTES` bật |
+| Logic nhận diện | `ai-service/kanji_routes.py` | Tiền xử lý, inference, ghép metadata |
+| Model checkpoint | `ai-service/models/efficientnet_b3_kanji_n4_n5.pt` | EfficientNet-B3 (`num_classes=250`, `image_size=300`) |
+| Mapping | Lưu trong checkpoint | `train_idx_to_kanji`, `train_idx_to_json_id` (và chiều ngược lại), bất biến |
+| Từ điển | `ai-service/data/jlpt-kanji.json` | Whitelist ký tự + nguồn metadata |
+| Script ETL | `ai-service/transN4N5.py` | Chuyển dữ liệu ETL sang ảnh huấn luyện |
+| Script train | `source/ai-service/train.py` | Huấn luyện & lưu checkpoint |
 
-## 7. Vấn đề phạm vi cần chốt (N5 hay N4+N5)
+## 10. Model & Dữ liệu
 
-`transN4N5.py` hiện chỉ lọc `N5` nhưng tên model ghi `N4_N5`. Cần quyết định chính thức và (nếu chọn N4+N5) phải tạo lại dataset/mapping và **train lại** — không đổi tên file suông.
+| Thuộc tính | Giá trị |
+|-----------|---------|
+| Kiến trúc | EfficientNet-B3 (pretrained ImageNet → fine-tune) |
+| Số class | 250 Kanji |
+| Kích thước ảnh đầu vào | 300 × 300 |
+| Chuẩn hóa | ImageNet — mean `[0.485, 0.456, 0.406]`, std `[0.229, 0.224, 0.225]` |
+| Nguồn dữ liệu | ETL9B / ETL10 (ảnh chữ viết tay) |
+| Thiết bị suy luận | CUDA nếu có, ngược lại CPU |
 
-## 8. Lộ trình (bám phạm vi hiện tại)
+Checkpoint lưu kèm `model_state_dict`, `num_classes`, `image_size` và toàn bộ mapping — mapping được đọc trực tiếp từ checkpoint để đảm bảo `train_index` luôn ánh xạ đúng ký tự và `json_id`.
+
+## 11. Cấu hình & Vận hành
+
+- **Bật/tắt module:** biến môi trường `ENABLE_KANJI_ROUTES` nhận `true` / `1` / `yes` (mặc định bật).
+- **Thư mục chạy:** chạy từ thư mục repository để các script dùng đường dẫn tương đối chính xác.
+- **Dependencies:** cài từ `ai-service/requirements.txt`.
+- **Load model:** thực hiện **một lần** khi khởi động process, không load lại theo từng request để đảm bảo hiệu năng.
+- **Kiểm tra khởi động:** xác nhận sự tồn tại của model checkpoint, `data/jlpt-kanji.json` và mapping trong checkpoint trước khi phục vụ; nếu checkpoint thiếu mapping, service từ chối khởi động.
+- **Bảo mật (môi trường public):** giới hạn kích thước request và validate MIME/content trước khi decode ảnh.
+- **Ảnh debug:** ảnh trung gian `debug/kanji_preprocessed.png` chỉ ghi ở môi trường debug.
+
+## 12. Giả định & Phụ thuộc
+
+- Có sẵn model checkpoint hợp lệ với mapping đầy đủ.
+- `jlpt-kanji.json` cung cấp whitelist ký tự và metadata.
+- Client gửi ảnh chứa **một** ký tự Kanji viết tay, đọc được bởi Pillow.
+- Môi trường chạy đã cài đúng các dependencies (PyTorch, Pillow...).
+
+## 13. Lộ trình (Roadmap)
 
 | Giai đoạn | Nội dung |
 |-----------|----------|
-| **Hiện tại** | Ổn định API nhận diện, đồng bộ tiền xử lý train↔inference, thêm test regression & metrics |
-| **Tiếp theo** | Chốt phạm vi N5 / N4+N5; nếu N4+N5 → train lại checkpoint |
-| **Cứng hóa (public)** | Giới hạn kích thước request, validate MIME/content, tắt ghi ảnh debug ở production |
+| **Ổn định** | Củng cố API nhận diện, đồng bộ tiền xử lý train ↔ inference, bổ sung test regression và metrics |
+| **Tăng cường** | Mở rộng bộ ký tự, cải thiện độ chính xác với các cặp Kanji dễ nhầm |
+| **Cứng hóa cho public** | Giới hạn kích thước request, validate MIME/content, tắt ghi ảnh debug ở production |
+
+---
+
+*Tài liệu này mô tả module nhận diện Kanji. Chi tiết kỹ thuật xem thêm trong [feature-specification.md](./feature-specification.md).*
