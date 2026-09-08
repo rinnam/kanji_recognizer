@@ -1,20 +1,38 @@
 # Đặc tả Tính năng (Feature Specification)
 
-> Đặc tả chi tiết **module nhận diện Kanji** trong `ai-service` — đủ để AI/dev implement và viết test.
-> **Chỉ** nhận diện Kanji. Chatbot, RAG, embedding, các route khác — **ngoài phạm vi**.
+| Thuộc tính | Giá trị |
+|-----------|---------|
+| Tài liệu | Feature Specification — Kanji Recognizer |
+| Phiên bản | 1.0 |
+| Phạm vi | Module nhận diện chữ Kanji viết tay trong `ai-service` |
+| Tài liệu liên quan | [PRD](./prd.md) · [Requirements](./requirements-analysis.md) · [User Stories](./user-stories.md) |
 
-| Quy ước | Ý nghĩa |
-|---------|---------|
-| `F-xx` | Feature |
+> Đặc tả đủ chi tiết để AI/dev implement và viết test. Quy ước: `F-xx` = Feature.
+
+---
+
+## Luồng nhận diện tổng quát (Sequence)
+
+```
+Client
+  │  POST /api/kanji/recognize  (image: base64 | multipart)
+  ▼
+F-01 Nhận ảnh ─────────► validate + Pillow → RGB   ─(lỗi)─► HTTP 400 { success:false, error }
+  ▼
+F-02 Tiền xử lý ───────► Otsu → bbox+padding25% → canvas vuông → 300×300 → normalize
+  ▼
+F-03 Dự đoán ─────────► EfficientNet-B3 → softmax → top-5 (train_index, json_id, kanji, confidence)
+  ▼
+F-04 Metadata ────────► tra jlpt-kanji.json theo json_id → ghép trường
+  ▼
+Response 200 { success:true, predictions:[...], message }
+```
 
 ---
 
 ## F-01 — Nhận ảnh đầu vào
 
 **Liên kết:** US-01, FR-01
-
-### Mô tả
-Nhận ảnh Kanji từ client qua hai dạng request.
 
 ### Hợp đồng đầu vào
 - **JSON:** `{ "image": "<base64 hoặc data URL>" }`.
@@ -23,7 +41,7 @@ Nhận ảnh Kanji từ client qua hai dạng request.
 ### Quy tắc
 - Ảnh phải mở được bằng Pillow và convert sang RGB.
 - Thiếu `image` / base64 lỗi / file không phải ảnh → **HTTP 400**, JSON lỗi, không dừng process.
-- Ở môi trường public: giới hạn kích thước request và validate MIME/content **trước** khi decode.
+- Môi trường public: giới hạn kích thước request và validate MIME/content **trước** khi decode.
 
 ---
 
@@ -56,15 +74,14 @@ Nhận ảnh Kanji từ client qua hai dạng request.
 - Thay classifier cuối bằng lớp có `num_classes` = giá trị trong checkpoint (**250**).
 - `eval()` + `torch.no_grad()`; **softmax** trên output.
 - Lấy **top-5** xác suất cao nhất.
-- Thiết bị: CUDA nếu có, ngược lại CPU.
-- Model **load một lần** khi khởi động process.
+- Thiết bị: CUDA nếu có, ngược lại CPU. Model **load một lần** khi khởi động process.
 
 ### Mỗi phần tử kết quả giữ tối thiểu
 `train_index`, `json_id`, `kanji`, `confidence`.
 
 ### Quy tắc
 - `predictions` sắp xếp **giảm dần** theo `confidence`.
-- `confidence` ∈ `[0, 1]`; số phần tử ≤ số class.
+- `confidence ∈ [0, 1]`; số phần tử ≤ số class.
 
 ---
 
@@ -75,8 +92,27 @@ Nhận ảnh Kanji từ client qua hai dạng request.
 ### Nguồn
 `ai-service/data/jlpt-kanji.json` — tra theo `json_id` (khớp với `train_idx_to_json_id`).
 
-### Trường trả về (tối thiểu)
-`id`, `kanji`, `hiragana`, `reading_on`, `reading_kun`, `meaning_vi`, `meaning_hv`, `meaning_en`, `example`, `description`, `tags`, `jlpt`, `strokes`, `radical_number`, `frequency`, `confidence`.
+### Field reference (đối tượng prediction)
+| Trường | Kiểu | Nguồn | Mô tả |
+|--------|------|-------|-------|
+| `kanji` | string | model + JSON | Ký tự dự đoán |
+| `confidence` | number | model | Độ tin cậy, `[0, 1]` |
+| `train_index` | number | model | Chỉ số class trong model |
+| `json_id` | number | mapping | Khóa tra `jlpt-kanji.json` |
+| `id` | number | JSON | ID ký tự trong từ điển |
+| `hiragana` | string | JSON | Cách đọc kana |
+| `reading_on` | string/array | JSON | Âm On |
+| `reading_kun` | string/array | JSON | Âm Kun |
+| `meaning_vi` | string | JSON | Nghĩa tiếng Việt |
+| `meaning_hv` | string | JSON | Nghĩa Hán-Việt |
+| `meaning_en` | string | JSON | Nghĩa tiếng Anh |
+| `example` | string/array | JSON | Ví dụ |
+| `description` | string | JSON | Mô tả |
+| `tags` | array | JSON | Nhãn phân loại |
+| `jlpt` | string | JSON | Cấp JLPT |
+| `strokes` | number | JSON | Số nét |
+| `radical_number` | number | JSON | Số bộ thủ |
+| `frequency` | number | JSON | Tần suất sử dụng |
 
 ### Quy tắc
 - Không tìm thấy Kanji trong JSON → trả kết quả với các trường rỗng, **không** crash.
@@ -85,15 +121,12 @@ Nhận ảnh Kanji từ client qua hai dạng request.
 
 ## F-05 — API Contract & Vận hành
 
-**Liên kết:** US-01, US-05, NFR-03, NFR-04, NFR-06, NFR-07, NFR-08
+**Liên kết:** US-01, US-05, US-06, NFR-03, NFR-04, NFR-06, NFR-07, NFR-08
 
-### Endpoint chính
+### Endpoints
 ```
-POST /api/kanji/recognize
-```
-### Endpoint alias
-```
-POST /predict      # gọi lại cùng logic; nếu không client nào dùng → đánh dấu deprecated trước khi xóa
+POST /api/kanji/recognize      # endpoint chính
+POST /predict                  # alias — cùng logic; deprecated trước khi xóa nếu không còn dùng
 ```
 
 ### Request
@@ -102,29 +135,49 @@ POST /predict      # gọi lại cùng logic; nếu không client nào dùng →
 ```
 hoặc multipart với field file `image`.
 
-### Response thành công
+### Response thành công (đầy đủ trường)
 ```json
 {
   "success": true,
   "predictions": [
     {
       "kanji": "学",
-      "hiragana": "ガク、まなぶ",
-      "meaning_vi": "học",
-      "confidence": 0.91,
+      "id": 123,
+      "json_id": 123,
       "train_index": 12,
-      "json_id": 123
+      "confidence": 0.91,
+      "hiragana": "ガク、まなぶ",
+      "reading_on": ["ガク"],
+      "reading_kun": ["まな.ぶ"],
+      "meaning_vi": "học",
+      "meaning_hv": "HỌC",
+      "meaning_en": "study, learning",
+      "example": "学生 (がくせい) — học sinh",
+      "description": "...",
+      "tags": ["giáo dục"],
+      "jlpt": "N5",
+      "strokes": 8,
+      "radical_number": 39,
+      "frequency": 63
     }
   ],
   "message": "..."
 }
 ```
-> `predictions` là mảng giảm dần theo `confidence`; client dùng phần tử đầu tiên làm kết quả chính. (Mỗi phần tử còn kèm các trường metadata ở F-04.)
+> `predictions` là mảng giảm dần theo `confidence`; client dùng phần tử đầu tiên làm kết quả chính.
 
 ### Response lỗi
 ```json
 { "success": false, "error": "..." }
 ```
+
+### Bảng lỗi
+| Tình huống | HTTP | Body |
+|-----------|------|------|
+| Thiếu `image` | 400 | `{ "success": false, "error": "..." }` |
+| Base64/data URL lỗi | 400 | `{ "success": false, "error": "..." }` |
+| File không phải ảnh | 400 | `{ "success": false, "error": "..." }` |
+| Kanji không có trong JSON | 200 | Kết quả với metadata rỗng |
 
 ### Cấu hình & khởi động
 - Route bật khi `ENABLE_KANJI_ROUTES` = `true` / `1` / `yes` (mặc định bật).
@@ -160,8 +213,6 @@ Kết quả: số class phải bằng số phần tử mapping. Đổi dataset/m
 
 ## F-07 — Chốt phạm vi N5 vs N4+N5 (điều kiện tiên quyết)
 
-**Liên kết:** Open Question
-
 `transN4N5.py` hiện chỉ lọc `N5`:
 ```python
 if jlpt_level not in ["N5"]:
@@ -183,7 +234,7 @@ Trong khi tên model/message ghi `N4_N5`. Phải chọn:
 | F-02 Tiền xử lý | US-04 | FR-02 | NFR-08 |
 | F-03 Dự đoán | US-02 | FR-03 | NFR-01, NFR-02, NFR-05 |
 | F-04 Metadata | US-03 | FR-04 | — |
-| F-05 API & vận hành | US-01, US-05 | FR-01 | NFR-03, NFR-04, NFR-06, NFR-07, NFR-08 |
+| F-05 API & vận hành | US-01, US-05, US-06 | FR-01 | NFR-03, NFR-04, NFR-06, NFR-07, NFR-08 |
 | F-06 Test & metrics | US-04 | — | NFR-09 |
 | F-07 Chốt phạm vi | — | — | — |
 
