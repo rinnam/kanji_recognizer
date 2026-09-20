@@ -61,6 +61,7 @@ export default function InputPanel(props: Props) {
               Nét vẽ
               <input
                 type="range"
+                aria-label="Độ dày nét vẽ"
                 min={4}
                 max={36}
                 value={brushSize}
@@ -77,7 +78,16 @@ export default function InputPanel(props: Props) {
       ) : (
         <div
           className={preview ? "dropzone has-file" : "dropzone"}
+          role="button"
+          tabIndex={0}
+          aria-label={preview ? "Thay ảnh Kanji đã tải lên" : "Chọn hoặc kéo thả ảnh Kanji"}
           onClick={() => fileInputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              fileInputRef.current?.click();
+            }
+          }}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();

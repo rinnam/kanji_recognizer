@@ -109,14 +109,22 @@ export default function App() {
       </header>
 
       {/* ===== Hero ===== */}
-      <section className="hero">
-        <h1>
+      <section className="hero" aria-labelledby="hero-title">
+        <span className="hero-kicker">書く · 読む · 理解する</span>
+        <h1 id="hero-title">
           Viết một chữ Kanji <em>— nhận ngay</em> ký tự, cách đọc và ý nghĩa
         </h1>
         <p>
           Dành cho người học tiếng Nhật: nhìn thấy chữ mà không biết đọc?
           Vẽ lại hoặc chụp ảnh — AI sẽ đoán top-5 kèm metadata đầy đủ.
         </p>
+        <div className="hero-meta" aria-label="Tính năng chính">
+          <span><b>01</b> Vẽ hoặc tải ảnh</span>
+          <i aria-hidden="true" />
+          <span><b>02</b> Nhận diện tức thì</span>
+          <i aria-hidden="true" />
+          <span><b>03</b> Học cách đọc</span>
+        </div>
       </section>
 
       {/* ===== Main ===== */}

@@ -1,166 +1,53 @@
-# Phân tích Yêu cầu (Requirements Analysis)
+# Catalogue phÃ¢n tÃ­ch yÃªu cáº§u
 
-| Thuộc tính | Giá trị |
-|-----------|---------|
-| Tài liệu | Requirements Analysis — Kanji Recognizer |
-| Phiên bản | 1.0 |
-| Phạm vi | Module nhận diện chữ Kanji viết tay trong `ai-service` |
-| Tài liệu liên quan | [PRD](./prd.md) · [User Stories](./user-stories.md) · [Feature Spec](./feature-specification.md) |
+> Nguá»“n chuáº©n vá» ná»™i dung/tráº¡ng thÃ¡i yÃªu cáº§u: [PRD](./prd.md#8-yÃªu-cáº§u-Æ°u-tiÃªn). TÃ i liá»‡u nÃ y táº­p trung vÃ o báº±ng chá»©ng, phá»¥ thuá»™c vÃ  truy váº¿t.
 
----
+## Quy Æ°á»›c
 
-## 1. Quy ước
+- **Implemented (frontend):** cÃ³ mÃ£ UI; khÃ´ng Ä‘á»“ng nghÄ©a cÃ³ dá»‹ch vá»¥ tháº­t.
+- **Implemented (mock):** cháº¡y báº±ng dá»¯ liá»‡u cá»‘ Ä‘á»‹nh.
+- **Partially implemented / Proposed / Blocked / Unverified:** theo [chÃº giáº£i](./README.md#chÃº-giáº£i-tráº¡ng-thÃ¡i).
+- Æ¯u tiÃªn P0/P1 khÃ´ng hÃ m Ã½ deadline.
 
-- `FR-xx` — Functional Requirement (Yêu cầu chức năng).
-- `NFR-xx` — Non-Functional Requirement (Yêu cầu phi chức năng).
-- Ưu tiên theo **MoSCoW**: Must / Should / Could.
-- Mỗi FR mô tả theo cấu trúc: **Đầu vào → Xử lý → Đầu ra → Xử lý lỗi** để có thể implement và viết test trực tiếp.
+## Catalogue
 
----
+| ID | Tráº¡ng thÃ¡i | Báº±ng chá»©ng / khoáº£ng trá»‘ng | Acceptance chi tiáº¿t | LiÃªn káº¿t |
+|---|---|---|---|---|
+| FR-001 | Implemented (frontend) | `DrawCanvas.tsx`: canvas logic 480, pointer events, data URL | Given tab Váº½ tay, when pointer táº¡o nÃ©t, then `hasInk=true`, cÃ³ PNG data URL vÃ  nÃºt gá»­i kháº£ dá»¥ng náº¿u khÃ´ng loading. | CUJ-01; US-001 |
+| FR-002 | Implemented (frontend) | `DrawCanvas.tsx`, `InputPanel.tsx` | Brush nháº­n 4â€“36; undo bá» snapshot gáº§n nháº¥t; clear xÃ³a lá»‹ch sá»­ vÃ  bÃ¡o rá»—ng. Undo cÃ³ tá»‘i Ä‘a 30 snapshot trong mÃ£. | CUJ-01; US-002 |
+| FR-003 | Implemented (frontend); validation Unverified | `InputPanel.tsx`: file input `image/*`, click/drop, Enter/Space, preview/gá»¡ | Chá»n hoáº·c drop file táº¡o preview; gá»¡ reset preview/input. KhÃ´ng Ä‘Æ°á»£c coi `accept` lÃ  security validation. | CUJ-02; US-005 |
+| FR-004 | Implemented (frontend) | `App.tsx`, `ResultPanel.tsx` | Tráº¡ng thÃ¡i chá»‰ thuá»™c `idle/loading/success/error`; gá»­i bá»‹ khÃ³a náº¿u thiáº¿u input/Ä‘ang loading; lá»—i cÃ³ retry. | CUJ-01/02; US-003, US-006 |
+| FR-005 | Implemented (mock) | `api.ts`, `mockData.ts`, `ResultPanel.tsx` | Mock tráº£ fixed candidates sau 1,4 giÃ¢y; client sort confidence giáº£m dáº§n; máº·c Ä‘á»‹nh index 0; chá»n row Ä‘á»•i tháº» chi tiáº¿t. | CUJ-01; US-004 |
+| FR-006 | Implemented (frontend) | `App.tsx` | Sau success, thÃªm top candidate vÃ o Ä‘áº§u; slice 8; chá»‰ React state, khÃ´ng persistence. | CUJ-03; US-007 |
+| FR-007 | Proposed; Blocked | `App.tsx`/`api.ts` chá»‰ cÃ³ TODO; khÃ´ng backend | Khi contract PRD Â§10 Ä‘Æ°á»£c duyá»‡t, gá»­i input tháº­t; timeout/cancel/error mapping pass contract tests. | CUJ-04; US-010 |
+| FR-008 | Proposed; Blocked | KhÃ´ng model/checkpoint/service | Response cÃ³ schema Ä‘Ã£ version; rank/confidence semantics vÃ  evaluation protocol Ä‘Æ°á»£c phÃª duyá»‡t. | CUJ-04; US-011 |
+| FR-009 | Proposed; Blocked | Metadata hiá»‡n lÃ  mock | Nguá»“n/license/locale/nullability Ä‘Æ°á»£c duyá»‡t; thiáº¿u metadata khÃ´ng lÃ m UI crash. | CUJ-04; US-012 |
+| FR-010 | Proposed | Mock hiá»‡n cÃ³ message demo; header/loading cÃ²n nÃªu chi tiáº¿t model chÆ°a kiá»ƒm chá»©ng | Cháº¿ Ä‘á»™ demo cÃ³ nhÃ£n nháº¥t quÃ¡n; production khÃ´ng thá»ƒ vÃ´ tÃ¬nh dÃ¹ng mock; ná»™i dung UI khÃ´ng tuyÃªn bá»‘ model chÆ°a xÃ¡c minh. | G4; US-013 |
+| NFR-001 | Unverified | Upload cÃ³ keyboard handler/ARIA; chÆ°a audit toÃ n luá»“ng | Tab/focus/name/status announcement/contrast/zoom/canvas alternative Ä‘áº¡t chuáº©n Ä‘Æ°á»£c chá»n (TBD). | US-008 |
+| NFR-002 | Proposed | KhÃ´ng backend/control Ä‘á»ƒ kiá»ƒm tra | Threat model, content validation, limit, transport/auth/log redaction/retention Ä‘Æ°á»£c quyáº¿t Ä‘á»‹nh vÃ  test. | US-012 |
+| NFR-003 | Proposed | KhÃ´ng telemetry/service | SLO, timeout, retry, error code, request correlation, logs/metrics/alerts vÃ  runbook Ä‘áº¡t gate TBD. | US-010/011 |
+| NFR-004 | Partially implemented | Responsive CSS trong `App.css`; chÆ°a cÃ³ ma tráº­n test | Luá»“ng hoÃ n táº¥t á»Ÿ viewport/zoom/orientation Ä‘Ã£ chá»n, khÃ´ng che action hoáº·c máº¥t ná»™i dung. | US-009 |
+| NFR-005 | Unverified | CÃ³ script build/lint; khÃ´ng test/CI | Build/lint pass táº¡i gate; test strategy vÃ  CI lÃ  exit criteria trÆ°á»›c launch. | M0/M4 |
 
-## 2. Yêu cầu Chức năng (Functional Requirements)
+## Ma tráº­n nÄƒng lá»±c
 
-### FR-01 — Nhận ảnh đầu vào  ·  *Ưu tiên: Must*
+| NÄƒng lá»±c | Frontend | Dá»‹ch vá»¥ | Kiá»ƒm thá»­/Ä‘o lÆ°á»ng |
+|---|---|---|---|
+| Váº½/undo/clear | Implemented | KhÃ´ng Ã¡p dá»¥ng | Manual/code inspection; automated tests absent |
+| Upload/preview | Implemented | Absent | MIME/content/limit unverified |
+| Recognition | Mock only | Absent | Accuracy/evaluation absent |
+| Candidate details | Mock UI | Metadata service absent | Schema/quality unverified |
+| History | Session-only | Persistence absent/non-goal | Reload loss is expected current behavior |
+| Responsive/accessibility | Partial | KhÃ´ng Ã¡p dá»¥ng | Audit absent |
+| Analytics/observability | Absent | Absent | Plan only |
 
-**Mô tả:** API tiếp nhận ảnh chứa một ký tự Kanji viết tay.
+## Dependency vÃ  test cáº§n cÃ³
 
-- **Đầu vào:** một trong hai dạng
-  - JSON: `{ "image": "<base64 hoặc data URL>" }`.
-  - Multipart: field file tên `image`.
-- **Xử lý:** đọc ảnh bằng Pillow, chuyển sang RGB.
-- **Đầu ra:** ảnh RGB hợp lệ, sẵn sàng cho bước tiền xử lý.
-- **Xử lý lỗi:** thiếu `image` / base64 lỗi / file không phải ảnh → **HTTP 400** với JSON lỗi; **không** làm dừng process.
+- FR-007â€“009 phá»¥ thuá»™c quyáº¿t Ä‘á»‹nh contract, backend, model artifact, evaluation set vÃ  metadata source.
+- Contract tests pháº£i bao phá»§ success, empty predictions, nullable fields vÃ  má»i error code.
+- E2E cáº§n bao phá»§ CUJ-01â€“04; accessibility vÃ  responsive lÃ  gate riÃªng.
+- KhÃ´ng cÃ³ automated test suite/CI trong checkout; má»i káº¿t luáº­n ngoÃ i build/lint pháº£i giá»¯ **Unverified**.
 
-### FR-02 — Tiền xử lý ảnh  ·  *Ưu tiên: Must*
+## Quy táº¯c thay Ä‘á»•i
 
-**Mô tả:** chuẩn hóa ảnh **đồng bộ tuyệt đối** với validation transform lúc train (hợp đồng dữ liệu train ↔ inference).
-
-- **Đầu vào:** ảnh RGB từ FR-01.
-- **Xử lý (đúng thứ tự):**
-  1. RGB → grayscale.
-  2. Threshold **Otsu** để tách nét chữ.
-  3. Tự động đảo màu khi nền trắng chiếm đa số.
-  4. Cắt bounding box của chữ + padding **25%** theo cạnh lớn nhất.
-  5. Căn giữa vào canvas vuông.
-  6. Resize về **300 × 300**.
-  7. Grayscale → 3 kênh.
-  8. Normalize ImageNet: mean `[0.485, 0.456, 0.406]`, std `[0.229, 0.224, 0.225]`.
-- **Đầu ra:** tensor ảnh `3 × 300 × 300` đã chuẩn hóa.
-- **Ràng buộc:** đổi bất kỳ bước nào ⇒ phải train lại hoặc đánh giá lại ảnh hưởng độ chính xác.
-
-### FR-03 — Dự đoán  ·  *Ưu tiên: Must*
-
-**Mô tả:** suy luận ký tự Kanji bằng EfficientNet-B3.
-
-- **Đầu vào:** tensor ảnh từ FR-02.
-- **Xử lý:**
-  - Load EfficientNet-B3 với `weights=None` khi inference.
-  - Thay lớp classifier cuối bằng lớp có số class = `num_classes` trong checkpoint (**250**).
-  - Chạy `eval()` + `torch.no_grad()`; áp dụng **softmax** trên output.
-  - Lấy tối đa **5** class xác suất cao nhất.
-- **Đầu ra:** danh sách tối đa 5 phần tử, mỗi phần tử giữ `train_index`, `json_id`, `kanji`, `confidence`.
-- **Ràng buộc:** `predictions` sắp xếp **giảm dần** theo `confidence`; `confidence ∈ [0, 1]`; số phần tử ≤ số class.
-
-### FR-04 — Bổ sung thông tin Kanji  ·  *Ưu tiên: Must*
-
-**Mô tả:** làm giàu mỗi kết quả bằng metadata từ `jlpt-kanji.json`.
-
-- **Đầu vào:** danh sách kết quả từ FR-03 (theo `json_id`).
-- **Xử lý:** tra `jlpt-kanji.json` theo `json_id`, ghép các trường metadata.
-- **Đầu ra:** mỗi kết quả kèm tối thiểu: `id`, `kanji`, `hiragana`, `reading_on`, `reading_kun`, `meaning_vi`, `meaning_hv`, `meaning_en`, `example`, `description`, `tags`, `jlpt`, `strokes`, `radical_number`, `frequency`, `confidence`.
-- **Xử lý lỗi:** không tìm thấy Kanji trong JSON → trả kết quả với các trường rỗng, **không** crash request.
-
----
-
-## 3. Bảng Xử lý Lỗi Đầu vào
-
-| Tình huống | Kết quả | HTTP |
-|-----------|---------|------|
-| Thiếu trường `image` | JSON lỗi `{ "success": false, "error": "..." }` | 400 |
-| Base64 / data URL không hợp lệ | JSON lỗi | 400 |
-| File tải lên không phải ảnh (Pillow không mở được) | JSON lỗi | 400 |
-| Kanji dự đoán không có trong `jlpt-kanji.json` | Vẫn trả kết quả, metadata rỗng | 200 |
-| Model/mapping/JSON thiếu khi khởi động | Service từ chối khởi động | — |
-
----
-
-## 4. Yêu cầu Phi chức năng (Non-Functional Requirements)
-
-| Mã | Loại | Yêu cầu | Tiêu chí đo được |
-|----|------|---------|-------------------|
-| **NFR-01** | Hiệu năng | Model load **một lần** khi khởi động, không load lại mỗi request | Không có thao tác load model trong đường xử lý request; đo latency p50/p95 |
-| **NFR-02** | Đúng đắn | Kết quả hợp lệ | `confidence ∈ [0,1]`, sắp xếp giảm dần, số phần tử ≤ số class |
-| **NFR-03** | Toàn vẹn mapping | `train_index` map đúng sang `kanji` và `json_id`, bất biến suốt vòng đời model | Test mapping: mọi index ánh xạ đúng |
-| **NFR-04** | Khởi động an toàn | Kiểm tra tồn tại model checkpoint, `data/jlpt-kanji.json`, mapping trong checkpoint | Checkpoint thiếu mapping → **từ chối khởi động** |
-| **NFR-05** | Thiết bị | Dùng CUDA nếu có, ngược lại CPU | Chạy được ở cả hai môi trường |
-| **NFR-06** | Cấu hình | Bật/tắt route bằng `ENABLE_KANJI_ROUTES` (mặc định bật); chạy từ thư mục repository | Route xuất hiện/ẩn theo biến môi trường |
-| **NFR-07** | Bảo mật (public) | Giới hạn kích thước request; validate MIME/content trước khi decode ảnh | Request quá lớn / sai MIME bị từ chối |
-| **NFR-08** | Debug/Production | `debug/kanji_preprocessed.png` chỉ ghi ở môi trường debug | Production không sinh file ảnh trung gian |
-| **NFR-09** | Kiểm thử | Có test regression cho tiền xử lý, mapping và API contract | Bộ test chạy được trong CI/local |
-
----
-
-## 5. Hợp đồng Dữ liệu (Data Contract)
-
-### Request
-| Trường | Kiểu | Bắt buộc | Ghi chú |
-|--------|------|----------|---------|
-| `image` (JSON) | string | Có (nếu dùng JSON) | base64 hoặc data URL |
-| `image` (multipart) | file | Có (nếu dùng multipart) | field file tên `image` |
-
-### Mỗi phần tử `predictions[]`
-| Trường | Kiểu | Nguồn | Ghi chú |
-|--------|------|-------|---------|
-| `kanji` | string | model + JSON | ký tự dự đoán |
-| `confidence` | number | model | trong `[0, 1]` |
-| `train_index` | number | model | chỉ số class trong model |
-| `json_id` | number | mapping | khóa tra `jlpt-kanji.json` |
-| `hiragana`, `reading_on`, `reading_kun` | string/array | JSON | cách đọc |
-| `meaning_vi`, `meaning_hv`, `meaning_en` | string/array | JSON | nghĩa |
-| `example`, `description`, `tags` | string/array | JSON | thông tin bổ sung |
-| `jlpt`, `strokes`, `radical_number`, `frequency` | string/number | JSON | thuộc tính ký tự |
-
----
-
-## 6. Ràng buộc Dữ liệu & Huấn luyện
-
-### Nguồn dữ liệu
-- ETL10/ETL9B cung cấp record ảnh nhị phân 64×63.
-- `JIS0208.py` map JIS code → Unicode Kanji.
-- `jlpt-kanji.json` là whitelist + nguồn metadata.
-- Dataset sau convert: `dataset_output_*/<kanji>/*.png`.
-
-### Mapping class (bắt buộc, bất biến)
-`train_idx_to_kanji`, `kanji_to_train_idx`, `train_idx_to_json_id`, `json_id_to_train_idx`.
-Checkpoint **bắt buộc** lưu mapping cùng `model_state_dict`, `num_classes`, `image_size`. **Không** được suy lại mapping theo thứ tự thư mục khi inference.
-
-### Quy trình train tối thiểu
-1. Lọc whitelist Kanji từ JSON.
-2. Convert ETL → PNG, kiểm tra số ảnh mỗi class.
-3. Chia train/validation theo từng class (không class nào thiếu validation).
-4. EfficientNet-B3 pretrained ImageNet.
-5. Freeze backbone giai đoạn đầu → fine-tune toàn bộ.
-6. Lưu checkpoint tốt nhất theo validation accuracy.
-7. Kiểm tra checkpoint có mapping và số class khớp dataset.
-8. Test inference với ảnh đại diện mỗi nhóm class.
-
----
-
-## 7. Câu hỏi Mở (Open Questions)
-
-- Chốt phạm vi **N5** hay **N4+N5**? (`transN4N5.py` hiện chỉ lọc `N5` nhưng model đặt tên `N4_N5`.)
-- Endpoint alias `POST /predict`: còn client nào dùng, hay đánh dấu deprecated?
-- Có cần ngưỡng confidence tối thiểu để coi kết quả là đáng tin không?
-
-## 8. Bảng Truy vết (Traceability)
-
-| Yêu cầu | User Story | Feature |
-|---------|-----------|---------|
-| FR-01 | US-01 | F-01 |
-| FR-02 | US-04 | F-02 |
-| FR-03 | US-02 | F-03 |
-| FR-04 | US-03 | F-04 |
-| NFR-01..09 | US-05 | F-05, F-06 |
-
----
-*Tài liệu tiếp theo: [User Stories](./user-stories.md).*
+KhÃ´ng Ä‘á»•i ID Ä‘Ã£ phÃ¡t hÃ nh; yÃªu cáº§u bá» Ä‘i Ä‘Æ°á»£c Ä‘Ã¡nh dáº¥u Deprecated thay vÃ¬ tÃ¡i sá»­ dá»¥ng ID. Thay schema pháº£i cáº­p nháº­t Ä‘á»“ng thá»i [PRD](./prd.md), [feature spec](./feature-specification.md), stories liÃªn quan vÃ  `frontend/src/types.ts` khi tÃ­ch há»£p tháº­t. Việc triển khai frontend theo gate được tổ chức tại [kế hoạch frontend](./frontend-implementation-plan.md), không tạo ID yêu cầu mới.

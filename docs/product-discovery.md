@@ -1,121 +1,99 @@
-# Khám phá Sản phẩm (Product Discovery)
+# KhÃ¡m phÃ¡ sáº£n pháº©m
 
-| Thuộc tính | Giá trị |
-|-----------|---------|
-| Tài liệu | Product Discovery — Kanji Recognizer |
-| Phiên bản | 1.0 |
-| Phạm vi | Module nhận diện chữ Kanji viết tay trong `ai-service` |
-| Tài liệu liên quan | [PRD](./prd.md) · [Requirements](./requirements-analysis.md) · [User Stories](./user-stories.md) · [Feature Spec](./feature-specification.md) |
+> TÃ i liá»‡u nÃ y quáº£n lÃ½ giáº£ thuyáº¿t vÃ  báº±ng chá»©ng; khÃ´ng biáº¿n giáº£ thuyáº¿t thÃ nh sá»± tháº­t. Pháº¡m vi chuáº©n xem [PRD](./prd.md).
 
----
+## 1. CÃ¢u há»i khÃ¡m phÃ¡
 
-## 1. Bối cảnh & Tuyên bố Vấn đề
+Liá»‡u má»™t tráº£i nghiá»‡m nháº­p hÃ¬nh dáº¡ng má»™t kÃ½ tá»± báº±ng váº½ hoáº·c áº£nh cÃ³ giÃºp nhÃ³m ngÆ°á»i dÃ¹ng má»¥c tiÃªu hoÃ n thÃ nh tÃ¡c vá»¥ tra cá»©u tá»‘t hÆ¡n cÃ¡c cÃ¡ch há» Ä‘ang dÃ¹ng, vá»›i má»©c tin cáº­y vÃ  chi phÃ­ cháº¥p nháº­n Ä‘Æ°á»£c?
 
-Người học tiếng Nhật liên tục gặp chữ Kanji trong sách, manga, biển hiệu, tài liệu... nhưng **nhìn thấy mà không biết cách đọc**. Từ điển truyền thống lại yêu cầu người dùng **đã biết** một trong các thông tin sau để tra:
+NhÃ³m ngÆ°á»i dÃ¹ng, hÃ nh vi hiá»‡n táº¡i, táº§n suáº¥t, â€œtá»‘t hÆ¡nâ€ vÃ  má»©c cháº¥p nháº­n Ä‘á»u **TBD** vÃ¬ repository khÃ´ng chá»©a nghiÃªn cá»©u ngÆ°á»i dÃ¹ng.
 
-- Âm đọc (On/Kun) — thứ mà người học thường chưa biết.
-- Bộ thủ (radical) + số nét — đòi hỏi kỹ năng phân tích chữ, chậm và dễ sai với người mới.
+## 2. Evidence register
 
-→ Hình thành một **rào cản tra cứu**: càng là chữ lạ (thứ cần tra nhất) thì càng khó tra. Vấn đề cốt lõi cần giải quyết:
+| E-ID | Báº±ng chá»©ng | Nguá»“n | Äiá»u chá»©ng minh | KhÃ´ng chá»©ng minh |
+|---|---|---|---|---|
+| E-001 | UI React/TypeScript/Vite cháº¡y nhÆ° prototype | `frontend/package.json`, `src/**` | CÃ³ thá»ƒ dá»±ng luá»“ng tÆ°Æ¡ng tÃ¡c | Nhu cáº§u, usability, production readiness |
+| E-002 | Canvas draw/brush/undo/clear | `DrawCanvas.tsx`, `InputPanel.tsx` | NÄƒng lá»±c frontend hiá»‡n táº¡i | Accessibility Ä‘áº§y Ä‘á»§, cháº¥t lÆ°á»£ng recognition |
+| E-003 | Upload click/keyboard/drop vÃ  preview | `InputPanel.tsx` | Interaction hiá»‡n há»¯u | Content validation/security |
+| E-004 | Fixed mock candidates, latency 1,4 s | `api.ts`, `mockData.ts` | Loading/result UI demo Ä‘Æ°á»£c | Backend/model/accuracy/latency tháº­t |
+| E-005 | State/result/history | `App.tsx`, `ResultPanel.tsx` | UI state vÃ  history session | Persistence/analytics |
+| E-006 | KhÃ´ng cÃ³ backend/model/test/CI/analytics | CÃ¢y file checkout | Khoáº£ng trá»‘ng repository | KhÃ´ng kháº³ng Ä‘á»‹nh cÃ¡c artifact khÃ´ng tá»“n táº¡i á»Ÿ nÆ¡i khÃ¡c |
 
-> **"Làm sao để tra một chữ Kanji chỉ từ hình dạng của nó, mà không cần biết trước cách đọc?"**
+## 3. Giáº£ thuyáº¿t Æ°u tiÃªn
 
-## 2. Đối tượng Người dùng (Personas)
+| H-ID | Giáº£ thuyáº¿t | Báº±ng chá»©ng hiá»‡n cÃ³ | CÃ¡ch kiá»ƒm chá»©ng | Quyáº¿t Ä‘á»‹nh sau thá»­ nghiá»‡m |
+|---|---|---|---|---|
+| H-001 | NgÆ°á»i dÃ¹ng má»¥c tiÃªu cÃ³ váº¥n Ä‘á» tra kÃ½ tá»± tá»« hÃ¬nh dáº¡ng Ä‘á»§ thÆ°á»ng xuyÃªn | KhÃ´ng cÃ³ | Phá»ng váº¥n theo tÃ¡c vá»¥ + diary/contextual inquiry; máº«u/segment TBD | Tiáº¿p tá»¥c, Ä‘á»•i segment hoáº·c dá»«ng |
+| H-002 | Váº½ vÃ  upload bao phá»§ input mode quan trá»ng | Prototype | Usability test so sÃ¡nh mode; ghi completion/error/preference | Giá»¯ cáº£ hai, Æ°u tiÃªn má»™t, hoáº·c thÃªm phÆ°Æ¡ng Ã¡n khÃ¡c |
+| H-003 | Danh sÃ¡ch á»©ng viÃªn giÃºp phá»¥c há»“i khi top-1 sai | UI mock | Wizard-of-Oz vá»›i ground truth; Ä‘o rank selected vÃ  confidence hiá»ƒu Ä‘Ãºng | Chá»n candidate count/presentation |
+| H-004 | Hiá»ƒn thá»‹ confidence há»¯u Ã­ch, khÃ´ng gÃ¢y hiá»ƒu nháº§m | KhÃ´ng cÃ³ | A/B concept test + comprehension interview | Hiá»‡n, Ä‘á»•i cÃ¡ch diá»…n Ä‘áº¡t hoáº·c áº©n |
+| H-005 | Metadata há»— trá»£ quyáº¿t Ä‘á»‹nh/chuyá»‡n há»c | Chá»‰ mock | Card sorting/task test cho field | Chá»‘t schema tá»‘i thiá»ƒu |
+| H-006 | Dá»‹ch vá»¥ cÃ³ thá»ƒ Ä‘áº¡t cháº¥t lÆ°á»£ng/latency Ä‘á»§ dÃ¹ng | KhÃ´ng model/dataset | Technical spike + evaluation protocol Ä‘Æ°á»£c review | Go/no-go cho integration |
+| H-007 | Luá»“ng dÃ¹ng Ä‘Æ°á»£c vá»›i bÃ n phÃ­m/screen reader/mobile | Má»™t pháº§n mÃ£ | Accessibility audit + moderated test | Fix trÆ°á»›c integration/launch |
 
-| Persona | Mô tả | Mục tiêu chính | Tần suất |
-|---------|-------|----------------|----------|
-| **Người học N5–N4** *(chính)* | Người tự học / học sinh / sinh viên mới học | Tra nhanh một chữ Kanji gặp khi đọc | Cao |
-| **Client ứng dụng** | Frontend web/app tích hợp API | Gửi ảnh, nhận top-5 kết quả + metadata để hiển thị | Liên tục |
-| **Kỹ sư/Người vận hành** | Người triển khai & bảo trì service | Chạy ổn định, dễ giám sát, dễ kiểm thử | Theo phiên |
+## 4. Alternatives cáº§n xem xÃ©t
 
-**Persona chính:** người học tiếng Nhật trình độ **N5–N4**, đúng với tập ký tự mà model đang phục vụ.
+KhÃ´ng máº·c Ä‘á»‹nh nháº­n diá»‡n model lÃ  Ä‘Ã¡p Ã¡n duy nháº¥t. CÃ¡c lá»±a chá»n cáº§n nghiÃªn cá»©u:
 
-## 3. Hành trình Người dùng (User Journey)
+- Tra theo bá»™ thá»§/sá»‘ nÃ©t hoáº·c tÃ¬m kiáº¿m text khi ngÆ°á»i dÃ¹ng cÃ³ thÃ´ng tin Ä‘Ã³.
+- OCR/nháº­n diá»‡n trÃªn thiáº¿t bá»‹ so vá»›i dá»‹ch vá»¥ tá»« xa.
+- Chá»‰ upload, chá»‰ váº½, hoáº·c cáº£ hai.
+- Wizard-of-Oz/manual matching cho discovery trÆ°á»›c khi Ä‘áº§u tÆ° model.
+- Hiá»ƒn thá»‹ má»™t káº¿t quáº£, nhiá»u á»©ng viÃªn, hoáº·c yÃªu cáº§u ngÆ°á»i dÃ¹ng xÃ¡c nháº­n.
+- KhÃ´ng lÆ°u lá»‹ch sá»­, lá»‹ch sá»­ trong phiÃªn, hoáº·c persistence cÃ³ consent.
 
-**Hiện tại (không có công cụ):**
-> Gặp chữ lạ → không biết đọc → thử đoán bộ thủ → đếm nét → dò trong từ điển bộ thủ → mất nhiều phút, thường bỏ cuộc.
+TiÃªu chÃ­ so sÃ¡nh: task completion, time-on-task, error recovery, comprehension, accessibility, privacy, cost vÃ  feasibility; baseline/weight TBD.
 
-**Với Kanji Recognizer:**
-> Gặp chữ lạ → viết/chụp lại chữ đó → gửi vào ứng dụng → nhận ngay top-5 ứng viên kèm nghĩa & cách đọc → chọn đúng chữ trong vài giây.
+## 5. Káº¿ hoáº¡ch nghiÃªn cá»©u vÃ  thá»­ nghiá»‡m
 
-## 4. Nỗi đau & Nhu cầu
+### Pha D0 â€” Hiá»ƒu váº¥n Ä‘á»
 
-| | Nỗi đau / Nhu cầu |
-|---|-------------------|
-| 🔴 | Không biết cách đọc → không tra được từ điển thông thường |
-| 🔴 | Tra theo bộ thủ / số nét quá chậm và khó với người mới |
-| 🟡 | Chữ viết tay của mỗi người rất khác nhau → cần dung sai cao |
-| 🟢 | Muốn kết quả kèm thông tin đầy đủ: âm On/Kun, nghĩa (Việt/Hán-Việt/Anh), số nét, cấp JLPT, ví dụ |
+- XÃ¡c Ä‘á»‹nh segment vÃ  recruiting criteria.
+- Phá»ng váº¥n theo tÃ¬nh huá»‘ng tháº­t; thu artifact Ä‘Æ°á»£c phÃ©p.
+- Exit: problem statement/persona/CUJ Ä‘Æ°á»£c xÃ¡c nháº­n hoáº·c sá»­a; khÃ´ng Ä‘áº·t sá»‘ máº«u khi chÆ°a cÃ³ owner/budget.
 
-## 5. Giá trị Đề xuất (Value Proposition)
+### Pha D1 â€” Concept/usability
 
-> Biến việc tra Kanji từ *"phải biết mới tra được"* thành *"chỉ cần thấy là tra được"*.
+- DÃ¹ng prototype hiá»‡n táº¡i nhÆ°ng gáº¯n nhÃ£n mock rÃµ.
+- Nhiá»‡m vá»¥: draw, undo/clear, upload/drop, submit, Ä‘á»c/chá»n candidate, retry, xem history; bao gá»“m keyboard/mobile.
+- Thu completion, Ä‘iá»ƒm vÆ°á»›ng, mental model vÃ  qualitative confidence; target TBD.
+- Exit: quyáº¿t Ä‘á»‹nh input/result/history vÃ  danh sÃ¡ch lá»—i UX.
 
-- **Trực quan:** đầu vào là hình ảnh chữ — thứ tự nhiên nhất khi ta chỉ "nhìn thấy" chữ.
-- **Nhanh:** trả kết quả gần như tức thời, model load sẵn.
-- **Đầy đủ:** không chỉ nhận diện, mà cung cấp trọn bộ thông tin học tập cho mỗi ký tự.
-- **Dễ tích hợp:** một API JSON gọn, hỗ trợ cả base64 lẫn upload file.
+### Pha D2 â€” Technical feasibility
 
-## 6. Giải pháp
+- Chá»‰ báº¯t Ä‘áº§u khi cÃ³ artifact há»£p lá»‡ vÃ  data governance.
+- Chá»‘t pháº¡m vi kÃ½ tá»±, split/ground truth, metric, subgroup/error analysis, latency environment vÃ  reproducibility.
+- So sÃ¡nh vá»›i baseline/alternative; target khÃ´ng Ä‘áº·t trong tÃ i liá»‡u nÃ y khi chÆ°a cÃ³ báº±ng chá»©ng.
+- Exit: go/no-go cÃ³ report, limitation vÃ  owner.
 
-Một **API nhận diện Kanji** trong `ai-service`: nhận một ảnh chữ Kanji viết tay → chuẩn hóa ảnh theo đúng pipeline huấn luyện → dùng model **EfficientNet-B3** dự đoán → trả **top-5** ký tự khả năng cao nhất, mỗi kết quả kèm thông tin tra từ `jlpt-kanji.json`.
+### Pha D3 â€” Integration experiment
 
-## 7. Giả thuyết & Cách Kiểm chứng (Hypotheses & Validation)
+- Contract test trong mÃ´i trÆ°á»ng kiá»ƒm soÃ¡t; feature flag; telemetry tá»‘i thiá»ƒu sau privacy review.
+- Dogfood/pilot population, thá»i lÆ°á»£ng vÃ  stop condition: TBD.
+- Exit: launch gate PRD Â§15 hoáº·c rollback.
 
-| Giả thuyết | Cách kiểm chứng |
-|-----------|-----------------|
-| Người dùng chấp nhận viết/chụp chữ để tra | Đo tỷ lệ hoàn thành thao tác "gửi ảnh → xem kết quả" |
-| Top-5 đủ để người dùng tìm thấy chữ cần | Đo tỷ lệ chữ đúng nằm trong top-5 (top-5 accuracy) |
-| Model tổng quát tốt với nhiều nét chữ khác nhau | Đánh giá trên ảnh viết tay đa dạng, dựng confusion matrix |
-| Pipeline tiền xử lý là yếu tố quyết định độ chính xác | So sánh accuracy khi tiền xử lý khớp/lệch với lúc train |
+## 6. Instrumentation Ä‘á» xuáº¥t
 
-## 8. Tiêu chí Thành công (cấp Discovery)
+DÃ¹ng event plan táº¡i [PRD Â§14](./prd.md#14-analytics-Ä‘á»-xuáº¥t). TrÆ°á»›c khi instrument cáº§n quyáº¿t Ä‘á»‹nh consent, data classification, retention vÃ  access. KhÃ´ng thu áº£nh, nÃ©t váº½, text kÃ½ tá»± hoáº·c PII theo máº·c Ä‘á»‹nh.
 
-- Model nhận diện được trên tập ký tự mục tiêu với **top-5 accuracy** ở mức chấp nhận được.
-- Thao tác "gửi ảnh → nhận kết quả" hoạt động ổn định qua cả base64 và multipart.
-- Kết quả trả về đầy đủ metadata giúp người học hiểu ngay chữ vừa tra.
+## 7. Bias vÃ  giá»›i háº¡n nghiÃªn cá»©u
 
-## 9. Hiện trạng đã Xác nhận (Current State)
+- Prototype cÃ³ copy tuyÃªn bá»‘ model/class/JLPT chÆ°a Ä‘Æ°á»£c chá»©ng minh, cÃ³ thá»ƒ táº¡o expectation bias.
+- Mock luÃ´n tráº£ cÃ¹ng káº¿t quáº£ nÃªn khÃ´ng Ä‘Ã¡nh giÃ¡ recognition.
+- Máº«u thuáº­n tiá»‡n cÃ³ thá»ƒ khÃ´ng Ä‘áº¡i diá»‡n ká»¹ nÄƒng viáº¿t, thiáº¿t bá»‹ hoáº·c nhu cáº§u accessibility.
+- â€œChá»n Ä‘Ãºng candidateâ€ cáº§n ground truth Ä‘á»™c láº­p; self-report khÃ´ng Ä‘á»§.
+- Káº¿t quáº£ ká»¹ thuáº­t khÃ´ng tá»± chá»©ng minh product-market fit.
 
-- **Entry point:** `ai-service/app.py`; route bật khi `ENABLE_KANJI_ROUTES` = `true` / `1` / `yes`.
-- **Logic inference:** `ai-service/kanji_routes.py`.
-- **Model:** `ai-service/models/efficientnet_b3_kanji_n4_n5.pt`
-  - `num_classes = 250`, `image_size = 300`.
-  - Có `train_idx_to_kanji` và `train_idx_to_json_id`, mỗi mapping 250 phần tử.
-- **Từ điển:** `ai-service/data/jlpt-kanji.json`.
-- **Dữ liệu huấn luyện:** ETL9B/ETL10; script ETL `transN4N5.py`; script train `source/ai-service/train.py`.
-- **Thiết bị:** CUDA nếu có, ngược lại CPU.
+## 8. Decision log
 
-## 10. Giả định & Rủi ro
+| D-ID | Quyáº¿t Ä‘á»‹nh | Tráº¡ng thÃ¡i | CÄƒn cá»© / bÆ°á»›c tiáº¿p |
+|---|---|---|---|
+| D-001 | DÃ¹ng prototype Ä‘á»ƒ kiá»ƒm tra luá»“ng, khÃ´ng Ä‘á»ƒ chá»©ng minh AI | Accepted | E-001â€“E-005 |
+| D-002 | Persona/CUJ giá»¯ provisional | Accepted | ChÆ°a cÃ³ research evidence |
+| D-003 | KhÃ´ng chá»‘t model, class/JLPT, performance | Accepted | E-006 |
+| D-004 | CÃ³ giá»¯ confidence trÃªn UI hay khÃ´ng | Open | Test H-004 |
+| D-005 | Candidate count vÃ  metadata tá»‘i thiá»ƒu | Open | Test H-003/H-005 |
+| D-006 | Service/on-device/alternative | Open | D2 + privacy/cost review |
+| D-007 | Lá»‹ch sá»­ persistence | Open | Research + data lifecycle decision |
 
-| Loại | Nội dung | Mức độ | Giảm thiểu |
-|------|----------|--------|------------|
-| Giả định | Model + mapping + `jlpt-kanji.json` hợp lệ tồn tại khi khởi động | Cao | Kiểm tra tồn tại lúc startup |
-| Rủi ro | Tiền xử lý inference lệch với lúc train → giảm chính xác | Cao | Coi pipeline là "hợp đồng dữ liệu", có test regression |
-| Rủi ro | Nhầm lẫn giữa các Kanji gần giống nhau | Trung bình | Trả top-5 + theo dõi confusion matrix |
-| Rủi ro | Chữ viết tay quá đa dạng giữa người dùng | Trung bình | Dữ liệu huấn luyện đa dạng, dung sai qua top-5 |
-| Rủi ro | Phạm vi N4/N5 chưa nhất quán (xem mục 11) | Cao | Chốt phạm vi trước khi công bố |
-
-## 11. Vấn đề Phạm vi Ký tự cần Chốt
-
-`transN4N5.py` hiện chỉ lọc `N5`:
-```python
-if jlpt_level not in ["N5"]:
-    continue
-```
-trong khi tên model/message ghi `N4_N5`. **Cần chốt** một trong hai hướng:
-
-- **Mục tiêu N5:** đổi tên model/message/tài liệu cho đúng.
-- **Mục tiêu N4 + N5:** lọc cả `N4` và `N5`, tạo lại dataset + mapping và **train lại** checkpoint.
-
-> ⚠️ Không được chỉ đổi tên file model để kết luận model đã hỗ trợ N4.
-
-## 12. Ngoài Phạm vi (Out of Scope)
-
-- Chatbot, RAG, embedding và mọi route khác của project lớn.
-- Nhận diện nhiều ký tự / cả câu, dịch đoạn văn.
-- Nhận diện Hiragana/Katakana.
-- Tài khoản người dùng, lịch sử tra cứu.
-
----
-*Tài liệu tiếp theo: [PRD](./prd.md).*
+Má»i quyáº¿t Ä‘á»‹nh Accepted lÃ m thay Ä‘á»•i scope/requirement pháº£i cáº­p nháº­t [PRD](./prd.md#16-open-questions-vÃ -decision-log).
