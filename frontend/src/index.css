@@ -1,0 +1,17 @@
+/* Reset tối thiểu — style chính nằm ở App.css */
+:root {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+}
+
+img {
+  display: block;
+}

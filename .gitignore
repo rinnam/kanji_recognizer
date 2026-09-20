@@ -31,3 +31,4 @@ desktop.ini
 # Build output
 dist/
 build/
+.github/skills/create-skill/SKILL.md
