@@ -1,83 +1,203 @@
-# Kanji Recognizer
+<div align="center">
 
-> Tài liệu frontend: [PRD frontend](./docs/frontend-prd.md) và [kế hoạch triển khai frontend](./docs/frontend-implementation-plan.md). [PRD sản phẩm](./docs/prd.md) luôn được ưu tiên.
+# 🖌️ Kanji Recognizer
 
-> **Tráº¡ng thÃ¡i: prototype giao diá»‡n frontend dÃ¹ng dá»¯ liá»‡u mock.** Repository hiá»‡n khÃ´ng chá»©a backend, API hoáº¡t Ä‘á»™ng, mÃ´ hÃ¬nh/checkpoint, dataset/training code, dictionary service, automated test suite, CI hay analytics. Káº¿t quáº£ hiá»ƒn thá»‹ khÃ´ng pháº£i suy luáº­n tháº­t.
+### Nhận diện chữ Kanji viết tay bằng AI
 
-## Hiá»‡n cÃ³
+*Viết một chữ Kanji — nhận ngay ký tự, cách đọc và ý nghĩa.*
 
-- React 19 + TypeScript + Vite.
-- Canvas logic 480Ã—480 Ä‘á»ƒ váº½ má»™t kÃ½ tá»±; chá»‰nh Ä‘á»™ dÃ y, hoÃ n tÃ¡c, xÃ³a.
-- Chá»n áº£nh báº±ng click, bÃ n phÃ­m hoáº·c kÃ©o-tháº£; preview/gá»¡ áº£nh.
-- UI `idle`, `loading`, `error`, `success`.
-- Sáº¯p xáº¿p/chá»n á»©ng viÃªn tá»« dá»¯ liá»‡u mock cá»‘ Ä‘á»‹nh.
-- Lá»‹ch sá»­ trong phiÃªn, tá»‘i Ä‘a 8 má»¥c.
-- CSS responsive vÃ  cáº£i thiá»‡n thao tÃ¡c upload báº±ng bÃ n phÃ­m trong working tree hiá»‡n táº¡i.
+<p>
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.x-3776AB?logo=python&logoColor=white">
+  <img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white">
+  <img alt="EfficientNet-B3" src="https://img.shields.io/badge/Model-EfficientNet--B3-6f42c1">
+  <img alt="Classes" src="https://img.shields.io/badge/Classes-250%20Kanji-0aa">
+  <img alt="JLPT" src="https://img.shields.io/badge/JLPT-N5%20%2F%20N4-2ea44f">
+</p>
 
-## Giá»›i háº¡n quan trá»ng
+</div>
 
-- `mockRecognize` khÃ´ng Ä‘á»c ná»™i dung áº£nh vÃ  khÃ´ng gá»i máº¡ng; chá» khoáº£ng 1,4 giÃ¢y rá»“i tráº£ `MOCK_PREDICTIONS`.
-- CÃ¡c nhÃ£n/model/class/JLPT trong UI lÃ  ná»™i dung prototype, khÃ´ng Ä‘Æ°á»£c artifact repository xÃ¡c minh.
-- KhÃ´ng cÃ³ accuracy/latency/security/privacy/SLA Ä‘Ã£ Ä‘o.
-- Upload chÆ°a cÃ³ validation phÃ­a server; lá»‹ch sá»­ máº¥t khi reload.
-- KhÃ´ng cÃ³ automated tests hoáº·c CI trong checkout.
+---
 
-## Cháº¡y frontend
+## 📖 Giới thiệu
 
-YÃªu cáº§u Node.js/npm tÆ°Æ¡ng thÃ­ch vá»›i dependencies trong lockfile.
+**Kanji Recognizer** là module AI (trong `ai-service`) nhận diện **chữ Kanji viết tay**. Người dùng thường *nhìn thấy* một chữ Kanji nhưng không biết cách đọc để tra từ điển — dự án này giải quyết điều đó: chỉ cần đưa **ảnh** chữ Kanji vào, hệ thống dự đoán ký tự và trả về thông tin đầy đủ.
 
-```bash
-cd frontend
-npm install
-npm run dev
+Module sử dụng mô hình **EfficientNet-B3** được huấn luyện trên dữ liệu **ETL9B/ETL10**, nhận diện **250 ký tự Kanji** (phạm vi JLPT N5/N4) và trả về **top-5** kết quả kèm metadata từ `jlpt-kanji.json`.
+
+> 🎯 **Phạm vi:** repo này chỉ tập trung vào **nhận diện Kanji**. Các thành phần khác (chatbot, RAG, embedding...) không thuộc phạm vi tài liệu/module này.
+
+---
+
+## ✨ Tính năng chính
+
+| | Tính năng | Mô tả |
+|:--:|-----------|-------|
+| 🖼️ | **Nhận ảnh linh hoạt** | Hỗ trợ cả `base64`/data URL (JSON) và `multipart` upload |
+| 🧹 | **Tiền xử lý chuẩn** | Otsu → cắt bounding box + padding 25% → canvas vuông → 300×300 → normalize ImageNet |
+| 🧠 | **Model EfficientNet-B3** | Suy luận nhanh (CUDA nếu có, ngược lại CPU), softmax → top-5 |
+| 🔢 | **Top-5 kết quả** | Sắp xếp giảm dần theo độ tin cậy `confidence` |
+| 📚 | **Metadata đầy đủ** | Âm On/Kun, nghĩa (Việt / Hán-Việt / Anh), số nét, cấp JLPT, ví dụ... |
+| 🛡️ | **Khởi động an toàn** | Kiểm tra model, mapping, từ điển trước khi chạy |
+
+---
+
+## 🏗️ Kiến trúc
+
+```
+        ┌──────────────┐
+        │    Client    │  ảnh Kanji (base64 / multipart)
+        └──────┬───────┘
+               │  POST /api/kanji/recognize
+               ▼
+     ┌───────────────────┐
+     │  ai-service/app.py │  route bật khi ENABLE_KANJI_ROUTES = true
+     └─────────┬─────────┘
+               ▼
+     ┌───────────────────┐
+     │  kanji_routes.py  │
+     │  1. Tiền xử lý ảnh │  Otsu → bbox → 300×300 → normalize
+     │  2. EfficientNet-B3│  eval + no_grad + softmax → top-5
+     │  3. Ghép metadata │  từ data/jlpt-kanji.json
+     └─────────┬─────────┘
+               ▼
+        ┌──────────────┐
+        │ JSON: top-5  │  predictions[] (giảm dần theo confidence)
+        └──────────────┘
 ```
 
-Kiá»ƒm tra cá»¥c bá»™:
+---
 
-```bash
-npm run build
-npm run lint
+## 🚀 API
+
+### Endpoint chính
+```http
+POST /api/kanji/recognize
+```
+> Alias `POST /predict` gọi lại cùng logic (có thể deprecated sau).
+
+### Request
+
+**Dạng JSON (base64):**
+```json
+{ "image": "data:image/png;base64,iVBORw0KGgo..." }
 ```
 
-Xem [hÆ°á»›ng dáº«n frontend](./frontend/README.md) Ä‘á»ƒ biáº¿t scripts vÃ  biÃªn tÃ­ch há»£p.
+**Dạng Multipart:** field file tên `image`.
 
-## Cáº¥u trÃºc repository Ä‘Ã£ kiá»ƒm chá»©ng
+### Response thành công
+```json
+{
+  "success": true,
+  "predictions": [
+    {
+      "kanji": "学",
+      "hiragana": "ガク、まなぶ",
+      "meaning_vi": "học",
+      "confidence": 0.91,
+      "train_index": 12,
+      "json_id": 123
+    }
+  ],
+  "message": "..."
+}
+```
 
-```text
+### Response lỗi
+```json
+{ "success": false, "error": "..." }
+```
+> Request thiếu `image`, base64 lỗi hoặc file không phải ảnh → **HTTP 400**.
+
+---
+
+## 📂 Cấu trúc dự án
+
+```
 kanji_recognizer/
-â”œâ”€â”€ README.md
-â”œâ”€â”€ docs/
-â”‚   â”œâ”€â”€ README.md
-â”‚   â”œâ”€â”€ prd.md
-â”‚   â”œâ”€â”€ requirements-analysis.md
-â”‚   â”œâ”€â”€ user-stories.md
-â”‚   â”œâ”€â”€ feature-specification.md
-â”‚   â””â”€â”€ product-discovery.md
-â”œâ”€â”€ frontend/
-â”‚   â”œâ”€â”€ public/
-â”‚   â”œâ”€â”€ src/
-â”‚   â”‚   â”œâ”€â”€ assets/
-â”‚   â”‚   â”œâ”€â”€ components/
-â”‚   â”‚   â”œâ”€â”€ api.ts
-â”‚   â”‚   â”œâ”€â”€ App.tsx
-â”‚   â”‚   â”œâ”€â”€ mockData.ts
-â”‚   â”‚   â””â”€â”€ types.ts
-â”‚   â”œâ”€â”€ package.json
-â”‚   â””â”€â”€ README.md
-â””â”€â”€ postman/
+├── ai-service/
+│   ├── app.py                 # Entry point (bật route qua ENABLE_KANJI_ROUTES)
+│   ├── kanji_routes.py        # Logic tiền xử lý + inference
+│   ├── models/
+│   │   └── efficientnet_b3_kanji_n4_n5.pt   # Checkpoint (250 class, 300px)
+│   ├── data/
+│   │   └── jlpt-kanji.json     # Whitelist + metadata Kanji
+│   ├── transN4N5.py            # Script ETL (lọc JLPT)
+│   └── requirements.txt
+├── docs/                       # 📑 Tài liệu đặc tả (spec-driven)
+│   ├── product-discovery.md
+│   ├── prd.md
+│   ├── requirements-analysis.md
+│   ├── user-stories.md
+│   └── feature-specification.md
+└── README.md
 ```
 
-`frontend/dist` vÃ  `frontend/node_modules` cÃ³ thá»ƒ tá»“n táº¡i cá»¥c bá»™ nhÆ°ng khÃ´ng pháº£i source Ä‘Æ°á»£c mÃ´ táº£.
+---
 
-## TÃ i liá»‡u
+## ⚙️ Cài đặt & Chạy
 
-Báº¯t Ä‘áº§u táº¡i [docs/README.md](./docs/README.md). [PRD](./docs/prd.md) lÃ  nguá»“n sá»± tháº­t; catalogue yÃªu cáº§u, stories, feature spec vÃ  discovery táº­p trung vÃ o má»¥c Ä‘Ã­ch riÃªng.
+```bash
+# 1. Cài dependencies (chạy từ thư mục repository)
+cd ai-service
+pip install -r requirements.txt
 
-## Kiáº¿n trÃºc Ä‘Ã­ch Ä‘á» xuáº¥t â€” chÆ°a triá»ƒn khai
+# 2. Bật route nhận diện Kanji
+#    Windows PowerShell:
+$env:ENABLE_KANJI_ROUTES = "true"
+#    Linux/macOS:
+export ENABLE_KANJI_ROUTES=true
 
-```text
-Browser frontend â†’ versioned recognition API â†’ recognition component
-                                      â””â”€â”€â”€â”€â”€â”€â†’ optional metadata source
+# 3. Khởi động service
+python app.py
 ```
 
-Endpoint, model, preprocessing, class coverage, metadata source, limits, authentication, deployment vÃ  performance Ä‘á»u **TBD/Open Decision**. Há»£p Ä‘á»“ng tháº£o luáº­n náº±m táº¡i [PRD Â§10](./docs/prd.md#10-há»£p-Ä‘á»“ng-apidata-Ä‘á»-xuáº¥t--chÆ°a-triá»ƒn-khai); khÃ´ng xem Ä‘Ã³ lÃ  API Ä‘ang tá»“n táº¡i.
+> 💡 Model được load **một lần** khi khởi động. Service sẽ **từ chối start** nếu thiếu model, `jlpt-kanji.json` hoặc mapping trong checkpoint.
+
+### Kiểm tra nhanh checkpoint
+```powershell
+cd ai-service
+python -c "import torch; c=torch.load('models/efficientnet_b3_kanji_n4_n5.pt', map_location='cpu'); print(c['num_classes'], c['image_size'], len(c['train_idx_to_kanji']))"
+```
+> Số class phải bằng số phần tử mapping.
+
+---
+
+## 🧪 Kiểm thử & Metrics
+
+- ✅ Test regression: tiền xử lý · mapping · API contract · tương đương base64/multipart
+- 📊 Metrics: **Top-1 / Top-5 accuracy**, **confusion matrix**, **latency p50 / p95**
+
+---
+
+## 🧭 Model & Dữ liệu
+
+| Thuộc tính | Giá trị |
+|-----------|---------|
+| Kiến trúc | EfficientNet-B3 (pretrained ImageNet → fine-tune) |
+| Số class | 250 Kanji |
+| Kích thước ảnh | 300 × 300 |
+| Normalize | ImageNet mean/std |
+| Nguồn dữ liệu | ETL9B / ETL10 |
+| Từ điển | `jlpt-kanji.json` |
+
+> ⚠️ **Cần chốt phạm vi:** `transN4N5.py` hiện chỉ lọc `N5` trong khi tên model ghi `N4_N5`. Nếu mục tiêu là N4+N5, cần lọc lại dữ liệu, tạo lại mapping và **train lại** checkpoint (không đổi tên file suông).
+
+---
+
+## 📚 Tài liệu
+
+Bộ tài liệu đặc tả (spec-driven) nằm trong thư mục [`docs/`](./docs):
+
+- 🔍 [Product Discovery](./docs/product-discovery.md)
+- 📋 [PRD](./docs/prd.md)
+- 🧩 [Requirements Analysis](./docs/requirements-analysis.md)
+- 👤 [User Stories](./docs/user-stories.md)
+- 🛠️ [Feature Specification](./docs/feature-specification.md)
+
+---
+
+<div align="center">
+
+*Made with ❤️ for Japanese learners.*
+
+</div>
