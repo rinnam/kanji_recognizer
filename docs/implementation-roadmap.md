@@ -1,6 +1,6 @@
 # Lộ trình triển khai toàn sản phẩm — Kanji Recognizer
 
-> **Trạng thái:** kế hoạch Target/Proposed, không phải bằng chứng implementation. [PRD](./prd.md) là canonical; [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md) là nguồn chỉ dẫn UI learning. Không có ngày, owner, endpoint, schema hay công nghệ nào được kế hoạch này mặc nhiên phê duyệt.
+> **Trạng thái:** kế hoạch Target/Proposed, không phải bằng chứng implementation. [PRD](./prd.md) là canonical; [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md) là nguồn chỉ dẫn UI learning. Mô hình dữ liệu Target nằm tại [database design](./database-design.md), DDL tham chiếu tại [database schema](./database-schema.sql), và thứ tự triển khai có gate tại [Plan DB](./plans/database-implementation-plan.md). Không có ngày, owner, endpoint, schema hay công nghệ nào được kế hoạch này mặc nhiên phê duyệt; triển khai DB vẫn bị chặn bởi các `LS-OD-*` áp dụng.
 
 ## 1. Nguyên tắc lập kế hoạch
 

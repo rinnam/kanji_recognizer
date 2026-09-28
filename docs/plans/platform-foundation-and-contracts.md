@@ -1,6 +1,6 @@
 # Plan PF — Platform foundation and contracts
 
-> Target/Proposed plan. [PRD](../prd.md) is canonical; see [master roadmap](../implementation-roadmap.md).
+> Target/Proposed plan. [PRD](../prd.md) is canonical; see [master roadmap](../implementation-roadmap.md). The Target logical data model and gated execution sequence are defined in [database design](../database-design.md) and [Plan DB](./database-implementation-plan.md); neither closes an `LS-OD-*` decision.
 
 ## Purpose and coverage
 Create the decision, contract, state and evidence seams that let recognition and learning ship without invented infrastructure. Covers FR-007..010, NFR-001..005 and LS-FR-015..017 cross-cutting.

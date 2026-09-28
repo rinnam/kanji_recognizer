@@ -36,3 +36,6 @@ build/
 # Local transport archives
 /docs.zip
 /src.zip
+
+# Local database reference
+docs/database-schema.sql

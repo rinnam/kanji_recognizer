@@ -4,7 +4,7 @@
 Deliver deterministic due scheduling, review sessions and card controls. Covers LS-FR-010..012, 014..016 and A4/A6/A7.
 
 ## Prerequisites
-LL completion; scheduler defaults validated; LS-OD-05/06 resolved; authority clock, day/DST semantics, limits, undo policy, offline/conflict, scheduler migration and version policy approved.
+LL completion; scheduler defaults validated; LS-OD-05/06 resolved; authority clock, day/DST semantics, limits, undo policy, offline/conflict, scheduler migration and version policy approved. The immutable-ledger/current-state split in the Target [database design](../database-design.md) and DB-010 in [Plan DB](./database-implementation-plan.md) are reference inputs, not approval of those choices.
 
 ## Ordered tasks
 | ID | Task | Acceptance/evidence |

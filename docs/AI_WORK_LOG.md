@@ -30,6 +30,90 @@ Canonical append-only handoff log for AI contributors. Read [`../AGENTS.md`](../
 
 ## Entries
 
+### 2026-09-29T06:48:57+07:00 — Remove local database schema from Git history
+- **Agent/tool:** Postman AI agent
+- **Status:** Partial
+- **Requirement/task IDs:** None (governance/docs only)
+- **Scope:** Preserve the local database schema while removing `docs/database-schema.sql` from Git tracking and rewriting the just-pushed HEAD so the path is no longer reachable from `main`.
+- **Files changed:** `.gitignore`, `docs/AI_WORK_LOG.md`; staged index removal planned for `docs/database-schema.sql` while retaining its working-tree file.
+- **Current:** Before this entry, clean branch `main`, local `HEAD`, `origin/main`, and fetched `FETCH_HEAD` all equal `9761e9807d8f23b09e5e89ed5a112c3e5169ee9e`; history and `git show` confirm the SQL path first appears as an added file in that HEAD commit, and the file exists locally.
+- **Target:** Amend HEAD to omit the SQL path, retain and precisely ignore the local file, then update `origin/main` with `--force-with-lease` only if the remote remains at the expected old commit.
+- **Assumptions/decisions:** Ignore only `docs/database-schema.sql`, not all SQL files; do not record SQL contents; preserve the rest of commit `9761e98` unchanged except this tracking policy and work-log evidence.
+- **Validation/evidence:** Ran `git status --short --branch`, `git log -5 --oneline --decorate`, `git fetch origin main`, `git rev-parse HEAD`, `git rev-parse origin/main`, `git log --all -- docs/database-schema.sql`, `git show 9761e98 -- docs/database-schema.sql`, and local existence checks. Results: clean synchronized branch, remote unchanged at the expected commit, a single reachable path introduction at HEAD, and local file present.
+- **Git:** Branch `main`; commit `9761e9807d8f23b09e5e89ed5a112c3e5169ee9e` before amend; push already present at `origin/main` at the same commit; working tree clean immediately before this log/ignore edit, then intentionally modified for this removal workflow.
+- **Remaining work:** Add the precise ignore rule, run `git rm --cached`, stage this entry and `.gitignore`, amend HEAD, lease-protected force-push, fetch, and verify local existence, ignore match, tree/history absence, ref equality, and clean ignored working tree.
+- **Next action:** Run `git rm --cached -- docs/database-schema.sql`, stage `.gitignore` and this log, then revalidate the remote lease before amending and pushing.
+
+### 2026-09-29T06:42:07+07:00 — Prepare PostgreSQL learning-system documentation commit
+- **Agent/tool:** Postman AI agent
+- **Status:** Completed
+- **Requirement/task IDs:** LS-FR-018, LS-FR-019; DB-001..020; LL-003A
+- **Scope:** Reviewed and prepared the complete legitimate documentation set for the PostgreSQL learning-system design, N3 vocabulary/course contract, SRS/progress planning, UI flow, roadmap, and cross-plan alignment; excluded no project file because all 12 changed/untracked files are relevant documentation or reference DDL.
+- **Files changed:** `docs/AI_WORK_LOG.md`, `docs/README.md`, `docs/implementation-roadmap.md`, `docs/plans/learning-data-and-library.md`, `docs/plans/platform-foundation-and-contracts.md`, `docs/plans/progress-and-analytics.md`, `docs/plans/srs-review-engine.md`, `docs/prd.md`, `docs/ui-flow-design.md`, `docs/database-design.md`, `docs/database-schema.sql`, `docs/plans/database-implementation-plan.md`
+- **Current:** Branch `main` contains only documentation/reference-schema changes relative to `origin/main`; no frontend source changed, and the repository still proves only the existing React mock prototype rather than a live backend, migration, PostgreSQL deployment, imported N3 corpus, or implemented SRS system.
+- **Target:** Commit the reviewed Target/Proposed PostgreSQL design, learning contracts, N3 11×80 course boundaries, implementation gates, and UI/plan traceability without claiming runtime implementation.
+- **Assumptions/decisions:** All 12 current paths are internally consistent project artifacts; no generated/temp/build file or common credential/private-key signature was found. Frontend build was not rerun because no frontend file changed. PostgreSQL runtime execution is not claimed because `psql` is unavailable and the existing Docker daemon check is negative.
+- **Validation/evidence:** Read `AGENTS.md`, canonical PRD, relevant roadmap/DB plan, complete status/diff/untracked set, newest log entries, and five recent commits. `git diff --check` passed with only Git's informational LF→CRLF warning for `docs/prd.md`; strict UTF-8 decode passed for all 12 paths; secret signature scan passed; generated/artifact path review passed; static DDL inventory passed with `tables=30 indexes=29 functions=1 triggers=7` and PostgreSQL constructs including deferred FK and PL/pgSQL.
+- **Git:** Branch `main`; Commit: none; Push: none; working tree has 9 modified and 3 untracked legitimate files, not yet staged at the time of this entry.
+- **Remaining work:** Stage the 12 reviewed paths and create the requested local commit; do not push.
+- **Next action:** Run `git add` for the 12 listed paths, inspect `git diff --cached`, then commit with a concise PostgreSQL learning-system documentation message.
+
+### 2026-09-29T06:38:44+07:00 — Independent database feedback verification
+- **Agent/tool:** Postman AI agent
+- **Status:** Completed
+- **Requirement/task IDs:** DB-003, LS-OD-02
+- **Scope:** Independently checked the supplied database-documentation feedback against the live repository, current DDL, canonical plan/docs, and Git; no schema, plan, README, or design correction was warranted.
+- **Files changed:** `docs/AI_WORK_LOG.md`
+- **Current:** The feedback is correct that the log has fixed Rules/template/Entries and the schema is Target DDL, but its claimed newest `21:48:54` entry, missing 30-table log, stale-only `27/16` SQLite evidence, unsynchronized DB-003/README/design, and unavailable Git are outdated or false. Entry `2026-09-28T22:29:10+07:00` already records `tables=30 indexes=29 triggers=7`, names DB-003 and the schema/design/plan files, while the plan keeps DB-003 as a gated implementation task and README/design explicitly deny implementation. The DDL currently has 30 tables, 29 indexes, 1 function, and 7 triggers.
+- **Target:** DB-003 implementation remains uncompleted until DG-02/LS-OD-02 and DG-10 close and required runtime fixtures pass; the 30-table file remains a non-operational PostgreSQL reference design.
+- **Assumptions/decisions:** Completed describes this verification unit, not DB-003 implementation. A `Partial` entry would misstate the completed review scope; unavailable PostgreSQL runtime is recorded as an implementation-validation blocker rather than silently replaced with SQLite parsing.
+- **Validation/evidence:** Read `AGENTS.md`, PRD, log Rules/template/latest entries, schema, design, DB plan and README; inspected Git branch/status/log. Reproducible regex inventory returned `tables=30 indexes=29 functions=1 triggers=7`; PostgreSQL-specific evidence includes `uuid`, `timestamptz`, `jsonb`, `DEFERRABLE INITIALLY DEFERRED`, partial indexes and `LANGUAGE plpgsql`. `UTF8_CHECK=PASS`; `git diff --check` passed with only the existing LF→CRLF warning for `docs/prd.md`. `psql` is unavailable and the Docker Desktop Linux daemon is not running, so no PostgreSQL parse/transaction execution is claimed and `SQLITE_PARSE` was not reused.
+- **Git:** Branch `main`; Commit: none; Push: none; working tree already had 12 modified/untracked entries before this log-only audit update, including the database documents under review.
+- **Remaining work:** DB-003 implementation/runtime evidence remains gated by LS-OD-02/DG-02 and DG-10; this documentation-feedback verification has no remaining work.
+- **Next action:** After the decision gates close and PostgreSQL is available, run `psql --set ON_ERROR_STOP=on --file docs/database-schema.sql` in an isolated test database and add DB-003 failure fixtures.
+
+### 2026-09-28T22:29:10+07:00 — Normalized vocabulary and N3 course contract
+- **Agent/tool:** Postman AI agent
+- **Status:** Completed
+- **Requirement/task IDs:** LS-FR-018, LS-FR-019; DB-003, DB-006; LL-003A
+- **Scope:** Added canonical Target requirements and a PostgreSQL reference model for complete vocabulary records and the ordered N3 11×80 course, with transactional publish/import validation boundaries.
+- **Files changed:** `docs/prd.md`, `docs/database-schema.sql`, `docs/database-design.md`, `docs/plans/database-implementation-plan.md`, `docs/plans/learning-data-and-library.md`, `docs/AI_WORK_LOG.md`
+- **Current:** Repository still proves only a mock-data React frontend; there is no backend, migration, live database, imported 880-word corpus, or implemented publisher. The non-operational DDL now has normalized meaning kinds, shared content examples, and course/lesson/item tables.
+- **Target:** A published vocabulary has Hán Việt, Vietnamese definition, hiragana reading and at least one sourced example; `jlpt-n3-core` publishes only with lessons 1..11, positions 1..80 and 880 distinct active N3 vocabulary.
+- **Assumptions/decisions:** Deck remains owner-specific flat grouping, so reference curriculum uses separate course hierarchy. Row-local CHECK/FK/UNIQUE constraints protect each row; aggregate completeness/counts are checked by a locking transactional publisher/importer. Deferred count triggers were rejected because multi-table intermediate imports and delete/update coverage make them brittle. PRD §18.8 remains canonical SRS v1 but its defaults still require product validation and its authority clock, day semantics, limits, undo and migration policies remain decision gates.
+- **Validation/evidence:** Read required docs, related plans, Git status/log and existing diffs. `STATIC_SCHEMA=PASS tables=30 indexes=29 triggers=7`; `UTF8_CHECK=PASS`; `git diff --check` passed with only an LF→CRLF warning for `docs/prd.md`; `frontend/npm run build` passed. PostgreSQL runtime test was unavailable: `psql` absent and Docker Desktop daemon not running, so no parse/transaction execution is claimed.
+- **Git:** Branch `main`; Commit: none; Push: none; working tree already contained uncommitted documentation work, and these six scoped files now include this unit.
+- **Remaining work:** Implement DB-002/003/006 and transactional publish validators after gates close; obtain licensed 880-word data; execute DDL/import failure fixtures against PostgreSQL.
+- **Next action:** Start Docker/PostgreSQL, execute `docs/database-schema.sql` with `ON_ERROR_STOP`, then add DB-006 fixtures that prove each missing vocabulary component and every N3 count/order violation rolls back.
+
+### 2026-09-28T22:13:38+07:00 ΓÇö PostgreSQL reference-schema feedback review
+- **Agent/tool:** Postman AI agent
+- **Status:** Completed
+- **Requirement/task IDs:** LS-FR-001..017; DB-002..016; LS-OD-01..10
+- **Scope:** Classified pasted database feedback against the canonical PRD/current gated design; hardened the non-operational PostgreSQL reference schema and synchronized design/plan evidence without changing implementation status.
+- **Files changed:** `docs/database-schema.sql`, `docs/database-design.md`, `docs/plans/database-implementation-plan.md`, `docs/AI_WORK_LOG.md`
+- **Current:** The repository still has no backend, migration or live database. The reference DDL now uses PostgreSQL `uuid`/`jsonb`, composite owner FKs, deferred current-revision FK, partial unique indexes, review-version dedupe, separate suspension flag, session pass number, explicit quiz outcome, FK indexes, and six narrow `updated_at` triggers.
+- **Target:** Execute the schema through an approved PostgreSQL migration harness and implement DB-001..020 only after their gates close.
+- **Assumptions/decisions:** Applied correctness/integrity feedback; kept grammar as explicitly gated Target extension. Seed coverage, timezone/streak, compensating undo and account deletion remain gated. Complex business workflows stay in transactional repository code rather than triggers.
+- **Validation/evidence:** Read all files under `docs/`, root README/AGENTS, feedback, Git status/log. `STATIC_SCHEMA=PASS` (27 tables, 24 indexes, 6 triggers); `UTF8_CHECK=PASS`; `git diff --check` passed. PostgreSQL execution unavailable (`psql`/server absent; Docker daemon unavailable); parser installation attempts were unsuccessful, so validation is static. Root `npm run build` failed as expected (no root package.json); rerun from `frontend/`.
+- **Git:** Branch `main`; Commit: none; Push: none; working tree already contained uncommitted documentation work and now also contains this review.
+- **Remaining work:** Runtime PostgreSQL execution/migration tests and gated policy decisions; no further work required for this documentation/reference-schema review.
+- **Next action:** After DG-01 approval, implement DB-002 migration harness and run emptyΓåÆlatest plus invariant fixtures on supported PostgreSQL.
+
+### 2026-09-28T21:48:54+07:00 — Database architecture and complete learning UI flow
+- **Agent/tool:** Postman AI agent
+- **Status:** Completed
+- **Requirement/task IDs:** FR-001..FR-010; NFR-001..NFR-005; LS-FR-001..LS-FR-017; LUS-001..LUS-017; DB-001..DB-020; LS-OD-01..LS-OD-10
+- **Scope:** Authored the canonical Target/Proposed logical database architecture, portable reference DDL, gated implementation plan, and complete learning UI flows including Library CRUD, flashcard, quiz, SRS, progress, and a separately gated vocabulary/grammar extension and grammar-learning proposal.
+- **Files changed:** `docs/database-design.md`, `docs/database-schema.sql`, `docs/plans/database-implementation-plan.md`, `docs/README.md`, `docs/implementation-roadmap.md`, `docs/plans/platform-foundation-and-contracts.md`, `docs/plans/learning-data-and-library.md`, `docs/plans/srs-review-engine.md`, `docs/plans/progress-and-analytics.md`, `docs/ui-flow-design.md`, `docs/AI_WORK_LOG.md`
+- **Current:** Repository still proves only the React mock prototype; no application code, migration, live database, account, backend, sync, endpoint, or persistence engine was added or approved. The documentation now provides 27 reference tables, 16 indexes, DB-001..020, data invariants, privacy-safe recognition retention, immutable SRS ledger, and gated UI/data paths.
+- **Target:** A later agent can implement bounded slices after the applicable architecture, identity, content, scheduler, privacy, localization, and sync gates are approved.
+- **Assumptions/decisions:** PostgreSQL-flavored DDL is a portable reference with documented SQLite mapping, not an engine decision. UUID-text IDs, UTC instants, no stored recognition image/ink by default, ledger-plus-projection SRS, and vocabulary/grammar are Target proposals. `LS-OD-01..10` remain Open; vocabulary/grammar needs canonical requirements and source/license approval.
+- **Validation/evidence:** Strict UTF-8/no-BOM/mojibake and balanced-fence scan passed for 10 authored/updated artifacts (`FILES=10`, encoding/fence errors 0); local Markdown file links passed (`LOCAL_LINK_ERRORS=0`); Python `sqlite3.executescript` parsed the full DDL (`SQLITE_PARSE=PASS`); static SQL inventory found 27 unique tables and 16 unique indexes with all table names represented in the logical design; 43 CREATE statements had 43 terminators; exact `DB-001..DB-020` set passed (`UNIQUE=20`); LS-OD-01..10 appear in both design and plan; `git diff --check` passed; `git status` shows documentation-only paths.
+- **Git:** Branch `main` tracking `origin/main`; commit: none; push: none; working tree contains the 11 documentation/reference-SQL paths listed above (7 modified, 3 new before this log update, plus this modified log).
+- **Remaining work:** Product/governance owners must decide `LS-OD-01..10`; vocabulary/grammar scope, content provenance/license, editable fields, quiz variants, and SRS eligibility remain explicitly gated. No implementation is authorized by these docs.
+- **Next action:** Review and record decisions for `DG-01..DG-10` in `docs/plans/database-implementation-plan.md`, beginning with `DB-001`, before creating any migration or repository code.
+
 ### 2026-09-28T13:07:04+07:00 — Final validation and publication handoff
 - **Agent/tool:** Postman AI agent
 - **Status:** Completed

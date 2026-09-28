@@ -7,7 +7,7 @@
 | Thuộc tính | Giá trị |
 |---|---|
 | Trạng thái tài liệu | Bản chuẩn hiện hành cho phạm vi repository |
-| Phiên bản | 2.3 |
+| Phiên bản | 2.4 |
 | Ngôn ngữ | Tiếng Việt |
 | Chủ sở hữu / người phê duyệt | TBD/Open Decision |
 | Nguồn bằng chứng | `frontend/src/**`, `frontend/package.json`, cây file repository |
@@ -19,6 +19,7 @@ Tài liệu áp dụng cấu trúc PRD theo thông lệ ngành; **không tuyên 
 
 | Phiên bản | Thay đổi |
 |---|---|
+| 2.4 | Chuẩn hóa Target vocabulary với âm Hán Việt, nghĩa Việt, hiragana và câu ví dụ; thêm course N3 gồm đúng 11 lesson × 80 từ = 880, không tuyên bố implementation Current. |
 | 2.3 | Bổ sung Learning System được giới hạn rõ: thư viện/deck, flashcard, quiz, SRS/review và tiến độ; toàn bộ là Target/Proposed và không hàm ý backend đã sẵn sàng. |
 | 2.2 | Thêm định hướng reuse-vs-redesign từ Kanji_Smart ở trạng thái Reference implementation — external, unverified; bổ sung scope, risk, open decision và gate Reference→Current. |
 | 2.1 | Hiệu chỉnh Current theo source: lỗi undo, vòng đời state khi đổi tab, reset file input; chuẩn hóa endpoint đề xuất, persona, truy vết, pipeline/model và trạng thái accessibility/responsive. |
@@ -385,7 +386,7 @@ KotoBase công khai mô tả thư mục lồng nhau, focus recall, flashcard th�
 - **LG-04:** thể hiện tiến độ từ event thực, không biến streak/điểm thành áp lực hoặc claim “đã thành thạo”.
 - **LG-05:** bảo toàn quyền kiểm soát dữ liệu, accessibility và recovery khi offline/lỗi.
 
-**Non-goals cho release slices ở §18.4:** course/lesson soạn sẵn; social leaderboard; quảng cáo; AI tạo mnemonic; handwriting grading theo thứ tự nét; audio/TTS; import/export hay chia sẻ deck; nested folders; cộng tác; cam kết đồng bộ đa thiết bị; thay đổi recognition model/API. Các mục có thể được quyết định sau nhưng không nằm trong requirement hiện tại.
+**Non-goals cho release slices ở §18.4:** course/lesson ngoài reference course N3 đã chốt tại LS-FR-019; social leaderboard; quảng cáo; AI tạo mnemonic; handwriting grading theo thứ tự nét; audio/TTS; import/export hay chia sẻ deck; nested folders; cộng tác; cam kết đồng bộ đa thiết bị; thay đổi recognition model/API. Các mục có thể được quyết định sau nhưng không nằm trong requirement hiện tại.
 
 ### 18.3 Personas và JTBD — Unverified
 
@@ -446,6 +447,8 @@ Slice là thứ tự phụ thuộc, không phải deadline hay cam kết backend
 | **LS-FR-015** | Mọi màn hình có empty/loading/error/offline/partial/success và retry an toàn. | Must | Matrix §18.11. |
 | **LS-FR-016** | Khi capability phụ thuộc backend chưa có, UI không giả thành công; prototype phải ghi rõ local/mock. | Must | Content + integration gate. |
 | **LS-FR-017** | Người dùng có thể xem/xóa dữ liệu học theo scope policy đã duyệt; export là open decision. | Must trước launch | Privacy acceptance và deletion verification. |
+| **LS-FR-018** | Mỗi vocabulary được publish phải có ít nhất một âm Hán Việt, một nghĩa tiếng Việt, một cách đọc hiragana và một câu ví dụ có provenance/license. | Must content import | Import fixture thiếu từng thành phần phải fail; draft có thể chưa đủ, active không được thiếu. |
+| **LS-FR-019** | Cung cấp reference course `JLPT N3 Core` gồm đúng 11 lesson, mỗi lesson đúng 80 vocabulary, tổng 880 vocabulary không trùng trong course và có thứ tự lesson/item ổn định. | Must content import | Publish contract kiểm lesson 1..11, position 1..80, 880 distinct active N3 vocabulary; không seed dữ liệu giả. |
 
 ### 18.7 Session và quiz rules
 

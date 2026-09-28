@@ -1,10 +1,10 @@
 # Plan LL — Learning data, library and recognition-to-save
 
 ## Purpose and coverage
-Deliver LS1 persistence, flat decks, item detail and confirmed-candidate handoff. Covers LS-FR-001..005 and LS-FR-015..017; UI follows the [Learning Experience UI Skill](../skills/learning-experience-ui-skill.md).
+Deliver LS1 persistence, flat decks, item detail, confirmed-candidate handoff, and validated reference-content import. Covers LS-FR-001..005 and LS-FR-015..019; UI follows the [Learning Experience UI Skill](../skills/learning-experience-ui-skill.md).
 
 ## Prerequisites
-PF completion; LS0 prototype evidence; LS-OD-01..03 plus applicable LS-OD-06/08 resolved; canonical metadata/provenance, repository/persistence, authorization, migration, deletion and offline policies approved. Backend/local/remote choice remains open until decision.
+PF completion; LS0 prototype evidence; LS-OD-01..03 plus applicable LS-OD-06/08/10 resolved; canonical metadata/provenance, repository/persistence, authorization, migration, deletion and offline policies approved. Backend/local/remote choice remains open until decision. Use the Target [database design](../database-design.md) and [Plan DB](./database-implementation-plan.md) only after those gates close. Vocabulary/N3 structure is canonical Target per LS-FR-018/019; actual 880-word corpus still requires approved source/license and import evidence. Grammar remains separately gated.
 
 ## Ordered tasks
 | ID | Task | Acceptance/evidence |
@@ -12,6 +12,7 @@ PF completion; LS0 prototype evidence; LS-OD-01..03 plus applicable LS-OD-06/08 
 | LL-001 | Validate domain invariants and lifecycle | Library/deck/item/membership conceptual model reviewed; archive/delete impact explicit |
 | LL-002 | Approve repository and mutation contracts | Version/nullability/errors/idempotency/concurrency/auth/deletion examples and contract tests |
 | LL-003 | Prepare versioned storage migration and rollback | Dry-run on fixtures; compatibility, backup/restore and deletion implications recorded |
+| LL-003A | Implement reference-content publish boundary | Reject vocabulary missing Hán Việt/meaning/hiragana/example; reject N3 course unless 11 lessons × 80 ordered, 880 distinct active N3 vocabulary; transaction rollback and idempotent import proven |
 | LL-004 | Implement library/deck read states | Search/filter/sort/reset, counts, empty/loading/partial/error/offline/freshness and keyboard evidence |
 | LL-005 | Implement deck mutations | Trim/empty validation, confirm impact, pending/success/conflict/failure; reload consistency |
 | LL-006 | Implement item detail and membership mutation | Partial metadata safe; provenance visible; multi-deck and duplicate retry idempotent |

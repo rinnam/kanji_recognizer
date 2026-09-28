@@ -80,3 +80,99 @@ Mở Tải ảnh -> click/Enter/Space/drop -> preview
 ## 8. Điểm tích hợp
 
 UI chỉ biết adapter và view-model. API schema thuộc [PRD §10](./prd.md#10-hợp-đồng-apidata-đề-xuất--chưa-triển-khai); validation/mapping/cancel implications thuộc [feature specification](./feature-specification.md). Không có endpoint Current trong checkout.
+
+## 9. Learning System UI flow — Target/Proposed
+
+> Các flow dưới đây mở rộng [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md), không phải hành vi Current. Persistence/account/sync vẫn bị `LS-OD-01/06/08` chặn. Từ vựng và ngữ pháp là đề xuất mới, cần requirement/content/license gate trước implementation.
+
+### 9.1 Điều hướng tổng thể
+
+```text
+Recognize -> Confirm candidate -> Save sheet -> Library item/deck
+Library -> Item detail -> Practice setup -> Flashcard | Quiz | Review
+Review/Quiz/Practice -> Session summary -> Progress
+Library -> Content type: Kanji | Vocabulary | Grammar (proposed)
+```
+
+Mọi màn hình có loading, empty, partial, stale/offline, conflict, forbidden, recoverable/fatal error và success. Capability chưa có persistence phải ghi rõ local/mock; không hiển thị saved/synced trước commit.
+
+### 9.2 Library, deck và item CRUD
+
+```text
+Library list
+  -> Create deck -> validate -> saving -> committed | conflict/error
+  -> Deck detail -> Rename | Archive | Delete(confirm impact)
+  -> Item detail -> Manage decks | Archive/Remove | Practice
+  -> Add content -> Recognition handoff | Search reference content
+```
+
+- Filter theo text, deck, content type, study state, due; no-results khác empty library.
+- Create/edit form giữ draft khi lỗi; trim/non-empty; duplicate policy chờ `LS-OD-03`.
+- Xóa deck chỉ bỏ membership theo policy và không xóa review history. Xóa item toàn cục phải trình bày card/session/history impact và bị privacy/product gate chặn.
+- Item detail dùng tab/section `Overview`, `Decks`, `Study`, `History`; provenance và metadata unavailable luôn thấy được.
+- Kanji/từ vựng/ngữ pháp dùng chung shell nhưng form khác nhau. Chỉ cho sửa field được policy `LS-OD-02` cho phép; reference revision không bị ghi đè âm thầm.
+
+### 9.3 Recognition-to-save
+
+```text
+Selected candidate -> Save to library
+  -> freeze candidateRef -> resolve canonical item
+  -> choose/create deck -> submit once
+  -> Saved | Already saved | Pending offline(only if approved) | Failed
+```
+
+Đổi candidate phía sau không đổi draft. Failure giữ selection/deck; retry dùng idempotency key. Không copy ảnh/nét vào learning record.
+
+### 9.4 Flashcard
+
+```text
+Setup(scope/deck/type/order) -> snapshot session
+  -> Front(prompt) -> Reveal -> Back(answer/context)
+  -> Know | Review again | Skip -> next/repeat by approved rule
+  -> Pause/resume | Complete -> Summary
+```
+
+Không classify trước reveal; classification không tạo SRS review. Resume giữ order/cursor; item stale/ineligible được giải thích, không đổi thứ tự ngầm. Exit xác nhận nếu có trạng thái chưa commit.
+
+### 9.5 Quiz
+
+```text
+Setup(mode/scope/count) -> snapshot questions
+  -> Prompt -> IME-safe answer/choice -> Submit(lock)
+  -> Correct/Incorrect + accepted answer + explanation -> Next
+  -> Summary -> Review missed(new attempt)
+```
+
+Meaning và reading là scope canonical Target; grammar mode chỉ sau gate. Score dùng normalization/scoring version; retry không sửa attempt cũ; quiz không mutate SRS.
+
+### 9.6 SRS Review
+
+```text
+Due overview -> Start -> Prompt -> Reveal
+  -> Again | Hard | Good | Easy with server/scheduler preview
+  -> atomic commit -> next
+  -> conflict: stop/refetch/reconcile; completed -> Summary
+```
+
+Không cho rating trước reveal hoặc khi preview/state stale. Suspend/reset có confirm impact; undo/bury/leech chỉ xuất hiện khi `LS-OD-05` duyệt. Offline rating bị disable hoặc queue theo policy đã duyệt, không giả success.
+
+### 9.7 Progress và privacy
+
+Progress hiển thị range, timezone, freshness và denominator; review accuracy tách quiz accuracy; no-data khác zero; chart có bảng/text equivalent. Export/Delete đi qua scope review -> confirm -> processing -> completed/failed; UI nêu rõ backup/retention caveat theo policy, không hứa xóa tức thì khi chưa duyệt.
+
+### 9.8 Phương án học ngữ pháp — đề xuất cần gate
+
+```text
+Grammar library -> Pattern detail
+  -> Discover: meaning + formation + usage caution
+  -> Observe: reviewed examples with highlighted structure
+  -> Guided practice: cloze/choose form
+  -> Independent recall: produce/select in context
+  -> Mixed review -> Summary/Progress
+```
+
+Mỗi grammar item gồm pattern, formation, meanings theo locale, level/tag nếu có nguồn, caution và ví dụ có provenance. UX cho thêm/sửa/archive theo quyền editable đã duyệt; xóa reference content không được phép từ user library, chỉ remove/archive membership. Không sinh ví dụ/distractor chưa review; không coi một câu đúng là “mastered”. Việc tạo grammar flashcard/SRS card, accepted variants và locale bị `LS-OD-02/04/05/10` chặn.
+
+### 9.9 Accessibility và recovery chung
+
+Focus chuyển tới heading/status hợp lý sau route/mutation; dialog trả focus; action không phụ thuộc swipe/màu; live region không đọc lặp; shortcut bị vô hiệu trong input/IME; 200% zoom và mobile vẫn giữ primary/recovery action. Conflict hiển thị giá trị mới nhất và lựa chọn refetch/reapply an toàn, không tự ghi đè.

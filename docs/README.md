@@ -20,7 +20,10 @@ AI contributors must follow [`AGENTS.md`](../AGENTS.md) and append every coheren
 | [Ink Desk UI direction](./kanji-recognizer-ui-direction.md) | Định hướng thị giác và component cho recognition workbench | Learning rules hoặc implementation evidence |
 | [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md) | Chỉ dẫn tái sử dụng cho Library, save/detail, Flashcard, Quiz, Review/SRS, Progress và recognition handoff | Requirement canonical, backend readiness hoặc status Current |
 | [Feature specification](./feature-specification.md) | Frontend adapter, lifecycle, validation/mapping implications | Product target hoặc API schema canonical |
+| [Database design](./database-design.md) | Mô hình dữ liệu logic, invariant, ownership, lifecycle, privacy, sync alternatives và decision gates | Engine/account/backend/persistence đã được duyệt |
+| [Reference database schema](./database-schema.sql) | DDL Target/Proposed portable khớp mô hình logic | Migration hoặc live database |
 | [Master implementation roadmap](./implementation-roadmap.md) | Thứ tự cross-functional, dependency/gate, rollout/rollback, evidence và release DoD | Requirement canonical hoặc quyết định công nghệ/owner/date |
+| [Database implementation plan](./plans/database-implementation-plan.md) | DB-001..020, gate, evidence, rollout/rollback và Definition of Done | Trạng thái implementation hoặc lựa chọn LS-OD |
 | [Companion implementation plans](./plans/) | Task ID ổn định, dependency, acceptance và completion gate theo workstream | Trạng thái Current hoặc quyết định sản phẩm canonical |
 | [Frontend implementation plan](./frontend-implementation-plan.md) | FE-WS0..FE-WS5 recognition và FE-L0..FE-L6 learning, gate/task/evidence | Baseline, milestone hoặc open decision canonical |
 | [Frontend README](../frontend/README.md) | Cách chạy và phát triển prototype | Yêu cầu sản phẩm |

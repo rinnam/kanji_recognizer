@@ -4,7 +4,7 @@
 Show truthful activity, recall, inventory, streak and forecast from committed events. Covers LS-FR-013, 015..017 and A5/A6/A7/A8.
 
 ## Prerequisites
-Trustworthy versioned quiz/review/session events; LS-OD-07..09 and privacy/consent/retention decisions resolved; time-zone and freshness semantics approved. Targets/baselines/owners remain TBD.
+Trustworthy versioned quiz/review/session events; LS-OD-07..09 and privacy/consent/retention decisions resolved; time-zone and freshness semantics approved. Targets/baselines/owners remain TBD. Derivation, aggregate and outbox boundaries are proposed in the [database design](../database-design.md) and DB-012..014 of [Plan DB](./database-implementation-plan.md); implementation remains blocked until these decisions close.
 
 ## Ordered tasks
 | ID | Task | Acceptance/evidence |
