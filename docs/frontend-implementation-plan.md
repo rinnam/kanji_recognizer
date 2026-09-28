@@ -1,6 +1,6 @@
 # Kế hoạch triển khai frontend — Kanji Recognizer
 
-> **Quyền ưu tiên:** [PRD sản phẩm](./prd.md) là nguồn chuẩn. Khi có mâu thuẫn, `docs/prd.md` được ưu tiên. Kế hoạch này chỉ tổ chức công việc frontend theo **FR-001..FR-010**, **NFR-001..NFR-005**, **US-001..US-013** và **M0..M5**; không tạo yêu cầu hay mốc sản phẩm mới.
+> **Quyền ưu tiên:** [PRD sản phẩm](./prd.md) là nguồn chuẩn. Khi có mâu thuẫn, `docs/prd.md` được ưu tiên. FE-WS0..FE-WS5 tiếp tục tổ chức recognition theo **FR-001..FR-010**, **NFR-001..NFR-005**, **US-001..US-013** và **M0..M5**. Phần mở rộng learning tổ chức frontend theo **LS-FR-001..017** và **LS0..LS3**, dưới các gate của [master roadmap](./implementation-roadmap.md); kế hoạch không tạo requirement hay mốc sản phẩm mới.
 
 ## 1. Quy ước trạng thái
 
@@ -17,7 +17,7 @@ Không dùng phần trăm hoàn thành. Mỗi thay đổi trạng thái phải k
 
 ### Baseline
 
-React 19/TypeScript/Vite; canvas 480×480; brush 4–36; undo/clear; upload click/keyboard/drop/preview; state idle/loading/success/error; mock cố định sau 1.400 ms; candidate sort/chọn; history phiên tối đa 8. Không có network/backend/model/tests/CI/analytics.
+Dùng [PRD §3](./prd.md#3-hiện-trạng-và-trạng-thái-đích) cho baseline và [feature specification](./feature-specification.md) cho frontend implications; kế hoạch không lặp lại các định nghĩa này.
 
 ### Ràng buộc
 
@@ -26,6 +26,9 @@ React 19/TypeScript/Vite; canvas 480×480; brush 4–36; undo/clear; upload clic
 - Không đổi requirement chuẩn trong task frontend; thay đổi phạm vi phải đi qua PRD.
 - Không log hoặc lưu ảnh ngoài chính sách được duyệt.
 - Mỗi gate yêu cầu bằng chứng tái lập; build/lint đơn lẻ không chứng minh accessibility hay hành vi end-to-end.
+- **Redesign:** UI, design system, responsive và accessibility phải theo chuẩn được duyệt của project hiện tại; không sao chép UI reference.
+- **Learning System:** semantics/acceptance được định nghĩa ở [PRD §18](./prd.md#18-learning-system--targetproposed-bounded). Learning không bị loại khỏi toàn bộ kế hoạch: FE-L0 có thể chuẩn bị shell/view-model/prototype được gắn nhãn local/mock; FE-L1..FE-L6 chỉ tiến theo gate tương ứng trong [master roadmap](./implementation-roadmap.md). Bất kỳ phần phụ thuộc persistence/backend/privacy hoặc `LS-OD-*` chưa đóng vẫn **Blocked**. Quảng cáo là non-goal của các slice hiện tại.
+- **AI reuse candidate:** chỉ học theo cách tiếp cận pipeline trong [Kanji_Smart reference analysis](./reference-implementations/kanji-smart.md); FE-WS4 tiếp tục **Blocked** cho đến khi đạt gate reproducibility, license/provenance, artifact integrity, domain fit và contract.
 
 ### Bản đồ phụ thuộc
 
@@ -78,6 +81,7 @@ Các pha không hàm ý ngày, owner hoặc estimate. Không được bỏ gate 
 ### Gate E — Approved integration
 
 - Chỉ mở khi contract/version/auth/limits/errors và backend testable đã được phê duyệt.
+- Nếu dùng AI reuse candidate, phải có reproduction report, license/provenance, artifact hash/version và domain-fit evaluation được review; reference endpoint/model không được mặc định thành contract.
 - Hoàn thành FE-WS4 mà không để component phụ thuộc transport DTO.
 - **Exit:** contract/integration tests đạt; privacy/error/cancel/timeout/retry evidence đầy đủ. Nếu dependency thiếu, trạng thái vẫn **Blocked**.
 
@@ -122,7 +126,39 @@ Task ID nội bộ không được mang dạng FR/NFR/US/M để tránh bị hi�
 | Privacy/security | File limits/content policy, redaction, no unintended persistence/logging | Security checklist/tests | D, E, F |
 | Release | Clean install/build/lint/test/CI và artifact provenance | CI run + release checklist | F |
 
-## 7. Giao thức thay đổi
+## 7. Mở rộng frontend cho Learning System
+
+Phần này bổ sung có kiểm soát cho FE-WS0..FE-WS5; không đổi trạng thái hoặc gate recognition. Nguồn thứ tự cross-functional là [master roadmap](./implementation-roadmap.md); nguồn state/component/a11y là [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md). Toàn bộ learning vẫn **Target/Proposed** cho đến khi có code và evidence.
+
+### 7.1 Workstream và thứ tự tích hợp
+
+| ID | Slice/màn hình theo thứ tự | Component/view-model seam | Requirement | Gate |
+|---|---|---|---|---|
+| **FE-L0** | App shell capability → IA/navigation → shared state gallery | Capability guard, route shell, async-state/freshness patterns | LS-FR-015..016 | LS0; chỉ local/mock prototype, không fake persistence |
+| **FE-L1** | Library list/filter → deck management → item detail | Library/deck/item view models, empty/partial/error/offline states | LS-FR-001..004, 015..017 | L1 contract/identity/storage/metadata/privacy decisions |
+| **FE-L2** | Confirmed recognition candidate → save sheet → saved/detail handoff | Immutable candidate ref, deck picker/create, pending/conflict/result | LS-FR-002, 005, 015..017 | FE-L1 repository/dedupe/idempotency ready |
+| **FE-L3** | Practice setup → flashcard front/reveal/back → classification → summary/resume | Session snapshot/cursor/order; Know/Review again isolated from SRS | LS-FR-006..007, 015..016 | L2 metadata/session policy |
+| **FE-L4** | Quiz setup → question/submit → feedback → summary/retry | Versioned scoring/normalization result model | LS-FR-008..009, 015..016 | L3 quiz/content decisions |
+| **FE-L5** | Review queue → card/reveal → rating/preview → summary/resume/card controls | Due item, scheduler preview, commit/conflict model | LS-FR-010..012, 014..016 | L4 clock/scheduler/idempotency/offline decisions |
+| **FE-L6** | Progress range → activity/recall/inventory/streak/forecast | Metric value + denominator/range/freshness; text/table chart alternative | LS-FR-013, 015..017 | L5 event/privacy/time-zone decisions |
+
+Do not build later screens around guessed DTOs. A workstream may create typed local view-model fixtures for state/a11y review, but service adapters, success claims and durable navigation remain disabled until its gate closes.
+
+### 7.2 Shared integration sequence per workstream
+
+1. Link task to LS-FR and the detailed plan under [`plans/`](./plans/).
+2. Record prerequisite decisions and capability state; unresolved dependency means **Blocked**, not an implicit default.
+3. Define route/sheet boundary and view model before transport mapping.
+4. Implement empty/loading/partial/error/offline/success plus destructive/pending/conflict states before happy-path sign-off.
+5. Validate keyboard, screen reader, focus restoration/live status, touch, 200% zoom, orientation and reduced motion.
+6. Add contract adapter only after approval; prove retry/idempotency and no false success.
+7. Collect acceptance evidence from PRD §18.15 and update status without promoting Target to Current prematurely.
+
+### 7.3 Learning frontend stop conditions
+
+Stop when a task requires guessing identity, endpoint/schema, canonical item/dedupe, deck deletion, quiz normalization, scheduler/clock, offline conflict, event metric, retention/consent or locale policy. Also stop on cross-mode coupling: flashcard/quiz must not rate SRS; recognition confidence must not become quiz correctness; progress must not infer “mastered”.
+
+## 8. Giao thức thay đổi
 
 1. Gắn task với requirement/story/mốc chuẩn hiện hữu.
 2. Nếu thay đổi mục tiêu, scope, acceptance hoặc contract: dừng frontend task; đề xuất cập nhật `docs/prd.md` và tài liệu truy vết trước.
@@ -132,7 +168,7 @@ Task ID nội bộ không được mang dạng FR/NFR/US/M để tránh bị hi�
 6. Cập nhật trạng thái chỉ sau gate; gap phải là Blocked/Deferred/Unverified, không ghi “done”.
 7. Khi rollback, khôi phục mode an toàn và không làm mất bằng chứng/decision log.
 
-## 8. Stop conditions
+## 9. Stop conditions
 
 Dừng hoặc giữ **Blocked** khi xảy ra một trong các điều kiện:
 
@@ -144,18 +180,10 @@ Dừng hoặc giữ **Blocked** khi xảy ra một trong các điều kiện:
 - Accessibility/responsive critical path không dùng được theo ma trận đã duyệt.
 - CI/evidence không tái lập hoặc release còn claim chưa xác minh.
 
-## 9. Quyết định mở
+## 10. Quyết định mở
 
-- Input hợp lệ, giới hạn file/kích thước và thông báo lỗi.
-- Hành vi khi đổi input/tab trong loading; cancel, stale result và retry.
-- Accessibility standard và ma trận browser/device/viewport/zoom.
-- Mock/service configuration và production guard.
-- Contract/version/auth, DTO/nullability, metadata source, error taxonomy, timeout/retry.
-- Test framework, CI policy, artifact retention và release approval.
-- Analytics/telemetry có cần thiết hay không; consent/redaction/retention nếu có.
+Không định nghĩa lại quyết định tại đây. Nguồn canonical là [PRD §16](./prd.md#16-open-questions-và-decision-log); frontend implications nằm trong [feature specification §9](./feature-specification.md#9-decisionsdependencies-còn-mở). Task chỉ ghi decision ID, dependency và stop condition liên quan.
 
-## 10. Liên kết mốc chuẩn
+## 11. Liên kết mốc chuẩn
 
-Kế hoạch không định nghĩa lại mốc. Khi lập task, tham chiếu **M0..M5** theo [PRD](./prd.md), cùng requirement/story tương ứng. Trình tự gate A–F là cơ chế kiểm soát frontend, không phải milestone sản phẩm và không suy ra lịch hoặc cam kết phát hành.
-
-Tài liệu phạm vi bổ trợ: [frontend PRD](./frontend-prd.md). Bằng chứng hiện trạng: [requirements analysis](./requirements-analysis.md), [feature specification](./feature-specification.md), [user stories](./user-stories.md).
+M0..M5 và exit criteria được định nghĩa duy nhất tại [PRD §13](./prd.md#13-milestone-theo-exit-criteria). Workstream/gate chỉ truy vết tới các ID đó; không đổi hoặc diễn giải lại milestone tại đây.

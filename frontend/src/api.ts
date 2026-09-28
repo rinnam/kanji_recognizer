@@ -15,7 +15,8 @@ import type { RecognizeResponse } from "./types";
  *   const fd = new FormData(); fd.append("image", file);
  *   fetch("/api/kanji/recognize", { method: "POST", body: fd })
  */
-export function mockRecognize(_image: string | null): Promise<RecognizeResponse> {
+export function mockRecognize(image: string | null): Promise<RecognizeResponse> {
+  void image;
   return new Promise((resolve) => {
     window.setTimeout(() => {
       resolve({

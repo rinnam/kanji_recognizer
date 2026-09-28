@@ -1,53 +1,60 @@
-# Catalogue phÃ¢n tÃ­ch yÃªu cáº§u
+# Catalogue phân tích yêu cầu
 
-> Nguá»“n chuáº©n vá» ná»™i dung/tráº¡ng thÃ¡i yÃªu cáº§u: [PRD](./prd.md#8-yÃªu-cáº§u-Æ°u-tiÃªn). TÃ i liá»‡u nÃ y táº­p trung vÃ o báº±ng chá»©ng, phá»¥ thuá»™c vÃ  truy váº¿t.
+> Nội dung và trạng thái requirement được định nghĩa tại [PRD §8](./prd.md#8-yêu-cầu-ưu-tiên); acceptance criteria thuộc [user stories](./user-stories.md). Catalogue này chỉ giữ evidence, traceability, dependency và gap.
 
-## Quy Æ°á»›c
+## Quy ước
 
-- **Implemented (frontend):** cÃ³ mÃ£ UI; khÃ´ng Ä‘á»“ng nghÄ©a cÃ³ dá»‹ch vá»¥ tháº­t.
-- **Implemented (mock):** cháº¡y báº±ng dá»¯ liá»‡u cá»‘ Ä‘á»‹nh.
-- **Partially implemented / Proposed / Blocked / Unverified:** theo [chÃº giáº£i](./README.md#chÃº-giáº£i-tráº¡ng-thÃ¡i).
-- Æ¯u tiÃªn P0/P1 khÃ´ng hÃ m Ã½ deadline.
+- **Implemented (frontend):** có mã UI; không đồng nghĩa có dịch vụ thật.
+- **Implemented (mock):** chạy bằng dữ liệu cố định.
+- Các trạng thái còn lại theo [chú giải](./README.md#chú-giải-trạng-thái); ưu tiên P0/P1 không hàm ý deadline.
 
-## Catalogue
+## Catalogue evidence và gap
 
-| ID | Tráº¡ng thÃ¡i | Báº±ng chá»©ng / khoáº£ng trá»‘ng | Acceptance chi tiáº¿t | LiÃªn káº¿t |
-|---|---|---|---|---|
-| FR-001 | Implemented (frontend) | `DrawCanvas.tsx`: canvas logic 480, pointer events, data URL | Given tab Váº½ tay, when pointer táº¡o nÃ©t, then `hasInk=true`, cÃ³ PNG data URL vÃ  nÃºt gá»­i kháº£ dá»¥ng náº¿u khÃ´ng loading. | CUJ-01; US-001 |
-| FR-002 | Implemented (frontend) | `DrawCanvas.tsx`, `InputPanel.tsx` | Brush nháº­n 4â€“36; undo bá» snapshot gáº§n nháº¥t; clear xÃ³a lá»‹ch sá»­ vÃ  bÃ¡o rá»—ng. Undo cÃ³ tá»‘i Ä‘a 30 snapshot trong mÃ£. | CUJ-01; US-002 |
-| FR-003 | Implemented (frontend); validation Unverified | `InputPanel.tsx`: file input `image/*`, click/drop, Enter/Space, preview/gá»¡ | Chá»n hoáº·c drop file táº¡o preview; gá»¡ reset preview/input. KhÃ´ng Ä‘Æ°á»£c coi `accept` lÃ  security validation. | CUJ-02; US-005 |
-| FR-004 | Implemented (frontend) | `App.tsx`, `ResultPanel.tsx` | Tráº¡ng thÃ¡i chá»‰ thuá»™c `idle/loading/success/error`; gá»­i bá»‹ khÃ³a náº¿u thiáº¿u input/Ä‘ang loading; lá»—i cÃ³ retry. | CUJ-01/02; US-003, US-006 |
-| FR-005 | Implemented (mock) | `api.ts`, `mockData.ts`, `ResultPanel.tsx` | Mock tráº£ fixed candidates sau 1,4 giÃ¢y; client sort confidence giáº£m dáº§n; máº·c Ä‘á»‹nh index 0; chá»n row Ä‘á»•i tháº» chi tiáº¿t. | CUJ-01; US-004 |
-| FR-006 | Implemented (frontend) | `App.tsx` | Sau success, thÃªm top candidate vÃ o Ä‘áº§u; slice 8; chá»‰ React state, khÃ´ng persistence. | CUJ-03; US-007 |
-| FR-007 | Proposed; Blocked | `App.tsx`/`api.ts` chá»‰ cÃ³ TODO; khÃ´ng backend | Khi contract PRD Â§10 Ä‘Æ°á»£c duyá»‡t, gá»­i input tháº­t; timeout/cancel/error mapping pass contract tests. | CUJ-04; US-010 |
-| FR-008 | Proposed; Blocked | KhÃ´ng model/checkpoint/service | Response cÃ³ schema Ä‘Ã£ version; rank/confidence semantics vÃ  evaluation protocol Ä‘Æ°á»£c phÃª duyá»‡t. | CUJ-04; US-011 |
-| FR-009 | Proposed; Blocked | Metadata hiá»‡n lÃ  mock | Nguá»“n/license/locale/nullability Ä‘Æ°á»£c duyá»‡t; thiáº¿u metadata khÃ´ng lÃ m UI crash. | CUJ-04; US-012 |
-| FR-010 | Proposed | Mock hiá»‡n cÃ³ message demo; header/loading cÃ²n nÃªu chi tiáº¿t model chÆ°a kiá»ƒm chá»©ng | Cháº¿ Ä‘á»™ demo cÃ³ nhÃ£n nháº¥t quÃ¡n; production khÃ´ng thá»ƒ vÃ´ tÃ¬nh dÃ¹ng mock; ná»™i dung UI khÃ´ng tuyÃªn bá»‘ model chÆ°a xÃ¡c minh. | G4; US-013 |
-| NFR-001 | Unverified | Upload cÃ³ keyboard handler/ARIA; chÆ°a audit toÃ n luá»“ng | Tab/focus/name/status announcement/contrast/zoom/canvas alternative Ä‘áº¡t chuáº©n Ä‘Æ°á»£c chá»n (TBD). | US-008 |
-| NFR-002 | Proposed | KhÃ´ng backend/control Ä‘á»ƒ kiá»ƒm tra | Threat model, content validation, limit, transport/auth/log redaction/retention Ä‘Æ°á»£c quyáº¿t Ä‘á»‹nh vÃ  test. | US-012 |
-| NFR-003 | Proposed | KhÃ´ng telemetry/service | SLO, timeout, retry, error code, request correlation, logs/metrics/alerts vÃ  runbook Ä‘áº¡t gate TBD. | US-010/011 |
-| NFR-004 | Partially implemented | Responsive CSS trong `App.css`; chÆ°a cÃ³ ma tráº­n test | Luá»“ng hoÃ n táº¥t á»Ÿ viewport/zoom/orientation Ä‘Ã£ chá»n, khÃ´ng che action hoáº·c máº¥t ná»™i dung. | US-009 |
-| NFR-005 | Unverified | CÃ³ script build/lint; khÃ´ng test/CI | Build/lint pass táº¡i gate; test strategy vÃ  CI lÃ  exit criteria trÆ°á»›c launch. | M0/M4 |
-
-## Ma tráº­n nÄƒng lá»±c
-
-| NÄƒng lá»±c | Frontend | Dá»‹ch vá»¥ | Kiá»ƒm thá»­/Ä‘o lÆ°á»ng |
+| ID | Trạng thái quan sát | Bằng chứng / khoảng trống | Truy vết |
 |---|---|---|---|
-| Váº½/undo/clear | Implemented | KhÃ´ng Ã¡p dá»¥ng | Manual/code inspection; automated tests absent |
-| Upload/preview | Implemented | Absent | MIME/content/limit unverified |
+| FR-001 | Implemented (frontend) | `DrawCanvas.tsx`: canvas, pointer events, PNG data URL | CUJ-01; US-001 |
+| FR-002 | Partially implemented / Current bug | `DrawCanvas.tsx`, `InputPanel.tsx`: brush 4–36, snapshot/clear. **Current bug:** undo có thể bỏ quá một nét và để `hasInk` lệch canvas. **Target expectation:** chỉ bỏ nét gần nhất, giữ phần còn lại, đồng bộ `hasInk` và có regression test. | CUJ-01; US-002 |
+| FR-003 | Partially implemented; validation Unverified | `InputPanel.tsx`: `image/*`, click/drop, Enter/Space, preview/gỡ; content validation và reset chọn lại cùng file còn gap | CUJ-02; US-005 |
+| FR-004 | Implemented (frontend) | `App.tsx`, `ResultPanel.tsx`: `idle/loading/success/error`, submit guard, retry | CUJ-01/02; US-003, US-006 |
+| FR-005 | Implemented (mock) | `api.ts`, `mockData.ts`, `ResultPanel.tsx`: fixed candidates, sort/select | CUJ-01; US-004 |
+| FR-006 | Implemented (frontend) | `App.tsx`: history React state, prepend/slice 8, không persistence | CUJ-03; US-007 |
+| FR-007 | Proposed; Blocked | Chỉ có TODO; không backend/network contract đã duyệt | CUJ-04; US-010 |
+| FR-008 | Proposed; Blocked | Không model/checkpoint/service/evaluation evidence | CUJ-04; US-011 |
+| FR-009 | Proposed; Blocked | Metadata hiện là fixture; source/license/locale/nullability chưa duyệt | CUJ-04; US-012 |
+| FR-010 | Proposed | Demo có mock message nhưng UI còn claim model chưa kiểm chứng | G4; US-013 |
+| NFR-001 | Unverified | Có một phần keyboard/ARIA; chưa accessibility audit | US-008 |
+| NFR-002 | Proposed | Chưa có threat model, content validation, limit, retention/control | US-012 |
+| NFR-003 | Proposed | Chưa telemetry/service/SLO/error observability | US-010/011 |
+| NFR-004 | Partially implemented | Có responsive CSS; chưa có ma trận viewport/zoom/orientation | US-009 |
+| NFR-005 | Unverified | Có build/lint; không automated tests/CI | M0/M4 |
+
+## Evidence/dependency mapping cho reuse candidate
+
+Nguồn chi tiết: [Kanji_Smart reference analysis](./reference-implementations/kanji-smart.md), trạng thái **Reference implementation — external, unverified**. Bảng này không tạo requirement mới và không đổi trạng thái canonical.
+
+| Requirement hiện hữu | Evidence liên quan | Dependency/gate trước khi reuse |
+|---|---|---|
+| FR-007 | Reference có một integration shape cho inference | Contract project phải được duyệt; không kế thừa endpoint/schema reference. |
+| FR-008 | Reference source thể hiện pipeline ETL9B/JIS mapping → Dataset → transfer learning → checkpoint mapping → top-5 inference | License/provenance, reproduction, artifact integrity, evaluation/domain fit; model B3 của code reference không phải quyết định project. |
+| FR-009 | Reference ghép mapping/metadata trong luồng inference | Xác minh nguồn/quyền/schema/nullability và tách metadata contract khỏi giả định reference. |
+| NFR-002 | Reference nhận dữ liệu ảnh qua service | Threat model, validation, privacy/retention và quyền dữ liệu phải được duyệt độc lập. |
+| NFR-003 | Reference cho thấy service boundary khả thi ở mức source | Chưa có SLO/metric tái lập; cần observability, failure tests và environment evidence. |
+| NFR-005 | Thiếu dependency/artifact/metric tái lập trong reference | Pin environment, lưu hash/log, contract/evaluation tests và provenance report. |
+
+## Ma trận năng lực và gap
+
+| Năng lực | Frontend | Dịch vụ | Kiểm thử/đo lường |
+|---|---|---|---|
+| Vẽ/undo/clear | Implemented, undo có bug | Không áp dụng | Automated regression absent |
+| Upload/preview | Implemented một phần | Absent | MIME/content/limit unverified |
 | Recognition | Mock only | Absent | Accuracy/evaluation absent |
 | Candidate details | Mock UI | Metadata service absent | Schema/quality unverified |
-| History | Session-only | Persistence absent/non-goal | Reload loss is expected current behavior |
-| Responsive/accessibility | Partial | KhÃ´ng Ã¡p dá»¥ng | Audit absent |
-| Analytics/observability | Absent | Absent | Plan only |
+| History | Session-only | Persistence là non-goal hiện tại | Reload loss là Current |
+| Accessibility/responsive | Partial | Không áp dụng | Audit/matrix absent |
 
-## Dependency vÃ  test cáº§n cÃ³
+## Quy tắc truy vết
 
-- FR-007â€“009 phá»¥ thuá»™c quyáº¿t Ä‘á»‹nh contract, backend, model artifact, evaluation set vÃ  metadata source.
-- Contract tests pháº£i bao phá»§ success, empty predictions, nullable fields vÃ  má»i error code.
-- E2E cáº§n bao phá»§ CUJ-01â€“04; accessibility vÃ  responsive lÃ  gate riÃªng.
-- KhÃ´ng cÃ³ automated test suite/CI trong checkout; má»i káº¿t luáº­n ngoÃ i build/lint pháº£i giá»¯ **Unverified**.
-
-## Quy táº¯c thay Ä‘á»•i
-
-KhÃ´ng Ä‘á»•i ID Ä‘Ã£ phÃ¡t hÃ nh; yÃªu cáº§u bá» Ä‘i Ä‘Æ°á»£c Ä‘Ã¡nh dáº¥u Deprecated thay vÃ¬ tÃ¡i sá»­ dá»¥ng ID. Thay schema pháº£i cáº­p nháº­t Ä‘á»“ng thá»i [PRD](./prd.md), [feature spec](./feature-specification.md), stories liÃªn quan vÃ  `frontend/src/types.ts` khi tÃ­ch há»£p tháº­t. Việc triển khai frontend theo gate được tổ chức tại [kế hoạch frontend](./frontend-implementation-plan.md), không tạo ID yêu cầu mới.
+- Wording/priority/status canonical: [PRD §8](./prd.md#8-yêu-cầu-ưu-tiên).
+- AC chi tiết và Current bug/Target expectation: [user stories](./user-stories.md).
+- Journey: [UI flow](./ui-flow-design.md); frontend implications: [feature specification](./feature-specification.md).
+- Không đổi ID đã phát hành. Evidence mới có thể đổi trạng thái chỉ khi PRD được cập nhật cùng thay đổi.

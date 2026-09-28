@@ -37,18 +37,20 @@ export default function App() {
   function handleFile(f: File | null) {
     if (!f) return;
     setFileObj(f);
-    const url = URL.createObjectURL(f);
-    setPreview(url);
-    setStatus((s) => (s === "idle" ? s : s));
+    setPreview(URL.createObjectURL(f));
+  }
+
+  function removeFile() {
+    setPreview(null);
+    setFileObj(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function handleClearAll() {
     if (tab === "draw") {
       setClearSignal((n) => n + 1);
     } else {
-      setPreview(null);
-      setFileObj(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      removeFile();
     }
   }
 
@@ -57,31 +59,29 @@ export default function App() {
     setStatus("loading");
     setError(null);
     try {
-      // TODO(BE): truyền drawData (base64) hoặc fileObj (multipart) lên POST /api/kanji/recognize
+      // TODO(BE): gửi drawData (base64) hoặc fileObj (multipart) tới POST /api/kanji/recognize.
       const image = tab === "draw" ? drawData : preview;
       void fileObj;
       const res = await mockRecognize(image);
       if (!res.success || res.predictions.length === 0) {
-        throw new Error("Model không trả về kết quả. Hãy thử ảnh rõ hơn.");
+        throw new Error("Demo không trả về kết quả. Hãy thử ảnh rõ hơn.");
       }
       const sorted = [...res.predictions].sort((a, b) => b.confidence - a.confidence);
       setPredictions(sorted);
       setSelected(0);
       setStatus("success");
       const best = sorted[0];
-      setHistory((h) =>
-        [
-          {
-            id: Date.now(),
-            kanji: best.kanji,
-            meaning: best.meaning_vi,
-            confidence: best.confidence,
-            thumb: image,
-            at: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-          },
-          ...h,
-        ].slice(0, 8)
-      );
+      setHistory((h) => [
+        {
+          id: Date.now(),
+          kanji: best.kanji,
+          meaning: best.meaning_vi,
+          confidence: best.confidence,
+          thumb: image,
+          at: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+        },
+        ...h,
+      ].slice(0, 8));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Có lỗi xảy ra.");
       setStatus("error");
@@ -90,44 +90,34 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* ===== Header ===== */}
       <header className="header">
         <div className="header-inner">
           <div className="brand">
             <span className="brand-mark">漢</span>
             <div>
               <strong>Kanji Recognizer</strong>
-              <span>Nhận diện chữ Kanji viết tay bằng AI</span>
+              <span>Giao diện demo nhận diện chữ Kanji viết tay</span>
             </div>
           </div>
-          <nav className="header-nav">
-            <span className="chip">EfficientNet-B3</span>
-            <span className="chip">250 Kanji</span>
-            <span className="chip accent">JLPT N5 / N4</span>
+          <nav className="header-nav" aria-label="Trạng thái ứng dụng">
+            <span className="chip accent">UI demo</span>
           </nav>
         </div>
       </header>
 
-      {/* ===== Hero ===== */}
       <section className="hero" aria-labelledby="hero-title">
         <span className="hero-kicker">書く · 読む · 理解する</span>
-        <h1 id="hero-title">
-          Viết một chữ Kanji <em>— nhận ngay</em> ký tự, cách đọc và ý nghĩa
-        </h1>
-        <p>
-          Dành cho người học tiếng Nhật: nhìn thấy chữ mà không biết đọc?
-          Vẽ lại hoặc chụp ảnh — AI sẽ đoán top-5 kèm metadata đầy đủ.
-        </p>
-        <div className="hero-meta" aria-label="Tính năng chính">
+        <h1 id="hero-title">Viết một chữ Kanji <em>— xem kết quả minh họa</em></h1>
+        <p>Vẽ lại hoặc tải ảnh một chữ Kanji để trải nghiệm luồng nhận diện của giao diện.</p>
+        <div className="hero-meta" aria-label="Các bước sử dụng">
           <span><b>01</b> Vẽ hoặc tải ảnh</span>
           <i aria-hidden="true" />
-          <span><b>02</b> Nhận diện tức thì</span>
+          <span><b>02</b> Xem kết quả demo</span>
           <i aria-hidden="true" />
-          <span><b>03</b> Học cách đọc</span>
+          <span><b>03</b> Tham khảo cách đọc</span>
         </div>
       </section>
 
-      {/* ===== Main ===== */}
       <main className="main-grid">
         <div className="left-col">
           <InputPanel
@@ -142,7 +132,7 @@ export default function App() {
             onUndo={() => setUndoSignal((n) => n + 1)}
             preview={preview}
             onFile={handleFile}
-            onRemoveFile={() => { setPreview(null); setFileObj(null); }}
+            onRemoveFile={removeFile}
             fileInputRef={fileInputRef}
           />
 
@@ -150,16 +140,13 @@ export default function App() {
             <button className="btn primary lg" disabled={!canSubmit} onClick={handleRecognize}>
               {status === "loading" ? "⏳ Đang nhận diện…" : "🔍 Nhận diện"}
             </button>
-            <button className="btn ghost lg" onClick={handleClearAll}>
-              Xóa ảnh
-            </button>
+            <button className="btn ghost lg" onClick={handleClearAll}>Xóa ảnh</button>
           </div>
           {!canSubmit && status !== "loading" && (
             <p className="hint-warn">⚠️ Hãy vẽ hoặc tải ảnh trước khi bấm Nhận diện.</p>
           )}
           <p className="api-note">
-            🔌 UI-only: nút Nhận diện đang dùng <code>mockRecognize()</code>.
-            Khi có backend, nối vào <code>POST /api/kanji/recognize</code> trong <code>src/api.ts</code>.
+            🔌 UI demo đang dùng dữ liệu giả lập. Khi tích hợp backend, dùng <code>POST /api/kanji/recognize</code> trong <code>src/api.ts</code>.
           </p>
         </div>
 
@@ -175,7 +162,6 @@ export default function App() {
         </div>
       </main>
 
-      {/* ===== History + Pipeline ===== */}
       <section className="bottom-grid">
         <div className="panel">
           <div className="panel-head"><h2>🕘 Lịch sử gần đây</h2></div>
@@ -197,24 +183,12 @@ export default function App() {
         </div>
 
         <div className="panel">
-          <div className="panel-head"><h2>⚙️ Pipeline & Model</h2></div>
-          <ol className="pipeline">
-            <li><strong>Otsu</strong> tách nền</li>
-            <li><strong>BBox + padding 25%</strong> & canvas vuông</li>
-            <li><strong>Resize 300×300</strong> + normalize ImageNet</li>
-            <li><strong>EfficientNet-B3</strong> → softmax top-5</li>
-            <li><strong>Ghép metadata</strong> từ jlpt-kanji.json</li>
-          </ol>
-          <div className="model-row">
-            <span>efficientnet_b3_kanji_n4_n5.pt</span>
-            <span className="muted">num_classes=250 · image 300px</span>
-          </div>
+          <div className="panel-head"><h2>ℹ️ Chế độ demo</h2></div>
+          <p className="muted">Kết quả và metadata hiện là dữ liệu minh họa của giao diện; chưa gọi dịch vụ hoặc mô hình thật.</p>
         </div>
       </section>
 
-      <footer className="footer">
-        Kanji Recognizer — UI demo (chưa nối model) · Spec: docs/feature-specification.md · Made with ❤️ for Japanese learners
-      </footer>
+      <footer className="footer">Kanji Recognizer — UI demo · Endpoint tích hợp dự kiến: POST /api/kanji/recognize</footer>
     </div>
   );
 }

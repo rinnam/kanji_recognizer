@@ -1,5 +1,5 @@
-// Kiểu dữ liệu khớp API contract F-05 (docs/feature-specification.md)
-// TODO(BE): khi có backend, dùng đúng các field này từ POST /api/kanji/recognize
+// Kiểu dữ liệu hiện dùng cho UI demo; chưa phải API contract đã được phê duyệt.
+// TODO(BE): đối chiếu schema đã duyệt khi tích hợp POST /api/kanji/recognize.
 export interface KanjiPrediction {
   kanji: string;
   id: number;

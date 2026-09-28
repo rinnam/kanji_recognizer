@@ -1,3 +1,4 @@
+import { MOCK_MESSAGE } from "../mockData";
 import type { KanjiPrediction, RecognizeStatus } from "../types";
 
 interface Props {
@@ -25,7 +26,7 @@ export default function ResultPanel({ status, predictions, selected, setSelected
           <ul className="empty-steps">
             <li><span>1</span> Vẽ / tải ảnh chữ viết tay</li>
             <li><span>2</span> Bấm Nhận diện</li>
-            <li><span>3</span> Xem top-5 + nghĩa, cách đọc</li>
+            <li><span>3</span> Xem kết quả minh họa</li>
           </ul>
         </div>
       </section>
@@ -37,7 +38,7 @@ export default function ResultPanel({ status, predictions, selected, setSelected
       <section className="panel result-panel">
         <div className="panel-head">
           <h2>Kết quả nhận diện</h2>
-          <span className="badge loading">⏳ Đang nhận diện…</span>
+          <span className="badge loading">⏳ Đang xử lý…</span>
         </div>
         <div className="skeleton-card">
           <div className="sk sk-kanji" />
@@ -47,10 +48,8 @@ export default function ResultPanel({ status, predictions, selected, setSelected
             <div className="sk sk-line w80" />
           </div>
         </div>
-        {[0, 1, 2].map((i) => (
-          <div className="sk sk-row" key={i} />
-        ))}
-        <p className="loading-note">EfficientNet-B3 đang suy luận — Otsu → bbox → 300×300 → softmax top-5…</p>
+        {[0, 1, 2].map((i) => <div className="sk sk-row" key={i} />)}
+        <p className="loading-note">Đang tạo kết quả minh họa cho giao diện…</p>
       </section>
     );
   }
@@ -75,10 +74,10 @@ export default function ResultPanel({ status, predictions, selected, setSelected
     <section className="panel result-panel">
       <div className="panel-head">
         <h2>Kết quả nhận diện</h2>
-        <span className="badge success">✓ Top-{predictions.length}</span>
+        <span className="badge success">✓ {predictions.length} kết quả demo</span>
       </div>
+      <p className="api-note" role="status">ℹ️ {MOCK_MESSAGE}</p>
 
-      {/* Thẻ kết quả chính */}
       <article className="top-card">
         <div className="top-kanji">
           <span className="kanji-char">{top.kanji}</span>
@@ -95,15 +94,13 @@ export default function ResultPanel({ status, predictions, selected, setSelected
             <div>
               <label>Âm On</label>
               <div className="pills">
-                {top.reading_on.length ? top.reading_on.map((r) => <span key={r} className="pill on">{r}</span>)
-                  : <span className="pill empty">—</span>}
+                {top.reading_on.length ? top.reading_on.map((r) => <span key={r} className="pill on">{r}</span>) : <span className="pill empty">—</span>}
               </div>
             </div>
             <div>
               <label>Âm Kun</label>
               <div className="pills">
-                {top.reading_kun.length ? top.reading_kun.map((r) => <span key={r} className="pill kun">{r}</span>)
-                  : <span className="pill empty">—</span>}
+                {top.reading_kun.length ? top.reading_kun.map((r) => <span key={r} className="pill kun">{r}</span>) : <span className="pill empty">—</span>}
               </div>
             </div>
           </div>
@@ -116,21 +113,15 @@ export default function ResultPanel({ status, predictions, selected, setSelected
           <p className="meaning-en">{top.meaning_en}</p>
           <div className="example">📝 {top.example}</div>
           <p className="desc">{top.description}</p>
-          <div className="tags">
-            {top.tags.map((t) => <span key={t} className="tag">#{t}</span>)}
-          </div>
+          <div className="tags">{top.tags.map((t) => <span key={t} className="tag">#{t}</span>)}</div>
         </div>
       </article>
 
-      {/* Top-5 */}
-      <h3 className="sub-title">Các phương án khác (top-5)</h3>
+      <h3 className="sub-title">Các phương án khác</h3>
       <ol className="top5">
         {predictions.map((p, i) => (
-          <li key={p.train_index}>
-            <button
-              className={i === selected ? "cand active" : "cand"}
-              onClick={() => setSelected(i)}
-            >
+          <li key={p.kanji}>
+            <button className={i === selected ? "cand active" : "cand"} onClick={() => setSelected(i)}>
               <span className="rank">#{i + 1}</span>
               <span className="cand-kanji">{p.kanji}</span>
               <span className="cand-mid">
@@ -143,7 +134,6 @@ export default function ResultPanel({ status, predictions, selected, setSelected
           </li>
         ))}
       </ol>
-      <p className="trace">train_index: {top.train_index} · json_id: {top.json_id} · id: {top.id}</p>
     </section>
   );
 }

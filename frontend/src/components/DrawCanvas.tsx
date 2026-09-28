@@ -7,13 +7,34 @@ interface Props {
   undoSignal: number;
 }
 
+function paintPaper(ctx: CanvasRenderingContext2D, size: number) {
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, size, size);
+  // lưới mờ hỗ trợ căn chữ
+  ctx.strokeStyle = "rgba(26,26,46,0.08)";
+  ctx.lineWidth = 1;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(size / 2, 0);
+  ctx.lineTo(size / 2, size);
+  ctx.moveTo(0, size / 2);
+  ctx.lineTo(size, size / 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = "rgba(26,26,46,0.16)";
+  ctx.strokeRect(0.5, 0.5, size - 1, size - 1);
+}
+
 export default function DrawCanvas({ brushSize, onChange, clearSignal, undoSignal }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const lastRef = useRef<{ x: number; y: number } | null>(null);
   const historyRef = useRef<string[]>([]);
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   // Khởi tạo nền giấy trắng + lưới mờ
   useEffect(() => {
@@ -31,7 +52,6 @@ export default function DrawCanvas({ brushSize, onChange, clearSignal, undoSigna
     paintPaper(ctx, size);
     historyRef.current = [];
     onChangeRef.current(false, null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Xóa toàn bộ khi nhận signal
@@ -45,44 +65,25 @@ export default function DrawCanvas({ brushSize, onChange, clearSignal, undoSigna
     onChangeRef.current(false, null);
   }, [clearSignal]);
 
-  // Hoàn tác 1 nét
+  // Hoàn tác về snapshot ngay trước nét vẽ gần nhất.
   useEffect(() => {
     if (undoSignal === 0) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
-    historyRef.current.pop();
-    paintPaper(ctx, 480);
-    const last = historyRef.current[historyRef.current.length - 1];
-    if (last) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, 480, 480);
-        onChangeRef.current(true, canvas.toDataURL("image/png"));
-      };
-      img.src = last;
-    } else {
-      onChangeRef.current(false, null);
-    }
-  }, [undoSignal]);
 
-  function paintPaper(ctx: CanvasRenderingContext2D, size: number) {
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, size, size);
-    // lưới mờ hỗ trợ căn chữ
-    ctx.strokeStyle = "rgba(26,26,46,0.08)";
-    ctx.lineWidth = 1;
-    ctx.setLineDash([6, 6]);
-    ctx.beginPath();
-    ctx.moveTo(size / 2, 0);
-    ctx.lineTo(size / 2, size);
-    ctx.moveTo(0, size / 2);
-    ctx.lineTo(size, size / 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.strokeStyle = "rgba(26,26,46,0.16)";
-    ctx.strokeRect(0.5, 0.5, size - 1, size - 1);
-  }
+    const snapshot = historyRef.current.pop();
+    if (!snapshot) return;
+
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, 480, 480);
+      ctx.drawImage(img, 0, 0, 480, 480);
+      const hasPreviousStroke = historyRef.current.length > 0;
+      onChangeRef.current(hasPreviousStroke, hasPreviousStroke ? canvas.toDataURL("image/png") : null);
+    };
+    img.src = snapshot;
+  }, [undoSignal]);
 
   function pos(e: React.PointerEvent) {
     const canvas = canvasRef.current!;
