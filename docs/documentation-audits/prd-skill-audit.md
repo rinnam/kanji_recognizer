@@ -2,33 +2,23 @@
 
 > **Snapshot / non-canonical.** Phụ lục này ghi lại kết quả tại thời điểm audit; không phải nguồn requirement, status hay contract hiện hành. Xem [PRD](../prd.md) và [ownership map](../README.md#ownership-map).
 
-> Phạm vi: `docs/prd.md` và các `docs/*.md` liên quan. Audit đối chiếu source ở chế độ read-only cho claim **Current**. Số dòng dưới đây là số dòng của PRD sau sửa.
+> **Phạm vi recursive:** toàn bộ 23 file `docs/**/*.md`, gồm chính báo cáo này tại `docs/documentation-audits/prd-skill-audit.md`. Claim **Current** được đối chiếu read-only với source; báo cáo dùng heading/link ổn định thay vì line range dễ trôi.
 
 ## Kết quả checklist
 
-| Quy tắc skill | Đạt/Thiếu/Sai | Bằng chứng mục + số dòng hiện tại trong PRD | Đề xuất sửa |
+| Quy tắc | Kết quả | Bằng chứng ổn định | Điều kiện duy trì |
 |---|---|---|---|
-| PRD là nguồn chuẩn; docs khác chỉ tham chiếu | **Đạt** | Metadata dòng 5–16; `product-discovery.md` §3 liên kết canonical tới PRD §7; liên kết AC dòng 163; truy vết dòng 324–333 | Discovery chỉ quản lý evidence/cách kiểm chứng và không định nghĩa giả thuyết song song. |
-| Quyết định Full/Lite | **Đạt** | “Quyết định Full/Lite…” dòng 26–34; chọn **Full** và nêu lý do | Không cần sửa. |
-| Ba phase Define/Design/Deliver và gate | **Đạt** | Dòng 29–34; approval ghi **TBD/Open Decision** hoặc **Blocked** | Không được đổi gate sang approved nếu chưa có evidence. |
-| Anchor/evidence status | **Đạt** | Bảng dòng 36–45 | Duy trì trạng thái khi có evidence mới. |
-| Current truy source hoặc Unverified | **Đạt** | Current baseline dòng 51–61; nguyên tắc dòng 88–94; technical boundary dòng 210–217 | Mọi claim mới phải dẫn source/test; nội dung UI không tự là bằng chứng model. |
-| Persona mô hình 5 cột | **Đạt** | Bảng persona dòng 96–105 | Persona vẫn **Unverified** đến khi có research evidence. |
-| Persona/CUJ decision mapping | **Đạt** | Bảng CUJ dòng 107–111 | Không tạo CUJ mới nếu chưa qua quyết định phạm vi. |
-| Đúng một NSM và metric contract | **Đạt** | Dòng 113–130; duy nhất “Tỷ lệ hoàn tất tác vụ tra ký tự có xác nhận” | Owner, window, baseline, target giữ **TBD/Open Decision**. |
-| Structured hypothesis có in/out scope | **Đạt** | Dòng 132–139 | Kế hoạch kiểm chứng tham chiếu từ discovery; không định nghĩa song song. |
-| Story/AC linkage | **Đạt** | Requirement dòng 141–161; AC owner/link dòng 163; traceability dòng 324–333 | AC chi tiết tiếp tục ở `user-stories.md`; PRD giữ requirement canonical. |
-| MoSCoW mapping | **Đạt** | Dòng 165–174 | Không tạo requirement chỉ để lấp Could Have. |
-| ID convention | **Đạt với deviation có chủ đích** | Dòng 174 | Giữ nguyên ID đã phát hành FR/NFR/US/CUJ/G/M; MoSCoW chỉ là lớp ánh xạ. |
-| User flow | **Đạt** | Dòng 176–195 | Giữ flow đồng bộ với state machine/AC. |
-| Business rules | **Đạt** | Dòng 197–206 | Các giá trị chưa duyệt tiếp tục là **TBD/Open Decision**. |
-| Technical boundaries | **Đạt** | Dòng 208–217 | DTO mock không được gọi là backend contract canonical. |
-| API/endpoint không bị gọi là Current/canonical | **Đạt** | Dòng 208–221 ghi rõ **TBD/Open Decision**, chưa triển khai/chưa canonical | Chỉ nâng trạng thái sau phê duyệt và implementation evidence. |
-| Scope exclusions; Won't Do khác Won't Have | **Đạt** | Dòng 72–86 | Thay đổi phạm vi phải qua decision log; không tạo requirement ngầm. |
-| Không bịa model/class/JLPT/metric/deadline/owner | **Đạt** | Dòng 72–86, 117–130, 300–312 | Mọi giá trị chưa rõ giữ **TBD/Open Decision/Unverified**. |
-| Open questions có Owner/Due Date/Status | **Đạt** | Dòng 298–312 | Chỉ thay TBD bằng người/ngày khi có quyết định có thẩm quyền. |
-| Phase approval không bị bịa | **Đạt** | Dòng 32–34 và 312 | Approval hiện **Unverified/Blocked**. |
-| Milestone không được tạo mới/đổi ID | **Đạt** | M0..M5 dòng 281–288 | Giữ ID và exit criteria hiện hữu. |
+| PRD là nguồn chuẩn | **Đạt** | [Metadata và phase](../prd.md#1-metadata), [baseline](../prd.md#3-hiện-trạng-và-trạng-thái-đích), [ownership map](../README.md#ownership-map) | Tài liệu vai trò không được định nghĩa lại product intent/status. |
+| Full/Lite, Define/Design/Deliver và gate | **Đạt** | [Quyết định Full/Lite, ba phase và phase gate](../prd.md#quyết-định-fulllite-ba-phase-và-phase-gate) | Approval chưa có evidence tiếp tục là TBD/Blocked. |
+| Current có source hoặc Unverified | **Đạt** | [Baseline](../prd.md#3-hiện-trạng-và-trạng-thái-đích), [technical boundaries](../prd.md#10-hợp-đồng-apidata-đề-xuất--chưa-triển-khai) | UI/mock không tự chứng minh model, backend hay production readiness. |
+| Mục tiêu và ranh giới phạm vi | **Đạt** | [Mục tiêu và ranh giới phạm vi](../prd.md#4-mục-tiêu-và-ranh-giới-phạm-vi), [Learning goals/non-goals](../prd.md#182-problemopportunity-goals-và-non-goals) | Recognition là Current; Learning System là Target/Proposed có gate. |
+| Persona/CUJ/JTBD | **Đạt** | [Recognition persona/CUJ](../prd.md#6-persona-tạm-thời-và-cuj), [Learning personas/JTBD](../prd.md#183-personas-và-jtbd--unverified) | Persona vẫn Unverified đến khi có research evidence. |
+| NSM và metric semantics | **Đạt** | [North Star Metric](../prd.md#7-north-star-metric-và-metric-contract), [Learning progress semantics](../prd.md#189-progress-streak-và-semantics) | Baseline/target/window/owner và LS-OD-09 vẫn mở. |
+| Requirement và acceptance ownership | **Đạt** | [Recognition requirements](../prd.md#8-yêu-cầu-ưu-tiên), [Learning requirements](../prd.md#186-functional-requirements), [system acceptance](../prd.md#1815-acceptance-criteria-cấp-hệ-thống), [story acceptance](../user-stories.md) | PRD sở hữu system-level AC; user stories sở hữu Given/When/Then cấp story. |
+| ID families và traceability | **Đạt** | FR/NFR/US/CUJ/G/M; LS-FR-001..017, LS-OD-01..10, LG-01..05, LP-1..4, LUS-001..017; không có family LS-NFR riêng trong canonical PRD, các NFR-001..005 áp dụng xuyên scope; PF/RP/LL/FC/SR/QZ/PA/QR và FE task IDs trong [roadmap/plans](../implementation-roadmap.md) | Không đổi ID đã phát hành; mọi reference phải có definition. |
+| Learning identity/persistence không bị quyết định ngầm | **Đạt** | [Scope và release slices](../prd.md#184-scope-và-release-slices), [unresolved decisions](../prd.md#1817-unresolved-decisions) | Local-only, account/cloud và hybrid vẫn là lựa chọn mở của LS-OD-01. |
+| API/model/reference không bị nâng trạng thái | **Đạt** | [API proposal](../prd.md#10-hợp-đồng-apidata-đề-xuất--chưa-triển-khai), [Kanji_Smart analysis](../reference-implementations/kanji-smart.md) | LICENSE/provenance và B0/B3 vẫn unresolved; không suy diễn architecture. |
+| Plans và UI docs nhất quán | **Đạt** | [Master roadmap](../implementation-roadmap.md), [frontend plan](../frontend-implementation-plan.md), [Ink Desk](../kanji-recognizer-ui-direction.md), [Learning UI skill](../skills/learning-experience-ui-skill.md) | Plans tổ chức delivery, không tạo product decision hay status Current. |
 
 ## Bằng chứng đối chiếu source read-only
 
@@ -42,19 +32,20 @@
 
 | Kiểm tra | Kết quả |
 |---|---|
-| UTF-8 strict, không BOM, không U+FFFD, không dấu hiệu mojibake | **Đạt:** 10/10 file `docs/*.md`. |
-| ID definitions/references | **Đạt:** FR-001..010, NFR-001..005, US-001..013, CUJ-01..04, G1..G4, M0..M5; không có reference chưa định nghĩa. |
-| Endpoint status | **Đạt:** mọi mention `POST /api/kanji/recognize` đều là stub hoặc **Target/Proposed/TBD**, chưa duyệt, không phải API Current/canonical. |
-| Internal file links | **Đạt:** không phát hiện file đích thiếu. |
-| Heading anchors | **Đạt:** không phát hiện anchor đích thiếu sau khi giữ nguyên các heading đánh số chính. |
-| Phạm vi diff | **Đạt cho bước này:** chỉ cập nhật `docs/prd.md`, `docs/product-discovery.md` và báo cáo audit. Các thay đổi `frontend/src/**` đã tồn tại ở baseline; SHA-256 trước/sau của các source đang dirty không đổi. |
+| Enumeration và UTF-8 strict | **Đạt:** 23/23 file `docs/**/*.md` decode strict UTF-8. |
+| BOM/U+FFFD/mojibake/control | **Đạt sau repair:** không BOM, U+FFFD, control bất hợp lệ hoặc signature mojibake phổ biến; hai file Ink Desk được phục hồi Unicode theo ngữ nghĩa. |
+| ID definitions/references | **Đạt:** recognition FR/NFR/US/CUJ/G/M; learning LS-FR/LS-OD/LG/LP/LUS (không có LS-NFR canonical riêng); roadmap/plan task families đều được kiểm tra coverage/uniqueness. |
+| Learning story coverage | **Đạt:** LS-FR-001..LS-FR-017 đều có story cùng số LUS-001..LUS-017 và Given/When/Then. |
+| Internal file links và heading anchors | **Đạt:** không phát hiện đích file hoặc anchor tương đối bị thiếu. |
+| Markdown structure | **Đạt:** fence cân bằng; heading hợp lệ; bảng có separator và số cột nhất quán theo kiểm tra cấu trúc. |
+| Diff hygiene | **Đạt:** `git diff --check` sạch; thay đổi của unit này chỉ là Markdown/governance, không sửa product source/Postman artifact. |
 
 ## Finding còn mở
 
-1. Owner/approver, phase-gate approval, persona ưu tiên, NSM baseline/target/window, contract/API, privacy/security, model/data/class/JLPT, accessibility target, SLO và launch plan đều **TBD/Open Decision** hoặc **Blocked/Unverified**; audit không tự quyết.
+1. Owner/approver, phase-gate approval, persona ưu tiên, NSM baseline/target/window, contract/API, privacy/security, model/data/class/JLPT, accessibility target, SLO và launch plan đều **TBD/Open Decision** hoặc **Blocked/Unverified**.
+2. `LS-OD-01..LS-OD-10` vẫn mở; đặc biệt chưa chọn local-only, account/cloud hay hybrid, cũng chưa chọn backend/persistence/sync model.
+3. [Kanji_Smart reference analysis](../reference-implementations/kanji-smart.md) vẫn ghi đúng rằng LICENSE/provenance và mâu thuẫn EfficientNet-B0/B3 chưa được giải quyết.
 
-## File thay đổi bởi phiên audit
+## File thay đổi bởi phiên repair/audit
 
-- `docs/prd.md` (đồng bộ heading canonical §7 với anchor đã công bố)
-- `docs/product-discovery.md`
-- `docs/prd-skill-audit.md`
+Danh sách chính xác nằm trong entry mới nhất của [AI Work Log](../AI_WORK_LOG.md) và `git diff --name-only`; báo cáo không lặp snapshot đường dẫn dễ lỗi thời.

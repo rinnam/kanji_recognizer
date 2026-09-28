@@ -1,29 +1,29 @@
-﻿# Learning Experience UI Skill â€” Ink Desk
+# Learning Experience UI Skill — Ink Desk
 
-> **Audience:** future design and implementation agents. **Status:** Target/Proposed instructions, not implemented behavior. **Canonical product rules:** [`../prd.md` Â§18](../prd.md#18-learning-system--targetproposed-bounded). If this skill conflicts with the PRD, the PRD wins. Recognition UI foundation: [`../kanji-recognizer-ui-direction.md`](../kanji-recognizer-ui-direction.md).
+> **Audience:** future design and implementation agents. **Status:** Target/Proposed instructions, not implemented behavior. **Canonical product rules:** [`../prd.md` §18](../prd.md#18-learning-system--targetproposed-bounded). If this skill conflicts with the PRD, the PRD wins. Recognition UI foundation: [`../kanji-recognizer-ui-direction.md`](../kanji-recognizer-ui-direction.md).
 
 ## 1. Mission and boundaries
 
-Design one coherent loop: **recognize â†’ confirm â†’ save â†’ practice â†’ review when due â†’ understand progress**. Extend Ink Desk rather than creating a separate visual product. Do not imply that account, persistence, backend, sync, metadata, scheduler or analytics exists until evidence proves it.
+Design one coherent loop: **recognize → confirm → save → practice → review when due → understand progress**. Extend Ink Desk rather than creating a separate visual product. Do not imply that account, persistence, backend, sync, metadata, scheduler or analytics exists until evidence proves it.
 
-This system transforms publicly described KotoBase mechanicsâ€”organized collections, active recall, flashcards, typing quiz, four-rating SRS and progressâ€”into an original flat-deck model, explicit scheduler and recognition handoff. Do not copy KotoBase layout, wording, artwork, token values, component structure or code. Cite inspiration in design artifacts.
+This system transforms publicly described KotoBase mechanics—organized collections, active recall, flashcards, typing quiz, four-rating SRS and progress—into an original flat-deck model, explicit scheduler and recognition handoff. Do not copy KotoBase layout, wording, artwork, token values, component structure or code. Cite inspiration in design artifacts.
 
 ## 2. Operating instructions
 
 Before designing or implementing:
 
-1. Read PRD Â§18, then the recognition UI direction and current frontend evidence.
+1. Read PRD §18, then the recognition UI direction and current frontend evidence.
 2. Identify the release slice (`LS0..LS3`) and requirement IDs (`LS-FR-*`) affected.
 3. Mark every unavailable capability as blocked, local-only or mock; never fake persistence.
 4. Resolve applicable `LS-OD-*` decisions or preserve them visibly as open.
-5. Produce all states, responsive variants, keyboard paths, view-model fields and acceptance evidence togetherâ€”not only a happy-path frame.
+5. Produce all states, responsive variants, keyboard paths, view-model fields and acceptance evidence together—not only a happy-path frame.
 
 ## 3. Design principles
 
 1. **Continuation, not a portal.** Saving begins from the confirmed candidate and preserves context.
 2. **Recall before judgment.** Hide answers until deliberate reveal; ratings are unavailable before reveal.
 3. **One semantic per action.** Practice classification, quiz correctness and SRS rating never mutate one another implicitly.
-4. **Truth over celebration.** Distinguish saved, pending, due, reviewed and forecast; never use â€œmasteredâ€ without evidence.
+4. **Truth over celebration.** Distinguish saved, pending, due, reviewed and forecast; never use “mastered” without evidence.
 5. **Explain scheduling.** Show what each rating means and its next interval without exposing implementation noise.
 6. **Quiet momentum.** Progress supports decisions; streaks are neutral and never shame, punish or use loss aversion.
 7. **Recover in place.** Preserve deck choice, answer or session cursor when safe; retry must be idempotent.
@@ -52,7 +52,7 @@ Use the existing paper, graphite, registration-grid, vermilion and indigo langua
 - paper surfaces for content and cards;
 - graphite for primary text and structure;
 - indigo for selected/informational state;
-- vermilion for attention, destructive actions and proof-mark accentsâ€”not every due item;
+- vermilion for attention, destructive actions and proof-mark accents—not every due item;
 - success/error/warning tokens that pass contrast in every theme.
 
 Kanji uses the approved Japanese display face; UI controls use the existing UI face. Keep line length readable. Prefer typographic hierarchy, whitespace and subtle elevation over nested bordered cards. SRS phases must include text/icon labels; color is supplemental. Charts reuse these tokens but must remain distinguishable in monochrome.
@@ -65,11 +65,11 @@ Contains destination navigation, page title, optional scope switcher, freshness/
 
 ### `DeckPicker`
 
-Searchable list with selected membership state, item counts and â€œCreate deckâ€. Supports zero, one or many selection according to context. Creating a deck returns focus and selects it. Never use nested-folder UI.
+Searchable list with selected membership state, item counts and “Create deck”. Supports zero, one or many selection according to context. Creating a deck returns focus and selects it. Never use nested-folder UI.
 
 ### `LearningStateBadge`
 
-Allowed values: New, Learning, Review, Relearning, Suspended, Due. Include accessible text; do not label â€œMasteredâ€.
+Allowed values: New, Learning, Review, Relearning, Suspended, Due. Include accessible text; do not label “Mastered”.
 
 ### `AsyncBoundary`
 
@@ -77,7 +77,7 @@ Standardizes skeleton, partial, stale, offline, error and retry states. Skeleton
 
 ### `MetadataField`
 
-Renders label, value, optional provenance and unavailable state. Missing reading/meaning is â€œNot availableâ€, not an empty dash without context.
+Renders label, value, optional provenance and unavailable state. Missing reading/meaning is “Not available”, not an empty dash without context.
 
 ### `SessionHeader`
 
@@ -91,7 +91,7 @@ Shows completion, observed results, missed items and next actions. Separate quiz
 
 ### 7.1 Library
 
-**Header:** title, total active items, primary â€œAdd from recognitionâ€ route, deck manage action.
+**Header:** title, total active items, primary “Add from recognition” route, deck manage action.
 **Deck rail/chips:** All items, each deck, Archived; counts reflect active filter.
 **Toolbar:** search, study-state filter, due filter, sort, clear filters, view toggle only if both views are supported.
 **Collection:** `LibraryItemRow/Card` with kanji, primary reading/meaning, deck memberships, state/due label and overflow menu.
@@ -128,7 +128,7 @@ If data is fixture or canonical resolution is unavailable, disable or label the 
 **Back:** answer, reading/meaning/context, `Know` and `Review again`; optional report-data action.
 **Footer:** previous only when undo policy supports it, progress and exit.
 
-Rules: no classification before reveal; no swipe-only flip; preserve a deterministic session order; â€œReview againâ€ returns after unseen cards; skipped is distinct. Do not imitate a physical 3D card if it harms readability or reduced motion.
+Rules: no classification before reveal; no swipe-only flip; preserve a deterministic session order; “Review again” returns after unseen cards; skipped is distinct. Do not imitate a physical 3D card if it harms readability or reduced motion.
 
 ### 7.5 Quiz setup, question and summary
 
@@ -142,17 +142,17 @@ Never auto-submit during IME composition. Do not reveal correctness by color alo
 
 ### 7.6 Review/SRS queue
 
-**Queue landing:** due count by Learning/Relearning/Review, optional new count and Start review. â€œNothing dueâ€ distinguishes zero cards from completion.
+**Queue landing:** due count by Learning/Relearning/Review, optional new count and Start review. “Nothing due” distinguishes zero cards from completion.
 **Card front/back:** same recall anatomy as flashcards, but back replaces practice controls with four SRS ratings.
 **Rating rail:** Again, Hard, Good, Easy; each includes semantic help and interval preview from the scheduler. Buttons appear/enable only after reveal.
 **Commit state:** lock choices while pending; on success move to next card and announce result; on conflict refetch without double-apply.
 **Completion:** reviewed counts by rating, remaining due, next due forecast and Continue new cards only if policy permits.
 
-Keyboard: Space/Enter reveals; 1â€“4 rate only after reveal; shortcuts are ignored in editable controls. Provide an always-visible shortcut reference on desktop and discoverable help on mobile.
+Keyboard: Space/Enter reveals; 1–4 rate only after reveal; shortcuts are ignored in editable controls. Provide an always-visible shortcut reference on desktop and discoverable help on mobile.
 
 ### 7.7 Progress dashboard
 
-**Range and freshness:** 7/30/custom if approved, local time zone and â€œupdatedâ€ timestamp.
+**Range and freshness:** 7/30/custom if approved, local time zone and “updated” timestamp.
 **Summary:** reviews completed, review success rate with denominator, quiz accuracy separately, active days/current streak.
 **Inventory:** New/Learning/Review/Relearning/Suspended and due now.
 **Activity:** daily counts; distinguish no data from zero.
@@ -185,11 +185,11 @@ Never use a generic toast as the only record of a save, rating or failure. The a
 ## 9. Responsive behavior
 
 - **<768 px:** one task column; bottom navigation; sheets for deck picker/detail; sticky session action region; answer input stays above keyboard; chart cards stack.
-- **768â€“1023 px:** collapsible deck rail; detail may be a side sheet; controls wrap without reordering semantics.
-- **â‰¥1024 px:** persistent navigation and optional deck rail; main reading column remains bounded; detail can occupy a secondary pane.
+- **768–1023 px:** collapsible deck rail; detail may be a side sheet; controls wrap without reordering semantics.
+- **≥1024 px:** persistent navigation and optional deck rail; main reading column remains bounded; detail can occupy a secondary pane.
 - Very wide screens add whitespace, not more simultaneous panels.
 - At 200% zoom, layouts reflow; no horizontal page scroll except intentionally scrollable tables with labels.
-- Touch targets are at least 44Ã—44 CSS px and rating buttons remain fully visible without precision gestures.
+- Touch targets are at least 44×44 CSS px and rating buttons remain fully visible without precision gestures.
 
 ## 10. Keyboard, touch and accessibility rules
 
@@ -208,7 +208,7 @@ Never use a generic toast as the only record of a save, rating or failure. The a
 
 Motion clarifies state only:
 
-- 120â€“180 ms reveal/fade/slide using existing easing tokens;
+- 120–180 ms reveal/fade/slide using existing easing tokens;
 - no mandatory card flip, confetti, streak flame or celebratory interruption;
 - rating commit uses subtle exit only after confirmed persistence;
 - skeleton shimmer is optional and disabled under reduced motion;
@@ -220,16 +220,16 @@ Voice: calm, exact, encouraging without judgment.
 
 Preferred:
 
-- â€œSave to libraryâ€, â€œSaved in 2 decksâ€, â€œAlready in Daily reviewâ€.
-- â€œReveal answerâ€, â€œReview againâ€, â€œNothing due right nowâ€.
-- â€œ8 of 10 reviewedâ€, â€œReview success: 75% (6 of 8 ratings)â€.
-- â€œYou can continue your 4-day streak today.â€
-- â€œCouldnâ€™t confirm the save. Your deck selection is still here.â€
+- “Save to library”, “Saved in 2 decks”, “Already in Daily review”.
+- “Reveal answer”, “Review again”, “Nothing due right now”.
+- “8 of 10 reviewed”, “Review success: 75% (6 of 8 ratings)”.
+- “You can continue your 4-day streak today.”
+- “Couldn’t confirm the save. Your deck selection is still here.”
 
 Avoid:
 
-- â€œMasteredâ€, â€œperfect memoryâ€, â€œAI knowsâ€, â€œfailedâ€, â€œlazyâ€, â€œstreak lostâ€.
-- â€œSyncedâ€ or â€œsavedâ€ before commit.
+- “Mastered”, “perfect memory”, “AI knows”, “failed”, “lazy”, “streak lost”.
+- “Synced” or “saved” before commit.
 - Unexplained SRS jargon, model confidence as correctness, or unsupported privacy promises.
 - Raw error codes, scheduler formulas, technical IDs or metadata-source claims without evidence.
 
@@ -309,7 +309,7 @@ Rules:
 
 - [ ] Conceptual view models include partial/freshness/conflict/idempotency state.
 - [ ] Save dedupe, session snapshot/resume and scheduler preview/commit use one source of truth.
-- [ ] Fixed-clock scheduler examples match PRD Â§18.8; duplicate ratings do not double-apply.
+- [ ] Fixed-clock scheduler examples match PRD §18.8; duplicate ratings do not double-apply.
 - [ ] Metrics disclose range, denominator and freshness; streak follows PRD semantics.
 
 ### Accessibility and responsive QA

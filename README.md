@@ -24,7 +24,7 @@
 
 Module sử dụng mô hình **EfficientNet-B3** được huấn luyện trên dữ liệu **ETL9B/ETL10**, nhận diện **250 ký tự Kanji** (phạm vi JLPT N5/N4) và trả về **top-5** kết quả kèm metadata từ `jlpt-kanji.json`.
 
-> 🎯 **Phạm vi:** repo này chỉ tập trung vào **nhận diện Kanji**. Các thành phần khác (chatbot, RAG, embedding...) không thuộc phạm vi tài liệu/module này.
+> 🎯 **Trạng thái phạm vi:** **Current** trong checkout này là module/prototype **nhận diện Kanji**. **Target/Proposed** trong [PRD](./docs/prd.md#18-learning-system--targetproposed-bounded) còn bao gồm Learning System có giới hạn (library/deck, flashcard, quiz, SRS/review và progress), nhưng chưa phải năng lực đang chạy và chưa quyết định account/backend/persistence. Chatbot, RAG và embedding không thuộc phạm vi hiện tại.
 
 ---
 
@@ -187,6 +187,8 @@ python -c "import torch; c=torch.load('models/efficientnet_b3_kanji_n4_n5.pt', m
 ## 📚 Tài liệu
 
 Bộ tài liệu đặc tả (spec-driven) nằm trong thư mục [`docs/`](./docs):
+
+> AI contributors must follow [`AGENTS.md`](./AGENTS.md) and record each handoff in the canonical [`docs/AI_WORK_LOG.md`](./docs/AI_WORK_LOG.md).
 
 - 🔍 [Product Discovery](./docs/product-discovery.md)
 - 📋 [PRD](./docs/prd.md)

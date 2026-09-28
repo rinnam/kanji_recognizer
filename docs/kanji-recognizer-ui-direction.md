@@ -1,8 +1,8 @@
-﻿# Kanji Recognizer UI Direction â€” **Ink Desk**
+# Kanji Recognizer UI Direction — **Ink Desk**
 
 > **Status:** Target/Proposed design specification; not evidence of implemented behavior.
 > **Scope:** Documentation-only UI direction. This file does not approve open product, API, model, accessibility-target, privacy, or launch decisions.
-> **Canonical requirements:** [`prd.md`](./prd.md), especially Â§Â§3, 8â€“11 and Â§18. Learning-screen instructions live in the [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md). Where this document conflicts with the PRD, the PRD wins.
+> **Canonical requirements:** [`prd.md`](./prd.md), especially §§3, 8–11 and §18. Learning-screen instructions live in the [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md). Where this document conflicts with the PRD, the PRD wins.
 
 ## 1. Purpose and provenance
 
@@ -39,7 +39,7 @@ The result is not a KotoBase skin. KotoBase is a broad study and knowledge-manag
 2. **Make system truth visible.** The current fixture must read as a demo (`FR-010`); confidence is model likelihood, not correctness, and its semantics remain TBD for a real service.
 3. **Make correction cheaper than restarting.** Undo, clear, replace, remove, retry, and candidate selection remain close to the object they affect (`US-002`, `US-005`, `US-006`).
 4. **Treat access paths as first-class.** Upload is an equivalent route when drawing is unavailable; keyboard, touch, zoom, focus, and announcements are designed in rather than appended (`NFR-001`, `NFR-004`; `US-008`, `US-009`).
-5. **Hand off recognition into the bounded learning system.** Keep lookup primary on this workbench, then offer a truthful save path for the confirmed candidate. Library, flashcard, quiz, SRS/review and progress behavior is canonical in [`prd.md` Â§18](./prd.md#18-learning-system--targetproposed-bounded) and operationalized by the [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md); all remain Target/Proposed until implementation evidence exists.
+5. **Hand off recognition into the bounded learning system.** Keep lookup primary on this workbench, then offer a truthful save path for the confirmed candidate. Library, flashcard, quiz, SRS/review and progress behavior is canonical in [`prd.md` §18](./prd.md#18-learning-system--targetproposed-bounded) and operationalized by the [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md); all remain Target/Proposed until implementation evidence exists.
 6. **Preserve implementation seams.** Reframe existing `InputPanel`, `DrawCanvas`, `ResultPanel`, state, and history rather than coupling components to an unapproved transport contract.
 
 ### Design success signals
@@ -79,42 +79,42 @@ The canonical NSM, baseline, target, owner, and measurement window remain **TBD/
 - **Start with the subject's characteristic interaction.** The opening visual is a live ink workspace, not a generic marketing hero.
 - **Use deliberate typography and content.** Kanji is an active visual object; interface prose is plain Vietnamese, short, and task-oriented.
 - **Make structure carry meaning.** Sequence markers appear only for the actual three-step task; dividers, rank, and selection marks communicate state rather than decorate cards.
-- **Choose a specific aesthetic.** Paper, graphite, registration-grid lines, and vermilion editorial marks arise from handwriting and character studyâ€”not from generic gradient-card conventions.
+- **Choose a specific aesthetic.** Paper, graphite, registration-grid lines, and vermilion editorial marks arise from handwriting and character study—not from generic gradient-card conventions.
 - **Use motion only to explain change.** Ink follows the pointer, the selected candidate's detail swaps, and status transitions announce; there is no cascade of decorative entrances.
 - **Avoid template tells.** No oversized slogan-first hero, glass-card stack, arbitrary pill overload, single highlighted headline word, all-caps labels, or decorative numbering.
 
 ### From prd-skill
 
-- **Why/Who â†’ What/If â†’ How/Next.** Keep user problem and evidence ahead of visual polish; map every recommendation to a requirement, state, or open decision.
+- **Why/Who → What/If → How/Next.** Keep user problem and evidence ahead of visual polish; map every recommendation to a requirement, state, or open decision.
 - **Human anchors and phase gates matter.** Personas, metric targets, API/model choices, privacy, and launch gates remain unverified or open until explicitly approved.
 - **Logic before polish.** Resolve contradictory states, missing-input behavior, stale-result policy, retryability, and tab lifecycle before visual refinement.
 - **Make alternatives and trade-offs explicit.** Mode switching, result persistence, metadata density, and responsive composition are named decisions, not hidden assumptions.
 - **Acceptance criteria must be verifiable.** Component states below use observable entry, display, action, and exit behavior.
-- **Respect PMâ€“engineering boundaries.** This document specifies experience, state, content, and component contractsâ€”not API implementation or model architecture.
+- **Respect PM–engineering boundaries.** This document specifies experience, state, content, and component contracts—not API implementation or model architecture.
 
 ## 5. Information architecture
 
-This document scopes Ink Desk's **recognition workbench** as one task page. The wider Target/Proposed learning application and its navigation are defined in [PRD Â§18](./prd.md#18-learning-system--targetproposed-bounded) and the [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md); they do not become Current merely by being documented.
+This document scopes Ink Desk's **recognition workbench** as one task page. The wider Target/Proposed learning application and its navigation are defined in [PRD §18](./prd.md#18-learning-system--targetproposed-bounded) and the [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md); they do not become Current merely by being documented.
 
 ```text
 Recognition workbench
-â”œâ”€â”€ Context bar
-â”‚   â”œâ”€â”€ Product identity
-â”‚   â””â”€â”€ Honest environment/demo status
-â”œâ”€â”€ Task introduction
-â”‚   â”œâ”€â”€ One-sentence job
-â”‚   â””â”€â”€ Real sequence: Input â†’ Recognize â†’ Confirm
-â”œâ”€â”€ Active workspace
-â”‚   â”œâ”€â”€ Input mode switcher
-â”‚   â”œâ”€â”€ Draw surface OR upload surface
-â”‚   â”œâ”€â”€ Input controls and readiness
-â”‚   â””â”€â”€ Primary recognition action
-â”œâ”€â”€ Result workspace
-â”‚   â”œâ”€â”€ Idle guidance / loading / error / success
-â”‚   â”œâ”€â”€ Candidate rail
-â”‚   â””â”€â”€ Selected-candidate detail
-â”œâ”€â”€ Session history
-â””â”€â”€ Data/source note
+├── Context bar
+│   ├── Product identity
+│   └── Honest environment/demo status
+├── Task introduction
+│   ├── One-sentence job
+│   └── Real sequence: Input → Recognize → Confirm
+├── Active workspace
+│   ├── Input mode switcher
+│   ├── Draw surface OR upload surface
+│   ├── Input controls and readiness
+│   └── Primary recognition action
+├── Result workspace
+│   ├── Idle guidance / loading / error / success
+│   ├── Candidate rail
+│   └── Selected-candidate detail
+├── Session history
+└── Data/source note
 ```
 
 **Recognition-page navigation boundary:** do not crowd the workbench with deck management, study modes, progress, authentication, advertisements or model settings. When the learning shell is implemented, it owns Library, Practice, Review and Progress navigation as specified by the UI skill; account and backend-dependent controls remain blocked until approved.
@@ -124,34 +124,34 @@ Recognition workbench
 ### 6.1 Context bar
 
 - Left: ink-mark symbol + **Kanji Recognizer**.
-- Supporting line on wide screens: **Nháº­n diá»‡n má»™t kÃ½ tá»± tá»« nÃ©t váº½ hoáº·c áº£nh**.
-- Right: persistent status tag. Current prototype: **Báº£n demo Â· káº¿t quáº£ minh há»a**. A real-service label is allowed only after `FR-007/008/010` gates pass.
+- Supporting line on wide screens: **Nhận diện một ký tự từ nét vẽ hoặc ảnh**.
+- Right: persistent status tag. Current prototype: **Bản demo · kết quả minh họa**. A real-service label is allowed only after `FR-007/008/010` gates pass.
 - No unrelated navigation. Keep the primary task dominant.
 
 ### 6.2 Task introduction
 
 A compact editorial heading, not a tall hero:
 
-- H1: **Báº¡n Ä‘ang nhÃ¬n tháº¥y chá»¯ nÃ o?**
-- Body: **Váº½ má»™t chá»¯ hoáº·c táº£i áº£nh rÃµ nÃ©t. ChÃºng tÃ´i sáº½ xáº¿p háº¡ng cÃ¡c kháº£ nÄƒng Ä‘á»ƒ báº¡n xÃ¡c nháº­n.**
-- Three factual steps: **1 Nháº­p kÃ½ tá»± â†’ 2 Nháº­n diá»‡n â†’ 3 Chá»n káº¿t quáº£**.
+- H1: **Bạn đang nhìn thấy chữ nào?**
+- Body: **Vẽ một chữ hoặc tải ảnh rõ nét. Chúng tôi sẽ xếp hạng các khả năng để bạn xác nhận.**
+- Three factual steps: **1 Nhập ký tự → 2 Nhận diện → 3 Chọn kết quả**.
 - On returning sessions, this block may collapse to a single line after the first successful lookup; no persistence is implied.
 
 ### 6.3 Active workspace
 
-#### Desktop, â‰¥1024 px
+#### Desktop, ≥1024 px
 
 A 12-column composition inside a maximum 1280 px content width:
 
-- Input: columns 1â€“6.
-- Results: columns 7â€“12.
+- Input: columns 1–6.
+- Results: columns 7–12.
 - Both begin on the same baseline. Input remains visible while candidates are compared.
 - Session history spans the content width below; do not introduce a permanent third sidebar.
 
-#### Tablet, 768â€“1023 px
+#### Tablet, 768–1023 px
 
 - Input and results stack in task order.
-- During success, a compact candidate rail sits above details; input collapses to a summary row with **Sá»­a Ä‘áº§u vÃ o**.
+- During success, a compact candidate rail sits above details; input collapses to a summary row with **Sửa đầu vào**.
 - Primary action remains visible at the end of the active input panel, not fixed over content.
 
 #### Mobile, <768 px
@@ -159,12 +159,12 @@ A 12-column composition inside a maximum 1280 px content width:
 - Single column with 16 px edge padding.
 - Header supporting text disappears, but demo status stays visible.
 - The active input surface appears first; results replace guidance immediately beneath it.
-- When input is valid, a safe-area-aware action dock may pin **Nháº­n diá»‡n kÃ½ tá»±** to the bottom. It must not cover canvas controls, validation, or keyboard content, and should unpin when the result is in view.
+- When input is valid, a safe-area-aware action dock may pin **Nhận diện ký tự** to the bottom. It must not cover canvas controls, validation, or keyboard content, and should unpin when the result is in view.
 - Candidate list uses horizontal snap only if every candidate remains reachable by keyboard and screen reader; otherwise use a vertical list.
 
 ### 6.4 Session history
 
-- Titled **Gáº§n Ä‘Ã¢y trong phiÃªn nÃ y** to encode volatility (`FR-006`, `US-007`).
+- Titled **Gần đây trong phiên này** to encode volatility (`FR-006`, `US-007`).
 - Newest first, maximum eight.
 - Item: thumbnail/character, primary meaning if available, confidence label, local time.
 - Selecting an item may restore its displayed result only after stale-input behavior is approved. Until then, history is read-only.
@@ -180,9 +180,9 @@ A 12-column composition inside a maximum 1280 px content width:
 
 ### 7.2 `EnvironmentBadge`
 
-- **Demo:** neutral paper tag + flask icon + **Káº¿t quáº£ minh há»a**.
+- **Demo:** neutral paper tag + flask icon + **Kết quả minh họa**.
 - **Live:** only after approved integration; text must name behavior accurately.
-- **Degraded:** warning icon + **Dá»‹ch vá»¥ táº¡m giÃ¡n Ä‘oáº¡n**; never rely on amber/red alone.
+- **Degraded:** warning icon + **Dịch vụ tạm gián đoạn**; never rely on amber/red alone.
 - Must be text-visible at all viewport sizes and not masquerade as a control.
 
 ### 7.3 `TaskSteps`
@@ -203,35 +203,35 @@ A 12-column composition inside a maximum 1280 px content width:
 
 Contains `DrawCanvas`, brush control, undo, and clear.
 
-- **Empty:** faint registration grid, central prompt **Váº½ má»™t chá»¯ trong khung**, submit disabled.
-- **Drawing:** live ink; prompt disappears; readiness text **ÄÃ£ cÃ³ nÃ©t váº½**.
+- **Empty:** faint registration grid, central prompt **Vẽ một chữ trong khung**, submit disabled.
+- **Drawing:** live ink; prompt disappears; readiness text **Đã có nét vẽ**.
 - **Ready:** undo/clear available according to actual history; submit enabled.
 - **Undoing:** immediate visual rollback with state synchronized to canvas.
 - **Cleared:** empty state restored and submit disabled.
 - **Pointer unavailable:** upload alternative is directly linked.
 
-**Current mapping:** `DrawCanvas.tsx` uses a 480Ã—480 logical surface, 4â€“36 px brush, up to 30 snapshots. Preserve the useful square workspace and brush range. Correct the documented undo/`hasInk` inconsistency before claiming the target state (`FR-002`, `US-002`).
+**Current mapping:** `DrawCanvas.tsx` uses a 480×480 logical surface, 4–36 px brush, up to 30 snapshots. Preserve the useful square workspace and brush range. Correct the documented undo/`hasInk` inconsistency before claiming the target state (`FR-002`, `US-002`).
 
 **Canvas presentation:** warm-white drawing sheet, subtle crosshair/grid, graphite ink. The grid is decorative and hidden from assistive technology. Canvas needs an accessible name and instructions; upload remains the equivalent non-drawing path.
 
 ### 7.6 `BrushControl`
 
-- Label: **Äá»™ dÃ y nÃ©t**; value is visible, e.g. **18 px**.
+- Label: **Độ dày nét**; value is visible, e.g. **18 px**.
 - Slider plus three visual stroke samples (thin/current/thick), with no semantic dependence on samples.
 - States: enabled, focus-visible, disabled during loading.
-- Minimum touch target 44Ã—44 px around the thumb/control affordance.
+- Minimum touch target 44×44 px around the thumb/control affordance.
 
 ### 7.7 `CanvasActions`
 
-- **HoÃ n tÃ¡c:** disabled when no confirmed prior stroke exists.
-- **XÃ³a háº¿t:** destructive-secondary; requires no confirmation because it is reversible only if explicitly supportedâ€”otherwise use a short inline undo opportunity.
+- **Hoàn tác:** disabled when no confirmed prior stroke exists.
+- **Xóa hết:** destructive-secondary; requires no confirmation because it is reversible only if explicitly supported—otherwise use a short inline undo opportunity.
 - Icon plus text on desktop; icon plus accessible name on narrow mobile only when space is genuinely constrained.
 
 ### 7.8 `UploadWorkspace`
 
-- **Empty:** button-like drop area, image icon, **Chá»n áº£nh kÃ½ tá»±**, secondary **hoáº·c kÃ©o tháº£ vÃ o Ä‘Ã¢y**.
-- **Drag active:** emphasized outline and **Tháº£ áº£nh Ä‘á»ƒ xem trÆ°á»›c**.
-- **Preview:** contained image, filename if safe, **Thay áº£nh**, **Gá»¡ áº£nh**.
+- **Empty:** button-like drop area, image icon, **Chọn ảnh ký tự**, secondary **hoặc kéo thả vào đây**.
+- **Drag active:** emphasized outline and **Thả ảnh để xem trước**.
+- **Preview:** contained image, filename if safe, **Thay ảnh**, **Gỡ ảnh**.
 - **Invalid type/size/content:** inline error adjacent to chooser; specific corrective action.
 - **Ready:** submit enabled.
 
@@ -239,29 +239,29 @@ Contains `DrawCanvas`, brush control, undo, and clear.
 
 ### 7.9 `RecognitionAction`
 
-- Label: **Nháº­n diá»‡n kÃ½ tá»±**.
-- Empty: disabled with nearby reason **HÃ£y váº½ hoáº·c chá»n má»™t áº£nh trÆ°á»›c**.
+- Label: **Nhận diện ký tự**.
+- Empty: disabled with nearby reason **Hãy vẽ hoặc chọn một ảnh trước**.
 - Ready: primary vermilion action.
-- Loading: disabled, progress indicator, **Äang phÃ¢n tÃ­châ€¦**.
-- Error retryable: **Thá»­ láº¡i**.
+- Loading: disabled, progress indicator, **Đang phân tích…**.
+- Error retryable: **Thử lại**.
 - Error not retryable: directs user to fix/replace input; no misleading retry.
 - Prevent repeated submit while loading (`FR-004`, `US-003`).
 
 ### 7.10 `ResultStage`
 
-A stable region whose heading remains **Káº¿t quáº£ nháº­n diá»‡n** through all states. The container should not disappear or cause large layout jumps.
+A stable region whose heading remains **Kết quả nhận diện** through all states. The container should not disappear or cause large layout jumps.
 
 #### Idle
 
-- Character watermark **èª** or a simple crop-mark motif, decorative only.
-- Text: **Káº¿t quáº£ sáº½ xuáº¥t hiá»‡n á»Ÿ Ä‘Ã¢y**.
+- Character watermark **認** or a simple crop-mark motif, decorative only.
+- Text: **Kết quả sẽ xuất hiện ở đây**.
 - Three brief input tips; no fake output.
 
 #### Loading
 
 - Preserve panel dimensions.
 - Show an ink-line progress motif and text, not a fake percentage.
-- `role="status"`/live announcement: **Äang nháº­n diá»‡n kÃ½ tá»±.**
+- `role="status"`/live announcement: **Đang nhận diện ký tự.**
 - Existing input stays visible; controls that could invalidate the request follow the approved cancel/stale policy.
 
 #### Error
@@ -274,7 +274,7 @@ A stable region whose heading remains **Káº¿t quáº£ nháº­n diá»‡n**
 
 - Demo truth note appears before candidates in current mode.
 - Candidate rail + selected detail.
-- Announce count and selected top candidate: **ÄÃ£ tÃ¬m tháº¥y 5 kháº£ nÄƒng. Káº¿t quáº£ Ä‘áº§u tiÃªn lÃ  å­¦.**
+- Announce count and selected top candidate: **Đã tìm thấy 5 khả năng. Kết quả đầu tiên là 学.**
 - Metadata absence degrades field by field, never blanking the entire result (`FR-009`).
 
 **Current mapping:** these are the existing `RecognizeStatus = idle | loading | success | error` states in `types.ts` and `ResultPanel.tsx`, refined for semantics and continuity.
@@ -283,9 +283,9 @@ A stable region whose heading remains **Káº¿t quáº£ nháº­n diá»‡n**
 
 - Ordered list because rank has meaning.
 - Each option contains rank, large kanji, primary meaning/reading when available, and confidence label.
-- Selected state uses a vermilion proof mark, tinted surface, `aria-selected` (within an appropriate selection pattern), and a visible text cue **Äang xem**.
+- Selected state uses a vermilion proof mark, tinted surface, `aria-selected` (within an appropriate selection pattern), and a visible text cue **Đang xem**.
 - Keyboard: Up/Down moves; Enter/Space selects; focus is never indicated by color alone.
-- Confidence wording: **Äá»™ tin cáº­y mÃ´ hÃ¬nh 91%** only if the service contract defines `[0,1]` probability semantics. Until then use **Äiá»ƒm mÃ´ hÃ¬nh** or the approved label. Do not call it â€œÄ‘á»™ chÃ­nh xÃ¡c.â€
+- Confidence wording: **Độ tin cậy mô hình 91%** only if the service contract defines `[0,1]` probability semantics. Until then use **Điểm mô hình** or the approved label. Do not call it “độ chính xác.”
 - Do not assign JLPT colors by rank unless metadata source, semantics, and contrast are approved.
 
 ### 7.12 `CharacterDetail`
@@ -294,13 +294,13 @@ Priority order:
 
 1. Character + primary Vietnamese meaning.
 2. On/Kun readings.
-3. HÃ¡nâ€“Viá»‡t and example.
+3. Hán–Việt and example.
 4. Optional metadata: JLPT, stroke count, radical, frequency, tags, English meaning, description.
 
 States:
 
 - **Complete:** all approved fields.
-- **Partial:** omit unavailable groups; use **ChÆ°a cÃ³ dá»¯ liá»‡u** only where absence matters.
+- **Partial:** omit unavailable groups; use **Chưa có dữ liệu** only where absence matters.
 - **Changing selection:** swap content without page scroll reset; heading identifies the new character.
 - **Source unavailable:** keep recognition candidate visible and show metadata-specific error.
 
@@ -308,8 +308,8 @@ States:
 
 ### 7.13 `SessionHistory`
 
-- Empty, populated (1â€“8), and session-reset states.
-- Empty copy: **CÃ¡c káº¿t quáº£ thÃ nh cÃ´ng trong láº§n má»Ÿ nÃ y sáº½ xuáº¥t hiá»‡n á»Ÿ Ä‘Ã¢y.**
+- Empty, populated (1–8), and session-reset states.
+- Empty copy: **Các kết quả thành công trong lần mở này sẽ xuất hiện ở đây.**
 - No account/sync/save affordance.
 - History only updates after success and uses the top candidate, matching current `App.tsx`; candidate-confirmed history is a future product decision.
 
@@ -333,7 +333,7 @@ Variants: information, warning, error, success. Every variant has icon, heading/
 
 - No horizontal page scroll at approved viewport/zoom combinations (`US-009`; matrix remains TBD).
 - Canvas coordinates remain correct after CSS resize and device-pixel-ratio changes.
-- Minimum target 44Ã—44 px; 8 px minimum separation for adjacent destructive actions.
+- Minimum target 44×44 px; 8 px minimum separation for adjacent destructive actions.
 - Content remains operable at 200% zoom; text does not clip at browser text enlargement.
 - Orientation changes retain active input only if the approved lifecycle supports it.
 - Mobile fixed actions include `env(safe-area-inset-bottom)` and never obscure errors or file controls.
@@ -368,9 +368,9 @@ These values are proposed and require contrast verification in actual font/size 
 - **UI/body:** `IBM Plex Sans` or an approved humanist sans with Vietnamese coverage.
 - Fall back to platform Japanese and sans-serif stacks without breaking layout.
 - H1: 40/44 desktop, 30/36 mobile; restrained, one line where possible.
-- Kanji result: 88â€“112 px desktop, 72â€“88 px mobile.
+- Kanji result: 88–112 px desktop, 72–88 px mobile.
 - Body: 16/26; supporting: 14/21; never below 12 px.
-- Prose measure: 60â€“72 characters. No forced uppercase UI labels.
+- Prose measure: 60–72 characters. No forced uppercase UI labels.
 
 ### Spacing, shape, elevation
 
@@ -387,13 +387,13 @@ These values are proposed and require contrast verification in actual font/size 
 
 ### Motion
 
-- 120â€“180 ms for direct state feedback; selected-detail crossfade â‰¤160 ms.
+- 120–180 ms for direct state feedback; selected-detail crossfade ≤160 ms.
 - No autonomous looping animation except an essential loading indicator.
 - Honor `prefers-reduced-motion`; status must remain understandable without motion.
 
 ## 10. Key user flows
 
-### Flow A â€” Draw and confirm (`CUJ-01`)
+### Flow A — Draw and confirm (`CUJ-01`)
 
 1. Page opens in Draw/Empty; focus starts at H1, then mode tabs and canvas instructions.
 2. User draws. Readiness changes and submit enables.
@@ -403,7 +403,7 @@ These values are proposed and require contrast verification in actual font/size 
 6. User compares and selects another candidate; detail updates in place.
 7. Successful top result is added to session history according to current behavior.
 
-### Flow B â€” Upload and confirm (`CUJ-02`)
+### Flow B — Upload and confirm (`CUJ-02`)
 
 1. User selects Upload via pointer or keyboard.
 2. User chooses or drops an image.
@@ -411,15 +411,15 @@ These values are proposed and require contrast verification in actual font/size 
 4. User replaces/removes as needed; removing resets all file state.
 5. Submit follows the same recognition state machine as Flow A.
 
-### Flow C â€” Recover from error (`US-006`)
+### Flow C — Recover from error (`US-006`)
 
 1. ResultStage announces a safe, specific error.
-2. If retryable, **Thá»­ láº¡i** resubmits the same normalized input.
-3. If not retryable, primary action points to **Chá»n áº£nh khÃ¡c** or **Sá»­a nÃ©t váº½**.
+2. If retryable, **Thử lại** resubmits the same normalized input.
+3. If not retryable, primary action points to **Chọn ảnh khác** or **Sửa nét vẽ**.
 4. Error clears when input materially changes; stale error/result policy is made explicit.
 5. Timeout/rate-limit/auth/unknown handling follows the eventual approved taxonomy, not ad hoc strings.
 
-### Flow D â€” Keyboard-only completion (`US-008`)
+### Flow D — Keyboard-only completion (`US-008`)
 
 1. Tab to mode tablist; Arrow keys switch mode.
 2. Choose Upload with Enter/Space.
@@ -457,9 +457,9 @@ These values are proposed and require contrast verification in actual font/size 
 
 ### Edge conditions
 
-- **Zero candidates:** treat as a recoverable no-match outcome, not a generic crash: **ChÆ°a tÃ¬m tháº¥y káº¿t quáº£ phÃ¹ há»£p. HÃ£y viáº¿t lá»›n hÆ¡n hoáº·c dÃ¹ng áº£nh rÃµ hÆ¡n.**
+- **Zero candidates:** treat as a recoverable no-match outcome, not a generic crash: **Chưa tìm thấy kết quả phù hợp. Hãy viết lớn hơn hoặc dùng ảnh rõ hơn.**
 - **Malformed response:** generic safe error; do not partially trust unknown fields.
-- **Input changed after success:** visibly mark result **Tá»« Ä‘áº§u vÃ o trÆ°á»›c** or clear it, based on the unresolved stale-result policy.
+- **Input changed after success:** visibly mark result **Từ đầu vào trước** or clear it, based on the unresolved stale-result policy.
 - **Late response after mode/input change:** ignore or cancel according to approved concurrency policy.
 - **Offline:** if detection requires a service, explain that recognition is unavailable; never fabricate a result.
 - **Demo:** fixture disclosure remains adjacent to results on every success, not only in the header.
@@ -474,15 +474,15 @@ Calm, precise, encouraging, and honest. Address the person's task, not the model
 
 | Purpose | Recommended copy | Avoid |
 |---|---|---|
-| Primary action | **Nháº­n diá»‡n kÃ½ tá»±** | â€œRun inferenceâ€ |
-| Empty draw | **Váº½ má»™t chá»¯ trong khung** | â€œInput canvasâ€ |
-| Empty upload | **Chá»n áº£nh kÃ½ tá»±** | â€œUpload fileâ€ alone |
-| Loading | **Äang phÃ¢n tÃ­ch nÃ©t vÃ  hÃ¬nh dáº¡ngâ€¦** | Fake percentages |
-| Demo disclosure | **ÄÃ¢y lÃ  báº£n demo. Káº¿t quáº£ hiá»‡n táº¡i lÃ  dá»¯ liá»‡u minh há»a vÃ  chÆ°a Ä‘Æ°á»£c táº¡o tá»« áº£nh cá»§a báº¡n.** | Claims about an unverified model |
-| No match | **ChÆ°a tÃ¬m tháº¥y káº¿t quáº£ phÃ¹ há»£p. HÃ£y viáº¿t lá»›n hÆ¡n hoáº·c dÃ¹ng áº£nh rÃµ hÆ¡n.** | â€œUnknown errorâ€ |
-| Retryable error | **ChÆ°a thá»ƒ nháº­n diá»‡n lÃºc nÃ y. Äáº§u vÃ o cá»§a báº¡n váº«n Ä‘Æ°á»£c giá»¯.** | Blaming the user |
-| Session history | **Gáº§n Ä‘Ã¢y trong phiÃªn nÃ y** | â€œSaved historyâ€ |
-| Confidence | **Äiá»ƒm mÃ´ hÃ¬nh** until semantics are approved | â€œÄá»™ chÃ­nh xÃ¡câ€ |
+| Primary action | **Nhận diện ký tự** | “Run inference” |
+| Empty draw | **Vẽ một chữ trong khung** | “Input canvas” |
+| Empty upload | **Chọn ảnh ký tự** | “Upload file” alone |
+| Loading | **Đang phân tích nét và hình dạng…** | Fake percentages |
+| Demo disclosure | **Đây là bản demo. Kết quả hiện tại là dữ liệu minh họa và chưa được tạo từ ảnh của bạn.** | Claims about an unverified model |
+| No match | **Chưa tìm thấy kết quả phù hợp. Hãy viết lớn hơn hoặc dùng ảnh rõ hơn.** | “Unknown error” |
+| Retryable error | **Chưa thể nhận diện lúc này. Đầu vào của bạn vẫn được giữ.** | Blaming the user |
+| Session history | **Gần đây trong phiên này** | “Saved history” |
+| Confidence | **Điểm mô hình** until semantics are approved | “Độ chính xác” |
 
 - Buttons use verbs; headings name the object/state.
 - Error messages answer: what happened, whether input was kept, and what to do next.
@@ -493,7 +493,7 @@ Calm, precise, encouraging, and honest. Address the person's task, not the model
 
 | Recommendation | PRD/story link | Current frontend evidence | Direction/gap |
 |---|---|---|---|
-| Square live drawing workspace | `FR-001`, `US-001` | `DrawCanvas.tsx` 480Ã—480 pointer canvas | Retain; add instruction and access semantics. |
+| Square live drawing workspace | `FR-001`, `US-001` | `DrawCanvas.tsx` 480×480 pointer canvas | Retain; add instruction and access semantics. |
 | Brush, undo, clear | `FR-002`, `US-002` | `InputPanel.tsx`, snapshot history in `DrawCanvas.tsx` | Retain controls; fix one-stroke undo and `hasInk` sync before target claim. |
 | Draw/upload modes | `FR-003`, `CUJ-01/02` | `InputTab`, conditional `InputPanel` rendering | Retain; make tab semantics complete and decide inactive-input lifecycle. |
 | Keyboard/drop upload | `FR-003`, `US-005`, `US-008` | Click/drop/Enter/Space already present | Retain; normalize native semantics and full reset. |
@@ -522,7 +522,7 @@ This direction does **not**:
 - implement or modify frontend code;
 - approve a backend endpoint, model, dataset, checkpoint, class count, confidence semantics, quality target, latency SLO, or metadata source;
 - claim that KotoBase behavior or the Kanji_Smart reference is Current for this project;
-- duplicate or redefine the library, deck, flashcard, quiz, SRS/review or progress rules owned by [PRD Â§18](./prd.md#18-learning-system--targetproposed-bounded) and the [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md);
+- duplicate or redefine the library, deck, flashcard, quiz, SRS/review or progress rules owned by [PRD §18](./prd.md#18-learning-system--targetproposed-bounded) and the [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md);
 - treat accounts, cloud sync, persistence, analytics or any learning backend as Current before implementation evidence; exports, sharing, lesson progression and pronunciation/TTS remain outside the bounded learning scope;
 - add advertisements or ad-management behavior;
 - define analytics collection before consent, taxonomy, retention, and privacy review;
@@ -545,7 +545,7 @@ This direction does **not**:
 
 ### UX and content
 
-- [ ] Wireframes cover Draw/Upload Ã— Empty/Ready and Result Ã— Idle/Loading/Error/Success.
+- [ ] Wireframes cover Draw/Upload × Empty/Ready and Result × Idle/Loading/Error/Success.
 - [ ] Every error has a corrective action; retry only appears when retryable.
 - [ ] Demo disclosure is visible in header and successful result context.
 - [ ] Session history is labeled non-persistent.
@@ -563,7 +563,7 @@ This direction does **not**:
 ### Responsive and accessibility
 
 - [ ] Approved viewport/browser/device/zoom matrix exists.
-- [ ] Keyboard walkthrough completes Upload â†’ Submit â†’ Select candidate â†’ Retry.
+- [ ] Keyboard walkthrough completes Upload → Submit → Select candidate → Retry.
 - [ ] Tabs, upload, candidate selection, and live regions use validated semantics.
 - [ ] Focus order and focus return are documented for every transition.
 - [ ] Contrast, forced-colors, reduced-motion, 200% zoom, touch targets, orientation, and screen-reader checks have evidence.

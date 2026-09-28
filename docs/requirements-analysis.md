@@ -1,6 +1,6 @@
 # Catalogue phân tích yêu cầu
 
-> Nội dung và trạng thái requirement được định nghĩa tại [PRD §8](./prd.md#8-yêu-cầu-ưu-tiên); acceptance criteria thuộc [user stories](./user-stories.md). Catalogue này chỉ giữ evidence, traceability, dependency và gap.
+> Nội dung/trạng thái requirement và acceptance criteria cấp hệ thống được định nghĩa trong [PRD](./prd.md); acceptance criteria cấp story theo Given/When/Then thuộc [user stories](./user-stories.md). Catalogue này chỉ giữ evidence, traceability, dependency và gap.
 
 ## Quy ước
 

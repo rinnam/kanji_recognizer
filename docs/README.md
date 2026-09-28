@@ -4,16 +4,19 @@
 
 Nguồn sự thật sản phẩm là [PRD](./prd.md). Baseline Current/Target được định nghĩa duy nhất tại [PRD §3](./prd.md#3-hiện-trạng-và-trạng-thái-đích); các tài liệu còn lại chỉ bổ sung bằng chứng hoặc góc nhìn theo vai trò.
 
+AI contributors must follow [`AGENTS.md`](../AGENTS.md) and append every coherent completed unit/handoff to the canonical [AI Work Log](./AI_WORK_LOG.md). The log complements, not replaces, canonical requirement and plan task statuses.
+
 ## Ownership map
 
 | Tài liệu | Sở hữu nội dung | Không sở hữu |
 |---|---|---|
-| [PRD](./prd.md) | Problem, mục tiêu, scope, requirement/status, metric, contract đề xuất, milestone và decision | Chi tiết nghiên cứu, AC dạng kịch bản, UX flow hoặc task frontend |
+| [PRD](./prd.md) | Problem, mục tiêu, scope, requirement/status, metric, contract đề xuất, milestone, decision và acceptance criteria cấp hệ thống | Chi tiết nghiên cứu, AC Given/When/Then cấp story, UX flow hoặc task frontend |
 | [Product discovery](./product-discovery.md) | Evidence, phương pháp nghiên cứu, bias và decision log discovery | Problem/metric/hypothesis canonical |
 | [Kanji_Smart reference analysis](./reference-implementations/kanji-smart.md) | Provenance, pipeline, reuse/redesign/TBD matrix, mismatch, artifact/license risk và gate Reference→Current | Current baseline, product scope, requirement hoặc canonical API/model decision |
-| [Requirements analysis](./requirements-analysis.md) | Evidence, traceability, dependency và gap | Requirement wording và AC canonical |
-| [User stories](./user-stories.md) | Story và acceptance criteria Given/When/Then | Product target hoặc contract |
-| [UI flow design](./ui-flow-design.md) | Màn hình, journey, transition và recovery UX của recognition hiện hữu | Implementation internals hoặc AC canonical |
+| [Requirements analysis](./requirements-analysis.md) | Evidence, traceability, dependency và gap | Requirement wording hoặc acceptance criteria |
+| [User stories](./user-stories.md) | Recognition và Learning System stories cùng acceptance criteria cấp story theo Given/When/Then | Product target, system-level acceptance hoặc contract |
+| [UI flow design](./ui-flow-design.md) | Màn hình, journey, transition và recovery UX của recognition hiện hữu | Implementation internals hoặc acceptance criteria |
+| [Documentation audit](./documentation-audits/prd-skill-audit.md) | Snapshot kiểm tra recursive docs, encoding, liên kết và coverage ID | Requirement/status/contract canonical |
 | [Ink Desk UI direction](./kanji-recognizer-ui-direction.md) | Định hướng thị giác và component cho recognition workbench | Learning rules hoặc implementation evidence |
 | [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md) | Chỉ dẫn tái sử dụng cho Library, save/detail, Flashcard, Quiz, Review/SRS, Progress và recognition handoff | Requirement canonical, backend readiness hoặc status Current |
 | [Feature specification](./feature-specification.md) | Frontend adapter, lifecycle, validation/mapping implications | Product target hoặc API schema canonical |
@@ -58,4 +61,4 @@ Owner cá nhân, người phê duyệt và nhịp rà soát vẫn là **TBD/Open
 - Cập nhật định nghĩa canonical ở PRD trước; tài liệu vai trò liên kết thay vì sao chép.
 - Mọi tuyên bố Current phải truy được tới source hoặc bằng chứng kiểm tra.
 - Không đổi Proposed thành Current trước khi có mã, kiểm thử và bằng chứng vận hành.
-- Không đổi các ID đã phát hành FR/NFR/US/CUJ/G/M; thay đổi contract phải đồng bộ PRD, feature spec, catalogue và kiểu frontend trong cùng thay đổi.
+- Không đổi các ID đã phát hành FR/NFR/US/CUJ/G/M, LS-FR/LS-OD/LG/LP/LUS hoặc plan-task IDs (PF/RP/LL/FC/SR/QZ/PA/QR/FE); thay đổi contract phải đồng bộ PRD, story, plan, feature spec, catalogue và kiểu frontend liên quan trong cùng thay đổi.

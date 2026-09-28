@@ -1,6 +1,6 @@
 # Đặc tả tính năng frontend
 
-> Requirement canonical: [PRD §8](./prd.md#8-yêu-cầu-ưu-tiên). API success/error contract canonical: [PRD §10](./prd.md#10-hợp-đồng-apidata-đề-xuất--chưa-triển-khai). Journey thuộc [UI flow](./ui-flow-design.md); acceptance criteria thuộc [user stories](./user-stories.md).
+> Requirement và acceptance criteria cấp hệ thống: [PRD](./prd.md). API success/error contract canonical: [PRD §10](./prd.md#10-hợp-đồng-apidata-đề-xuất--chưa-triển-khai). Journey thuộc [UI flow](./ui-flow-design.md); acceptance criteria cấp story theo Given/When/Then thuộc [user stories](./user-stories.md).
 
 ## 1. Frontend boundary hiện tại
 

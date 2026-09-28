@@ -73,7 +73,7 @@ Kanji_Smart tại commit `dba80b70c19ec8ead3f734ab28d2fa1cf4e9cf89` có trạng 
 | Learning System | **Target/Proposed:** semantics, requirement và acceptance được định nghĩa tại §18; implementation, backend/persistence và các `LS-OD-*` vẫn Open/Blocked. |
 | Ngắt/quản lý quảng cáo | **TBD/Open Decision:** người dùng muốn khác reference nhưng hành vi, quyền kiểm soát và policy chưa được định nghĩa. |
 
-## 4. Mục tiêu và ngoài phạm vi
+## 4. Mục tiêu và ranh giới phạm vi
 
 ### Mục tiêu
 
@@ -81,24 +81,26 @@ Kanji_Smart tại commit `dba80b70c19ec8ead3f734ab28d2fa1cf4e9cf89` có trạng 
 - **G2:** Thiết lập hợp đồng tích hợp có phiên bản, xác thực và lỗi rõ ràng trước khi triển khai dịch vụ.
 - **G3:** Đo chất lượng tác vụ và chất lượng hệ thống bằng baseline/target được phê duyệt.
 - **G4:** Không trình bày mock như kết quả mô hình thật.
+- **G5 — Target/Proposed:** mở rộng candidate đã xác nhận thành vòng lặp học có giới hạn `lưu → luyện → review → xem tiến bộ`, theo LG-01..LG-05 và các gate ở §18; mục tiêu này chưa phải năng lực Current.
 
-### Scope exclusions
+### Ranh giới phạm vi
 
 **Won't Do** (ngoài định hướng của PRD này; đưa vào cần một quyết định phạm vi mới):
 
 - Nhận diện chuỗi nhiều ký tự hoặc dịch văn bản.
-- Biến sản phẩm thành từ điển, hệ thống tài khoản hay nền tảng đồng bộ lịch sử.
+- Biến sản phẩm thành từ điển tổng quát hoặc nền tảng cộng tác/xã hội.
 - Dùng nội dung mock/prototype để công bố accuracy, latency, SLA hoặc năng lực model.
 
 **Won't Have trong phạm vi hiện tại** (có thể xem xét sau gate mới, không phải cam kết):
 
-- Lưu ảnh lâu dài hoặc persistence lịch sử khi chưa có quyết định privacy/retention.
+- Lưu ảnh lâu dài hoặc persistence lịch sử nhận diện khi chưa có quyết định privacy/retention.
+- Account, đồng bộ đa thiết bị hoặc bất kỳ mô hình identity/persistence cụ thể nào trước khi `LS-OD-01`, `LS-OD-06` và `LS-OD-08` được quyết định. Đây là lựa chọn mở của Learning System, không phải một `Won't Do` vĩnh viễn.
 - Cam kết kiến trúc/thuật toán mô hình, bộ dữ liệu, số class hoặc phạm vi JLPT khi chưa có artifact/evidence.
 - Deadline, launch date hoặc owner khi chưa được chỉ định.
 - Triển khai Learning System trước các slice gate §18.4, contract persistence/privacy và open decision tương ứng; quảng cáo vẫn chưa có semantics, UX hay acceptance được duyệt.
 - Sao chép UI, endpoint hoặc schema từ reference; coi kiến trúc model trong reference là quyết định của project.
 
-Phân biệt: **Won't Do** loại khỏi định hướng hiện tại; **Won't Have** chỉ loại khỏi phạm vi/gate hiện tại. Cả hai không tạo requirement hay milestone mới.
+Phân biệt: **Won't Do** loại khỏi định hướng hiện tại; **Won't Have** chỉ loại khỏi phạm vi/gate hiện tại. Learning System là **Target/Proposed** có điều kiện, còn recognition prototype là **Current**; không được dùng mục này để suy diễn rằng account, backend hoặc local persistence đã được chọn.
 
 ## 5. Nguyên tắc
 
@@ -175,7 +177,7 @@ Trạng thái: **Implemented (frontend)**, **Proposed**, **Blocked**, **Unverifi
 | NFR-004 | P1 | Partially implemented | Responsive. | UI có CSS responsive; ma trận viewport/thiết bị và pass criteria còn TBD. |
 | NFR-005 | P0 | Unverified | Chất lượng build. | Build/lint pass; cần bổ sung chiến lược test và CI trước launch. |
 
-Chi tiết và bằng chứng: [requirements-analysis.md](./requirements-analysis.md). Acceptance Criteria chi tiết được sở hữu tại [user-stories.md](./user-stories.md); PRD chỉ giữ requirement chuẩn và liên kết story/AC để tránh sao chép.
+Chi tiết và bằng chứng: [requirements-analysis.md](./requirements-analysis.md). PRD sở hữu requirement và acceptance criteria **cấp hệ thống** (bao gồm A1..A8 tại §18.15); [user-stories.md](./user-stories.md) sở hữu acceptance criteria **cấp story** theo Given/When/Then. Hai cấp liên kết truy vết nhưng không thay thế hoặc sao chép nhau.
 
 ### Ánh xạ MoSCoW
 
@@ -396,10 +398,12 @@ KotoBase công khai mô tả thư mục lồng nhau, focus recall, flashcard th�
 
 ### 18.4 Scope và release slices
 
+Identity và persistence là **khả năng cần quyết định**, không phải kiến trúc đã chọn. `LS-OD-01` có thể dẫn đến local-only, account/cloud hoặc hybrid; `LS-OD-06` và `LS-OD-08` tiếp tục chặn các claim về sync, conflict, retention và deletion. Prototype local ở LS0 chỉ là evidence UX và không đóng bất kỳ quyết định nào.
+
 | Slice | Phạm vi | Điều kiện vào/ra |
 |---|---|---|
-| **LS0 — Contract & prototype** | IA, view-model, local prototype states, usability; không tuyên bố persistence thật. | Quyết định identity/storage/privacy và user research tối thiểu; UI gắn nhãn giả lập. |
-| **LS1 — Library & handoff** | Tạo/đổi tên/xóa deck; lưu/bỏ mục; detail; dedupe; recognition-to-save. | Có repository/persistence contract được duyệt, migration và error recovery; backend có thể local hoặc remote nhưng **TBD**. |
+| **LS0 — Contract & prototype** | IA, view-model, local prototype states, usability; không tuyên bố persistence thật. | Ghi rõ các quyết định identity/storage/privacy còn mở và có user research tối thiểu; UI gắn nhãn giả lập. Không cần chọn account/backend chỉ để thử nghiệm UX. |
+| **LS1 — Library & handoff** | Tạo/đổi tên/xóa deck; lưu/bỏ mục; detail; dedupe; recognition-to-save. | Có repository/persistence contract phù hợp với mô hình identity đã được duyệt, migration và error recovery; implementation có thể local hoặc remote nhưng vẫn **TBD** cho đến khi `LS-OD-01` được đóng. |
 | **LS2 — Practice** | Flashcard self-rating không lập lịch; quiz meaning/reading; session summary. | Có item metadata/source đủ tin cậy; scoring/normalization được duyệt. |
 | **LS3 — SRS & Progress** | Due queue, scheduler §18.8, review log, streak và dashboard. | Clock/time-zone/idempotency/privacy/analytics contract, migration và scheduler tests qua gate. |
 
@@ -540,6 +544,8 @@ Mọi retry phải idempotent; destructive action cần confirm, progress và ou
 Events có schema/version, dedupe key và QA; failed attempt không được tính completed. Product metric proposal: recognition→save conversion, first-practice activation, due-review completion và returning active days; target/window/owner TBD, không thay NSM hiện tại trước decision log.
 
 ### 18.15 Acceptance criteria cấp hệ thống
+
+Các tiêu chí A1..A8 là gate chấp nhận xuyên hệ thống do PRD sở hữu. Chúng xác định kết quả tích hợp/release, không thay cho kịch bản **Given/When/Then cấp story** trong [user-stories.md](./user-stories.md); mỗi learning story phải truy được tới requirement `LS-FR-*`, các `NFR-*` áp dụng và các `LS-OD-*` còn mở.
 
 - **A1 — Save/dedupe (`LS-FR-002/005`):** Given candidate đã chọn, when lưu vào hai deck và retry cùng mutation, then một item/mỗi membership tồn tại, success chỉ rõ deck; ảnh/nét không nằm trong record.
 - **A2 — Flashcard (`LS-FR-006/007`):** Given session snapshot, when reveal rồi phân loại, then thứ tự/resume ổn định, “Review again” quay lại theo rule và không tạo SRS rating.

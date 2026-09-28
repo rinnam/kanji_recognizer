@@ -24,7 +24,7 @@ Chọn input mode
   -> error: hiểu lỗi -> sửa input hoặc retry khi phù hợp
 ```
 
-Các CUJ và AC không lặp tại đây: xem **CUJ-01..CUJ-04** trong [PRD](./prd.md) và **US-001..US-013** trong [user stories](./user-stories.md).
+Các CUJ và acceptance criteria không lặp tại đây: xem **CUJ-01..CUJ-04** cùng acceptance cấp hệ thống trong [PRD](./prd.md), và recognition stories **US-001..US-013** cùng learning stories **LUS-001..LUS-017** trong [user stories](./user-stories.md).
 
 ## 3. Transition nhận diện
 

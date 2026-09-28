@@ -6,7 +6,7 @@
 Create the decision, contract, state and evidence seams that let recognition and learning ship without invented infrastructure. Covers FR-007..010, NFR-001..005 and LS-FR-015..017 cross-cutting.
 
 ## Prerequisites
-Canonical baseline; repository inventory; PRD §16 and §18.17 open decisions. No backend, identity, storage, API or technology is assumed.
+Canonical baseline; repository inventory; PRD [Open questions](../prd.md#16-open-questions--decision-log) and [Learning unresolved decisions](../prd.md#1817-unresolved-decisions). No backend, identity, storage, API or technology is assumed.
 
 ## Ordered tasks
 | ID | Task | Output/evidence | Dependency |

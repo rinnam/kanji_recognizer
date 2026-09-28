@@ -1,6 +1,6 @@
 # Kế hoạch triển khai frontend — Kanji Recognizer
 
-> **Quyền ưu tiên:** [PRD sản phẩm](./prd.md) là nguồn chuẩn. Khi có mâu thuẫn, `docs/prd.md` được ưu tiên. FE-WS0..FE-WS5 tiếp tục tổ chức recognition theo **FR-001..FR-010**, **NFR-001..NFR-005**, **US-001..US-013** và **M0..M5**. Phần mở rộng learning tổ chức frontend theo **LS-FR-001..017** và **LS0..LS3**, dưới các gate của [master roadmap](./implementation-roadmap.md); kế hoạch không tạo requirement hay mốc sản phẩm mới.
+> **Quyền ưu tiên:** [PRD sản phẩm](./prd.md) là nguồn chuẩn. Khi có mâu thuẫn, `docs/prd.md` được ưu tiên. FE-WS0..FE-WS5 tiếp tục tổ chức recognition theo **FR-001..FR-010**, **NFR-001..NFR-005**, **US-001..US-013** và **M0..M5**. Phần mở rộng learning tổ chức frontend theo **LS-FR-001..LS-FR-017**, các **NFR-001..NFR-005** áp dụng, **LUS-001..LUS-017** và **LS0..LS3**, dưới các gate của [master roadmap](./implementation-roadmap.md); kế hoạch không tạo requirement hay mốc sản phẩm mới.
 
 ## 1. Quy ước trạng thái
 
@@ -172,7 +172,7 @@ Stop when a task requires guessing identity, endpoint/schema, canonical item/ded
 
 Dừng hoặc giữ **Blocked** khi xảy ra một trong các điều kiện:
 
-- Không truy được thay đổi về FR-001..FR-010, NFR-001..NFR-005 hoặc US-001..US-013.
+- Không truy được thay đổi recognition về FR-001..FR-010, NFR-001..NFR-005, US-001..US-013 hoặc learning về LS-FR-001..LS-FR-017, các NFR-001..NFR-005 áp dụng, LUS-001..LUS-017.
 - Cần phát minh endpoint, schema, auth, model, dataset, coverage, metric hoặc SLO.
 - Contract/backend chưa duyệt nhưng task yêu cầu gọi service thật.
 - Chưa quyết định cách xử lý dữ liệu ảnh, validation, retention/logging hoặc privacy.
