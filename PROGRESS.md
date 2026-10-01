@@ -169,3 +169,30 @@ Tất cả thư mục scaffold dưới `frontend/src` (features/{auth,library,pr
 
 ### Lưu ý
 - `vocab.local.ts` / `folder.local.ts` khớp mẫu gitignore `*.local` của tooling nên công cụ AI không đọc trực tiếp được, nhưng ĐÃ được track trong git (commit Mục 5) và dùng bình thường qua public API của entity.
+
+## Mục 6 — F1: features/folder-tree (CRUD cây + kéo–thả) ✅
+
+Local-first: đọc/ghi IndexedDB qua entities/folder. **Xóa = tombstone** (đặt `deletedAt`), KHÔNG hard-delete (để xóa lan truyền khi sync, tránh server hồi sinh — ADR 0001). Khớp BE: sắp xếp `order asc (null cuối) → createdAt asc`; parent phải tồn tại; không tự làm cha; FE chặn thêm vòng (kéo vào con cháu). Folder con của folder bị xóa sẽ re-root lên gốc (BE không cascade).
+
+### Files TẠO MỚI
+- `features/folder-tree/model/tree.ts` — hàm THUẦN: `buildTree`, `siblingsOf`, `isAncestor`, `reparentAppend`, `reorderBefore`, `livingById`, `ORDER_STEP`.
+- `features/folder-tree/model/useFolderTree.ts` — hook local-first: load/reload, create/rename/remove(tombstone), moveInto/moveBefore (áp patch order).
+- `features/folder-tree/ui/FolderTree.tsx` — cây + ô thêm thư mục gốc + vùng thả "ra gốc" + nút "Tất cả từ".
+- `features/folder-tree/ui/FolderTreeItem.tsx` — nút cây: chọn, kéo–thả, thêm con, đổi tên, xóa (Modal xác nhận), gập/mở.
+- `features/folder-tree/ui/folder-tree.css`, `features/folder-tree/index.ts`.
+- `pages/Library/LibraryPage.css` — layout 2 cột (sidebar cây + vùng chính).
+- `tests/unit/folder-tree.test.ts` — 6 test THUẦN cho tree.ts.
+- `shared/db/context.ts` — tách DbContext ra file riêng.
+
+### Files SỬA
+- `pages/Library/LibraryPage.tsx` — bố cục 2 cột, gắn <FolderTree/>, giữ state thư mục đang chọn (cho F2).
+- `shared/db/DbProvider.tsx`, `shared/db/useDb.ts`, `shared/db/index.ts` — DbContext chuyển sang `context.ts`; **sửa lỗi lint `react-hooks/set-state-in-effect` lọt từ F0** (effect nạp DB không setState đồng bộ trước await, vẫn giữ nút Thử lại).
+
+### Kéo–thả (HTML5 DnD, không thêm thư viện)
+Thả vào MỘT folder → thành con (nối cuối). Thả vào "gạch trước" một mục → đặt ngay trước (đổi order). Thả vào vùng "ra gốc" → đưa về gốc. Chặn kéo vào chính nó/con cháu.
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**.
+- `npm test`: **14/14 pass** (id 2, srs 4, primitives 2, folder-tree 6).
+- `npm run build`: **OK** (chunk Library ~8.7kB).
+- `npm run lint`: **0 lỗi**; 4 cảnh báo react-refresh HMR vô hại (router.tsx 3 + ThemeProvider.tsx 1 — ThemeProvider có sẵn từ Mục 5).

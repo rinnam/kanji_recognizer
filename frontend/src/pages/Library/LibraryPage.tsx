@@ -1,42 +1,32 @@
-import { useEffect, useState, type ReactElement } from 'react';
-import { countFolders } from '../../entities/folder';
-import { countVocabularies } from '../../entities/vocabulary';
-import { useDb } from '../../shared/db';
+import { useState, type ReactElement } from 'react';
+import { FolderTree } from '../../features/folder-tree';
 import { EmptyState } from '../../shared/ui';
+import './LibraryPage.css';
 
-interface Counts {
-  folders: number;
-  vocabularies: number;
-}
-
-/** Trang Thư viện — khung cho folder-tree (F1) và Overview + Quick Add (F2). */
+/** Trang Thư viện: cây thư mục (F1) ở sidebar; Overview + Quick Add (F2) ở vùng chính. */
 export function LibraryPage(): ReactElement {
-  const db = useDb();
-  const [counts, setCounts] = useState<Counts | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    void Promise.all([countFolders(db), countVocabularies(db)])
-      .then(([folders, vocabularies]) => {
-        if (active) setCounts({ folders, vocabularies });
-      })
-      .catch(() => {
-        if (active) setCounts({ folders: 0, vocabularies: 0 });
-      });
-    return () => {
-      active = false;
-    };
-  }, [db]);
-
-  const description =
-    counts === null
-      ? 'Đang đọc kho cục bộ…'
-      : `${counts.folders} thư mục · ${counts.vocabularies} từ vựng. Cây thư mục (F1) và danh sách + Quick Add (F2) sẽ hiện ở đây.`;
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   return (
-    <section aria-labelledby="library-heading">
-      <h2 id="library-heading">Thư viện</h2>
-      <EmptyState title="Thư viện từ vựng" description={description} />
+    <section className="kn-library" aria-labelledby="library-heading">
+      <h2 id="library-heading" className="kn-library__heading">
+        Thư viện
+      </h2>
+      <div className="kn-library__body">
+        <aside className="kn-library__sidebar" aria-label="Thư mục">
+          <FolderTree selectedId={selectedFolderId} onSelect={setSelectedFolderId} />
+        </aside>
+        <div className="kn-library__main">
+          <EmptyState
+            title="Danh sách từ vựng"
+            description={
+              selectedFolderId === null
+                ? 'Overview + Quick Add sẽ hiện ở đây (F2). Đang xem: tất cả từ.'
+                : 'Overview + Quick Add sẽ hiện ở đây (F2). Đang xem một thư mục đã chọn.'
+            }
+          />
+        </div>
+      </div>
     </section>
   );
 }

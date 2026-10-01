@@ -1,0 +1,29 @@
+.kn-library {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.kn-library__heading {
+  margin: 0;
+}
+.kn-library__body {
+  display: grid;
+  grid-template-columns: minmax(14rem, 20rem) 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+.kn-library__sidebar {
+  border: 1px solid var(--kn-border);
+  border-radius: 0.6rem;
+  padding: 0.75rem;
+  background: var(--kn-surface);
+}
+.kn-library__main {
+  min-width: 0;
+}
+
+@media (max-width: 40rem) {
+  .kn-library__body {
+    grid-template-columns: 1fr;
+  }
+}

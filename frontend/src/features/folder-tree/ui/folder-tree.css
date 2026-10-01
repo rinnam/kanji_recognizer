@@ -1,0 +1,125 @@
+.kn-ftree {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.kn-ftree__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.kn-ftree__title {
+  margin: 0;
+  font-size: 1rem;
+}
+.kn-ftree__all {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--kn-border);
+  background: var(--kn-surface);
+  color: var(--kn-text-muted);
+  border-radius: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.85rem;
+}
+.kn-ftree__all--active {
+  color: var(--kn-primary);
+  border-color: var(--kn-primary);
+}
+.kn-ftree__root-drop {
+  font-size: 0.8rem;
+  color: var(--kn-text-muted);
+  border: 1px dashed var(--kn-border);
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  text-align: center;
+}
+.kn-ftree__root-drop--over {
+  border-color: var(--kn-primary);
+  color: var(--kn-primary);
+}
+.kn-ftree__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.kn-ftree__item {
+  position: relative;
+}
+.kn-ftree__gap {
+  height: 0.35rem;
+}
+.kn-ftree__gap--over {
+  background: var(--kn-primary);
+  border-radius: 2px;
+}
+.kn-ftree__row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.3rem;
+  border-radius: 0.4rem;
+}
+.kn-ftree__row--selected {
+  background: var(--kn-bg);
+}
+.kn-ftree__row--over {
+  outline: 2px dashed var(--kn-primary);
+  outline-offset: -2px;
+}
+.kn-ftree__twisty {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--kn-text-muted);
+  width: 1.25rem;
+}
+.kn-ftree__twisty:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.kn-ftree__name {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--kn-text);
+  text-align: left;
+  flex: 1;
+  padding: 0.1rem 0.2rem;
+}
+.kn-ftree__name:focus-visible,
+.kn-ftree__twisty:focus-visible,
+.kn-ftree__icon:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 1px;
+}
+.kn-ftree__actions {
+  display: inline-flex;
+  gap: 0.1rem;
+  opacity: 0;
+}
+.kn-ftree__row:hover .kn-ftree__actions,
+.kn-ftree__row:focus-within .kn-ftree__actions {
+  opacity: 1;
+}
+.kn-ftree__icon {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0.1rem 0.25rem;
+  border-radius: 0.3rem;
+}
+.kn-ftree__edit,
+.kn-ftree__add {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  margin: 0.3rem 0;
+}
+.kn-ftree__add {
+  margin-top: 0.5rem;
+}

@@ -1,5 +1,4 @@
 import {
-  createContext,
   useCallback,
   useEffect,
   useState,
@@ -8,14 +7,16 @@ import {
 } from 'react';
 import { openKanjiDb } from '../lib';
 import { ErrorState, LoadingState } from '../ui';
-
-/** Context giữ kết nối IndexedDB đã mở (null = chưa sẵn sàng). */
-export const DbContext = createContext<IDBDatabase | null>(null);
+import { DbContext } from './context';
 
 type BootPhase =
   | { phase: 'loading' }
   | { phase: 'error'; message: string }
   | { phase: 'ready'; db: IDBDatabase };
+
+function toMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Không mở được kho dữ liệu cục bộ.';
+}
 
 /**
  * Mở IndexedDB MỘT lần cho toàn vòng đời app (local-first) rồi chia sẻ qua context.
@@ -24,22 +25,34 @@ type BootPhase =
 export function DbProvider({ children }: { children: ReactNode }): ReactElement {
   const [state, setState] = useState<BootPhase>({ phase: 'loading' });
 
-  const open = useCallback(async (): Promise<void> => {
-    setState({ phase: 'loading' });
-    try {
-      const db = await openKanjiDb();
-      setState({ phase: 'ready', db });
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Không mở được kho dữ liệu cục bộ.';
-      setState({ phase: 'error', message });
-    }
+  // Nạp lần đầu: KHÔNG setState đồng bộ trước await (tránh cascading render).
+  useEffect(() => {
+    let active = true;
+    void (async (): Promise<void> => {
+      try {
+        const db = await openKanjiDb();
+        if (active) setState({ phase: 'ready', db });
+      } catch (err) {
+        if (active) setState({ phase: 'error', message: toMessage(err) });
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  useEffect(() => {
-    void open();
-    // Giữ kết nối mở suốt vòng đời app; không đóng ở cleanup.
-  }, [open]);
+  // Thử lại từ nút trong ErrorState (chạy ngoài effect nên được phép setState đồng bộ).
+  const retry = useCallback((): void => {
+    setState({ phase: 'loading' });
+    void (async (): Promise<void> => {
+      try {
+        const db = await openKanjiDb();
+        setState({ phase: 'ready', db });
+      } catch (err) {
+        setState({ phase: 'error', message: toMessage(err) });
+      }
+    })();
+  }, []);
 
   if (state.phase === 'loading') {
     return (
@@ -51,7 +64,7 @@ export function DbProvider({ children }: { children: ReactNode }): ReactElement 
   if (state.phase === 'error') {
     return (
       <div className="kn-boot">
-        <ErrorState message={state.message} onRetry={() => void open()} />
+        <ErrorState message={state.message} onRetry={retry} />
       </div>
     );
   }

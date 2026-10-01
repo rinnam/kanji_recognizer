@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { DbContext } from './DbProvider';
+import { DbContext } from './context';
 
 /** Lấy kết nối IndexedDB đã mở; ném lỗi nếu dùng ngoài <DbProvider> (chưa sẵn sàng). */
 export function useDb(): IDBDatabase {
