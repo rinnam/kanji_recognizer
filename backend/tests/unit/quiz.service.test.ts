@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   gradeAnswer,
+  missingVocabularyIds,
   normalizeAnswer,
   scoreAttempts,
   type GradeableAttempt,
@@ -54,5 +55,26 @@ describe('scoreAttempts', () => {
     expect(result.score).toBe(0);
     expect(result.total).toBe(0);
     expect(result.graded).toEqual([]);
+  });
+});
+
+describe('missingVocabularyIds', () => {
+  it('trả về id tham chiếu nhưng không tồn tại (loại trùng, giữ thứ tự, bỏ null/undefined)', () => {
+    const missing = missingVocabularyIds(
+      [
+        { vocabularyId: 'vocab_1' },
+        { vocabularyId: 'vocab_x' },
+        { vocabularyId: 'vocab_x' },
+        {},
+        { vocabularyId: null },
+      ],
+      ['vocab_1'],
+    );
+    expect(missing).toEqual(['vocab_x']);
+  });
+
+  it('rỗng khi mọi tham chiếu đều tồn tại hoặc không có tham chiếu', () => {
+    expect(missingVocabularyIds([{}, { vocabularyId: null }], [])).toEqual([]);
+    expect(missingVocabularyIds([{ vocabularyId: 'v1' }], ['v1', 'v2'])).toEqual([]);
   });
 });

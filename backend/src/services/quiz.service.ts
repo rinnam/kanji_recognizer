@@ -1,8 +1,13 @@
 import { db } from '../config/database.js';
 import { env } from '../config/env.js';
 import * as quizRepo from '../repositories/quiz.repo.js';
+import * as vocabRepo from '../repositories/vocabulary.repo.js';
 import type { NewQuizAttemptRow } from '../types/database.js';
-import { NotFoundError } from '../utils/errors.js';
+import {
+  NotFoundError,
+  ValidationFailedError,
+  isPgForeignKeyViolation,
+} from '../utils/errors.js';
 import {
   quizAttemptRowToDto,
   quizSessionRowToDto,
@@ -65,6 +70,29 @@ export function scoreAttempts(attempts: readonly GradeableAttempt[]): ScoreResul
   return { score, total: graded.length, graded };
 }
 
+/**
+ * Trả về các vocabularyId được tham chiếu trong `attempts` nhưng KHÔNG có trong
+ * `existingIds` (các từ đang tồn tại). Giữ thứ tự xuất hiện, loại trùng, bỏ qua
+ * null/undefined. THUẦN — không phụ thuộc DB, unit test được. Dùng để báo lỗi
+ * rõ ràng trước khi ghi, tránh FK-violation (quiz_attempts.vocabulary_id).
+ */
+export function missingVocabularyIds(
+  attempts: readonly { vocabularyId?: string | null | undefined }[],
+  existingIds: readonly string[],
+): string[] {
+  const existing = new Set(existingIds);
+  const seen = new Set<string>();
+  const missing: string[] = [];
+  for (const attempt of attempts) {
+    const id = attempt.vocabularyId;
+    if (id === null || id === undefined) continue;
+    if (existing.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    missing.push(id);
+  }
+  return missing;
+}
+
 // ---------------------------------------------------------------------------
 // Điều phối (ghi quiz_sessions + quiz_attempts trong một transaction).
 // ---------------------------------------------------------------------------
@@ -76,32 +104,66 @@ export async function createSession(
 ): Promise<QuizSessionDto> {
   const { score, total, graded } = scoreAttempts(input.attempts);
 
-  const result = await db.transaction().execute(async (trx) => {
-    const session = await quizRepo.insertSession(
-      {
-        owner_id: ownerId(),
-        mode: input.mode ?? 'typing',
-        score,
-        total,
-        started_at: input.startedAt ?? now,
-        finished_at: input.finishedAt ?? now,
-      },
-      trx,
+  // Chặn sớm lỗi khóa ngoại: mọi vocabularyId tham chiếu phải là từ ĐANG SỐNG
+  // của chính owner. Nếu không, trả 400 (thông báo rõ) thay vì để Postgres ném
+  // FK-violation → map nhầm về 500. FK: quiz_attempts.vocabulary_id → vocabularies(id).
+  const referencedIds = [
+    ...new Set(
+      input.attempts
+        .map((attempt) => attempt.vocabularyId)
+        .filter((id): id is string => id !== null && id !== undefined),
+    ),
+  ];
+  if (referencedIds.length > 0) {
+    const existingIds = await vocabRepo.selectExistingIds(ownerId(), referencedIds);
+    const missing = missingVocabularyIds(input.attempts, existingIds);
+    if (missing.length > 0) {
+      throw new ValidationFailedError(
+        `One or more quiz attempts reference a vocabulary that does not exist: ${missing.join(', ')}`,
+      );
+    }
+  }
+
+  try {
+    const result = await db.transaction().execute(async (trx) => {
+      const session = await quizRepo.insertSession(
+        {
+          owner_id: ownerId(),
+          mode: input.mode ?? 'typing',
+          score,
+          total,
+          started_at: input.startedAt ?? now,
+          finished_at: input.finishedAt ?? now,
+        },
+        trx,
+      );
+
+      const attemptRows: NewQuizAttemptRow[] = graded.map((item) => ({
+        session_id: session.id,
+        vocabulary_id: item.vocabularyId,
+        prompt: item.prompt,
+        user_answer: item.userAnswer,
+        is_correct: item.isCorrect,
+      }));
+      const attempts = await quizRepo.insertAttempts(attemptRows, trx);
+
+      return { session, attempts };
+    });
+
+    return quizSessionRowToDto(
+      result.session,
+      result.attempts.map(quizAttemptRowToDto),
     );
-
-    const attemptRows: NewQuizAttemptRow[] = graded.map((item) => ({
-      session_id: session.id,
-      vocabulary_id: item.vocabularyId,
-      prompt: item.prompt,
-      user_answer: item.userAnswer,
-      is_correct: item.isCorrect,
-    }));
-    const attempts = await quizRepo.insertAttempts(attemptRows, trx);
-
-    return { session, attempts };
-  });
-
-  return quizSessionRowToDto(result.session, result.attempts.map(quizAttemptRowToDto));
+  } catch (err) {
+    // An toàn trước tình huống đua: nếu từ vựng bị xóa giữa pre-check và lúc ghi,
+    // Postgres ném FK-violation (23503) → map về 400 thay vì 500.
+    if (isPgForeignKeyViolation(err)) {
+      throw new ValidationFailedError(
+        'One or more quiz attempts reference a vocabulary that does not exist',
+      );
+    }
+    throw err;
+  }
 }
 
 /** Đọc lại một phiên quiz (kèm các lần trả lời). */

@@ -36,3 +36,15 @@ export function isPgUniqueViolation(err: unknown): boolean {
     (err as { code?: unknown }).code === PG_UNIQUE_VIOLATION
   );
 }
+
+/** Mã lỗi Postgres cho foreign key violation (tham chiếu tới bản ghi không tồn tại). */
+export const PG_FOREIGN_KEY_VIOLATION = '23503';
+
+export function isPgForeignKeyViolation(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code?: unknown }).code === PG_FOREIGN_KEY_VIOLATION
+  );
+}

@@ -36,6 +36,27 @@ export async function selectById(
     .executeTakeFirst();
 }
 
+/**
+ * Trả về tập con các id đang sống (của owner) có mặt trong danh sách truyền vào.
+ * Dùng để kiểm tra tồn tại trước khi tham chiếu (vd quiz_attempts.vocabulary_id),
+ * nhằm báo lỗi rõ ràng thay vì để Postgres ném FK-violation.
+ */
+export async function selectExistingIds(
+  ownerId: string,
+  ids: readonly string[],
+  trx?: Executor,
+): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const rows = await exec(trx)
+    .selectFrom('vocabularies')
+    .select('id')
+    .where('owner_id', '=', ownerId)
+    .where('deleted_at', 'is', null)
+    .where('id', 'in', [...ids])
+    .execute();
+  return rows.map((row) => row.id);
+}
+
 /** Tìm bản ghi sống trùng (owner, word, reading) để chống trùng Quick Add. */
 export async function findDuplicate(
   ownerId: string,
