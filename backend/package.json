@@ -17,7 +17,8 @@
     "db:baseline": "node --env-file-if-exists=.env --import tsx src/utils/database-cli.ts baseline --confirm-existing-schema"
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=24.14.1 <25",
+    "npm": ">=11"
   },
   "dependencies": {
     "fastify": "5.12.5",
@@ -29,7 +30,7 @@
     "@types/node": "24.10.1",
     "@types/pg": "8.15.6",
     "tsx": "4.21.0",
-    "typescript": "7.0.2",
+    "typescript": "6.0.3",
     "vitest": "5.0.2"
   }
 }
