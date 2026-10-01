@@ -17,7 +17,7 @@
 
 - **Toàn bộ `backend/src` trước đây CHƯA được commit** (git untracked) dù todo ghi mục 1–3 là XONG. Phiên này đã commit lại toàn bộ nền BE (mục 1–3) cùng với mục 4 trong một commit. Từ nay bám đúng quy tắc: commit sau mỗi mục.
 - `backend/src/types/database.ts` **đã khớp** `docs/database/schema.sql` (đủ 8 bảng, có kiểu cho `quiz_sessions`/`quiz_attempts`). Typecheck 0 lỗi → KHÔNG cần sửa (khác với giả định "đang sửa dở").
-- Có **file rác ở gốc repo tên `showDialog({`** (rỗng, git đang báo deleted ở working tree). KHÔNG đụng tới vì ngoài phạm vi mục 4 — để bạn quyết định xóa khỏi index.
+- ✅ (ĐÃ XÓA) File rác ở gốc repo tên `showDialog({` (rỗng) đã được gỡ khỏi git bằng `git rm` + commit riêng. Working tree & index giờ sạch (xem mục "Dọn dẹp BE" bên dưới, BE-2).
 - Đã xóa file rác rỗng `backend/typecheck.out.txt`.
 
 ## Mục 4 — BE learning (SRS SM-2 + Quiz) ✅
@@ -73,6 +73,10 @@
   - `backend/tests/unit/errors.test.ts` (MỚI) — `isPgForeignKeyViolation` / `isPgUniqueViolation` (3 test).
 - **Kiểm chứng:** `npm run typecheck` 0 lỗi; `npm run test:unit` **31/31 pass** (srs 15, quiz 8, sync 5, errors 3).
 - **Còn lại:** integration test (POST trả 400 thật) vẫn chờ DB `kanji_nest`.
+
+### BE-2 ✅ Gỡ file rác tracked `showDialog({`
+- File rỗng `showDialog({` ở gốc repo (tạo nhầm từ phiên trước, git theo dõi) đã được gỡ bằng `git rm -- "showDialog({"` và commit **riêng** (không trộn với BE-1).
+- Sau khi gỡ: `git status` sạch (chỉ còn chênh lệch do các commit chưa push).
 
 ## Bước tiếp theo → Mục 5 (FE nền, FSD)
 
