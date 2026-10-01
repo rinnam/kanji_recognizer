@@ -1,6 +1,6 @@
 import { useState, type ReactElement } from 'react';
 import { FolderTree } from '../../features/folder-tree';
-import { EmptyState } from '../../shared/ui';
+import { VocabularyOverview } from '../../features/vocabulary';
 import './LibraryPage.css';
 
 /** Trang Thư viện: cây thư mục (F1) ở sidebar; Overview + Quick Add (F2) ở vùng chính. */
@@ -17,14 +17,7 @@ export function LibraryPage(): ReactElement {
           <FolderTree selectedId={selectedFolderId} onSelect={setSelectedFolderId} />
         </aside>
         <div className="kn-library__main">
-          <EmptyState
-            title="Danh sách từ vựng"
-            description={
-              selectedFolderId === null
-                ? 'Overview + Quick Add sẽ hiện ở đây (F2). Đang xem: tất cả từ.'
-                : 'Overview + Quick Add sẽ hiện ở đây (F2). Đang xem một thư mục đã chọn.'
-            }
-          />
+          <VocabularyOverview folderId={selectedFolderId} />
         </div>
       </div>
     </section>

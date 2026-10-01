@@ -196,3 +196,23 @@ Thả vào MỘT folder → thành con (nối cuối). Thả vào "gạch trư�
 - `npm test`: **14/14 pass** (id 2, srs 4, primitives 2, folder-tree 6).
 - `npm run build`: **OK** (chunk Library ~8.7kB).
 - `npm run lint`: **0 lỗi**; 4 cảnh báo react-refresh HMR vô hại (router.tsx 3 + ThemeProvider.tsx 1 — ThemeProvider có sẵn từ Mục 5).
+
+## Mục 6 — F2: features/vocabulary (Overview + Quick Add) ✅
+
+Local-first. **Quick Add chống trùng (word + reading**, reading null = rỗng) KHỚP BE (so khớp chính xác, có trim). Overview: lọc theo thư mục đang chọn (folderIds chứa id) + JLPT + tìm kiếm (**debounce 300ms**, trên word/meaning/reading/sinoVietnamese), sắp mới nhất trước. Xóa = tombstone.
+
+### Files TẠO MỚI (frontend/src/features/vocabulary)
+- model: `dedupe.ts` (dedupeKey/findDuplicate), `filter.ts` (filterVocabularies), `useDebouncedValue.ts`, `useVocabulary.ts` (load/reload/quickAdd/remove).
+- ui: `QuickAddForm.tsx` (Từ*, Cách đọc, Nghĩa*, JLPT, Ghi chú), `VocabularyFilters.tsx` (tìm kiếm + JLPT), `VocabularyList.tsx` (bảng + nút Xóa), `VocabularyOverview.tsx` (ghép + Modal xác nhận xóa), `vocabulary.css`.
+- `index.ts`; `tests/unit/vocabulary.test.ts` (5 test: dedupe + filter).
+
+### Files SỬA
+- `pages/Library/LibraryPage.tsx` — vùng chính render <VocabularyOverview folderId={selectedFolderId}/>; chọn thư mục ở sidebar lọc danh sách và quyết định folder cho Quick Add.
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**.
+- `npm test`: **19/19 pass** (id 2, srs 4, primitives 2, folder-tree 6, vocabulary 5).
+- `npm run build`: **OK** (chunk Library ~15.4kB).
+- `npm run lint`: **0 lỗi**; 4 cảnh báo react-refresh HMR vô hại (router.tsx 3 + ThemeProvider.tsx 1).
+
+### DỪNG sau F2 (theo yêu cầu) — chờ người dùng chạy thử trước khi làm F5 (sync).
