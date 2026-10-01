@@ -1,0 +1,90 @@
+/* Primitive dùng chung — theme sáng/tối qua token --kn-* (xem theme/tokens.css). */
+.kn-ui-btn {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--kn-border);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  background: var(--kn-surface);
+  color: var(--kn-text);
+}
+.kn-ui-btn:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 2px;
+}
+.kn-ui-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.kn-ui-btn--primary {
+  background: var(--kn-primary);
+  color: var(--kn-primary-contrast);
+  border-color: var(--kn-primary);
+}
+
+.kn-ui-input {
+  font: inherit;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--kn-border);
+  border-radius: 0.5rem;
+  background: var(--kn-surface);
+  color: var(--kn-text);
+}
+.kn-ui-input:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 1px;
+}
+.kn-ui-input[aria-invalid='true'] {
+  border-color: var(--kn-danger);
+}
+
+.kn-ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.75rem;
+}
+.kn-ui-field__label {
+  font-size: 0.9rem;
+  color: var(--kn-text-muted);
+}
+.kn-ui-field__error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--kn-danger);
+}
+
+.kn-ui-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 50;
+}
+.kn-ui-modal {
+  width: 100%;
+  max-width: 28rem;
+  background: var(--kn-surface);
+  color: var(--kn-text);
+  border: 1px solid var(--kn-border);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+.kn-ui-modal__title {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+}
+.kn-ui-modal__title:focus-visible {
+  outline: none;
+}
+.kn-ui-modal__footer {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}

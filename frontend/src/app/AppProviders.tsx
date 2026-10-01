@@ -1,7 +1,12 @@
 import { type ReactElement, type ReactNode } from 'react';
+import { DbProvider } from '../shared/db';
 import { ThemeProvider } from '../shared/ui';
 
-/** Gom các provider cấp app (hiện: theme). Thêm provider khác ở đây khi cần. */
+/** Gom provider cấp app: Theme (ngoài cùng) → DbProvider (mở IndexedDB một lần). */
 export function AppProviders({ children }: { children: ReactNode }): ReactElement {
-  return <ThemeProvider>{children}</ThemeProvider>;
+  return (
+    <ThemeProvider>
+      <DbProvider>{children}</DbProvider>
+    </ThemeProvider>
+  );
 }

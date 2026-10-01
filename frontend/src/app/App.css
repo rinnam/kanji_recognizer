@@ -19,10 +19,42 @@
   font-size: 1.125rem;
 }
 
+.kn-nav {
+  display: flex;
+  flex: 1;
+  gap: 0.25rem;
+}
+
+.kn-nav__link {
+  text-decoration: none;
+  color: var(--kn-text-muted);
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.5rem;
+}
+
+.kn-nav__link:hover {
+  color: var(--kn-text);
+  background: var(--kn-bg);
+}
+
+.kn-nav__link--active {
+  color: var(--kn-primary);
+  font-weight: 600;
+}
+
+.kn-nav__link:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 2px;
+}
+
 .kn-main {
   flex: 1;
-  display: flex;
   padding: 1.5rem 1rem;
+}
+
+.kn-boot {
+  min-height: 100vh;
+  display: flex;
 }
 
 .kn-state {

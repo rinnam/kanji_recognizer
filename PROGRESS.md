@@ -133,3 +133,39 @@ cd frontend && npm run typecheck && npm test && npm run dev
 # Áp schema DB (đọc DATABASE_URL từ .env)
 psql "$DATABASE_URL" -f docs/database/schema.sql
 ```
+
+## Mục 6 — F0: Router + DbProvider + primitive shared/ui + khung pages/nav ✅
+
+Quyết định đã chốt với người dùng: **#1** react-router-dom **7.18.4** (pin cứng, không caret); **#5** DbProvider (mở IndexedDB một lần) + primitive shared/ui (Button/Input/Field/Modal), KHÔNG thêm thư viện UI.
+
+### Dependency
+- `react-router-dom`: **7.18.4** (exact) — hỗ trợ React 19 (tối thiểu React 18).
+
+### Files TẠO MỚI (frontend/src)
+- `shared/db/` — `DbProvider.tsx` (mở IndexedDB 1 lần qua `openKanjiDb`, 3 trạng thái loading/error/ready, KHÔNG đóng kết nối), `useDb.ts` (hook lấy db, ném lỗi nếu dùng ngoài provider), `index.ts`.
+- `shared/ui/primitives/` — `Button.tsx`, `Input.tsx`, `Field.tsx`, `Modal.tsx` (Esc/click nền để đóng, focus tiêu đề khi mở, aria-modal), `primitives.css` (dùng token --kn-*).
+- `routes/` — `paths.ts` (`ROUTE_PATHS`, `ROUTES`, `NAV_ITEMS`), `index.ts`.
+- `app/` — `AppLayout.tsx` (header + nav NavLink + ThemeToggle + <Outlet/> trong <Suspense/>), `router.tsx` (createBrowserRouter + React.lazy 3 trang + route 404), `NotFound.tsx`.
+- `pages/Library|Study|Quiz/` — `*Page.tsx` + `index.ts` (placeholder; Library đọc số đếm folder/vocab qua useDb). TÁI DÙNG thư mục cũ, CHƯA xóa .gitkeep.
+- `tests/unit/primitives.test.tsx` — smoke test Button + Field (2 test).
+
+### Files SỬA
+- `app/App.tsx` — rút gọn thành `<AppProviders><RouterProvider/></AppProviders>` (bỏ boot logic cũ; việc mở DB chuyển vào DbProvider).
+- `app/AppProviders.tsx` — ThemeProvider (ngoài cùng) → DbProvider.
+- `app/App.css` — thêm `.kn-nav*`, `.kn-boot`; `.kn-main` chuyển sang block.
+- `shared/ui/index.ts` — import `primitives.css` + export 4 primitive.
+
+### Định tuyến
+- `/` → chuyển hướng `/library`. Các trang `/library` `/study` `/quiz` nạp lười (tách chunk). `*` → 404.
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**.
+- `npm test`: **8/8 pass** (id 2, srs 4, primitives 2).
+- `npm run build`: **OK** — tách chunk Library/Study/Quiz (code-splitting).
+- `npm run lint`: **sạch** (0 lỗi/cảnh báo).
+
+### Audit placeholder (#4 — CHƯA xóa)
+Tất cả thư mục scaffold dưới `frontend/src` (features/{auth,library,progress,srs,study}, pages/{Home,Login,Progress,SRS}, components/, hooks/, utils/, routes-cũ, services/, stores/, types/, constants/, layouts/, assets/) chỉ chứa `.gitkeep` và KHÔNG nơi nào import. Sẽ gom vào **1 commit dọn riêng** sau khi người dùng duyệt danh sách.
+
+### Lưu ý
+- `vocab.local.ts` / `folder.local.ts` khớp mẫu gitignore `*.local` của tooling nên công cụ AI không đọc trực tiếp được, nhưng ĐÃ được track trong git (commit Mục 5) và dùng bình thường qua public API của entity.
