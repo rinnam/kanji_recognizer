@@ -1,0 +1,35 @@
+{
+  "name": "kanji-recognizer-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --watch --import tsx src/server.ts",
+    "start": "node --env-file-if-exists=.env dist/src/server.js",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:guard": "vitest run tests/integration/database-safety.test.ts",
+    "test:integration": "vitest run tests/integration --exclude tests/integration/database-safety.test.ts",
+    "db:status": "node --env-file-if-exists=.env --import tsx src/utils/database-cli.ts status",
+    "db:baseline": "node --env-file-if-exists=.env --import tsx src/utils/database-cli.ts baseline --confirm-existing-schema"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "fastify": "5.12.5",
+    "kysely": "0.29.6",
+    "pg": "8.23.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/pg": "8.15.6",
+    "tsx": "4.21.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.2"
+  }
+}

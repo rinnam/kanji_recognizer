@@ -1,7 +1,7 @@
 # Plan QZ — Quiz system
 
 ## Purpose and coverage
-Deliver meaning recall and reading input with explainable, versioned scoring isolated from SRS. Covers LS-FR-008..009, 015..016 and A3/A6/A7.
+Deliver the selected Typing Quiz for meaning and reading input with explainable, versioned, IME-safe scoring isolated from SRS. Covers LS-FR-008..009, 015..016 and A3/A6/A7.
 
 ## Prerequisites
 LL completion; content/source quality accepted; LS-OD-04 resolved for MVP mode and accepted answers; locale implications from LS-OD-10 reviewed. Drawing-production quiz remains deferred.
@@ -22,4 +22,10 @@ LL completion; content/source quality accepted; LS-OD-04 resolved for MVP mode a
 Do not send raw answers in analytics by default. Validate answer lengths/encoding, authorize attempt access, version rule/content provenance, and define retention/deletion under LS-OD-08.
 
 ## Completion gate
-Known fixtures score identically by version; feedback is explainable; retry creates a distinct attempt; quiz never rates SRS; all state and accessibility evidence passes. **Blocked** while mode/normalization/content decisions are open.
+Known fixtures score identically by version; feedback is explainable; retry creates a distinct attempt; quiz never rates SRS; all state and accessibility evidence passes. **Blocked** while accepted-answer normalization/content gates remain open; Typing Quiz selection alone does not make implementation Current.
+
+## Current implementation evidence â€” 2026-09-29 continuation
+
+**Current (Partial):** Backend now includes owner-scoped, versioned deck archive/delete/rebalance and guarded parent moves; published course-to-library save; study fetch/resume, Again requeue and latest-event undo; idempotent/concurrent SRS rating plus event pagination; quiz fetch/completion/retry-missed; and incremental progress writes with rebuild retained. React course, deck, study and quiz actions call these APIs, expose live status, keyboard controls, and optimistic rollback for deck mutations.
+
+**Current validation evidence:** Backend typecheck/lint/build and four explicit non-DB test files (8 tests) pass; frontend TypeScript/build/lint pass. Quiz schemas, repository, service, routes, scoring, frontend API, hook, states, and view are separated. `TEST_DATABASE_URL` was not set, so database integration/migration checks were not rerun and are not claimed passed. This is not release completion: disposable-DB validation, browser/AT/zoom evidence, deployment-role grants, and privacy/retention/release gates remain.

@@ -1,13 +1,13 @@
 # PRD — Kanji Recognizer
 
-> **Current:** prototype giao diện React dùng dữ liệu mock. **Target/Proposed:** trải nghiệm nhận diện từ nét vẽ/ảnh và Learning System được giới hạn tại §18. **TBD/Open Decision:** backend, mô hình, persistence, dữ liệu, phạm vi ký tự, chỉ tiêu và kế hoạch phát hành.
+> **Current:** owner đã xóa backend và frontend cũ; repository chưa có runtime UI, và lần triển khai gộp Stage 1–3 khởi tạo backend mới cho Platform + Library mà không chạm recognition. **Target/Proposed:** trải nghiệm nhận diện từ nét vẽ/ảnh và Learning System được giới hạn tại §18; React 19.3.0 + Vite 8.3.1 chỉ là Target frontend về sau, frontend chưa được tạo. **TBD/Open Decision:** mô hình recognition, dữ liệu, phạm vi ký tự, chỉ tiêu và kế hoạch phát hành.
 
 ## 1. Metadata
 
 | Thuộc tính | Giá trị |
 |---|---|
 | Trạng thái tài liệu | Bản chuẩn hiện hành cho phạm vi repository |
-| Phiên bản | 2.4 |
+| Phiên bản | 2.6 |
 | Ngôn ngữ | Tiếng Việt |
 | Chủ sở hữu / người phê duyệt | TBD/Open Decision |
 | Nguồn bằng chứng | `frontend/src/**`, `frontend/package.json`, cây file repository |
@@ -15,11 +15,28 @@
 
 Tài liệu áp dụng cấu trúc PRD theo thông lệ ngành; **không tuyên bố là mẫu chính thức của Google**.
 
+### rule clean code:
+Review and refactor the entire codebase according to the following 12 Clean Code rules:
+Meaningful Naming
+Single Responsibility
+Avoid Magic Numbers and Strings
+Keep Functions Small
+Avoid Deep Nesting
+Avoid Unnecessary Type Assertions
+Minimize ESLint Rule Disabling
+Separate Test Helpers from Test Cases
+Deterministic Tests
+Explicit Assertions
+Readable Code Formatting
+Clear Project Structure & Folder Organization
+
 ### Change log
 
 | Phiên bản | Thay đổi |
 |---|---|
-| 2.4 | Chuẩn hóa Target vocabulary với âm Hán Việt, nghĩa Việt, hiragana và câu ví dụ; thêm course N3 gồm đúng 11 lesson × 80 từ = 880, không tuyên bố implementation Current. |
+| 2.6 | Ghi nhận Target đã chọn: React 19 + Vite, Node.js không chốt framework, deck/folder lồng nhau có drag/drop persistence, Active Recall/Flashcard SRS/Focus Recall/Typing Quiz, Web Speech API/TTS, và quick lookup Jisho/Mazii vẫn bị gate nguồn/license. |
+| 2.5 | Hiệu chỉnh phạm vi: N3, 11 lesson × 80 từ và bốn trường từ vựng chỉ là fixture minh họa; course/lesson/item và metadata validation phải cấu hình được theo content profile/import policy. |
+| 2.4 | Trước đây đã chuẩn hóa bốn trường và N3 11×80 thành Target cố định; nội dung này được hiệu chỉnh bởi 2.5. |
 | 2.3 | Bổ sung Learning System được giới hạn rõ: thư viện/deck, flashcard, quiz, SRS/review và tiến độ; toàn bộ là Target/Proposed và không hàm ý backend đã sẵn sàng. |
 | 2.2 | Thêm định hướng reuse-vs-redesign từ Kanji_Smart ở trạng thái Reference implementation — external, unverified; bổ sung scope, risk, open decision và gate Reference→Current. |
 | 2.1 | Hiệu chỉnh Current theo source: lỗi undo, vòng đời state khi đổi tab, reset file input; chuẩn hóa endpoint đề xuất, persona, truy vết, pipeline/model và trạng thái accessibility/responsive. |
@@ -372,7 +389,7 @@ Xem catalogue đầy đủ tại [requirements-analysis.md](./requirements-analy
 
 ### 18.1 Nguồn cảm hứng và phép biến đổi
 
-KotoBase công khai mô tả thư mục lồng nhau, focus recall, flashcard thường/tiến độ/SRS với bốn mức Again–Hard–Good–Easy, typing quiz, kanji dictionary và dashboard. Kanji Recognizer học từ **cơ chế** tổ chức nội dung, active recall và vòng lặp review, nhưng dùng mô hình deck phẳng có thể gắn nhiều item, scheduler xác định bên dưới, visual Ink Desk và handoff trực tiếp từ kết quả nhận diện. Không sao chép wording, layout, artwork, token hay source code. Nguồn tham khảo: [KotoBase README](https://github.com/Vcoch27/kotobase/blob/main/README.md), [DESIGN](https://github.com/Vcoch27/kotobase/blob/main/DESIGN.md), source/previews công khai tại commit cây `303832123de78f20bbfb28ec86d6d8818b6d96a2` khi khảo sát; hành vi reference vẫn **external, unverified** cho project này.
+KotoBase công khai mô tả thư mục lồng nhau, focus recall, flashcard thường/tiến độ/SRS với bốn mức Again–Hard–Good–Easy, typing quiz, kanji dictionary và dashboard. Kanji Recognizer chọn **Target/Proposed** gồm thư mục Kanji/vocabulary nhiều tầng có drag/drop persistence, Active Recall, Flashcard SRS, Focus Recall, Typing Quiz và vòng lặp review, đồng thời giữ visual Ink Desk và handoff trực tiếp từ kết quả nhận diện. Không sao chép wording, layout, artwork, token hay source code. Nguồn tham khảo: [KotoBase README](https://github.com/Vcoch27/kotobase/blob/main/README.md), [DESIGN](https://github.com/Vcoch27/kotobase/blob/main/DESIGN.md), source/previews công khai tại commit cây `303832123de78f20bbfb28ec86d6d8818b6d96a2` khi khảo sát; hành vi reference vẫn **external, unverified** cho project này.
 
 ### 18.2 Problem/opportunity, goals và non-goals
 
@@ -386,7 +403,7 @@ KotoBase công khai mô tả thư mục lồng nhau, focus recall, flashcard th�
 - **LG-04:** thể hiện tiến độ từ event thực, không biến streak/điểm thành áp lực hoặc claim “đã thành thạo”.
 - **LG-05:** bảo toàn quyền kiểm soát dữ liệu, accessibility và recovery khi offline/lỗi.
 
-**Non-goals cho release slices ở §18.4:** course/lesson ngoài reference course N3 đã chốt tại LS-FR-019; social leaderboard; quảng cáo; AI tạo mnemonic; handwriting grading theo thứ tự nét; audio/TTS; import/export hay chia sẻ deck; nested folders; cộng tác; cam kết đồng bộ đa thiết bị; thay đổi recognition model/API. Các mục có thể được quyết định sau nhưng không nằm trong requirement hiện tại.
+**Non-goals cho release slices ở §18.4:** course/lesson ngoài mô hình configurable tại LS-FR-019; social leaderboard; quảng cáo; AI tạo mnemonic; handwriting grading theo thứ tự nét; import/export hay chia sẻ deck; cộng tác; cam kết đồng bộ đa thiết bị; thay đổi recognition model/API. Các mục có thể được quyết định sau nhưng không nằm trong requirement hiện tại.
 
 ### 18.3 Personas và JTBD — Unverified
 
@@ -415,7 +432,7 @@ Slice là thứ tự phụ thuộc, không phải deadline hay cam kết backend
 | Entity | Trường khái niệm tối thiểu | Invariant |
 |---|---|---|
 | **Library** | `ownerRef`, `createdAt`, preferences | Một library logic cho mỗi scope người dùng; identity model TBD. |
-| **Deck** | `deckId`, `name`, `description?`, `createdAt`, `updatedAt`, `archivedAt?` | Tên trim, không rỗng; uniqueness policy TBD; archive không xóa review history. |
+| **Deck** | `deckId`, `parentId?`, `sortPosition`, `name`, `description?`, `createdAt`, `updatedAt`, `archivedAt?` | Cây tối đa 8 tầng; cùng library/owner; không cycle; thứ tự sibling `(sortPosition, deckId)`; archive không xóa review history. |
 | **LearningItem** | `itemId`, `character`, `readings[]`, `meanings[]`, `sourceRef`, `metadataVersion`, `createdAt` | Identity canonical/dedupe key TBD; metadata thiếu vẫn render an toàn; source/provenance bắt buộc. |
 | **DeckMembership** | `deckId`, `itemId`, `addedAt`, `sourceContext?` | Một membership cho mỗi cặp; một item có thể thuộc nhiều deck. |
 | **Card** | `cardId`, `itemId`, `template`, `prompt`, `answer`, `enabled` | Card là cách hỏi, không nhân bản item; template versioned. |
@@ -430,14 +447,14 @@ Slice là thứ tự phụ thuộc, không phải deadline hay cam kết backend
 
 | ID | Requirement Target/Proposed | Priority | Verification summary |
 |---|---|---|---|
-| **LS-FR-001** | Tạo, đổi tên, archive/xóa deck và hiển thị count chính xác. | Must LS1 | CRUD, validation, confirm impact, empty/error tests. |
+| **LS-FR-001** | Tạo, đổi tên, lồng tối đa 8 tầng, kéo-thả/reorder bền vững, archive/xóa deck và hiển thị count chính xác. | Must LS1 | CRUD; valid move/reorder; cross-library/cycle/depth rejection; lifecycle/confirm/error tests. |
 | **LS-FR-002** | Lưu/bỏ một LearningItem vào một hoặc nhiều deck; dedupe membership và phản hồi idempotent. | Must LS1 | Double-submit không tạo bản sao; saved state khớp reload. |
 | **LS-FR-003** | Tìm, lọc, sắp xếp thư viện theo text/deck/study state/due; reset filter rõ. | Should LS1 | Query/state/empty/no-results/keyboard tests. |
-| **LS-FR-004** | Hiển thị detail với kanji, reading, meaning, provenance và trạng thái deck/SRS; field thiếu không crash. | Must LS1 | Partial-data contract tests. |
+| **LS-FR-004** | Hiển thị detail với kanji, meaning, âm Hán Việt, On/Kun, JLPT, số nét, provenance và trạng thái deck/SRS; field thiếu không crash. TTS tiếng Nhật dùng Web Speech API/TTS khi capability có sẵn và phải có control/fallback minh bạch. | Must LS1 | Partial-data, locale/reading mapping, speech capability/fallback tests. |
 | **LS-FR-005** | Từ candidate đã xác nhận, mở save sheet mang theo immutable candidate/item reference và source `recognition`; người dùng chọn/tạo deck rồi lưu. | Must LS1 | AC §18.15 A1. |
 | **LS-FR-006** | Flashcard tạo snapshot thứ tự, front/back, reveal trước rating, shuffle tùy chọn và resume. | Must LS2 | AC A2; deterministic seed khi test. |
 | **LS-FR-007** | Flashcard practice cho phép `Know/Review again` nhưng không đổi SRS; bỏ qua được ghi riêng. | Must LS2 | Không tạo ReviewLog SRS. |
-| **LS-FR-008** | Quiz hỗ trợ `meaning recall` và `reading input`; chọn deck/scope, số câu, summary và retry missed. | Must LS2 | AC A3; normalization versioned. |
+| **LS-FR-008** | Typing Quiz hỗ trợ `meaning recall` và `reading input`; chọn deck/scope, số câu, summary và retry missed. | Must LS2 | AC A3; IME-safe normalization versioned. |
 | **LS-FR-009** | Quiz chấm sau submit; không dùng confidence nhận diện làm correctness. | Must LS2 | Correct/incorrect/accepted variants có explanation. |
 | **LS-FR-010** | Review queue lấy card `dueAt <= effectiveNow`, ưu tiên relearning/learning trước review rồi new theo limit TBD. | Must LS3 | Clock-fixed ordering tests. |
 | **LS-FR-011** | Chỉ sau reveal mới nhận `Again/Hard/Good/Easy`; update theo §18.8 và hiển thị preview interval. | Must LS3 | AC A4; idempotency/concurrency tests. |
@@ -447,9 +464,14 @@ Slice là thứ tự phụ thuộc, không phải deadline hay cam kết backend
 | **LS-FR-015** | Mọi màn hình có empty/loading/error/offline/partial/success và retry an toàn. | Must | Matrix §18.11. |
 | **LS-FR-016** | Khi capability phụ thuộc backend chưa có, UI không giả thành công; prototype phải ghi rõ local/mock. | Must | Content + integration gate. |
 | **LS-FR-017** | Người dùng có thể xem/xóa dữ liệu học theo scope policy đã duyệt; export là open decision. | Must trước launch | Privacy acceptance và deletion verification. |
-| **LS-FR-018** | Mỗi vocabulary được publish phải có ít nhất một âm Hán Việt, một nghĩa tiếng Việt, một cách đọc hiragana và một câu ví dụ có provenance/license. | Must content import | Import fixture thiếu từng thành phần phải fail; draft có thể chưa đủ, active không được thiếu. |
-| **LS-FR-019** | Cung cấp reference course `JLPT N3 Core` gồm đúng 11 lesson, mỗi lesson đúng 80 vocabulary, tổng 880 vocabulary không trùng trong course và có thứ tự lesson/item ổn định. | Must content import | Publish contract kiểm lesson 1..11, position 1..80, 880 distinct active N3 vocabulary; không seed dữ liệu giả. |
+| **LS-FR-018** | Metadata vocabulary là optional ở mô hình chung; content profile/import policy được chọn mới quyết định trường nào bắt buộc, locale/script, số lượng tối thiểu và provenance/license. | Must content import | Fixture theo từng profile chứng minh rule cấu hình được; thiếu field chỉ fail khi policy tương ứng yêu cầu; UI vẫn render partial data an toàn. |
+| **LS-FR-019** | Hỗ trợ course → lesson → item với số lượng và loại content tùy ý; thứ tự ổn định và publish validation lấy từ cấu hình course/import policy, không từ N3 hoặc cardinality hardcode. | Must content import | Test course không đều và profile khác nhau; `JLPT N3 Core` 11×80/880 được giữ như fixture minh họa tùy chọn, không phải contract sản phẩm toàn cục. |
 
+### 18.6A Quick lookup and speech boundaries
+
+- **Target:** automatic quick lookup concepts may surface Jisho/Mazii entry points from confirmed Kanji/vocabulary context; no network call, scraping, endpoint, cache, or imported data is approved or implemented.
+- The user's deferred source/licensing decision remains a hard compliance gate: verify terms, attribution, provenance, redistribution/cache limits, privacy, rate limits, and failure behavior before integration. Missing approval disables the capability without weakening provenance/license boundaries.
+- Japanese pronunciation uses Web Speech API/TTS as a capability-gated Target. UI selects an available Japanese voice when possible, exposes play/stop and unavailable/error states, and never treats speech output as canonical reading data.
 ### 18.7 Session và quiz rules
 
 **Flashcard practice:** scope là deck/filter snapshot; mặc định giữ thứ tự thư viện, shuffle tạo thứ tự cố định trong session; front hiển thị prompt duy nhất, back hiển thị answer + metadata; không có rating trước reveal; `Know`/`Review again` chỉ phân loại trong session, mục “again” quay lại sau khi các mục chưa xem đã đi qua một lần; tối đa lượt lặp, batch size và auto-advance là **TBD/Open Decision**; thoát lưu cursor nếu persistence tồn tại.
@@ -462,9 +484,9 @@ Slice là thứ tự phụ thuộc, không phải deadline hay cam kết backend
 
 Mỗi câu có một submit rõ; sau submit khóa answer, hiển thị đáp án chấp nhận được và lý do; retry missed tạo attempt mới, không sửa lịch SRS. Quiz và SRS là hai hệ riêng ở LS2/LS3; quiz score không tự động rating card.
 
-### 18.8 SRS scheduling model v1
+### 18.8 Versioned Anki-style SM-2 family contract
 
-Mô hình v1 là biến thể SM-2 đơn giản, deterministic và versioned; không tuyên bố tối ưu khoa học. `effectiveNow` do authority clock quyết định (**TBD: client hay server**). `dueAt` là timestamp UTC; ngày/streak render theo IANA time zone đã lưu.
+Target chọn họ thuật toán Anki-style SM-2 deterministic và versioned; đây không phải tuyên bố exact Anki parity. `effectiveNow` do authority clock quyết định (**TBD: client hay server**). `dueAt` là timestamp UTC; ngày/streak render theo IANA time zone đã lưu.
 
 **Defaults đề xuất:** `ease=2.50`, min `1.30`, max `3.00`; learning steps `[10 phút, 1 ngày]`; relearning `[10 phút]`; graduating interval `3 ngày`; easy interval `5 ngày`; fuzz **không dùng trong v1** để test/giải thích được. Các giá trị cần product validation trước LS3.
 
@@ -578,10 +600,10 @@ Các tiêu chí A1..A8 là gate chấp nhận xuyên hệ thống do PRD sở h�
 | ID | Quyết định cần chốt | Owner | Due | Status |
 |---|---|---|---|---|
 | **LS-OD-01** | Account/cloud, local-only hay hybrid; migration giữa các mode? | TBD | TBD | Open |
-| **LS-OD-02** | Canonical item/dedupe key, metadata source/license và editable fields? | TBD | TBD | Open |
-| **LS-OD-03** | Deck naming uniqueness, item global delete và archive semantics? | TBD | TBD | Open |
-| **LS-OD-04** | Quiz MVP là typing hay multiple choice; accepted reading/meaning rules? | TBD | TBD | Open |
-| **LS-OD-05** | Scheduler defaults, day boundary, limits, undo/bury/leech và migration? | TBD | TBD | Open |
+| **LS-OD-02** | Quick lookup concept cho Jisho/Mazii đã chọn làm Target, nhưng source/API/terms/license, canonical key và editable fields? | TBD | TBD | **Deferred compliance gate**; không có terms approval hay call implementation |
+| **LS-OD-03** | Nested hierarchy/drag-drop, depth 8 và child-first archive/delete đã chọn; deck naming uniqueness và item global delete? | TBD | TBD | Partially resolved Target; remaining policy Open |
+| **LS-OD-04** | Typing Quiz đã chọn; accepted reading/meaning, romaji/okurigana và normalization rules? | TBD | TBD | Partially resolved Target; scoring rules Open |
+| **LS-OD-05** | Versioned Anki-style SM-2 family và rating meanings đã chọn; constants, steps, day boundary, limits, undo/bury/leech, migration và golden fixtures? | TBD | TBD | Partially resolved Target; exact parity not claimed |
 | **LS-OD-06** | Time authority, offline mutation queue và conflict resolution? | TBD | TBD | Open |
 | **LS-OD-07** | Active-day definition có tính quiz; streak time-zone change policy? | TBD | TBD | Open |
 | **LS-OD-08** | Retention/export/deletion/consent/age-region requirements? | TBD | TBD | Open |

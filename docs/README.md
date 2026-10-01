@@ -21,9 +21,10 @@ AI contributors must follow [`AGENTS.md`](../AGENTS.md) and append every coheren
 | [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md) | Chỉ dẫn tái sử dụng cho Library, save/detail, Flashcard, Quiz, Review/SRS, Progress và recognition handoff | Requirement canonical, backend readiness hoặc status Current |
 | [Feature specification](./feature-specification.md) | Frontend adapter, lifecycle, validation/mapping implications | Product target hoặc API schema canonical |
 | [Database design](./database-design.md) | Mô hình dữ liệu logic, invariant, ownership, lifecycle, privacy, sync alternatives và decision gates | Engine/account/backend/persistence đã được duyệt |
-| [Reference database schema](./database-schema.sql) | DDL Target/Proposed portable khớp mô hình logic | Migration hoặc live database |
+| [Reference database schema](./database-schema.sql) | DDL Target/Proposed PostgreSQL-native khớp mô hình logic | Migration hoặc live database |
 | [Master implementation roadmap](./implementation-roadmap.md) | Thứ tự cross-functional, dependency/gate, rollout/rollback, evidence và release DoD | Requirement canonical hoặc quyết định công nghệ/owner/date |
 | [Database implementation plan](./plans/database-implementation-plan.md) | DB-001..020, gate, evidence, rollout/rollback và Definition of Done | Trạng thái implementation hoặc lựa chọn LS-OD |
+| [KotoBase UI adoption plan](./plans/kotobase-ui-adoption.md) | Nghiên cứu layout/flow/feature và kế hoạch UI Target/Proposed độc lập | Product code, quyết định backend, quyền tái sử dụng artifact ngoài |
 | [Companion implementation plans](./plans/) | Task ID ổn định, dependency, acceptance và completion gate theo workstream | Trạng thái Current hoặc quyết định sản phẩm canonical |
 | [Frontend implementation plan](./frontend-implementation-plan.md) | FE-WS0..FE-WS5 recognition và FE-L0..FE-L6 learning, gate/task/evidence | Baseline, milestone hoặc open decision canonical |
 | [Frontend README](../frontend/README.md) | Cách chạy và phát triển prototype | Yêu cầu sản phẩm |
@@ -65,3 +66,32 @@ Owner cá nhân, người phê duyệt và nhịp rà soát vẫn là **TBD/Open
 - Mọi tuyên bố Current phải truy được tới source hoặc bằng chứng kiểm tra.
 - Không đổi Proposed thành Current trước khi có mã, kiểm thử và bằng chứng vận hành.
 - Không đổi các ID đã phát hành FR/NFR/US/CUJ/G/M, LS-FR/LS-OD/LG/LP/LUS hoặc plan-task IDs (PF/RP/LL/FC/SR/QZ/PA/QR/FE); thay đổi contract phải đồng bộ PRD, story, plan, feature spec, catalogue và kiểu frontend liên quan trong cùng thay đổi.
+
+## Engineering operating standards
+
+Bộ `docs/engineering/` là lớp **implementation/runtime contract** được thêm để biến PRD thành coding workflow có bằng chứng. Các tài liệu này đặc biệt bắt buộc khi làm CRUD/Library và khi backend dùng PostgreSQL thật.
+
+- [Engineering Standards README](./engineering/README.md)
+- [01 — AI Coding Playbook](./engineering/01-ai-coding-playbook.md) — DoD, vertical slice, mock policy, DB permissions, F0 foundation.
+- [02 — Backend Standards](./engineering/02-backend-standards.md) — Route → Controller → Service → Repository → Kysely → PostgreSQL, error contract, integration test.
+- [03 — Frontend Standards](./engineering/03-frontend-standards.md) — feature boundary, API adapter, state, mock policy, UI error mapping.
+- [04 — Environment & Database Runbook](./engineering/04-env-database-runbook.md) — PostgreSQL, Vite proxy và quy trình chẩn đoán 502.
+- [05 — Library API Contract](./engineering/05-library-api-contract.md) — contract thực thi cho `/v1/library`.
+
+**Không được coi unit test với repository giả là bằng chứng feature chạy thật.** Evidence tối thiểu phải gồm API smoke trên DB dev và xác nhận dữ liệu trong PostgreSQL; browser verification được ghi riêng nếu có UI.
+
+## Coding-agent operating skills
+
+Các tài liệu sau là **bắt buộc khi AI triển khai feature**:
+
+- [Coding Operating Contract](./coding-operating-contract.md) — luật vertical-slice, evidence và chống mock.
+- [PRD Coding Skill](./skills/prd-coding-skill.md) — chuyển nghiệp vụ thành contract/acceptance trước khi code.
+- [Backend Coding Skill](./skills/backend-coding-skill.md) — API thật + PostgreSQL thật + diagnosis 502.
+- [Frontend UI Coding Skill](./skills/frontend-ui-coding-skill.md) — feature boundary, API adapter, state và UI DoD.
+
+### Thứ tự bắt buộc khi nhận một coding task
+`PRD → Coding Operating Contract → Engineering Playbook → Backend/Frontend Standards → implement → API test → DB verify → UI verify → evidence update`.
+
+`PRD Skill → Coding Operating Contract → UI/BE Skill → implement → API test → DB verify → UI verify → evidence update`.
+
+**Anti-pattern bị cấm:** dùng mock data để che API/DB failure, coi HTTP 502 là empty state, hoặc tuyên bố feature completed chỉ vì frontend render được.

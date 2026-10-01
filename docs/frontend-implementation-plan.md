@@ -27,7 +27,7 @@ Dùng [PRD §3](./prd.md#3-hiện-trạng-và-trạng-thái-đích) cho baseline
 - Không log hoặc lưu ảnh ngoài chính sách được duyệt.
 - Mỗi gate yêu cầu bằng chứng tái lập; build/lint đơn lẻ không chứng minh accessibility hay hành vi end-to-end.
 - **Redesign:** UI, design system, responsive và accessibility phải theo chuẩn được duyệt của project hiện tại; không sao chép UI reference.
-- **Learning System:** semantics/acceptance được định nghĩa ở [PRD §18](./prd.md#18-learning-system--targetproposed-bounded). Learning không bị loại khỏi toàn bộ kế hoạch: FE-L0 có thể chuẩn bị shell/view-model/prototype được gắn nhãn local/mock; FE-L1..FE-L6 chỉ tiến theo gate tương ứng trong [master roadmap](./implementation-roadmap.md). Bất kỳ phần phụ thuộc persistence/backend/privacy hoặc `LS-OD-*` chưa đóng vẫn **Blocked**. Quảng cáo là non-goal của các slice hiện tại.
+- **Learning System:** semantics/acceptance được định nghĩa ở [PRD §18](./prd.md#18-learning-system--targetproposed-bounded). Learning không bị loại khỏi toàn bộ kế hoạch: FE-L0 có thể chuẩn bị shell/view-model/prototype được gắn nhãn local/mock; FE-L1 Library Core có thể tiến theo minimal contract an toàn được ghi trong [master roadmap](./implementation-roadmap.md), còn FE-L2 Recognition → Save là future/frozen cho đến khi Recognition integration sẵn sàng. Mỗi `LS-OD-*` chỉ chặn hành vi cụ thể chịu ảnh hưởng; không dùng quyết định mở làm blanket block cho browse/search, non-recognition save hoặc deck lifecycle an toàn. Quảng cáo là non-goal của các slice hiện tại.
 - **AI reuse candidate:** chỉ học theo cách tiếp cận pipeline trong [Kanji_Smart reference analysis](./reference-implementations/kanji-smart.md); FE-WS4 tiếp tục **Blocked** cho đến khi đạt gate reproducibility, license/provenance, artifact integrity, domain fit và contract.
 
 ### Bản đồ phụ thuộc
@@ -49,6 +49,12 @@ FE-WS0/1/2/3/4 ───────> FE-WS5
 | **FE-WS3** | Accessibility/responsive | NFR-001, NFR-004; US-008, US-009 | Keyboard/focus/status/candidate/canvas alternative và ma trận viewport/zoom/touch có bằng chứng; qua Gate D. |
 | **FE-WS4** | Integration seam | FR-007..FR-009; NFR-002, NFR-003; US-010..US-012 | Adapter + runtime validation + DTO/error mapping + cancel/timeout/retry theo contract. **Blocked** đến khi contract và backend được duyệt; qua Gate E. |
 | **FE-WS5** | Automated quality/release evidence | NFR-005; các story bị tác động | Test pyramid phù hợp, CI gates, evidence index và release checklist; qua Gate F. |
+
+### Current scoped evidence — 2026-09-29
+
+- **FE-WS1 — Ready for validation (scoped unavailable-state UX):** `frontend/src/App.tsx` renders recognition as unavailable, disables the recognition action, and explicitly states that no image is sent, inference performed, or candidates fabricated. `frontend/tests/App.test.tsx` verifies the unavailable label, disabled action, and absence of confidence output. This does not validate the full workstream or Gate C production-mode guard.
+- **FE-L0 — Ready for validation:** the local/mock shell exposes Library, Practice, Review, and Progress views plus ready, loading, empty, partial, error, and offline previews; all copy denies persistence/sync and distinguishes illustrative values from verified learner data. Seven frontend tests, typecheck, lint, and production build pass. Browser, accessibility, responsive/zoom/touch, freshness, and route-level evidence remain unverified, so LS0 is not claimed complete.
+- **Blocked/Target retained:** FE-WS4 and real recognition remain blocked by the approved model/inference contract; FE-L1..FE-L6 durable behavior remains gated. No recognition result, persistence, scheduling, analytics, or broad stage completion is promoted to Current.
 
 ## 4. Các pha và gate A–F
 
@@ -128,19 +134,34 @@ Task ID nội bộ không được mang dạng FR/NFR/US/M để tránh bị hi�
 
 ## 7. Mở rộng frontend cho Learning System
 
-Phần này bổ sung có kiểm soát cho FE-WS0..FE-WS5; không đổi trạng thái hoặc gate recognition. Nguồn thứ tự cross-functional là [master roadmap](./implementation-roadmap.md); nguồn state/component/a11y là [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md). Toàn bộ learning vẫn **Target/Proposed** cho đến khi có code và evidence.
+Phần này bổ sung có kiểm soát cho FE-WS0..FE-WS5; không đổi trạng thái hoặc gate recognition. Nguồn thứ tự cross-functional là [master roadmap](./implementation-roadmap.md); nguồn state/component/a11y là [Learning Experience UI Skill](./skills/learning-experience-ui-skill.md). **Current:** FE-L1 có code, unit/component, PostgreSQL integration 5/5 và runtime proxy-chain evidence như ma trận dưới đây. **Partial:** bằng chứng trình duyệt tương tác desktop/mobile/keyboard chưa hoàn tất. **Blocked:** Save UI chính chưa thể xuất hiện vì không có nguồn nội dung chưa lưu đủ điều kiện thực; không được thay bằng form UUID nội bộ. Các workstream learning còn lại vẫn Target/Proposed.
 
 ### 7.1 Workstream và thứ tự tích hợp
 
 | ID | Slice/màn hình theo thứ tự | Component/view-model seam | Requirement | Gate |
 |---|---|---|---|---|
 | **FE-L0** | App shell capability → IA/navigation → shared state gallery | Capability guard, route shell, async-state/freshness patterns | LS-FR-015..016 | LS0; chỉ local/mock prototype, không fake persistence |
-| **FE-L1** | Library list/filter → deck management → item detail | Library/deck/item view models, empty/partial/error/offline states | LS-FR-001..004, 015..017 | L1 contract/identity/storage/metadata/privacy decisions |
-| **FE-L2** | Confirmed recognition candidate → save sheet → saved/detail handoff | Immutable candidate ref, deck picker/create, pending/conflict/result | LS-FR-002, 005, 015..017 | FE-L1 repository/dedupe/idempotency ready |
+| **FE-L1** | Library Core: list/filter → non-recognition save → deck management → item detail | Library/deck/item view models, empty/partial/error/offline states | LS-FR-001..004, 015..019 | Minimal behavior-specific Library contract; unresolved account/cloud, external lookup, global hard-delete, export/retention and launch policies do not blanket-block safe local/core behavior |
+| **FE-L2** | **Future/frozen:** confirmed recognition candidate → save sheet → saved/detail handoff | Immutable candidate ref, deck picker/create, pending/conflict/result | LS-FR-002, 005, 015..017 | Recognition integration plus FE-L1 repository/dedupe/idempotency ready; FE-L2 is not a prerequisite for FE-L1 |
 | **FE-L3** | Practice setup → flashcard front/reveal/back → classification → summary/resume | Session snapshot/cursor/order; Know/Review again isolated from SRS | LS-FR-006..007, 015..016 | L2 metadata/session policy |
 | **FE-L4** | Quiz setup → question/submit → feedback → summary/retry | Versioned scoring/normalization result model | LS-FR-008..009, 015..016 | L3 quiz/content decisions |
 | **FE-L5** | Review queue → card/reveal → rating/preview → summary/resume/card controls | Due item, scheduler preview, commit/conflict model | LS-FR-010..012, 014..016 | L4 clock/scheduler/idempotency/offline decisions |
 | **FE-L6** | Progress range → activity/recall/inventory/streak/forecast | Metric value + denominator/range/freshness; text/table chart alternative | LS-FR-013, 015..017 | L5 event/privacy/time-zone decisions |
+
+#### Final FE-L1 six-feature evidence matrix
+
+| Feature | Code | Unit test | Integration | Runtime FE→BE→DB | UI | Status |
+|---|---|---|---|---|---|---|
+| Browse Library | Implemented | Passed | Passed | Passed | Component passed; interactive viewport pending | **Partial** |
+| Search/filter | Implemented | Passed | Passed | Passed | Component passed | **Integration-tested / Runtime-tested** |
+| Deck hierarchy | Implemented | Passed | Passed | Passed | Tree UI passed | **Integration-tested / Runtime-tested** |
+| Save item | Backend implemented; UUID form removed | Passed | Passed | Passed | **Blocked:** no primary UI because no real eligible unsaved-content source exists | **Partial / Blocked UI source** |
+| Create/update deck | Implemented, including move/conflict/reload | Passed | Passed | Passed | Component passed | **Integration-tested / Runtime-tested** |
+| Archive/delete deck | Implemented child-first; saved/content preserved | Passed | Passed | Passed | Component passed | **Integration-tested / Runtime-tested / Database-verified** |
+
+**Current validation:** backend typecheck/lint/build, unit 22/22, guard 3/3, integration 5/5; frontend typecheck/lint/build and tests 19/19; seven localization tests; UTF-8 validation across 19 files; `Vite /v1 proxy → Fastify → Kysely → PostgreSQL` runtime passed and the disposable database was removed. Vite proxies `/v1` to port 3000, backend start uses `dist/src/server.js`, and both packages are version `0.1.0`. Vietnamese localization, API error mapping, and accessibility names/roles/state/live feedback were improved while retaining Ink Desk, Kanji, JLPT, N1–N5, and API/HTTP/internal identifiers.
+
+**Safety incident:** an early runtime harness mistakenly targeted the application database and created four uniquely identified validation deck rows. They were immediately removed in a guarded transaction and verified absent. No content or saved-item rows were created. Subsequent runtime evidence used a removed disposable database. **Target:** complete interactive desktop/mobile/keyboard browser validation and supply an approved real eligible unsaved-content source before implementing the primary Save UI. **Assumption:** no such source exists outside inspected evidence.
 
 Do not build later screens around guessed DTOs. A workstream may create typed local view-model fixtures for state/a11y review, but service adapters, success claims and durable navigation remain disabled until its gate closes.
 

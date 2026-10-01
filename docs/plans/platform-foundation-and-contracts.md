@@ -36,3 +36,16 @@ Every capability exposes availability and freshness. Retry is idempotent by cont
 - Privacy/security/operations questions have explicit launch stop conditions.
 
 **Blocked by:** missing governance/approvers may prevent approval, but PF-001/002 inventory is unblocked. **Complete when:** PF-001..007 outputs are reviewed and R0 exit gate in the roadmap passes.
+
+## Owner execution decision — merged Stage 1–3
+
+- **Decision:** owner phê duyệt gộp Stage 1, 2 và 3 trong lần này. Backend/frontend cũ đã bị owner xóa, nên Stage 1 là khởi tạo backend mới, không phải `git mv`; không khôi phục hoặc tạo frontend và không chạm recognition.
+- **Current stack (machine/install verified):** Node.js 24.14.1, npm 11.11.0; installed lockfile versions are Fastify 5.12.5, TypeScript 7.0.2, `pg` 8.23.0, Kysely 0.29.6, Zod 4.6.5 and Vitest 5.0.2. Strict TypeScript checking is the configured lint-equivalent because a compatible TypeScript-aware ESLint stack was not established. `psql` is not on PATH and `backend/.env` is absent, so PostgreSQL 18 and live DB behavior remain unverified.
+- **Target frontend only:** React 19.3.0 và Vite 8.3.1; không có frontend Current và lần này không tạo frontend.
+- **Architecture (latest owner decision; supersedes the prior proposal):** Fastify does not mandate a universal folder layout. This project uses the conventional layered flow `Route -> Controller -> Service -> Repository -> Kysely -> PostgreSQL` and `backend/src/{config,controllers,services,repositories,models,routes,middlewares,validators,types,utils,constants}`, plus `app.ts` and `server.ts`. `modules`, `bounded-context`, `domain`, and `use-cases` are forbidden for this implementation.
+- **Compatibility:** vì implementation cũ đã bị xóa, không thể chứng minh exact behavior. Chỉ bảo toàn contract có bằng chứng trong tài liệu; đây là **Assumption** cho tới khi contract/runtime integration được xác minh.
+
+## Current Stage 0 evidence — 2026-09-29
+
+- **PF-001 — Partial:** [`code-structure-proposal.md`](./code-structure-proposal.md) records a line-counted BE/FE working-tree inventory, while `GET /v1/capabilities` and `frontend/src/capabilities.ts` now expose a tested Current/Target/Blocked runtime matrix. Independent validation confirmed platform health/capability endpoints, runtime-dependent Library availability, a separately observable frontend, recognition blocked without an approved model/contract, and learning labeled local/mock with durable learning unavailable. This closes the scoped capability-surface implementation evidence only; PF-001 remains Partial because the broader baseline has not received governance review and R0 has not passed.
+- **PF-002 — Partial:** the corrected proposal records four owner decisions about approval of the target tree, transaction primitive, identity/bootstrap ownership, and idempotency placement. It preserves API compatibility and stack assumptions, the exact Stage 0–15 sequence, feature-organized frontend without a fixed subfolder template, and recognition as untouched/mocked outside capability read. It does not close any `LS-OD-*`, R0 gate, or Clean Code claim.

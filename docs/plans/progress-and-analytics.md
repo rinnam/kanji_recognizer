@@ -23,3 +23,9 @@ Frontend does not infer “mastered” or retention. Data jobs/queries and techn
 
 ## Completion gate
 Every displayed number reconciles; review and quiz denominators stay separate; time zone/range/freshness are visible; no-data and partial states are truthful; accessible equivalents and deletion/consent evidence pass. **Blocked** until event and privacy semantics are approved.
+
+## Current implementation evidence â€” 2026-09-29 continuation
+
+**Current (Partial):** Practice, review, and quiz writes update owner-scoped daily progress incrementally; the rebuild endpoint reconstructs the same normalized counters from committed source events.
+
+**Current validation evidence:** Backend typecheck/lint/build and four explicit non-DB test files (8 tests) pass; frontend TypeScript/build/lint pass. Progress schemas, repository, service, and routes are separated from adapters. `TEST_DATABASE_URL` was not set, so the existing PostgreSQL reconciliation/integration checks were not rerun and are not claimed passed in this handoff. This is not release completion: disposable-DB reconciliation, timezone/DST and range fixtures, freshness UI, browser/AT/zoom evidence, deployment-role grants, and privacy/retention/release gates remain.
