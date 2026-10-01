@@ -10,7 +10,7 @@
 | 1 & 2 | Nền backend + CRUD folder/vocabulary (Quick Add chống trùng) | ✅ XONG |
 | 3 | BE sync (pull/push, LWW theo `updated_at` + tombstone + delta, idempotent) | ✅ XONG |
 | 4 | BE learning: SRS (SM-2 thuần) + quiz (chấm điểm) + endpoints + unit test | ✅ XONG (phiên này) |
-| 5 | FE nền (FSD): entities/shared, IndexedDB local-first, api client, app shell (4 trạng thái + theme) | ⬜ CHƯA |
+| 5 | FE nền (FSD): entities/shared, IndexedDB local-first, api client, app shell (4 trạng thái + theme) | ✅ XONG (phiên này) |
 | 6 | FE features: folder-tree, vocabulary Overview + Quick Add, flashcard 3 chế độ, typing quiz, sync client (debounce 3.5s) | ⬜ CHƯA |
 
 ## Lưu ý quan trọng (phát hiện trong phiên làm mục 4)
@@ -78,18 +78,58 @@
 - File rỗng `showDialog({` ở gốc repo (tạo nhầm từ phiên trước, git theo dõi) đã được gỡ bằng `git rm -- "showDialog({"` và commit **riêng** (không trộn với BE-1).
 - Sau khi gỡ: `git status` sạch (chỉ còn chênh lệch do các commit chưa push).
 
-## Bước tiếp theo → Mục 5 (FE nền, FSD)
+## Mục 5 — FE nền (FSD) ✅ (phiên bàn giao hiện tại)
 
-Theo `docs/architecture/frontend.md`:
-- `entities` / `shared` nền tảng; model `LocalFolder` / `LocalVocabulary` là nguồn sự thật client (giữ nguyên tên field).
-- IndexedDB local-first (bản chính của client).
-- api client (gọi BE: folder/vocabulary/flashcard/quiz/sync).
-- app shell: 4 trạng thái + theme (dark/light).
+Quyết định đã chốt với người dùng:
+- **D1 (API base):** chọn cách đơn giản — đổi Vite proxy `/v1` → `/api` (`vite.config.ts`), api client dùng base `/api`. Đã grep toàn bộ FE: `/v1` chỉ xuất hiện ở `vite.config.ts` (đã sửa). BE giữ nguyên prefix `/api`. Có thể override bằng `VITE_API_BASE_URL`.
+- **D2 (tên):** đổi `index.html` `<title>` + header app shell sang **"Kanji Nest"**.
+- Tạo `frontend/tests/setup.ts` tối thiểu (đăng ký jest-dom cho Vitest) để `npm test` không lỗi.
+
+Ràng buộc đã giữ: **KHÔNG thêm/sửa dependency** (IndexedDB + fetch thuần, chưa thêm router); FSD import một chiều (`shared` ← `entities` ← `app`); mỗi slice export qua `index.ts`.
+
+### Files TẠO MỚI (frontend/src)
+- `vite-env.d.ts` — ref `vite/client` + khai báo `VITE_API_BASE_URL`.
+- `shared/config/` — `db.ts` (DB name/version/STORE), `env.ts` (`API_BASE_URL`), `index.ts`.
+- `shared/lib/` — `idb.ts` (wrapper IndexedDB + `openKanjiDb`/migrate), `id.ts` (`newVocabId`/`newFolderId`), `time.ts`, `debounce.ts`, `index.ts`.
+- `shared/api/` — `http.ts` (`request<T>` + `ApiError`), `dto.ts` (DTO khớp mapper BE), `flashcards.api.ts`, `quiz.api.ts`, `sync.api.ts`, `index.ts`.
+- `shared/ui/` — `states/{LoadingState,EmptyState,ErrorState}.tsx`, `theme/{ThemeProvider.tsx,useTheme.ts,ThemeToggle.tsx,tokens.css}`, `index.ts`.
+- `entities/folder/` — `model/{types.ts,folder.local.ts,index.ts}`, `api/folder.api.ts`, `index.ts`.
+- `entities/vocabulary/` — `model/{types.ts,vocab.local.ts,index.ts}`, `api/vocabulary.api.ts`, `index.ts`.
+- `entities/card/` — `model/{srs.ts,index.ts}` (SM-2 **MIRROR** `backend/src/services/srs.service.ts`), `index.ts`.
+- `app/` — `App.tsx` (4 trạng thái + Shell), `AppProviders.tsx`, `index.ts`, `App.css`.
+- `main.tsx` — entry (mount `<App/>` + import `tokens.css` & `App.css`).
+- `tests/setup.ts`, `tests/unit/{id.test.ts,srs.test.ts}`.
+
+### Files SỬA
+- `vite.config.ts` — proxy `/v1` → `/api` (không rewrite vì BE đã ở `/api`).
+- `index.html` — `<title>` → "Kanji Nest — Học tiếng Nhật".
+
+### Lược đồ IndexedDB (`kanji-nest`, version 1)
+- `folders` (keyPath `id`) — index: `by_parentId`, `by_updatedAt`, `by_deletedAt`.
+- `vocabularies` (keyPath `id`) — index: `by_updatedAt`, `by_deletedAt`, `by_srsNextReview`, `by_folderIds` (multiEntry), `by_tags` (multiEntry).
+- `meta` (keyPath `key`) — dành cho con trỏ sync `lastPulledAt` + version (dùng ở Mục 6).
+
+### Entity ↔ API (khớp 1-1 BE)
+- Local types alias DTO: `LocalFolder = FolderDto`, `LocalVocabulary = VocabularyDto` (camelCase, không `owner_id`, map 1-1 cột DB — AGENTS §7.1).
+- api: folder/vocabulary CRUD ở `entities/*/api`; flashcards (due/review), quiz (sessions), sync (pull/push) ở `shared/api`.
+
+### App shell — 4 trạng thái + theme
+`loading` (mở IndexedDB) · `error` (mở DB lỗi + nút Thử lại) · `empty` (0 folder & 0 vocab) · `ready` (hiện số lượng). Theme sáng/tối qua `data-theme` + tokens, lưu `localStorage`, mặc định theo `prefers-color-scheme`.
+
+### Kiểm chứng
+- `npm run typecheck` (tsc -b): **0 lỗi**.
+- `npm test` (vitest run): **6/6 pass** (id 2, srs 4). *Lưu ý: reporter mặc định của Vitest vẽ động trong pipe non-TTY nên log giữa chừng có thể hiện "0 passed"; chạy với `CI=true` cho kết quả cuối rõ ràng.*
+- CHƯA chạy app thực tế (cần `npm run dev` + backend) — để người dùng kiểm.
+
+## Bước tiếp theo → Mục 6 (FE features) — ĐANG CHỜ DUYỆT
+Mục 5 đã xong và **DỪNG theo yêu cầu** để người dùng kiểm tra trước. Mục 6 (folder-tree, vocabulary Overview + Quick Add, flashcard 3 chế độ, typing quiz, sync client debounce 3.5s) **chỉ bắt đầu sau khi người dùng đồng ý**; làm từng feature một, typecheck sau mỗi feature.
 
 ## Lệnh nhanh
 ```bash
 # Backend
 cd backend && npm run typecheck && npm run test:unit
+# Frontend
+cd frontend && npm run typecheck && npm test && npm run dev
 # Áp schema DB (đọc DATABASE_URL từ .env)
 psql "$DATABASE_URL" -f docs/database/schema.sql
 ```

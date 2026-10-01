@@ -1,0 +1,42 @@
+/* Design tokens — theme sáng/tối qua thuộc tính data-theme trên <html>. */
+:root,
+[data-theme='light'] {
+  --kn-bg: #efe9dc;
+  --kn-surface: #faf6ee;
+  --kn-text: #2b2622;
+  --kn-text-muted: #6b6257;
+  --kn-border: #d8cfbe;
+  --kn-primary: #b4532a;
+  --kn-primary-contrast: #ffffff;
+  --kn-danger: #a3301f;
+  --kn-focus: #b4532a;
+}
+
+[data-theme='dark'] {
+  --kn-bg: #1c1917;
+  --kn-surface: #262220;
+  --kn-text: #ece5d8;
+  --kn-text-muted: #a79e8e;
+  --kn-border: #3a342f;
+  --kn-primary: #e2794b;
+  --kn-primary-contrast: #1c1917;
+  --kn-danger: #e8795f;
+  --kn-focus: #e2794b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--kn-bg);
+  color: var(--kn-text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
