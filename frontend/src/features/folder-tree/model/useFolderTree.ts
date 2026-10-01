@@ -7,7 +7,7 @@ import {
   type LocalFolder,
 } from '../../../entities/folder';
 import { useDb } from '../../../shared/db';
-import { newFolderId, nowIso } from '../../../shared/lib';
+import { emitDataChanged, newFolderId, nowIso } from '../../../shared/lib';
 import {
   ORDER_STEP,
   buildTree,
@@ -95,6 +95,7 @@ export function useFolderTree(): FolderTreeApi {
         deletedAt: null,
       };
       await putFolderLocal(db, folder);
+      emitDataChanged();
       await reload();
     },
     [db, folders, reload],
@@ -107,6 +108,7 @@ export function useFolderTree(): FolderTreeApi {
       const existing = await getFolderLocal(db, id);
       if (existing === undefined) return;
       await putFolderLocal(db, { ...existing, name: trimmed, updatedAt: nowIso() });
+      emitDataChanged();
       await reload();
     },
     [db, reload],
@@ -119,6 +121,7 @@ export function useFolderTree(): FolderTreeApi {
       if (existing === undefined) return;
       const now = nowIso();
       await putFolderLocal(db, { ...existing, deletedAt: now, updatedAt: now });
+      emitDataChanged();
       await reload();
     },
     [db, reload],
@@ -141,6 +144,7 @@ export function useFolderTree(): FolderTreeApi {
         });
       }
       await putFoldersLocal(db, updated);
+      emitDataChanged();
       await reload();
     },
     [db, folders, reload],

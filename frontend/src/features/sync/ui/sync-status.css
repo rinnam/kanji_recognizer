@@ -1,0 +1,54 @@
+/* Chỉ báo đồng bộ trên header — màu theo token --kn-* (sáng/tối). */
+.kn-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--kn-text-muted);
+}
+
+.kn-sync__dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--kn-text-muted);
+  flex: none;
+}
+
+.kn-sync__dot--idle {
+  background: var(--kn-primary);
+}
+
+.kn-sync__dot--syncing {
+  background: var(--kn-primary);
+  animation: kn-sync-pulse 1s ease-in-out infinite;
+}
+
+.kn-sync__dot--error {
+  background: var(--kn-danger);
+}
+
+.kn-sync__dot--offline {
+  background: var(--kn-text-muted);
+}
+
+.kn-sync__label {
+  white-space: nowrap;
+}
+
+@keyframes kn-sync-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* Mobile: ẩn nhãn chữ, giữ chấm + nút để tiết kiệm chỗ. */
+@media (max-width: 640px) {
+  .kn-sync__label {
+    display: none;
+  }
+}

@@ -6,7 +6,7 @@ import {
   type LocalVocabulary,
 } from '../../../entities/vocabulary';
 import { useDb } from '../../../shared/db';
-import { newVocabId, nowIso } from '../../../shared/lib';
+import { emitDataChanged, newVocabId, nowIso } from '../../../shared/lib';
 import type { JlptLevel } from '../../../shared/api';
 import { findDuplicate } from './dedupe';
 
@@ -126,6 +126,7 @@ export function useVocabulary(): VocabularyApi {
         deletedAt: null,
       };
       await putVocabularyLocal(db, vocabulary);
+      emitDataChanged();
       await reload();
       return { ok: true, vocabulary };
     },
@@ -139,6 +140,7 @@ export function useVocabulary(): VocabularyApi {
       if (existing === undefined) return;
       const now = nowIso();
       await putVocabularyLocal(db, { ...existing, deletedAt: now, updatedAt: now });
+      emitDataChanged();
       await reload();
     },
     [db, reload],

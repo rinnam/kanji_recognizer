@@ -11,7 +11,7 @@
 | 3 | BE sync (pull/push, LWW theo `updated_at` + tombstone + delta, idempotent) | ✅ XONG |
 | 4 | BE learning: SRS (SM-2 thuần) + quiz (chấm điểm) + endpoints + unit test | ✅ XONG (phiên này) |
 | 5 | FE nền (FSD): entities/shared, IndexedDB local-first, api client, app shell (4 trạng thái + theme) | ✅ XONG (phiên này) |
-| 6 | FE features: folder-tree, vocabulary Overview + Quick Add, flashcard 3 chế độ, typing quiz, sync client (debounce 3.5s) | ⬜ CHƯA |
+| 6 | FE features: folder-tree ✅, vocabulary ✅, sync client (debounce 3.5s) ✅; flashcard 3 chế độ ⬜, typing quiz ⬜ | 🔄 ĐANG LÀM (F0–F2 + F5 xong; còn F3/F4) |
 
 ## Lưu ý quan trọng (phát hiện trong phiên làm mục 4)
 
@@ -216,3 +216,43 @@ Local-first. **Quick Add chống trùng (word + reading**, reading null = rỗng
 - `npm run lint`: **0 lỗi**; 4 cảnh báo react-refresh HMR vô hại (router.tsx 3 + ThemeProvider.tsx 1).
 
 ### DỪNG sau F2 (theo yêu cầu) — chờ người dùng chạy thử trước khi làm F5 (sync).
+
+## Mục 6 — F5: features/sync (sync client 2 chiều, debounce 3.5s) ✅
+
+Local-first đồng bộ hai chiều lên BE qua `shared/api` (pull/push đã có từ Mục 5). KHÔNG thêm dependency; FSD import một chiều (feature → shared); tách lõi THUẦN để unit test không cần DOM/DB.
+
+### Quyết định thiết kế
+- **Con trỏ trong store `meta`** (keyPath 'key'): `sync.lastPulledAt` = `serverTime` server trả về (mốc delta cho pull kế); `sync.lastPushedAt` = **`updatedAt` LỚN NHẤT của các bản ghi vừa đẩy** (KHÔNG dùng giờ máy client — tránh lệch đồng hồ).
+- **Thứ tự một vòng:** PUSH bản ghi "bẩn" (`updatedAt > lastPushedAt`; chưa có con trỏ → tất cả, gồm cả tombstone) → rồi PULL delta kể từ `lastPulledAt` → merge LWW. Push idempotent ở BE (so khớp `updated_at`, bằng/cũ hơn → bỏ qua) nên echo bản của thiết bị khác chỉ là no-op an toàn.
+- **Merge LWW:** chỉ ghi incoming khi local chưa có HOẶC `updatedAt` incoming MỚI HƠN THỰC SỰ (strict `>`), mirror `isIncomingNewer` của BE; giữ tombstone để xóa lan truyền.
+- **Trigger không coupling feature↔feature:** thêm `shared/lib/change-bus.ts` (emit/subscribe). Feature ghi dữ liệu gọi `emitDataChanged()`; `features/sync` subscribe để lên lịch đồng bộ sau **debounce 3.5s**. Đặt ở `shared` vì FSD cấm feature import feature khác.
+- **Đọc/ghi mức store thô** (`shared/lib` idb + `STORE`) vì sync là hạ tầng chung mọi entity; local record = DTO (LocalFolder=FolderDto, LocalVocabulary=VocabularyDto). Lấy TẤT CẢ bản ghi (gồm tombstone) để đẩy cả thao tác xóa.
+- **Debounce thủ công** (setTimeout + timer ref) thay cho `debounce()` của shared trong SyncProvider để tránh rule mới `react-hooks/refs` (cấm gọi hàm/đọc ref trong lúc render).
+
+### Files TẠO MỚI
+- `shared/lib/change-bus.ts` — `emitDataChanged` / `subscribeDataChanged` (bus thay đổi dữ liệu local, thuần, không React).
+- `features/sync/model/engine.ts` — lõi THUẦN: `isNewer`, `selectDirty`, `maxUpdatedAt`, `latestIso`, `pickIncomingWinners` (+ kiểu `SyncRecord`).
+- `features/sync/model/cursor.ts` — đọc/ghi con trỏ `sync.lastPulledAt` / `sync.lastPushedAt` trong store `meta`.
+- `features/sync/model/runSync.ts` — điều phối một vòng push→pull (`runSync(db)` → `SyncRunSummary`).
+- `features/sync/model/sync-context.ts` — `SyncContext` + kiểu (tách khỏi component để tránh warning react-refresh).
+- `features/sync/model/SyncProvider.tsx` — provider: đồng bộ lần đầu khi mount, khi online lại, và sau thay đổi local (debounce 3.5s); chống chạy chồng (`running`/`rerun`).
+- `features/sync/model/useSync.ts` — hook lấy API đồng bộ (ném lỗi nếu dùng ngoài provider).
+- `features/sync/ui/SyncStatus.tsx` + `ui/sync-status.css` — chỉ báo 4 trạng thái (idle/syncing/error/offline) + nút "Đồng bộ ngay".
+- `features/sync/index.ts` — public API (SyncProvider, useSync, SyncStatus + kiểu).
+- `tests/unit/sync.test.ts` — 8 test THUẦN cho engine.
+
+### Files SỬA
+- `shared/lib/index.ts` — export change-bus.
+- `app/AppProviders.tsx` — bọc `<SyncProvider>` bên trong `<DbProvider>`.
+- `app/AppLayout.tsx` — thêm `<SyncStatus/>` trên header.
+- `features/folder-tree/model/useFolderTree.ts` — gọi `emitDataChanged()` sau create/rename/remove/applyPatches (chỉ THÊM, không đổi logic).
+- `features/vocabulary/model/useVocabulary.ts` — gọi `emitDataChanged()` sau quickAdd/remove.
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**.
+- `npm test`: **27/27 pass** (sync 8, folder-tree 6, vocabulary 5, srs 4, id 2, primitives 2).
+- `npm run lint`: **0 lỗi**; vẫn 4 cảnh báo react-refresh HMR vô hại như cũ (router.tsx 3 + ThemeProvider.tsx 1).
+- `npm run build`: **OK** (sync nằm trong bundle chính qua SyncProvider).
+- CHƯA chạy luồng thật với BE (F5 cần BE + DB) — để người dùng kiểm bằng tay.
+
+### DỪNG sau F5 (theo yêu cầu) — chờ người dùng chạy thử (cần BE chạy) trước khi làm F3.

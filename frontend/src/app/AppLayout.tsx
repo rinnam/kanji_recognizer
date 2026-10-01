@@ -1,5 +1,6 @@
 import { Suspense, type ReactElement } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { SyncStatus } from '../features/sync';
 import { NAV_ITEMS } from '../routes';
 import { LoadingState, ThemeToggle } from '../shared/ui';
 
@@ -20,6 +21,7 @@ export function AppLayout(): ReactElement {
             </NavLink>
           ))}
         </nav>
+        <SyncStatus />
         <ThemeToggle />
       </header>
       <main className="kn-main">
