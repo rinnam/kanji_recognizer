@@ -1,2 +1,9 @@
-export { ROUTE_PATHS, ROUTES, NAV_ITEMS } from './paths';
-export type { NavItem } from './paths';
+export {
+  ROUTE_PATHS,
+  TAB_PARAM,
+  TABS,
+  DEFAULT_TAB,
+  parseTab,
+  LEGACY_REDIRECTS,
+} from './paths';
+export type { TabId } from './paths';

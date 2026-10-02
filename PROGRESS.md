@@ -402,3 +402,27 @@ Chỉ đổi UI/UX; GIỮ NGUYÊN chấm cục bộ (mirror BE), lưu phiên BE,
 ### Kiểm chứng
 - `npm run typecheck`: **0 lỗi**. `npm test`: **50/50 pass** (8 test quiz model giữ nguyên). `npm run lint`: **0 lỗi** (4 cảnh báo react-refresh cũ). `npm run build`: **OK** — chunk Quiz 11.71 kB, CSS 3.33 kB.
 - CẦN XEM BẰNG MẮT: sáng/tối, desktop/mobile; Enter nộp→tiếp; Tab bỏ qua; auto-focus; đếm ngược 1–10s; công tắc Hán Việt; lưu phiên khi BE online.
+
+## Việc A — Gộp 3 trang thành MỘT màn hình làm việc ✅ (commit a)
+
+Bỏ 3 trang rời (/library, /study, /quiz) + link header; dồn về MỘT màn hình: cây thư mục luôn hiện ở cột trái, đổi chế độ bằng tab (lưu trong URL `?tab=`), KHÔNG chuyển trang. GIỮ FSD; không thêm dependency.
+
+### Thay đổi chính
+- **Header gọn** (`app/AppLayout.tsx` + `App.css`): chỉ còn tên "Kanji Nest" (trái) + `SyncStatus` (đã có nút "Đồng bộ ngay") + `ThemeToggle` (phải). BỎ `NavLink` Thư viện/Ôn tập/Quiz và CSS `.kn-nav`.
+- **Màn hình gộp MỚI** `pages/Workspace/{WorkspacePage.tsx,WorkspacePage.css,index.ts}`: layout 2 cột. Cột trái = sidebar thẻ LUÔN mounted (`FolderTree`). Cột phải = thanh "Đang chọn:" + chip tên thư mục → thanh tab pill "Tổng quan | Flashcard | Quiz" + gợi ý theo tab → nội dung tab (Tổng quan = `VocabularyOverview` theo thư mục đang chọn; Flashcard = `FlashcardStudy`; Quiz = `QuizRunner`). `selectedFolderId` + tab giữ ở lớp page (FSD: feature không import feature).
+- **Tab trong URL**: `routes/paths.ts` thêm `TAB_PARAM/TABS/parseTab/LEGACY_REDIRECTS`; `router.tsx` → index là Workspace, redirect `/library|/study|/quiz` → `/?tab=overview|flashcard|quiz` (replace), giữ 404. `NotFound` trỏ về `/`.
+- **Sidebar** (`FolderTree`): tiêu đề "Quản lý Thư mục"; nút "Tất cả từ vựng" + badge tổng; nhãn "CÂY THƯ MỤC"; mỗi thư mục có badge SỐ TỪ gồm cả thư mục con cháu (đọc vocab còn sống qua `entities/vocabulary` + nghe `subscribeDataChanged` để khớp Overview). `onSelect(id, name)` để hiện tên thư mục đang chọn. GIỮ expand/collapse, thêm/sửa/xóa, kéo–thả.
+- **Mobile (≤48rem)**: sidebar thành ngăn kéo (chip "… ⌄" ở đầu nội dung mở drawer + scrim; `FolderTree` vẫn mounted, chỉ ẩn/hiện bằng CSS transform, tôn trọng `prefers-reduced-motion`). Thanh tab cuộn ngang. Không cuộn ngang trang ở 320/390px.
+
+### Lưu ý bàn giao
+- Badge số từ ở sidebar tính ĐÚNG (gồm thư mục con) nhưng bằng helper tạm trong `FolderTree` (đánh dấu `// TODO(B0)`). **Việc B0 sẽ thay bằng hàm thuần `collectDescendantFolderIds`/`selectWordsInScope` + unit test, dùng chung cho sidebar + Overview.**
+- `FlashcardStudy`/`QuizRunner` đang mount theo dữ liệu TOÀN BỘ (chưa nhận `selectedFolderId`). Gắn phạm vi thư mục cho 2 tab này nằm ở B1/B2 (ScopeBar + selectWordsInScope).
+
+### Files
+- MỚI: `pages/Workspace/{WorkspacePage.tsx,WorkspacePage.css,index.ts}`.
+- SỬA: `app/{AppLayout.tsx,router.tsx,App.css,NotFound.tsx}`, `routes/{paths.ts,index.ts}`, `features/folder-tree/ui/{FolderTree.tsx,FolderTreeItem.tsx,folder-tree.css}`.
+- XÓA: `pages/{Library,Study,Quiz}/*`.
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**. `npm test`: **50/50 pass** (9 file, không đổi test). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ (router.tsx, ThemeProvider.tsx — trong hạn ≤4). `npm run build`: **OK** — 118 modules, chunk Workspace 38.87 kB JS + 12.28 kB CSS.
+- CẦN XEM BẰNG MẮT: layout một màn hình (sáng/tối, desktop/mobile 320/390), sidebar luôn hiện + badge số từ, chuyển tab giữ trạng thái cây, ngăn kéo thư mục trên mobile, redirect path cũ.

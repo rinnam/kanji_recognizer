@@ -9,7 +9,8 @@ interface FolderTreeItemProps {
   depth: number;
   api: FolderTreeApi;
   selectedId: string | null;
-  onSelect: (id: string | null) => void;
+  onSelect: (id: string | null, name: string | null) => void;
+  counts: Map<string, number>;
 }
 
 type EditMode = 'none' | 'rename' | 'add-child';
@@ -28,8 +29,10 @@ export function FolderTreeItem({
   api,
   selectedId,
   onSelect,
+  counts,
 }: FolderTreeItemProps): ReactElement {
   const { folder, children } = node;
+  const count = counts.get(folder.id) ?? 0;
   const [expanded, setExpanded] = useState(true);
   const [edit, setEdit] = useState<EditMode>('none');
   const [draft, setDraft] = useState('');
@@ -105,10 +108,13 @@ export function FolderTreeItem({
           type="button"
           className="kn-ftree__name"
           aria-pressed={selected}
-          onClick={() => onSelect(folder.id)}
+          onClick={() => onSelect(folder.id, folder.name)}
         >
           {folder.name}
         </button>
+        <span className="kn-ftree__badge" aria-label={`${count} từ`}>
+          {count}
+        </span>
         <span className="kn-ftree__actions">
           <button
             type="button"
@@ -177,6 +183,7 @@ export function FolderTreeItem({
               api={api}
               selectedId={selectedId}
               onSelect={onSelect}
+              counts={counts}
             />
           ))}
         </ul>

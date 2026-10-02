@@ -14,18 +14,55 @@
   font-size: 1rem;
 }
 .kn-ftree__all {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
   font: inherit;
   cursor: pointer;
   border: 1px solid var(--kn-border);
   background: var(--kn-surface);
-  color: var(--kn-text-muted);
+  color: var(--kn-text);
   border-radius: 0.4rem;
-  padding: 0.2rem 0.5rem;
-  font-size: 0.85rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+}
+.kn-ftree__all:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 1px;
 }
 .kn-ftree__all--active {
-  color: var(--kn-primary);
+  color: var(--kn-primary-contrast);
+  background: var(--kn-primary);
   border-color: var(--kn-primary);
+  font-weight: 600;
+}
+.kn-ftree__all-label {
+  text-align: left;
+}
+.kn-ftree__section {
+  margin: 0.25rem 0 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--kn-text-muted);
+}
+.kn-ftree__badge {
+  min-width: 1.5rem;
+  text-align: center;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 0.2rem 0.4rem;
+  border-radius: 999px;
+  background: var(--kn-bg);
+  color: var(--kn-text-muted);
+  border: 1px solid var(--kn-border);
+}
+.kn-ftree__all--active .kn-ftree__badge--all {
+  background: var(--kn-primary-contrast);
+  color: var(--kn-primary);
+  border-color: transparent;
 }
 .kn-ftree__root-drop {
   font-size: 0.8rem;

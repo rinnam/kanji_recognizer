@@ -1,29 +1,24 @@
 import { lazy } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { ROUTE_PATHS, ROUTES } from '../routes';
+import { LEGACY_REDIRECTS, TAB_PARAM } from '../routes';
 import { AppLayout } from './AppLayout';
 import { NotFound } from './NotFound';
 
-const LibraryPage = lazy(() =>
-  import('../pages/Library').then((module) => ({ default: module.LibraryPage })),
-);
-const StudyPage = lazy(() =>
-  import('../pages/Study').then((module) => ({ default: module.StudyPage })),
-);
-const QuizPage = lazy(() =>
-  import('../pages/Quiz').then((module) => ({ default: module.QuizPage })),
+const WorkspacePage = lazy(() =>
+  import('../pages/Workspace').then((module) => ({ default: module.WorkspacePage })),
 );
 
-/** Router gốc: layout chung + các trang nạp lười (React.lazy) + 404. */
+/** Router gốc: một màn hình làm việc gộp (tab trong URL) + redirect path cũ + 404. */
 export const router = createBrowserRouter([
   {
     path: '/',
     element: <AppLayout />,
     children: [
-      { index: true, element: <Navigate to={ROUTES.library} replace /> },
-      { path: ROUTE_PATHS.library, element: <LibraryPage /> },
-      { path: ROUTE_PATHS.study, element: <StudyPage /> },
-      { path: ROUTE_PATHS.quiz, element: <QuizPage /> },
+      { index: true, element: <WorkspacePage /> },
+      ...LEGACY_REDIRECTS.map((redirect) => ({
+        path: redirect.path,
+        element: <Navigate to={`/?${TAB_PARAM}=${redirect.tab}`} replace />,
+      })),
       { path: '*', element: <NotFound /> },
     ],
   },
