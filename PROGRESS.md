@@ -11,7 +11,7 @@
 | 3 | BE sync (pull/push, LWW theo `updated_at` + tombstone + delta, idempotent) | ✅ XONG |
 | 4 | BE learning: SRS (SM-2 thuần) + quiz (chấm điểm) + endpoints + unit test | ✅ XONG (phiên này) |
 | 5 | FE nền (FSD): entities/shared, IndexedDB local-first, api client, app shell (4 trạng thái + theme) | ✅ XONG (phiên này) |
-| 6 | FE features: folder-tree ✅, vocabulary ✅, sync client (debounce 3.5s) ✅, flashcard 3 chế độ ✅; typing quiz ⬜ | 🔄 ĐANG LÀM (F0–F3 + F5 xong; còn F4) |
+| 6 | FE features: folder-tree ✅, vocabulary ✅, sync client (debounce 3.5s) ✅, flashcard 3 chế độ ✅, typing quiz ✅ | ✅ XONG F0–F5 (còn: dọn placeholder chờ duyệt + e2e tay) |
 
 ## Lưu ý quan trọng (phát hiện trong phiên làm mục 4)
 
@@ -281,3 +281,28 @@ Local-first. SM-2 **dùng lại** `entities/card` (mirror BE `srs.service`), KH�
 - `npm run lint`: **0 lỗi**; vẫn 4 cảnh báo react-refresh HMR vô hại (router.tsx 3 + ThemeProvider.tsx 1).
 - `npm run build`: **OK** — chunk Study (flashcard) ~5.64 kB (code-split route). *Lưu ý môi trường: lần build đầu lỗi `EPERM` khi dọn `dist/` cũ (file bị khóa trên Windows); xóa `dist/` rồi build lại OK — KHÔNG phải lỗi code.*
 - CHƯA chạy luồng thật với BE (anki ghi srs* → sync đẩy lên) — để người dùng kiểm bằng tay.
+
+## Mục 6 — F4: features/quiz (typing quiz) ✅
+
+Local-first. Sinh câu từ vocab local, **chấm CỤC BỘ** (mirror `quiz.service` của BE: `normalizeAnswer`/`gradeAnswer`), **lưu phiên lên BE khi online** (`POST /api/quiz/sessions`). `quiz_sessions`/`quiz_attempts` chỉ ở server → KHÔNG ghi IndexedDB; nếu offline/lỗi vẫn hiển thị kết quả cục bộ. Tách lõi THUẦN để unit test không cần DOM/DB. Feature chỉ phụ thuộc `entities/*` + `shared/*` (FSD một chiều).
+
+### Thiết kế
+- **Chấm THUẦN** (`model/grade.ts`): `normalizeAnswer` (NFC + trim + gộp khoảng trắng + hạ chữ thường) + `gradeAnswer` — MIRROR nguyên văn BE → điểm cục bộ == điểm server.
+- **Sinh câu THUẦN** (`model/questions.ts`): `buildQuestions(vocabs, direction, limit)`. `viToJa` (hiện Nghĩa → gõ tiếng Nhật; đáp án = [word, reading]); `jaToVi` (hiện Từ（đọc）→ gõ Nghĩa; đáp án = [meaning]). Bỏ tombstone + thẻ thiếu word/meaning.
+- **Phiên THUẦN** (`model/session.ts`): `gradeSession(questions, answers[])` (canh theo index; rỗng/null = sai) + `toCreateSessionInput(result, meta)` dựng payload khớp `validators/quiz.ts`.
+- **Hook** (`model/useQuiz.ts`): nạp vocab (effect cờ `active`); pha `config → active → result`; trộn thứ tự (Fisher–Yates) mỗi phiên; `start/answer/restart`; `saveToServer` dùng `navigator.onLine` + bắt `ApiError` (vd 400 khi từ chưa đồng bộ) → báo rõ nhưng KHÔNG chặn kết quả cục bộ.
+
+### Files TẠO MỚI (frontend/src/features/quiz)
+- model: `grade.ts` (THUẦN, mirror BE), `types.ts`, `questions.ts` (THUẦN), `session.ts` (THUẦN), `useQuiz.ts`.
+- ui: `QuizRunner.tsx` (4 trạng thái + 3 pha + form config/active), `QuizResult.tsx` (điểm + trạng thái lưu + soát từng câu), `quiz.css`.
+- `index.ts` (export `QuizRunner`); `tests/unit/quiz.test.ts` (8 test).
+
+### Files SỬA
+- `pages/Quiz/QuizPage.tsx` — render `<QuizRunner/>` (bỏ placeholder EmptyState).
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**.
+- `npm test`: **42/42 pass** (+8 quiz: normalizeAnswer 1, gradeAnswer 2, buildQuestions 3, session 2).
+- `npm run lint`: **0 lỗi**; vẫn 4 cảnh báo react-refresh HMR vô hại (router.tsx 3 + ThemeProvider.tsx 1).
+- `npm run build`: **OK** — chunk Quiz ~6.85 kB (code-split route). (Nhắc: nếu gặp `EPERM` khi dọn `dist/` trên Windows → xóa `dist/` rồi build lại.)
+- CHƯA chạy luồng thật với BE (lưu phiên cần BE + DB) — để người dùng kiểm bằng tay.
