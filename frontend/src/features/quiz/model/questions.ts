@@ -1,53 +1,56 @@
 import type { LocalVocabulary } from '../../../entities/vocabulary';
-import type { QuizDirection, QuizQuestion } from './types';
+import type { QuizQuestion } from './types';
 
-function isLiving(vocab: LocalVocabulary): boolean {
-  return vocab.deletedAt === null;
-}
+/** 3 chế độ chọn loại câu: Ngẫu nhiên / Dạng 1 (cách đọc) / Dạng 2 (dịch Nhật). */
+export type QuizMode = 'random' | 'reading' | 'meaning';
 
 function hasText(value: string | null): value is string {
   return value !== null && value.trim() !== '';
 }
 
-/** Đáp án tiếng Nhật chấp nhận = word (+ reading nếu có), loại trùng. */
-function japaneseAnswers(vocab: LocalVocabulary): string[] {
+/** Dạng 1: nhìn chữ (word) → nhập cách đọc (reading). */
+function readingQuestion(id: string, word: string, reading: string): QuizQuestion {
+  return { vocabularyId: id, type: 'reading', prompt: word, acceptedAnswers: [reading] };
+}
+
+/** Dạng 2: nhìn nghĩa → dịch sang tiếng Nhật (chấp nhận word hoặc reading). */
+function meaningQuestion(vocab: LocalVocabulary): QuizQuestion {
   const answers = [vocab.word];
   if (hasText(vocab.reading)) answers.push(vocab.reading);
-  return [...new Set(answers)];
+  return {
+    vocabularyId: vocab.id,
+    type: 'meaning',
+    prompt: vocab.meaning,
+    acceptedAnswers: [...new Set(answers)],
+  };
 }
 
 /**
- * Sinh câu hỏi từ danh sách từ vựng — THUẦN, tất định (GIỮ thứ tự đầu vào).
- * - viToJa: prompt = Nghĩa; đáp án = [word, reading].
- * - jaToVi: prompt = Từ (+（Cách đọc）); đáp án = [Nghĩa].
- * Bỏ thẻ tombstone và thẻ thiếu word/meaning. `limit` (nếu có) cắt bớt số câu.
+ * Sinh câu hỏi từ danh sách từ — THUẦN, giữ thứ tự đầu vào. Bỏ tombstone + thiếu word/meaning.
+ * - 'reading' (Dạng 1): CHỈ từ có cách đọc (từ không có reading bị loại).
+ * - 'meaning' (Dạng 2): mọi từ.
+ * - 'random': mỗi từ bốc ngẫu nhiên 1 trong 2 dạng; từ KHÔNG có cách đọc → luôn Dạng 2.
+ * `pickReading` chỉ dùng cho 'random' (để test tất định); mặc định Math.random.
  */
 export function buildQuestions(
   vocabs: readonly LocalVocabulary[],
-  direction: QuizDirection,
-  limit?: number,
+  mode: QuizMode,
+  pickReading: (vocab: LocalVocabulary) => boolean = () => Math.random() < 0.5,
 ): QuizQuestion[] {
-  const questions: QuizQuestion[] = [];
+  const out: QuizQuestion[] = [];
   for (const vocab of vocabs) {
-    if (!isLiving(vocab)) continue;
+    if (vocab.deletedAt !== null) continue;
     if (!hasText(vocab.word) || !hasText(vocab.meaning)) continue;
 
-    if (direction === 'viToJa') {
-      questions.push({
-        vocabularyId: vocab.id,
-        prompt: vocab.meaning,
-        acceptedAnswers: japaneseAnswers(vocab),
-      });
+    if (mode === 'reading') {
+      if (hasText(vocab.reading)) out.push(readingQuestion(vocab.id, vocab.word, vocab.reading));
+    } else if (mode === 'meaning') {
+      out.push(meaningQuestion(vocab));
+    } else if (hasText(vocab.reading) && pickReading(vocab)) {
+      out.push(readingQuestion(vocab.id, vocab.word, vocab.reading));
     } else {
-      const prompt = hasText(vocab.reading)
-        ? `${vocab.word}（${vocab.reading}）`
-        : vocab.word;
-      questions.push({
-        vocabularyId: vocab.id,
-        prompt,
-        acceptedAnswers: [vocab.meaning],
-      });
+      out.push(meaningQuestion(vocab));
     }
   }
-  return limit !== undefined && limit >= 0 ? questions.slice(0, limit) : questions;
+  return out;
 }

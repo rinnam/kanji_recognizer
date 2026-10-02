@@ -1,13 +1,14 @@
 /**
- * Hướng hỏi của typing quiz:
- * - viToJa: hiện Nghĩa (tiếng Việt), người học gõ tiếng Nhật (word/reading).
- * - jaToVi: hiện Từ (tiếng Nhật), người học gõ Nghĩa.
+ * Loại câu hỏi typing quiz:
+ * - reading (Dạng 1): nhìn CHỮ (word), nhập CÁCH ĐỌC (reading).
+ * - meaning (Dạng 2): nhìn NGHĨA, dịch sang tiếng Nhật (word hoặc reading).
  */
-export type QuizDirection = 'viToJa' | 'jaToVi';
+export type QuizType = 'reading' | 'meaning';
 
 /** Một câu hỏi sinh từ một từ vựng local. */
 export interface QuizQuestion {
   vocabularyId: string;
+  type: QuizType;
   prompt: string;
   acceptedAnswers: string[];
 }

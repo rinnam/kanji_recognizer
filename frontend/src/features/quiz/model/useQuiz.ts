@@ -1,20 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getAllFoldersLocal, type LocalFolder } from '../../../entities/folder';
 import {
   getAllVocabulariesLocal,
+  selectWordsInScope,
   type LocalVocabulary,
 } from '../../../entities/vocabulary';
 import { ApiError, createQuizSession } from '../../../shared/api';
 import { useDb } from '../../../shared/db';
 import { nowIso } from '../../../shared/lib';
+import type { ScopeKind } from '../../../shared/ui';
 import { gradeAnswer } from './grade';
-import { buildQuestions } from './questions';
+import { buildQuestions, type QuizMode } from './questions';
 import { gradeSession, toCreateSessionInput } from './session';
-import type { QuizDirection, QuizQuestion, QuizResult } from './types';
+import type { QuizQuestion, QuizResult } from './types';
 
 type LoadStatus = 'loading' | 'error' | 'ready';
 export type QuizPhase = 'active' | 'result';
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'offline' | 'error';
-export type QuizScope = 'all' | 'first' | 'random';
 
 export interface QuizFeedback {
   answer: string | null;
@@ -24,11 +26,11 @@ export interface QuizFeedback {
 export interface QuizApi {
   loadStatus: LoadStatus;
   loadError: string | null;
-  availableCount: number;
-  direction: QuizDirection;
-  scope: QuizScope;
+  mode: QuizMode;
+  kind: ScopeKind;
+  n: number;
+  scopeTotal: number;
   phase: QuizPhase;
-  questions: QuizQuestion[];
   index: number;
   total: number;
   current: QuizQuestion | null;
@@ -39,8 +41,9 @@ export interface QuizApi {
   saveStatus: SaveStatus;
   saveMessage: string | null;
   reload: () => Promise<void>;
-  chooseDirection: (direction: QuizDirection) => void;
-  chooseScope: (scope: QuizScope) => void;
+  chooseMode: (mode: QuizMode) => void;
+  chooseKind: (kind: ScopeKind) => void;
+  changeN: (value: number) => void;
   reshuffle: () => void;
   submit: (value: string) => void;
   skip: () => void;
@@ -48,7 +51,7 @@ export interface QuizApi {
   restart: () => void;
 }
 
-const SCOPE_N = 20;
+const DEFAULT_N = 30;
 const READ_ERROR = 'Không đọc được từ vựng.';
 
 function shuffle<T>(items: readonly T[]): T[] {
@@ -62,19 +65,28 @@ function shuffle<T>(items: readonly T[]): T[] {
   return copy;
 }
 
+function byCreatedAtAsc(a: LocalVocabulary, b: LocalVocabulary): number {
+  if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
 /**
- * Điều phối typing quiz local-first (F4): nạp vocab, dựng câu hỏi theo kiểu hỏi + phạm vi,
- * chấm CỤC BỘ từng câu (phản hồi ngay), lưu phiên lên BE khi online. Pha: active → result.
- * KHÔNG đổi logic chấm (mirror BE) — chỉ thêm luồng nộp/bỏ qua/tiếp.
+ * Điều phối typing quiz local-first (B2): nạp vocab + thư mục → phạm vi theo thư mục
+ * (gồm con cháu) → chọn pool theo ScopeBar → bốc ngẫu nhiên thứ tự (Fisher–Yates) → dựng
+ * câu hỏi theo chế độ (Ngẫu nhiên/Dạng 1/Dạng 2). Chấm CỤC BỘ (mirror BE), lưu phiên khi
+ * online. KHÔNG đổi logic chấm.
  */
-export function useQuiz(): QuizApi {
+export function useQuiz(folderId: string | null): QuizApi {
   const db = useDb();
   const [all, setAll] = useState<LocalVocabulary[]>([]);
+  const [folders, setFolders] = useState<LocalFolder[]>([]);
   const [loadStatus, setLoadStatus] = useState<LoadStatus>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [direction, setDirection] = useState<QuizDirection>('viToJa');
-  const [scope, setScope] = useState<QuizScope>('all');
+  const [mode, setMode] = useState<QuizMode>('random');
+  const [kind, setKind] = useState<ScopeKind>('all');
+  const [n, setN] = useState(DEFAULT_N);
+
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [index, setIndex] = useState(0);
   const [submitted, setSubmitted] = useState(false);
@@ -87,27 +99,31 @@ export function useQuiz(): QuizApi {
   const answersRef = useRef<(string | null)[]>([]);
   const startedAtRef = useRef<string>('');
 
-  const fetchLiving = useCallback(async (): Promise<LocalVocabulary[]> => {
-    const rows = await getAllVocabulariesLocal(db);
-    return rows.filter((item) => item.deletedAt === null);
-  }, [db]);
+  const scopeBase = useMemo(
+    () => selectWordsInScope(all, folders, folderId),
+    [all, folders, folderId],
+  );
+  const scopeTotal = scopeBase.length;
 
+  const clampN = useCallback(
+    (value: number): number =>
+      Math.max(1, Math.min(Math.round(value) || 1, Math.max(1, scopeBase.length))),
+    [scopeBase.length],
+  );
+
+  // Chọn pool theo chip rồi bốc ngẫu nhiên thứ tự, cuối cùng dựng câu hỏi theo chế độ.
   const buildFor = useCallback(
-    (
-      dir: QuizDirection,
-      scp: QuizScope,
-      pool: readonly LocalVocabulary[],
-      forceShuffle: boolean,
-    ): QuizQuestion[] => {
-      const base = scp === 'random' || forceShuffle ? shuffle(pool) : pool;
-      const limit = scp === 'all' ? undefined : SCOPE_N;
-      return buildQuestions(base, dir, limit);
+    (m: QuizMode, k: ScopeKind, nn: number, base: readonly LocalVocabulary[]): QuizQuestion[] => {
+      let pool: LocalVocabulary[];
+      if (k === 'all') pool = [...base];
+      else if (k === 'first') pool = [...base].sort(byCreatedAtAsc).slice(0, Math.min(nn, base.length));
+      else pool = shuffle(base).slice(0, Math.min(nn, base.length));
+      return buildQuestions(shuffle(pool), m);
     },
     [],
   );
 
-  const startWith = useCallback((qs: QuizQuestion[]): void => {
-    setQuestions(qs);
+  const resetProgress = useCallback((): void => {
     answersRef.current = [];
     startedAtRef.current = nowIso();
     setIndex(0);
@@ -119,31 +135,33 @@ export function useQuiz(): QuizApi {
     setPhase('active');
   }, []);
 
-  const reload = useCallback(async (): Promise<void> => {
-    setLoadStatus('loading');
-    try {
-      const living = await fetchLiving();
-      setAll(living);
-      setLoadError(null);
-      setLoadStatus('ready');
-      startWith(buildFor(direction, scope, living, false));
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : READ_ERROR);
-      setLoadStatus('error');
-    }
-  }, [fetchLiving, buildFor, direction, scope, startWith]);
+  const startWith = useCallback(
+    (qs: QuizQuestion[]): void => {
+      setQuestions(qs);
+      resetProgress();
+    },
+    [resetProgress],
+  );
 
-  // Nạp lần đầu: setState chỉ sau await (tránh set-state-in-effect, như useVocabulary).
+  // Nạp vocab + thư mục rồi dựng phiên mặc định (Ngẫu nhiên / tất cả). folderId cố định theo
+  // vòng đời instance (WorkspacePage remount bằng key khi đổi thư mục).
   useEffect(() => {
     let active = true;
     void (async (): Promise<void> => {
       try {
-        const living = await fetchLiving();
+        const [vocabRows, folderRows] = await Promise.all([
+          getAllVocabulariesLocal(db),
+          getAllFoldersLocal(db),
+        ]);
         if (!active) return;
-        setAll(living);
+        const livingVocab = vocabRows.filter((item) => item.deletedAt === null);
+        const livingFolders = folderRows.filter((item) => item.deletedAt === null);
+        setAll(livingVocab);
+        setFolders(livingFolders);
         setLoadError(null);
         setLoadStatus('ready');
-        startWith(buildQuestions(living, 'viToJa', undefined));
+        const base = selectWordsInScope(livingVocab, livingFolders, folderId);
+        startWith(buildFor('random', 'all', DEFAULT_N, base));
       } catch (err) {
         if (!active) return;
         setLoadError(err instanceof Error ? err.message : READ_ERROR);
@@ -153,7 +171,28 @@ export function useQuiz(): QuizApi {
     return () => {
       active = false;
     };
-  }, [fetchLiving, startWith]);
+  }, [db, folderId, buildFor, startWith]);
+
+  const reload = useCallback(async (): Promise<void> => {
+    setLoadStatus('loading');
+    try {
+      const [vocabRows, folderRows] = await Promise.all([
+        getAllVocabulariesLocal(db),
+        getAllFoldersLocal(db),
+      ]);
+      const livingVocab = vocabRows.filter((item) => item.deletedAt === null);
+      const livingFolders = folderRows.filter((item) => item.deletedAt === null);
+      setAll(livingVocab);
+      setFolders(livingFolders);
+      setLoadError(null);
+      setLoadStatus('ready');
+      const base = selectWordsInScope(livingVocab, livingFolders, folderId);
+      startWith(buildFor(mode, kind, n, base));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : READ_ERROR);
+      setLoadStatus('error');
+    }
+  }, [db, folderId, mode, kind, n, buildFor, startWith]);
 
   const allById = useMemo(() => {
     const map = new Map<string, LocalVocabulary>();
@@ -161,12 +200,9 @@ export function useQuiz(): QuizApi {
     return map;
   }, [all]);
 
-  const availableCount = useMemo(() => buildQuestions(all, 'viToJa').length, [all]);
-
   const total = questions.length;
   const current = index < total ? questions[index] : null;
-  const currentVocab =
-    current !== null ? allById.get(current.vocabularyId) ?? null : null;
+  const currentVocab = current !== null ? allById.get(current.vocabularyId) ?? null : null;
 
   const saveToServer = useCallback(
     async (finished: QuizResult, startedAt: string): Promise<void> => {
@@ -207,30 +243,6 @@ export function useQuiz(): QuizApi {
     [questions, saveToServer],
   );
 
-  const chooseDirection = useCallback(
-    (dir: QuizDirection): void => {
-      setDirection(dir);
-      startWith(buildFor(dir, scope, all, false));
-    },
-    [scope, all, buildFor, startWith],
-  );
-
-  const chooseScope = useCallback(
-    (scp: QuizScope): void => {
-      setScope(scp);
-      startWith(buildFor(direction, scp, all, false));
-    },
-    [direction, all, buildFor, startWith],
-  );
-
-  const reshuffle = useCallback((): void => {
-    startWith(buildFor(direction, scope, all, true));
-  }, [direction, scope, all, buildFor, startWith]);
-
-  const restart = useCallback((): void => {
-    startWith(buildFor(direction, scope, all, scope === 'random'));
-  }, [direction, scope, all, buildFor, startWith]);
-
   const submit = useCallback(
     (value: string): void => {
       if (submitted) return;
@@ -269,14 +281,45 @@ export function useQuiz(): QuizApi {
     setFeedback(null);
   }, [submitted, index, questions.length, finishWith]);
 
+  const chooseMode = useCallback(
+    (next: QuizMode): void => {
+      setMode(next);
+      startWith(buildFor(next, kind, n, scopeBase));
+    },
+    [kind, n, scopeBase, buildFor, startWith],
+  );
+  const chooseKind = useCallback(
+    (next: ScopeKind): void => {
+      setKind(next);
+      startWith(buildFor(mode, next, n, scopeBase));
+    },
+    [mode, n, scopeBase, buildFor, startWith],
+  );
+  const changeN = useCallback(
+    (value: number): void => {
+      const next = clampN(value);
+      setN(next);
+      startWith(buildFor(mode, kind, next, scopeBase));
+    },
+    [mode, kind, scopeBase, buildFor, startWith, clampN],
+  );
+  // Xáo trộn: trộn lại thứ tự bộ câu hiện có (giữ nguyên loại câu), về câu 1.
+  const reshuffle = useCallback((): void => {
+    startWith(shuffle(questions));
+  }, [questions, startWith]);
+  // Làm lại: về câu 1, xóa kết quả, GIỮ nguyên bộ câu + thứ tự.
+  const restart = useCallback((): void => {
+    resetProgress();
+  }, [resetProgress]);
+
   return {
     loadStatus,
     loadError,
-    availableCount,
-    direction,
-    scope,
+    mode,
+    kind,
+    n,
+    scopeTotal,
     phase,
-    questions,
     index,
     total,
     current,
@@ -287,8 +330,9 @@ export function useQuiz(): QuizApi {
     saveStatus,
     saveMessage,
     reload,
-    chooseDirection,
-    chooseScope,
+    chooseMode,
+    chooseKind,
+    changeN,
     reshuffle,
     submit,
     skip,

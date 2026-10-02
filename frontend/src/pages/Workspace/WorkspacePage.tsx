@@ -119,7 +119,9 @@ export function WorkspacePage(): ReactElement {
           {tab === 'flashcard' ? (
             <FlashcardStudy key={selectedFolderId ?? 'all'} folderId={selectedFolderId} />
           ) : null}
-          {tab === 'quiz' ? <QuizRunner /> : null}
+          {tab === 'quiz' ? (
+            <QuizRunner key={selectedFolderId ?? 'all'} folderId={selectedFolderId} />
+          ) : null}
         </div>
       </div>
     </div>

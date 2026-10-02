@@ -477,3 +477,34 @@ Chỉ lấy bố cục/hành vi; dùng token màu dự án; không thêm depende
 ### Kiểm chứng
 - `npm run typecheck`: **0 lỗi**. `npm test`: **61/61 pass** (+2 `selectFaceContent`; keymap 8 ca giữ nguyên). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** — 123 modules.
 - CẦN XEM BẰNG MẮT: mặt trước/sau (sáng/tối, desktop/mobile), animation lật, clamp từ dài, phạm vi theo thư mục, phím Space/←→/1-4.
+
+## Việc B2 — Quiz 2 dạng + toolbar + IME ✅ (commit d)
+
+Đổi quiz sang 2 dạng theo ảnh + ScopeBar + TimerPill + phản hồi từng câu. GIỮ NGUYÊN chấm (`normalizeAnswer`/`gradeAnswer` mirror BE), lưu phiên BE, local-first. KHÔNG đổi schema/BE.
+
+### Đối chiếu BE (đã kiểm — KHÔNG cần sửa, không có gì cần duyệt)
+- `backend quiz.service.ts` chấm bằng `gradeAnswer` so với `acceptedAnswers` do client gửi; `quiz_attempts` lưu prompt/userAnswer/isCorrect/vocabularyId, `mode` là chuỗi tự do — KHÔNG lưu "loại câu hỏi". ⇒ Dạng 1/Dạng 2 là chuyện FE. BE không chuẩn hóa Katakana↔Hiragana nên FE cũng KHÔNG thêm.
+
+### 2 dạng + Ngẫu nhiên (`questions.ts`)
+- Dạng 1 (reading): đề = word (rất to), đáp án = [reading], gợi ý "Gõ cách đọc bằng Hiragana". CHỈ từ có cách đọc; nếu không từ nào có cách đọc → "Các từ trong phạm vi chưa có cách đọc".
+- Dạng 2 (meaning): đề = meaning, đáp án = [word (+reading)], gợi ý "Gõ Hiragana hoặc Kanji tương ứng". (Dạng 1 THAY cho "Nhật→Nghĩa" cũ.)
+- Ngẫu nhiên: mỗi từ bốc ngẫu nhiên 1 trong 2 dạng; từ không có cách đọc → tự Dạng 2.
+
+### UI (`QuizRunner`)
+- ScopeBar (x/y) + QuizControls (nhóm Ngẫu nhiên/Dạng 1/Dạng 2 + IconButton Xáo trộn/Làm lại + TimerPill: icon đồng hồ + số giây 1–10, mặc định 5) + QuizProgress ("TIẾN ĐỘ KIỂM TRA" + i/total + bar).
+- Thẻ câu: tiêu đề icon ⓘ + tên dạng IN HOA; công tắc "Hiển thị gợi ý Âm Hán Việt" (chip khi bật). Ô nhập + QuizActions ("Bỏ qua (Tab)" / "Kiểm tra", mờ khi trống). Sau nộp: phản hồi (viền đúng/sai, "✓ Chính xác!" hoặc đáp án chấp nhận, chip cách đọc/Hán Việt + ví dụ), nút "Tiếp (Ns)" đếm ngược + Enter chuyển ngay; câu cuối "Nộp bài" → màn kết quả cũ.
+- Phạm vi theo thư mục (`folderId` + remount `key`); "Xáo trộn" = trộn lại thứ tự bộ câu; "Làm lại" = về câu 1 giữ bộ câu; mỗi phiên bốc Fisher–Yates.
+
+### IME (hàm thuần `decideQuizKey` + test)
+- `composing` (event.isComposing hoặc keyCode 229) → Enter/Tab KHÔNG nộp/bỏ qua. Enter: chưa nộp + có nội dung → nộp; đã nộp → tiếp. Tab: chưa nộp → bỏ qua. Ô nhập tự focus mỗi câu mới.
+
+### Files
+- MỚI: `features/quiz/model/keymap.ts`, `tests/unit/quiz-keymap.test.ts`.
+- VIẾT LẠI: `features/quiz/model/{types.ts,questions.ts,useQuiz.ts}`, `features/quiz/ui/{QuizRunner.tsx,quiz.css}`, `tests/unit/quiz.test.ts`.
+- SỬA: `pages/Workspace/WorkspacePage.tsx` (truyền `folderId` + `key` cho Quiz).
+- GIỮ: `features/quiz/model/{grade.ts,session.ts}`, `features/quiz/ui/QuizResult.tsx`.
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**. `npm test`: **65/65 pass** (quiz model 8 + IME keymap 4 mới). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK**.
+- CHƯA làm (theo yêu cầu, chờ duyệt giao diện): "quiz tự đồng bộ trước khi lưu phiên".
+- CẦN XEM BẰNG MẮT: Dạng 1/Dạng 2/Ngẫu nhiên; gõ IME rồi Enter (không nộp khi đang gõ dở); đếm ngược tự chuyển; Tab bỏ qua; công tắc Hán Việt; sáng/tối + mobile.
