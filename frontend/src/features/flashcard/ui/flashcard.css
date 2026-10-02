@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-width: 44rem;
+  max-width: 46rem;
   margin: 0 auto;
 }
 
@@ -18,25 +18,7 @@
   border: 0;
 }
 
-/* 1. Thanh phạm vi */
-.kn-fc__scope {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
-}
-.kn-fc__scope-label {
-  font-size: 0.9rem;
-  color: var(--kn-text-muted);
-  font-weight: 600;
-}
-.kn-fc__chips {
-  display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-}
-
-/* 2. Thẻ điều khiển */
+/* Thẻ điều khiển: chế độ + công cụ + thống kê */
 .kn-fc__control {
   display: flex;
   flex-direction: column;
@@ -57,13 +39,34 @@
   gap: 0.5rem;
   flex-wrap: wrap;
 }
+.kn-fc__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--kn-text);
+  background: var(--kn-bg);
+  border: 1px solid var(--kn-border);
+  border-radius: 0.5rem;
+}
+.kn-fc__icon-btn:hover {
+  border-color: var(--kn-primary);
+  color: var(--kn-primary);
+}
+.kn-fc__icon-btn:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 2px;
+}
 .kn-fc__summary {
   margin-left: auto;
   font-size: 0.85rem;
   color: var(--kn-text-muted);
 }
 
-/* 3. Thanh tiến độ */
+/* Thanh tiến độ */
 .kn-fc__progress {
   display: flex;
   align-items: center;
@@ -87,7 +90,7 @@
   transition: width 0.2s ease;
 }
 
-/* 4. Thẻ lớn */
+/* Thẻ lớn */
 .kn-fc__card-wrap {
   cursor: pointer;
   border-radius: 1rem;
@@ -102,11 +105,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1.5rem;
+  padding: 2.5rem 1.75rem;
   border: 1px solid var(--kn-border);
   border-radius: 1rem;
   background: var(--kn-surface);
   text-align: center;
+  perspective: 1000px;
 }
 .kn-fc-card--back {
   border-color: var(--kn-primary);
@@ -115,20 +119,55 @@
   position: absolute;
   top: 0.9rem;
   left: 1rem;
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--kn-text-muted);
+}
+.kn-fc-card__flip-icon {
+  font-size: 0.85rem;
+}
+.kn-fc-card__inner {
+  width: 100%;
+  animation: kn-fc-flip 0.28s ease;
+}
+@keyframes kn-fc-flip {
+  from {
+    transform: rotateY(90deg);
+    opacity: 0;
+  }
+  to {
+    transform: rotateY(0deg);
+    opacity: 1;
+  }
 }
 .kn-fc-card__face {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.85rem;
   align-items: center;
   width: 100%;
 }
+.kn-fc-card__word {
+  margin: 0;
+  font-size: clamp(2.2rem, 11vw, 3.6rem);
+  font-weight: 800;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.kn-fc-card__sino {
+  margin: 0;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--kn-text-muted);
+}
 .kn-fc-card__reading {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   color: var(--kn-text-muted);
 }
 .kn-fc-card__meaning {
@@ -136,36 +175,37 @@
   font-size: 2.2rem;
   font-weight: 700;
   line-height: 1.25;
-}
-.kn-fc-card__word {
-  margin: 0;
-  font-size: 3.4rem;
-  font-weight: 800;
-  line-height: 1.1;
-}
-.kn-fc-card__sino {
-  margin: 0;
-  font-size: 0.95rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--kn-text-muted);
+  overflow-wrap: anywhere;
 }
 .kn-fc-card__box {
-  margin: 0.25rem 0 0;
-  padding: 0.6rem 0.8rem;
+  margin: 0.4rem 0 0;
+  padding: 0.7rem 0.9rem;
   border: 1px solid var(--kn-border);
   border-radius: 0.6rem;
-  font-size: 0.95rem;
-  color: var(--kn-text-muted);
-  max-width: 90%;
+  max-width: 32rem;
+  text-align: left;
 }
-.kn-fc-card__ex,
-.kn-fc-card__note {
-  margin: 0.15rem 0;
+.kn-fc-card__box-label {
+  display: block;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--kn-text-muted);
+  margin-bottom: 0.3rem;
+}
+.kn-fc-card__ex {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.kn-fc-card__ex-mean {
+  margin: 0.3rem 0 0;
+  font-size: 0.9rem;
+  font-style: italic;
+  color: var(--kn-text-muted);
 }
 
-/* 5/6. Điều khiển */
-.kn-fc__controls {
+/* Điều hướng */
+.kn-fc__nav {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -191,19 +231,20 @@
   color: var(--kn-text-muted);
 }
 
-/* Mobile */
+@media (prefers-reduced-motion: reduce) {
+  .kn-fc-card__inner {
+    animation: none;
+  }
+}
+
 @media (max-width: 640px) {
   .kn-fc-card {
-    min-height: 22rem;
-    padding: 1.5rem 1rem;
+    min-height: 21rem;
+    padding: 1.75rem 1rem;
   }
   .kn-fc-card__meaning {
     font-size: 1.8rem;
   }
-  .kn-fc-card__word {
-    font-size: 2.6rem;
-  }
-  .kn-fc__chips,
   .kn-fc__modes {
     flex-wrap: nowrap;
     overflow-x: auto;

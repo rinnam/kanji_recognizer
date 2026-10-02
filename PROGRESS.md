@@ -451,3 +451,29 @@ Hàm thuần + unit test cho "phạm vi theo thư mục", dùng chung sidebar & 
 ### Kiểm chứng
 - `npm run typecheck`: **0 lỗi**. `npm test`: **59/59 pass** (+9: 7 scope + 2 ScopeBar). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** — 121 modules.
 - CẦN XEM BẰNG MẮT: badge sidebar khớp danh sách Overview; ví dụ N3 = Bài 1 + Bài 2 (gồm con cháu).
+
+## Việc B1 — Làm lại Flashcard theo bố cục ảnh ✅ (commit c)
+
+Chỉ lấy bố cục/hành vi; dùng token màu dự án; không thêm dependency; icon SVG inline (`shared/ui/icons`). GIỮ NGUYÊN SM-2 (`queue.ts`, `review.ts`) và phím tắt (`keymap.ts` + test 8 ca đã có).
+
+### Cấu trúc mới
+- `ScopeBar` + thẻ điều khiển (chế độ Bình thường/Tiến độ/Anki SRS + IconButton Xáo trộn/Làm lại có aria-label + tooltip + thống kê "Tổng · Tới hạn · Mới") + hàng "i/total" + thanh tiến độ mảnh + thẻ lớn + CardNav (Trước/Tiếp theo, hoặc 4 nút Again/Hard/Good/Easy ở Anki).
+- Phạm vi theo thư mục: `FlashcardStudy` nhận `folderId`, dùng `selectWordsInScope` (gồm con cháu). ScopeBar: y = số thẻ của chế độ hiện tại (deck), x = số thẻ dùng sau chip; "N từ đầu" theo createdAt tăng, "Random N" bốc lại khi bấm. Đổi thư mục → remount (`key`) nên reset về "Tất cả" + thẻ đầu.
+
+### Mặt thẻ (hàm thuần `selectFaceContent` + test)
+- MẶT TRƯỚC: TỪ to đậm (clamp chống tràn) + Âm Hán Việt IN HOA giãn chữ (ẩn nếu rỗng, không để trống).
+- MẶT SAU: Cách đọc (trên) · Nghĩa (to đậm) · khung "VÍ DỤ" (câu ví dụ + dịch nghiêng); trường rỗng ẩn đúng khối, không có ví dụ thì ẩn cả khung.
+- Góc trên trái LUÔN có "BẤM ĐỂ LẬT" + icon flip. Bấm/chạm thẻ hoặc Space để lật — animation xoay ngắn, tôn trọng `prefers-reduced-motion`. Chuyển thẻ → luôn về mặt trước.
+
+### Phím tắt (giữ nguyên `keymap.ts`)
+- Space lật (preventDefault); mặt sau: Bình thường/Tiến độ → qua thẻ, Anki → chỉ lật; ← → chuyển (chặn biên); 1/2/3/4 chấm (chỉ Anki + đã lật); bỏ qua khi đang gõ / có modal / giữ Ctrl-Alt-Meta. (8 ca test đã phủ.)
+
+### Files
+- MỚI: `features/flashcard/model/face.ts`, `shared/ui/icons/index.tsx`, `tests/unit/flashcard-face.test.ts`.
+- VIẾT LẠI: `features/flashcard/ui/{FlashcardCard.tsx,FlashcardStudy.tsx,flashcard.css}`.
+- SỬA: `shared/ui/index.ts` (export icons), `pages/Workspace/WorkspacePage.tsx` (truyền `folderId` + `key` cho Flashcard).
+- GIỮ: `features/flashcard/model/{keymap.ts,useFlashcardKeys.ts,queue.ts,review.ts,types.ts,useFlashcards.ts}`.
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**. `npm test`: **61/61 pass** (+2 `selectFaceContent`; keymap 8 ca giữ nguyên). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** — 123 modules.
+- CẦN XEM BẰNG MẮT: mặt trước/sau (sáng/tối, desktop/mobile), animation lật, clamp từ dài, phạm vi theo thư mục, phím Space/←→/1-4.

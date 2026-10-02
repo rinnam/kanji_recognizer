@@ -116,7 +116,9 @@ export function WorkspacePage(): ReactElement {
 
         <div className="kn-ws__panel">
           {tab === 'overview' ? <VocabularyOverview folderId={selectedFolderId} /> : null}
-          {tab === 'flashcard' ? <FlashcardStudy /> : null}
+          {tab === 'flashcard' ? (
+            <FlashcardStudy key={selectedFolderId ?? 'all'} folderId={selectedFolderId} />
+          ) : null}
           {tab === 'quiz' ? <QuizRunner /> : null}
         </div>
       </div>
