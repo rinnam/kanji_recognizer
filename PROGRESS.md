@@ -11,7 +11,7 @@
 | 3 | BE sync (pull/push, LWW theo `updated_at` + tombstone + delta, idempotent) | ✅ XONG |
 | 4 | BE learning: SRS (SM-2 thuần) + quiz (chấm điểm) + endpoints + unit test | ✅ XONG (phiên này) |
 | 5 | FE nền (FSD): entities/shared, IndexedDB local-first, api client, app shell (4 trạng thái + theme) | ✅ XONG (phiên này) |
-| 6 | FE features: folder-tree ✅, vocabulary ✅, sync client (debounce 3.5s) ✅, flashcard 3 chế độ ✅, typing quiz ✅ | ✅ XONG F0–F5 (còn: dọn placeholder chờ duyệt + e2e tay) |
+| 6 | FE features: folder-tree ✅, vocabulary ✅, sync client (debounce 3.5s) ✅, flashcard 3 chế độ ✅, typing quiz ✅ | ✅ XONG F0–F5 + dọn placeholder + e2e BE (đang: làm lại UI F3/F4 theo bố cục tham khảo) |
 
 ## Lưu ý quan trọng (phát hiện trong phiên làm mục 4)
 
@@ -325,3 +325,26 @@ Người dùng đã duyệt (Nhóm A + B). Trước khi xóa đã grep `docs/` +
 - `npm test`: **42/42 pass** (không đổi — chỉ gỡ thư mục rỗng).
 - `npm run build`: **OK** (120 modules).
 - *Lưu ý:* `study-theme/` (ảnh tham khảo bố cục) hiện là thư mục **untracked**, KHÔNG đưa vào commit (chỉ để xem, không import vào app).
+
+## Mục 6 — e2e tự chạy gọi thẳng BE (không qua UI) ✅
+
+Chạy bằng công cụ gửi request tới BE `http://127.0.0.1:3000` (DB PostgreSQL 18.4, đủ 8 bảng). KHÔNG để lại file tạm. Owner = `LOCAL_OWNER_ID` (MVP không auth).
+
+| Bước | Request | Kết quả |
+|---|---|---|
+| Health | `GET /health` | 200 `{status:ok, db:up}` |
+| Push (sống) | `POST /api/sync/push` (1 folder + 1 từ) | 200 `folders.applied=1, vocabularies.applied=1` |
+| Pull | `GET /api/sync/pull?since=…09:00` | 200 — trả đúng folder + từ vừa đẩy (`deletedAt:null`) |
+| Quiz hợp lệ | `POST /api/quiz/sessions` (vocabularyId tồn tại) | **201** `score 1/1`, attempt `isCorrect:true` |
+| Quiz KHÔNG hợp lệ | `POST /api/quiz/sessions` (vocabularyId lạ) | **400** `ValidationError "…vocabulary that does not exist: …"` (đúng, KHÔNG 500 — xác nhận fix BE-1) |
+| Tombstone | `POST /api/sync/push` (updatedAt mới hơn + deletedAt) | 200 `applied=1` cho cả folder & từ |
+| Pull sau xóa | `GET /api/sync/pull?since=…10:30` | 200 — từ & folder có `deletedAt` (tombstone lan truyền) |
+| Chống hồi sinh | `POST /api/sync/push` lại BẢN CŨ (updatedAt cũ hơn, deletedAt null) | 200 `vocabularies.skipped=1, applied=0` (LWW bỏ bản cũ) |
+| Pull xác nhận | `GET /api/sync/pull?since=…10:30` | 200 — từ VẪN `deletedAt` (KHÔNG hồi sinh) ✅ |
+
+Dữ liệu test (`folder_e2e_0001`, `vocab_e2e_0001`) kết thúc ở trạng thái **tombstone** → DB không còn bản sống rác.
+
+### Ý tưởng cải tiến (ghi lại, CHƯA làm)
+- **Quiz tự sync trước khi lưu phiên:** hiện POST `/quiz/sessions` có thể 400 nếu `vocabularyId` chưa đồng bộ lên server. Có thể cho `features/quiz` kích hoạt một vòng sync (qua `shared`) trước khi lưu, hoặc gửi attempt bỏ `vocabularyId` khi từ chưa đồng bộ.
+- **Tối ưu đẩy ngược bản vừa pull:** bản vừa merge từ pull có thể bị tính "bẩn" ở vòng push kế (echo). Thêm cờ "nguồn server" hoặc so con trỏ để bỏ echo.
+- **Phân trang pull** cho bộ dữ liệu lớn (hiện pull trả nguyên delta một lần).
