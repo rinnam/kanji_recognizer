@@ -306,3 +306,22 @@ Local-first. Sinh câu từ vocab local, **chấm CỤC BỘ** (mirror `quiz.ser
 - `npm run lint`: **0 lỗi**; vẫn 4 cảnh báo react-refresh HMR vô hại (router.tsx 3 + ThemeProvider.tsx 1).
 - `npm run build`: **OK** — chunk Quiz ~6.85 kB (code-split route). (Nhắc: nếu gặp `EPERM` khi dọn `dist/` trên Windows → xóa `dist/` rồi build lại.)
 - CHƯA chạy luồng thật với BE (lưu phiên cần BE + DB) — để người dùng kiểm bằng tay.
+
+## Mục 6 — Dọn placeholder scaffold rỗng (chore) ✅
+
+Người dùng đã duyệt (Nhóm A + B). Trước khi xóa đã grep `docs/` + README: chỉ `docs/architecture/frontend.md` (§1 cây thư mục + §5 lộ trình) và `frontend/src/shared/README.md` mô tả các thư mục cũ là "cấu trúc đã chốt" → đã sửa tài liệu cho khớp trong cùng commit. (`backend.md` nói về thư mục của BE, không liên quan.)
+
+### Đã gỡ (chỉ chứa `.gitkeep`, không nơi nào import)
+- **Nhóm A (xóa cả thư mục):** `features/{auth,library,progress,srs,study}`, `pages/{Home,Login,Progress,SRS}`, `components/` (+common/forms/ui), `constants/`, `hooks/`, `layouts/`, `services/`, `stores/`, `types/`, `utils/`, `assets/` (+fonts/icons/images).
+- **Nhóm B (gỡ `.gitkeep` thừa, giữ thư mục đã tái dùng):** gốc `src/`, `features/`, `features/quiz/`, `pages/`, `pages/{Library,Quiz,Study}/`, `routes/`.
+- Tổng: gỡ 32 file `.gitkeep`. Cây `frontend/src` còn: `app, entities, features, pages, routes, shared` + `main.tsx`.
+
+### Files SỬA (tài liệu cho khớp)
+- `docs/architecture/frontend.md` — §1 cây thư mục thực tế (bỏ các thư mục đã gỡ) + §5 đánh dấu lộ trình refactor HOÀN TẤT.
+- `frontend/src/shared/README.md` — bỏ dòng "lộ trình chuyển dần từ components/hooks/utils" (đã gỡ).
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**.
+- `npm test`: **42/42 pass** (không đổi — chỉ gỡ thư mục rỗng).
+- `npm run build`: **OK** (120 modules).
+- *Lưu ý:* `study-theme/` (ảnh tham khảo bố cục) hiện là thư mục **untracked**, KHÔNG đưa vào commit (chỉ để xem, không import vào app).

@@ -12,4 +12,4 @@ shared/
 
 Phụ thuộc: `shared/` **không import** tầng trên (entities/features/pages). Mọi thứ ở đây phải độc lập domain.
 
-Lộ trình: chuyển dần phần dùng chung từ `components/`, `hooks/`, `utils/` hiện có về đây. Chi tiết: `docs/architecture/frontend.md`.
+Các thư mục scaffold cũ (`components/`, `hooks/`, `utils/`) đã được gỡ bỏ; mọi thứ dùng chung nằm ở đây. Chi tiết: `docs/architecture/frontend.md`.

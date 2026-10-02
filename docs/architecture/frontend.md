@@ -4,26 +4,20 @@
 
 ## 1. Cây thư mục đã chốt
 
-Giữ cây hiện có + **bổ sung `entities/` và `shared/`** (quyết định ở Bước 3):
+Cấu trúc **FSD** thực tế của `frontend/src` (sau khi gỡ các thư mục scaffold rỗng kiểu CRA — xem PROGRESS, commit "chore: dọn placeholder scaffold rỗng"):
 
 ```
 frontend/src/
-  app/        (tích hợp cấp cao: providers, router gốc — có thể gộp với main.tsx)
-  pages/      màn hình ghép nhiều feature (route-level)
-  features/   logic ghép nhiều entity thành một tính năng người dùng
-  entities/   *** MỚI *** model nghiệp vụ thuần (Vocabulary, Folder, Card...)
-  shared/     *** MỚI *** dùng chung thuần kỹ thuật (UI kit, hooks, utils, api client)
-  components/ (đang có) → dần chuyển phần dùng chung sang shared/ui
-  hooks/      (đang có) → phần dùng chung sang shared/lib; hook theo feature về features/*
-  utils/      (đang có) → chuyển sang shared/lib
-  layouts/    bố cục khung trang
-  routes/     khai báo route
-  services/   gọi API / sync client (→ nên gom về shared/api + entities/*/api)
-  stores/     state toàn cục (→ ưu tiên state theo slice; global tối thiểu)
-  constants/  hằng số
-  types/      kiểu dùng chung (→ kiểu theo entity về entities/*/model)
-  assets/     ảnh, font
+  app/        tích hợp cấp cao: providers, router gốc, AppLayout (cùng main.tsx)
+  pages/      màn hình route-level ghép nhiều feature: Library, Study, Quiz
+  features/   tính năng người dùng: folder-tree, vocabulary, sync, flashcard, quiz
+  entities/   model nghiệp vụ thuần: vocabulary, folder, card
+  shared/     dùng chung thuần kỹ thuật: ui (UI kit), lib (hooks/util), api (http+sync), config, db
+  routes/     khai báo đường dẫn (paths.ts)
+  main.tsx    entry: mount <App/>
 ```
+
+> Các thư mục scaffold cũ (`components/`, `hooks/`, `utils/`, `services/`, `stores/`, `constants/`, `types/`, `layouts/`, `assets/`) **đã được gỡ bỏ**: vai trò của chúng chuyển hẳn sang `shared/*` và `entities/*` theo FSD. Khi cần UI/hook/util/hằng số/asset dùng chung → đặt vào `shared/` (vd `shared/ui`, `shared/lib`, `shared/config`).
 
 ## 2. Quy tắc tầng (import direction)
 
@@ -60,9 +54,9 @@ app → pages → features → entities → shared
 - **Theme:** hỗ trợ sáng/tối qua token.
 - **Hiệu năng:** debounce search; `React.lazy`/dynamic import cho route/feature nặng.
 
-## 5. Lộ trình refactor nhẹ (không phá vỡ)
+## 5. Lộ trình refactor (ĐÃ HOÀN TẤT)
 
-1. Tạo `entities/` + `shared/` (đã có README mô tả).
-2. Chuyển dần UI dùng chung từ `components/` → `shared/ui`; util từ `utils/` → `shared/lib`.
-3. Gom kiểu/model theo entity vào `entities/*/model`; API theo entity vào `entities/*/api` hoặc `shared/api`.
-4. Giữ `pages/`, `layouts/`, `routes/` như hiện tại.
+1. ✅ Tạo `entities/` + `shared/` (có README mô tả).
+2. ✅ Chuyển UI dùng chung sang `shared/ui`; hook/util sang `shared/lib`.
+3. ✅ Gom kiểu/model theo entity vào `entities/*/model`; API vào `entities/*/api` + `shared/api`.
+4. ✅ Giữ `pages/`, `routes/`; đã **gỡ** các thư mục scaffold rỗng (`components/`, `hooks/`, `utils/`, `services/`, `stores/`, `constants/`, `types/`, `layouts/`, `assets/`) vì vai trò đã nằm trong `shared/*`/`entities/*`.
