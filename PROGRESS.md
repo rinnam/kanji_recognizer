@@ -11,7 +11,7 @@
 | 3 | BE sync (pull/push, LWW theo `updated_at` + tombstone + delta, idempotent) | ✅ XONG |
 | 4 | BE learning: SRS (SM-2 thuần) + quiz (chấm điểm) + endpoints + unit test | ✅ XONG (phiên này) |
 | 5 | FE nền (FSD): entities/shared, IndexedDB local-first, api client, app shell (4 trạng thái + theme) | ✅ XONG (phiên này) |
-| 6 | FE features: folder-tree ✅, vocabulary ✅, sync client (debounce 3.5s) ✅, flashcard 3 chế độ ✅, typing quiz ✅ | ✅ XONG F0–F5 + dọn placeholder + e2e BE (đang: làm lại UI F3/F4 theo bố cục tham khảo) |
+| 6 | FE features: folder-tree ✅, vocabulary ✅, sync client (debounce 3.5s) ✅, flashcard 3 chế độ ✅, typing quiz ✅ | ✅ XONG (F0–F5 + dọn placeholder + e2e BE + làm lại UI F3/F4 + phím tắt) |
 
 ## Lưu ý quan trọng (phát hiện trong phiên làm mục 4)
 
@@ -372,3 +372,33 @@ Chỉ đổi UI/UX; GIỮ NGUYÊN logic SM-2 (`entities/card`), hàng đợi (`q
 ### Kiểm chứng
 - `npm run typecheck`: **0 lỗi**. `npm test`: **50/50 pass** (+8 keymap). `npm run lint`: **0 lỗi** (4 cảnh báo react-refresh cũ). `npm run build`: **OK** — chunk Study 9.48 kB, CSS 2.86 kB.
 - CẦN XEM BẰNG MẮT: bố cục thẻ sáng/tối, desktop/mobile, phím Space/←→/1-4, bấm thẻ để lật.
+
+## Mục 6 — F4 làm lại giao diện + phím tắt (theo bố cục tham khảo) ✅
+
+Chỉ đổi UI/UX; GIỮ NGUYÊN chấm cục bộ (mirror BE), lưu phiên BE, local-first. FSD + 4 trạng thái. KHÔNG thêm dependency.
+
+### Bố cục + luồng mới
+- Thanh **phạm vi** + chip Tất cả / 20 câu đầu / Random 20.
+- **Thẻ điều khiển**: nhóm nút **kiểu hỏi** (Nghĩa→Nhật / Nhật→Nghĩa) + Xáo trộn / Làm lại + ô "Tự chuyển (giây)" (1–10, mặc định 5) + "TIẾN ĐỘ KIỂM TRA i/total" + bar.
+- **Thẻ câu hỏi**: tiêu đề loại câu (hoa, có ⓘ), đề to, gợi ý nghiêng, công tắc "Hiển thị gợi ý Âm Hán Việt" (nếu từ có Hán Việt).
+- **Ô nhập lớn** + placeholder "Nhập câu trả lời vào đây..." + 2 nút **Bỏ qua (Tab)** / **Kiểm tra** (mờ khi trống).
+- **Phản hồi từng câu** sau nộp: viền thẻ + ô nhập đổi đúng/sai, "✓ Chính xác!" hoặc "✗ … + Đáp án: …", chip Cách đọc / Hán Việt, ví dụ; nút **Tiếp / Nộp bài** kèm **đếm ngược tự chuyển** (mặc định 5s, chỉnh 1–10) + **Enter** chuyển ngay. Câu cuối → màn kết quả hiện có.
+
+### Phím tắt (brief)
+- **Enter**: chưa nộp → nộp (chấm + phản hồi); đã nộp → câu tiếp (hoặc Nộp bài ở câu cuối).
+- **Tab**: bỏ qua câu (chỉ khi CHƯA nộp) → ghi null, sang câu kế.
+- Ô nhập **tự focus** mỗi câu mới (effect theo index/submitted).
+- Đếm ngược: effect `setInterval` (setState chỉ trong callback, không trong thân effect → không vi phạm `react-hooks/set-state-in-effect`); seed `remaining` tại handler nộp.
+
+### Thiết kế hook (`model/useQuiz.ts` viết lại)
+- Pha `active → result` (bỏ pha config rời; điều khiển luôn hiện trên đầu). `submit` (chấm 1 câu + feedback) / `skip` / `advance` (câu cuối → `finishWith`). Chọn kiểu hỏi/phạm vi/xáo trộn → dựng lại câu hỏi (`buildQuestions` + limit/shuffle). `currentVocab` tra từ `all` để hiện gợi ý/chip. Lưu phiên BE giữ nguyên (navigator.onLine + bắt ApiError).
+
+### KHÔNG làm (chờ duyệt)
+- Kiểu hỏi "nhìn chữ, nhập cách đọc" (Dạng 1 trong ảnh) — theo yêu cầu, CHƯA tự làm; cần bạn xác nhận trước.
+
+### Files
+- VIẾT LẠI: `model/useQuiz.ts`, `ui/QuizRunner.tsx`, `ui/quiz.css`. GIỮ: `model/{grade,questions,session,types}.ts`, `ui/QuizResult.tsx`.
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**. `npm test`: **50/50 pass** (8 test quiz model giữ nguyên). `npm run lint`: **0 lỗi** (4 cảnh báo react-refresh cũ). `npm run build`: **OK** — chunk Quiz 11.71 kB, CSS 3.33 kB.
+- CẦN XEM BẰNG MẮT: sáng/tối, desktop/mobile; Enter nộp→tiếp; Tab bỏ qua; auto-focus; đếm ngược 1–10s; công tắc Hán Việt; lưu phiên khi BE online.

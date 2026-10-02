@@ -6,35 +6,52 @@ import {
 import { ApiError, createQuizSession } from '../../../shared/api';
 import { useDb } from '../../../shared/db';
 import { nowIso } from '../../../shared/lib';
+import { gradeAnswer } from './grade';
 import { buildQuestions } from './questions';
 import { gradeSession, toCreateSessionInput } from './session';
 import type { QuizDirection, QuizQuestion, QuizResult } from './types';
 
 type LoadStatus = 'loading' | 'error' | 'ready';
-export type QuizPhase = 'config' | 'active' | 'result';
+export type QuizPhase = 'active' | 'result';
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'offline' | 'error';
+export type QuizScope = 'all' | 'first' | 'random';
+
+export interface QuizFeedback {
+  answer: string | null;
+  correct: boolean;
+}
 
 export interface QuizApi {
   loadStatus: LoadStatus;
   loadError: string | null;
   availableCount: number;
+  direction: QuizDirection;
+  scope: QuizScope;
   phase: QuizPhase;
   questions: QuizQuestion[];
   index: number;
+  total: number;
   current: QuizQuestion | null;
+  currentVocab: LocalVocabulary | null;
+  submitted: boolean;
+  feedback: QuizFeedback | null;
   result: QuizResult | null;
   saveStatus: SaveStatus;
   saveMessage: string | null;
   reload: () => Promise<void>;
-  start: (direction: QuizDirection, limit: number) => void;
-  answer: (value: string) => void;
+  chooseDirection: (direction: QuizDirection) => void;
+  chooseScope: (scope: QuizScope) => void;
+  reshuffle: () => void;
+  submit: (value: string) => void;
+  skip: () => void;
+  advance: () => void;
   restart: () => void;
 }
 
+const SCOPE_N = 20;
 const READ_ERROR = 'Không đọc được từ vựng.';
 
-/** Trộn thứ tự (Fisher–Yates) để mỗi phiên quiz khác nhau — chỉ gọi trong event handler. */
-function shuffled<T>(items: readonly T[]): T[] {
+function shuffle<T>(items: readonly T[]): T[] {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -46,8 +63,9 @@ function shuffled<T>(items: readonly T[]): T[] {
 }
 
 /**
- * Điều phối typing quiz local-first: nạp vocab, sinh câu, chấm CỤC BỘ (mirror BE),
- * và lưu phiên lên BE khi online. Kết quả cục bộ luôn hiển thị kể cả khi lưu thất bại.
+ * Điều phối typing quiz local-first (F4): nạp vocab, dựng câu hỏi theo kiểu hỏi + phạm vi,
+ * chấm CỤC BỘ từng câu (phản hồi ngay), lưu phiên lên BE khi online. Pha: active → result.
+ * KHÔNG đổi logic chấm (mirror BE) — chỉ thêm luồng nộp/bỏ qua/tiếp.
  */
 export function useQuiz(): QuizApi {
   const db = useDb();
@@ -55,9 +73,13 @@ export function useQuiz(): QuizApi {
   const [loadStatus, setLoadStatus] = useState<LoadStatus>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [phase, setPhase] = useState<QuizPhase>('config');
+  const [direction, setDirection] = useState<QuizDirection>('viToJa');
+  const [scope, setScope] = useState<QuizScope>('all');
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [index, setIndex] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
+  const [feedback, setFeedback] = useState<QuizFeedback | null>(null);
+  const [phase, setPhase] = useState<QuizPhase>('active');
   const [result, setResult] = useState<QuizResult | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -70,18 +92,48 @@ export function useQuiz(): QuizApi {
     return rows.filter((item) => item.deletedAt === null);
   }, [db]);
 
+  const buildFor = useCallback(
+    (
+      dir: QuizDirection,
+      scp: QuizScope,
+      pool: readonly LocalVocabulary[],
+      forceShuffle: boolean,
+    ): QuizQuestion[] => {
+      const base = scp === 'random' || forceShuffle ? shuffle(pool) : pool;
+      const limit = scp === 'all' ? undefined : SCOPE_N;
+      return buildQuestions(base, dir, limit);
+    },
+    [],
+  );
+
+  const startWith = useCallback((qs: QuizQuestion[]): void => {
+    setQuestions(qs);
+    answersRef.current = [];
+    startedAtRef.current = nowIso();
+    setIndex(0);
+    setSubmitted(false);
+    setFeedback(null);
+    setResult(null);
+    setSaveStatus('idle');
+    setSaveMessage(null);
+    setPhase('active');
+  }, []);
+
   const reload = useCallback(async (): Promise<void> => {
     setLoadStatus('loading');
     try {
-      setAll(await fetchLiving());
+      const living = await fetchLiving();
+      setAll(living);
       setLoadError(null);
       setLoadStatus('ready');
+      startWith(buildFor(direction, scope, living, false));
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : READ_ERROR);
       setLoadStatus('error');
     }
-  }, [fetchLiving]);
+  }, [fetchLiving, buildFor, direction, scope, startWith]);
 
+  // Nạp lần đầu: setState chỉ sau await (tránh set-state-in-effect, như useVocabulary).
   useEffect(() => {
     let active = true;
     void (async (): Promise<void> => {
@@ -91,6 +143,7 @@ export function useQuiz(): QuizApi {
         setAll(living);
         setLoadError(null);
         setLoadStatus('ready');
+        startWith(buildQuestions(living, 'viToJa', undefined));
       } catch (err) {
         if (!active) return;
         setLoadError(err instanceof Error ? err.message : READ_ERROR);
@@ -100,10 +153,20 @@ export function useQuiz(): QuizApi {
     return () => {
       active = false;
     };
-  }, [fetchLiving]);
+  }, [fetchLiving, startWith]);
 
-  // Cả hai hướng đều cần word + meaning → số câu khả dụng như nhau.
+  const allById = useMemo(() => {
+    const map = new Map<string, LocalVocabulary>();
+    for (const vocab of all) map.set(vocab.id, vocab);
+    return map;
+  }, [all]);
+
   const availableCount = useMemo(() => buildQuestions(all, 'viToJa').length, [all]);
+
+  const total = questions.length;
+  const current = index < total ? questions[index] : null;
+  const currentVocab =
+    current !== null ? allById.get(current.vocabularyId) ?? null : null;
 
   const saveToServer = useCallback(
     async (finished: QuizResult, startedAt: string): Promise<void> => {
@@ -144,62 +207,92 @@ export function useQuiz(): QuizApi {
     [questions, saveToServer],
   );
 
-  const start = useCallback(
-    (direction: QuizDirection, limit: number): void => {
-      const chosen = buildQuestions(shuffled(all), direction, limit);
-      if (chosen.length === 0) return;
-      setQuestions(chosen);
-      answersRef.current = [];
-      startedAtRef.current = nowIso();
-      setIndex(0);
-      setResult(null);
-      setSaveStatus('idle');
-      setSaveMessage(null);
-      setPhase('active');
+  const chooseDirection = useCallback(
+    (dir: QuizDirection): void => {
+      setDirection(dir);
+      startWith(buildFor(dir, scope, all, false));
     },
-    [all],
+    [scope, all, buildFor, startWith],
   );
 
-  const answer = useCallback(
-    (value: string): void => {
-      const next = answersRef.current.slice();
-      next[index] = value.trim() === '' ? null : value;
-      answersRef.current = next;
-      if (index >= questions.length - 1) {
-        finishWith(next);
-      } else {
-        setIndex(index + 1);
-      }
+  const chooseScope = useCallback(
+    (scp: QuizScope): void => {
+      setScope(scp);
+      startWith(buildFor(direction, scp, all, false));
     },
-    [index, questions.length, finishWith],
+    [direction, all, buildFor, startWith],
   );
+
+  const reshuffle = useCallback((): void => {
+    startWith(buildFor(direction, scope, all, true));
+  }, [direction, scope, all, buildFor, startWith]);
 
   const restart = useCallback((): void => {
-    setPhase('config');
-    setQuestions([]);
-    answersRef.current = [];
-    setIndex(0);
-    setResult(null);
-    setSaveStatus('idle');
-    setSaveMessage(null);
-  }, []);
+    startWith(buildFor(direction, scope, all, scope === 'random'));
+  }, [direction, scope, all, buildFor, startWith]);
 
-  const current = index < questions.length ? questions[index] : null;
+  const submit = useCallback(
+    (value: string): void => {
+      if (submitted) return;
+      const cur = index < questions.length ? questions[index] : null;
+      if (cur === null) return;
+      const clean = value.trim() === '' ? null : value;
+      const next = answersRef.current.slice();
+      next[index] = clean;
+      answersRef.current = next;
+      setFeedback({ answer: clean, correct: gradeAnswer(clean, cur.acceptedAnswers) });
+      setSubmitted(true);
+    },
+    [submitted, index, questions],
+  );
+
+  const advance = useCallback((): void => {
+    if (index >= questions.length - 1) {
+      finishWith(answersRef.current);
+      return;
+    }
+    setIndex(index + 1);
+    setSubmitted(false);
+    setFeedback(null);
+  }, [index, questions.length, finishWith]);
+
+  const skip = useCallback((): void => {
+    if (submitted) return;
+    const next = answersRef.current.slice();
+    next[index] = null;
+    answersRef.current = next;
+    if (index >= questions.length - 1) {
+      finishWith(next);
+      return;
+    }
+    setIndex(index + 1);
+    setFeedback(null);
+  }, [submitted, index, questions.length, finishWith]);
 
   return {
     loadStatus,
     loadError,
     availableCount,
+    direction,
+    scope,
     phase,
     questions,
     index,
+    total,
     current,
+    currentVocab,
+    submitted,
+    feedback,
     result,
     saveStatus,
     saveMessage,
     reload,
-    start,
-    answer,
+    chooseDirection,
+    chooseScope,
+    reshuffle,
+    submit,
+    skip,
+    advance,
     restart,
   };
 }

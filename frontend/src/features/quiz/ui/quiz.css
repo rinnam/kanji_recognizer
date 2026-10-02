@@ -2,83 +2,240 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-width: 36rem;
+  max-width: 44rem;
+  margin: 0 auto;
 }
 
-.kn-quiz__config,
-.kn-quiz__active {
+.kn-quiz__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Thanh phạm vi */
+.kn-quiz__scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+.kn-quiz__scope-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--kn-text-muted);
+}
+.kn-quiz__chips {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* Thẻ điều khiển */
+.kn-quiz__control {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: 0.6rem;
+  padding: 0.75rem;
   border: 1px solid var(--kn-border);
   border-radius: 0.75rem;
   background: var(--kn-surface);
 }
-.kn-quiz__config .kn-ui-field,
-.kn-quiz__active .kn-ui-field {
-  margin-bottom: 0;
-}
-
-.kn-quiz__hint,
-.kn-quiz__pos {
-  margin: 0;
-  color: var(--kn-text-muted);
-  font-size: 0.9rem;
-}
-
-.kn-quiz__question {
-  margin: 0;
-  font-size: 1.8rem;
-  font-weight: 700;
-  text-align: center;
-}
-
-.kn-quiz__result {
+.kn-quiz__dirs,
+.kn-quiz__tools {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.kn-quiz__score {
-  margin: 0;
-  font-size: 1.3rem;
-}
-.kn-quiz__save {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--kn-text-muted);
-}
-.kn-quiz__save--error {
-  color: var(--kn-danger);
-}
-
-.kn-quiz__review {
-  margin: 0;
-  padding-left: 1.25rem;
-  display: flex;
-  flex-direction: column;
   gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
 }
-.kn-quiz__item {
+.kn-quiz__countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--kn-text-muted);
+}
+.kn-quiz__countdown-input {
+  width: 3.5rem;
+}
+.kn-quiz__progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.kn-quiz__progress-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--kn-text-muted);
+}
+.kn-quiz__counter {
+  font-size: 0.85rem;
+  color: var(--kn-text-muted);
+}
+.kn-quiz__bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--kn-border);
+  overflow: hidden;
+}
+.kn-quiz__bar-fill {
+  height: 100%;
+  background: var(--kn-primary);
+  transition: width 0.2s ease;
+}
+
+/* Thẻ câu hỏi */
+.kn-quiz__card {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.5rem 0.6rem;
+  gap: 0.6rem;
+  align-items: center;
+  text-align: center;
+  padding: 1.75rem 1.25rem;
   border: 1px solid var(--kn-border);
-  border-radius: 0.5rem;
+  border-radius: 1rem;
   background: var(--kn-surface);
 }
-.kn-quiz__item--ok {
-  border-left: 4px solid var(--kn-primary);
+.kn-quiz__card--ok {
+  border-color: var(--kn-primary);
 }
-.kn-quiz__item--no {
-  border-left: 4px solid var(--kn-danger);
+.kn-quiz__card--no {
+  border-color: var(--kn-danger);
 }
-.kn-quiz__prompt {
-  font-weight: 600;
+.kn-quiz__card-title {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--kn-text-muted);
 }
-.kn-quiz__answer,
+.kn-quiz__question {
+  margin: 0;
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.kn-quiz__hint {
+  margin: 0;
+  font-size: 0.9rem;
+  font-style: italic;
+  color: var(--kn-text-muted);
+}
+.kn-quiz__sino {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.kn-quiz__sino-value {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--kn-text-muted);
+}
+
+/* Phản hồi */
+.kn-quiz__feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--kn-border);
+}
+.kn-quiz__verdict {
+  margin: 0;
+  font-weight: 700;
+}
+.kn-quiz__verdict--ok {
+  color: var(--kn-primary);
+}
+.kn-quiz__verdict--no {
+  color: var(--kn-danger);
+}
 .kn-quiz__accepted {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.kn-quiz__chips-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.kn-quiz__chip {
+  font-size: 0.8rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--kn-border);
+  border-radius: 999px;
+  color: var(--kn-text-muted);
+}
+.kn-quiz__example {
+  margin: 0;
   font-size: 0.9rem;
   color: var(--kn-text-muted);
+}
+
+/* Ô nhập + hành động */
+.kn-quiz__answer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.kn-quiz__answer-input {
+  font-size: 1.2rem;
+  padding: 0.7rem 0.9rem;
+}
+.kn-quiz__answer-input:focus-visible {
+  outline: 2px solid var(--kn-focus);
+}
+.kn-quiz__answer-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.kn-quiz__kbd {
+  font-size: 0.72rem;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid currentColor;
+  border-radius: 0.3rem;
+  opacity: 0.7;
+}
+.kn-quiz__hint-keys {
+  margin: 0;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--kn-text-muted);
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .kn-quiz__question {
+    font-size: 1.9rem;
+  }
+  .kn-quiz__dirs,
+  .kn-quiz__chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .kn-quiz__answer {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .kn-quiz__answer-input {
+    flex: 1 1 10rem;
+  }
+  .kn-quiz__answer-actions {
+    flex: 0 0 auto;
+  }
+  .kn-quiz__hint-keys {
+    display: none;
+  }
 }
