@@ -348,3 +348,27 @@ Dữ liệu test (`folder_e2e_0001`, `vocab_e2e_0001`) kết thúc ở trạng t
 - **Quiz tự sync trước khi lưu phiên:** hiện POST `/quiz/sessions` có thể 400 nếu `vocabularyId` chưa đồng bộ lên server. Có thể cho `features/quiz` kích hoạt một vòng sync (qua `shared`) trước khi lưu, hoặc gửi attempt bỏ `vocabularyId` khi từ chưa đồng bộ.
 - **Tối ưu đẩy ngược bản vừa pull:** bản vừa merge từ pull có thể bị tính "bẩn" ở vòng push kế (echo). Thêm cờ "nguồn server" hoặc so con trỏ để bỏ echo.
 - **Phân trang pull** cho bộ dữ liệu lớn (hiện pull trả nguyên delta một lần).
+
+## Mục 6 — F3 làm lại giao diện + phím tắt (theo bố cục tham khảo) ✅
+
+Chỉ đổi UI/UX; GIỮ NGUYÊN logic SM-2 (`entities/card`), hàng đợi (`queue.ts`), ghi srs* + change-bus. FSD + 4 trạng thái giữ nguyên. KHÔNG thêm dependency.
+
+### Bố cục mới (học từ `study-theme`, chỉ lấy bố cục — không copy màu/tên/ảnh)
+- Thanh **phạm vi** "Phạm vi x/y" + chip Tất cả / 20 từ đầu / Random 20 (chọn tập thẻ từ hàng đợi theo chế độ).
+- **Thẻ điều khiển**: tab chế độ (Bình thường / Tiến độ / Anki SRS) + công cụ Xáo trộn / Làm lại + tóm tắt (Tổng/Tới hạn/Mới).
+- **Thanh tiến độ** "i/total" + bar mảnh.
+- **Thẻ lớn** (~30rem, nhãn "BẤM ĐỂ LẬT"): mặt trước = cách đọc + NGHĨA to + khung nghĩa-ví-dụ; mặt sau = TỪ to + cách đọc + Hán Việt (hoa, giãn) + khung ví dụ/ghi chú. (**Đảo chiều hiển thị** so với bản cũ — chỉ là hiển thị.)
+- **Điều hướng**: Normal/Progress → Trước / Tiếp theo (nhãn ← →, mờ ở biên); Anki → 4 nút Again/Hard/Good/Easy (nhãn 1/2/3/4).
+
+### Phím tắt (brief) — tách lõi THUẦN để test
+- `model/keymap.ts` (THUẦN): `decideFlashcardAction(ctx)` → flip/next/prev/grade/none. Space mặt trước = lật; mặt sau: Normal/Progress = qua thẻ, **Anki = chỉ lật** (tránh chấm nhầm); ← → điều hướng (chặn biên); 1/2/3/4 chấm (chỉ Anki + đã lật); bỏ qua khi đang gõ hoặc giữ Ctrl/Alt/Meta.
+- `model/useFlashcardKeys.ts` (hook): gắn keydown document MỘT lần (đọc state qua ref → không re-attach/gọi 2 lần khi đổi chế độ); `preventDefault` cho Space/←/→ (chống cuộn); nếu đang focus `<button>` thì để Space kích hoạt nút (tránh double).
+- **Bấm/chạm vào thẻ** cũng lật (wrapper `role=button`, Space-flip khi focus thẻ). Dòng gợi ý phím dưới thẻ (ẩn ở mobile).
+
+### Files
+- MỚI: `model/keymap.ts`, `model/useFlashcardKeys.ts`, `tests/unit/flashcard-keymap.test.ts` (8 test).
+- VIẾT LẠI: `ui/FlashcardCard.tsx`, `ui/FlashcardStudy.tsx`, `ui/flashcard.css`.
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**. `npm test`: **50/50 pass** (+8 keymap). `npm run lint`: **0 lỗi** (4 cảnh báo react-refresh cũ). `npm run build`: **OK** — chunk Study 9.48 kB, CSS 2.86 kB.
+- CẦN XEM BẰNG MẮT: bố cục thẻ sáng/tối, desktop/mobile, phím Space/←→/1-4, bấm thẻ để lật.
