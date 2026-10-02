@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
-import { getAllVocabulariesLocal, type LocalVocabulary } from '../../../entities/vocabulary';
+import {
+  getAllVocabulariesLocal,
+  selectWordsInScope,
+  type LocalVocabulary,
+} from '../../../entities/vocabulary';
 import { useDb } from '../../../shared/db';
 import { subscribeDataChanged } from '../../../shared/lib';
 import { Button, EmptyState, ErrorState, Input, LoadingState } from '../../../shared/ui';
 import { useFolderTree } from '../model/useFolderTree';
-import type { FolderTreeNode } from '../model/tree';
 import { FolderTreeItem } from './FolderTreeItem';
 import './folder-tree.css';
 
@@ -14,32 +17,6 @@ export const FOLDER_DRAG_MIME = 'application/x-kn-folder-id';
 interface FolderTreeProps {
   selectedId: string | null;
   onSelect: (id: string | null, name: string | null) => void;
-}
-
-/**
- * Đếm số từ còn sống (không trùng) theo từng thư mục, GỒM mọi thư mục con cháu.
- * TODO(B0): thay bằng hàm thuần collectDescendantFolderIds/selectWordsInScope + unit test.
- */
-function subtreeFolderIds(node: FolderTreeNode): string[] {
-  const ids = [node.folder.id];
-  for (const child of node.children) ids.push(...subtreeFolderIds(child));
-  return ids;
-}
-
-function buildCounts(
-  nodes: readonly FolderTreeNode[],
-  vocab: readonly LocalVocabulary[],
-  out: Map<string, number>,
-): void {
-  for (const node of nodes) {
-    const ids = new Set(subtreeFolderIds(node));
-    let count = 0;
-    for (const item of vocab) {
-      if (item.folderIds.some((id) => ids.has(id))) count += 1;
-    }
-    out.set(node.folder.id, count);
-    buildCounts(node.children, vocab, out);
-  }
 }
 
 /** Cây thư mục local-first: tạo/sửa/xóa + kéo–thả; badge số từ theo phạm vi (gồm thư mục con). */
@@ -65,11 +42,14 @@ export function FolderTree({ selectedId, onSelect }: FolderTreeProps): ReactElem
     };
   }, [db]);
 
+  // Badge mỗi thư mục = số từ trong phạm vi (gồm con cháu) — dùng chung hàm thuần với Overview.
   const counts = useMemo(() => {
     const map = new Map<string, number>();
-    buildCounts(api.tree, vocab, map);
+    for (const folder of api.folders) {
+      map.set(folder.id, selectWordsInScope(vocab, api.folders, folder.id).length);
+    }
     return map;
-  }, [api.tree, vocab]);
+  }, [api.folders, vocab]);
   const total = vocab.length;
 
   if (api.status === 'loading') return <LoadingState label="Đang tải thư mục…" />;

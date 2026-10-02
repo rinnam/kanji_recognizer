@@ -21,6 +21,7 @@ import {
 type Status = 'loading' | 'error' | 'ready';
 
 export interface FolderTreeApi {
+  folders: LocalFolder[];
   tree: FolderTreeNode[];
   status: Status;
   error: string | null;
@@ -166,5 +167,5 @@ export function useFolderTree(): FolderTreeApi {
 
   const tree = useMemo(() => buildTree(folders), [folders]);
 
-  return { tree, status, error, reload, create, rename, remove, moveInto, moveBefore };
+  return { folders, tree, status, error, reload, create, rename, remove, moveInto, moveBefore };
 }

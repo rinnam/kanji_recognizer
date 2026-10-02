@@ -3,6 +3,7 @@ export type {
   CreateVocabularyInput,
   UpdateVocabularyInput,
   ListVocabulariesQuery,
+  ScopeFolder,
 } from './model';
 export {
   getAllVocabulariesLocal,
@@ -12,6 +13,8 @@ export {
   putVocabulariesLocal,
   deleteVocabularyLocal,
   countVocabularies,
+  collectDescendantFolderIds,
+  selectWordsInScope,
 } from './model';
 export {
   listVocabularies,

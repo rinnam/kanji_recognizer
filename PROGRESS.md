@@ -426,3 +426,28 @@ Bỏ 3 trang rời (/library, /study, /quiz) + link header; dồn về MỘT mà
 ### Kiểm chứng
 - `npm run typecheck`: **0 lỗi**. `npm test`: **50/50 pass** (9 file, không đổi test). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ (router.tsx, ThemeProvider.tsx — trong hạn ≤4). `npm run build`: **OK** — 118 modules, chunk Workspace 38.87 kB JS + 12.28 kB CSS.
 - CẦN XEM BẰNG MẮT: layout một màn hình (sáng/tối, desktop/mobile 320/390), sidebar luôn hiện + badge số từ, chuyển tab giữ trạng thái cây, ngăn kéo thư mục trên mobile, redirect path cũ.
+
+## Việc B0 — Quy tắc phạm vi (scope) + ScopeBar ✅ (commit b)
+
+Hàm thuần + unit test cho "phạm vi theo thư mục", dùng chung sidebar & Overview để số luôn khớp; thêm ScopeBar presentational (sẽ dùng ở B1/B2). KHÔNG đổi SM-2/sync/local-first; không thêm dependency.
+
+### Hàm thuần (`entities/vocabulary/model/scope.ts`)
+- `collectDescendantFolderIds(folders, rootId)` → tập id thư mục còn sống gồm chính nó + MỌI con cháu (thư mục đã xóa / id lạ → tập rỗng).
+- `selectWordsInScope(vocabs, folders, selectedFolderId)` → từ còn sống trong phạm vi; `null` = tất cả; từ thuộc nhiều thư mục chỉ tính MỘT lần; bỏ từ đã xóa và từ chỉ thuộc thư mục đã xóa.
+- Dùng kiểu cấu trúc tối thiểu `ScopeFolder` (không phụ thuộc chéo entity). Xuất qua barrel `entities/vocabulary`.
+
+### Dùng chung để "số luôn khớp"
+- Sidebar `FolderTree`: badge mỗi thư mục = `selectWordsInScope(vocab, folders, id).length` (bỏ helper tạm `// TODO(B0)` của Task A).
+- `VocabularyOverview`: lọc theo phạm vi (gồm con cháu) bằng `selectWordsInScope` rồi mới áp JLPT + tìm kiếm (gọi `filterVocabularies` với folderId = null) → danh sách khớp badge. Overview nạp thêm thư mục còn sống + nghe `subscribeDataChanged`.
+- `useFolderTree` thêm `folders` (phẳng, còn sống) vào API để tính phạm vi.
+
+### ScopeBar (`shared/ui`, presentational)
+- "Phạm vi: x/y" + chip [Tất cả] [N từ đầu] [Random N] + ô nhập N (1..total). CHỈ hiển thị + phát sự kiện; logic "N đầu" (createdAt tăng) / "Random N" (bốc lại) + reset khi đổi thư mục nằm ở Flashcard/Quiz (B1/B2). Khóa chip khi total = 0.
+
+### Files
+- MỚI: `entities/vocabulary/model/scope.ts`, `shared/ui/ScopeBar.tsx`, `shared/ui/scope-bar.css`, `tests/unit/scope.test.ts`, `tests/unit/scope-bar.test.tsx`.
+- SỬA: `entities/vocabulary/{index.ts,model/index.ts}`, `shared/ui/index.ts`, `features/folder-tree/{model/useFolderTree.ts,ui/FolderTree.tsx}`, `features/vocabulary/ui/VocabularyOverview.tsx`.
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**. `npm test`: **59/59 pass** (+9: 7 scope + 2 ScopeBar). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** — 121 modules.
+- CẦN XEM BẰNG MẮT: badge sidebar khớp danh sách Overview; ví dụ N3 = Bài 1 + Bài 2 (gồm con cháu).

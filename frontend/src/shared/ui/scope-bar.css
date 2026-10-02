@@ -1,0 +1,78 @@
+.kn-scope {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--kn-border);
+  border-radius: 0.5rem;
+  background: var(--kn-surface);
+}
+
+.kn-scope__count {
+  font-size: 0.85rem;
+  color: var(--kn-text-muted);
+}
+
+.kn-scope__count strong {
+  color: var(--kn-text);
+}
+
+.kn-scope__chips {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.kn-scope__chip {
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid var(--kn-border);
+  background: var(--kn-bg);
+  color: var(--kn-text-muted);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.8rem;
+}
+
+.kn-scope__chip--active {
+  background: var(--kn-primary);
+  color: var(--kn-primary-contrast);
+  border-color: var(--kn-primary);
+  font-weight: 600;
+}
+
+.kn-scope__chip:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.kn-scope__chip:focus-visible,
+.kn-scope__n-input:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 1px;
+}
+
+.kn-scope__n {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.kn-scope__n-label {
+  font-size: 0.8rem;
+  color: var(--kn-text-muted);
+}
+
+.kn-scope__n-input {
+  width: 3.5rem;
+  font: inherit;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--kn-border);
+  border-radius: 0.35rem;
+  background: var(--kn-bg);
+  color: var(--kn-text);
+}

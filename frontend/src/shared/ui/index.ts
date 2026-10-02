@@ -11,3 +11,5 @@ export { Button } from './primitives/Button';
 export { Input } from './primitives/Input';
 export { Field } from './primitives/Field';
 export { Modal } from './primitives/Modal';
+export { ScopeBar } from './ScopeBar';
+export type { ScopeKind } from './ScopeBar';

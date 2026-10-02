@@ -1,6 +1,9 @@
-import { useMemo, useState, type ReactElement } from 'react';
-import type { LocalVocabulary } from '../../../entities/vocabulary';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { getAllFoldersLocal, type LocalFolder } from '../../../entities/folder';
+import { selectWordsInScope, type LocalVocabulary } from '../../../entities/vocabulary';
 import type { JlptLevel } from '../../../shared/api';
+import { useDb } from '../../../shared/db';
+import { subscribeDataChanged } from '../../../shared/lib';
 import { Button, ErrorState, LoadingState, Modal } from '../../../shared/ui';
 import { filterVocabularies } from '../model/filter';
 import { useDebouncedValue } from '../model/useDebouncedValue';
@@ -17,15 +20,34 @@ interface VocabularyOverviewProps {
 /** Overview từ vựng: Quick Add + lọc (tìm kiếm debounce, JLPT) + bảng danh sách. */
 export function VocabularyOverview({ folderId }: VocabularyOverviewProps): ReactElement {
   const api = useVocabulary();
+  const db = useDb();
   const [search, setSearch] = useState('');
   const [jlpt, setJlpt] = useState<JlptLevel | null>(null);
   const [pendingDelete, setPendingDelete] = useState<LocalVocabulary | null>(null);
+  const [folders, setFolders] = useState<LocalFolder[]>([]);
   const debouncedSearch = useDebouncedValue(search, 300);
 
-  const filtered = useMemo(
-    () => filterVocabularies(api.all, { folderId, search: debouncedSearch, jlpt }),
-    [api.all, folderId, debouncedSearch, jlpt],
-  );
+  // Nạp thư mục còn sống để tính phạm vi (gồm thư mục con) — khớp badge sidebar.
+  useEffect(() => {
+    let active = true;
+    const load = async (): Promise<void> => {
+      const rows = await getAllFoldersLocal(db);
+      if (active) setFolders(rows.filter((item) => item.deletedAt === null));
+    };
+    void load();
+    const unsubscribe = subscribeDataChanged(() => void load());
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [db]);
+
+  // Phạm vi theo thư mục (gồm con cháu) dùng chung hàm thuần với badge sidebar,
+  // rồi mới áp lọc JLPT + tìm kiếm (filterVocabularies với folderId = null).
+  const filtered = useMemo(() => {
+    const scoped = selectWordsInScope(api.all, folders, folderId);
+    return filterVocabularies(scoped, { folderId: null, search: debouncedSearch, jlpt });
+  }, [api.all, folders, folderId, debouncedSearch, jlpt]);
 
   return (
     <div className="kn-overview">

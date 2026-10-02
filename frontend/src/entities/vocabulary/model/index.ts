@@ -13,3 +13,5 @@ export {
   deleteVocabularyLocal,
   countVocabularies,
 } from './vocab.local';
+export { collectDescendantFolderIds, selectWordsInScope } from './scope';
+export type { ScopeFolder } from './scope';
