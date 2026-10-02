@@ -11,7 +11,7 @@
 | 3 | BE sync (pull/push, LWW theo `updated_at` + tombstone + delta, idempotent) | ✅ XONG |
 | 4 | BE learning: SRS (SM-2 thuần) + quiz (chấm điểm) + endpoints + unit test | ✅ XONG (phiên này) |
 | 5 | FE nền (FSD): entities/shared, IndexedDB local-first, api client, app shell (4 trạng thái + theme) | ✅ XONG (phiên này) |
-| 6 | FE features: folder-tree ✅, vocabulary ✅, sync client (debounce 3.5s) ✅; flashcard 3 chế độ ⬜, typing quiz ⬜ | 🔄 ĐANG LÀM (F0–F2 + F5 xong; còn F3/F4) |
+| 6 | FE features: folder-tree ✅, vocabulary ✅, sync client (debounce 3.5s) ✅, flashcard 3 chế độ ✅; typing quiz ⬜ | 🔄 ĐANG LÀM (F0–F3 + F5 xong; còn F4) |
 
 ## Lưu ý quan trọng (phát hiện trong phiên làm mục 4)
 
@@ -256,3 +256,28 @@ Local-first đồng bộ hai chiều lên BE qua `shared/api` (pull/push đã c�
 - CHƯA chạy luồng thật với BE (F5 cần BE + DB) — để người dùng kiểm bằng tay.
 
 ### DỪNG sau F5 (theo yêu cầu) — chờ người dùng chạy thử (cần BE chạy) trước khi làm F3.
+
+## Mục 6 — F3: features/flashcard (3 chế độ Normal/Progress/Anki SRS) ✅
+
+Local-first. SM-2 **dùng lại** `entities/card` (mirror BE `srs.service`), KHÔNG viết lại công thức. Tách lõi THUẦN (queue, review) để unit test không cần DOM/DB. Feature chỉ phụ thuộc `entities/*` + `shared/*` (FSD một chiều, không import feature khác).
+
+### Thiết kế
+- **3 chế độ** (`model/types.ts`): `normal` (lật thẻ thường, đi hết bộ), `progress` (ưu tiên thẻ ít tiến độ nhất = `srsRepetition` asc), `anki` (chỉ thẻ **tới hạn** theo `isDue`, áp SM-2 + lưu lịch ôn). Normal/Progress KHÔNG ghi SRS; chỉ Anki ghi srs*.
+- **Hàng đợi THUẦN** (`model/queue.ts`): `buildQueue(vocabs, mode, now)` (lọc thẻ sống, sắp xếp tất định; anki chỉ lấy thẻ due, thẻ mới trước) + `summarize(vocabs, now)` (tổng/tới hạn/mới/đã học).
+- **BẤT BIẾN QUAN TRỌNG** (`model/review.ts`): `applyReview(vocab, rating, now)` áp SM-2 VÀ **luôn đặt `updatedAt = now`** cùng với srs*. `persistReview(deps, …)` ghi local **TRƯỚC** rồi **emit change-bus** (deps `put`/`emit` tiêm vào → test được không cần DOM/DB). Nếu quên `updatedAt`/emit, sync KHÔNG đẩy tiến độ học lên server.
+- **Hook** (`model/useFlashcards.ts`): nạp thẻ sống từ IndexedDB (mẫu effect cờ `active` như useVocabulary, tránh set-state-in-effect); `review()` dùng `persistReview` với `put = putVocabularyLocal(db, …)` + `emit = emitDataChanged`.
+
+### Files TẠO MỚI (frontend/src/features/flashcard)
+- model: `types.ts`, `queue.ts` (THUẦN), `review.ts` (THUẦN), `useFlashcards.ts`.
+- ui: `FlashcardStudy.tsx` (bộ chọn chế độ + 4 trạng thái loading/empty/error/ready + điều khiển lật/điều hướng/đánh giá), `FlashcardCard.tsx` (mặt trước/sau), `flashcard.css`.
+- `index.ts` (export `FlashcardStudy`); `tests/unit/flashcard.test.ts` (7 test).
+
+### Files SỬA
+- `pages/Study/StudyPage.tsx` — render `<FlashcardStudy/>` (bỏ placeholder EmptyState).
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**.
+- `npm test`: **34/34 pass** (+7 flashcard: queue 3, summarize 1, applyReview 2, persistReview 1).
+- `npm run lint`: **0 lỗi**; vẫn 4 cảnh báo react-refresh HMR vô hại (router.tsx 3 + ThemeProvider.tsx 1).
+- `npm run build`: **OK** — chunk Study (flashcard) ~5.64 kB (code-split route). *Lưu ý môi trường: lần build đầu lỗi `EPERM` khi dọn `dist/` cũ (file bị khóa trên Windows); xóa `dist/` rồi build lại OK — KHÔNG phải lỗi code.*
+- CHƯA chạy luồng thật với BE (anki ghi srs* → sync đẩy lên) — để người dùng kiểm bằng tay.

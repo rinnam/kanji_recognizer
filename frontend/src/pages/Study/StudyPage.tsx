@@ -1,15 +1,7 @@
 import { type ReactElement } from 'react';
-import { EmptyState } from '../../shared/ui';
+import { FlashcardStudy } from '../../features/flashcard';
 
-/** Trang Ôn tập — khung cho flashcard 3 chế độ (F3). */
+/** Trang Ôn tập — flashcard 3 chế độ Normal / Progress / Anki SRS (F3). */
 export function StudyPage(): ReactElement {
-  return (
-    <section aria-labelledby="study-heading">
-      <h2 id="study-heading">Ôn tập</h2>
-      <EmptyState
-        title="Flashcard"
-        description="Ba chế độ Normal / Progress / Anki SRS sẽ có ở F3."
-      />
-    </section>
-  );
+  return <FlashcardStudy />;
 }
