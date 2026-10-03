@@ -4,6 +4,7 @@ import {
   getVocabularyLocal,
   putVocabularyLocal,
   putVocabulariesLocal,
+  tombstoneVocabularies,
   type LocalVocabulary,
 } from '../../../entities/vocabulary';
 import { useDb } from '../../../shared/db';
@@ -38,6 +39,7 @@ export interface VocabularyApi {
   reload: () => Promise<void>;
   quickAdd: (input: QuickAddInput) => Promise<QuickAddResult>;
   remove: (id: string) => Promise<void>;
+  removeMany: (ids: readonly string[]) => Promise<number>;
   importNew: (records: NormalizedImport[], folderId: string | null) => Promise<number>;
 }
 
@@ -153,6 +155,18 @@ export function useVocabulary(): VocabularyApi {
     [db, reload],
   );
 
+  // Xóa mềm HÀNG LOẠT: một transaction IndexedDB, change-bus emit MỘT lần (trong
+  // tombstoneVocabularies), rồi nạp lại. Trả về số từ thực sự được tombstone.
+  const removeMany = useCallback(
+    async (ids: readonly string[]): Promise<number> => {
+      if (ids.length === 0) return 0;
+      const updated = await tombstoneVocabularies(db, ids, nowIso());
+      await reload();
+      return updated.length;
+    },
+    [db, reload],
+  );
+
   // Nhập hàng loạt: GHI chỉ các bản ghi MỚI (một transaction IndexedDB), phát đổi dữ liệu
   // MỘT lần rồi nạp lại. `createdAt` tăng dần theo thứ tự dòng (xem assembleImportVocabularies).
   const importNew = useCallback(
@@ -167,5 +181,5 @@ export function useVocabulary(): VocabularyApi {
     [db, reload],
   );
 
-  return { all, status, error, reload, quickAdd, remove, importNew };
+  return { all, status, error, reload, quickAdd, remove, removeMany, importNew };
 }

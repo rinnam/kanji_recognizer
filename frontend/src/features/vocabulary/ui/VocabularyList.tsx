@@ -1,10 +1,24 @@
-import { Fragment, useState, type ReactElement } from 'react';
+import { Fragment, useState, type PointerEvent as ReactPointerEvent, type ReactElement } from 'react';
 import type { LocalVocabulary } from '../../../entities/vocabulary';
 import { EmptyState, IconChevron, IconTrash } from '../../../shared/ui';
 
 interface VocabularyListProps {
   items: LocalVocabulary[];
   onDelete: (item: LocalVocabulary) => void;
+  /** Tập id đang chọn (theo id, giữ qua các trang). */
+  selectedIds: ReadonlySet<string>;
+  /** Trạng thái chọn của riêng TRANG hiện tại — lái checkbox tiêu đề (indeterminate). */
+  pageSelectState: 'none' | 'some' | 'all';
+  /** Đang kéo chuột để chọn dải → khóa bôi đen văn bản ở cột checkbox. */
+  dragging: boolean;
+  /** Bật/tắt chọn cả trang (checkbox tiêu đề). */
+  onTogglePage: () => void;
+  /** pointerdown ở ô checkbox một dòng (quyết định chế độ kéo + shift-range). */
+  onRowPointerDown: (id: string, event: ReactPointerEvent) => void;
+  /** pointerenter ô checkbox dòng khác khi đang kéo. */
+  onRowPointerEnter: (id: string) => void;
+  /** Bật/tắt một dòng bằng bàn phím (Space). */
+  onRowKeyToggle: (id: string) => void;
 }
 
 interface DetailRow {
@@ -26,7 +40,17 @@ function detailRows(item: LocalVocabulary): DetailRow[] {
  * dịch ví dụ/ghi chú nằm trong dòng chi tiết mở bằng mũi tên ▾ ở cuối dòng. Nút xóa là icon
  * thùng rác nhỏ (hiện khi hover/focus, luôn hiện trên cảm ứng) — hộp xác nhận ở cấp trên.
  */
-export function VocabularyList({ items, onDelete }: VocabularyListProps): ReactElement {
+export function VocabularyList({
+  items,
+  onDelete,
+  selectedIds,
+  pageSelectState,
+  dragging,
+  onTogglePage,
+  onRowPointerDown,
+  onRowPointerEnter,
+  onRowKeyToggle,
+}: VocabularyListProps): ReactElement {
   const [openId, setOpenId] = useState<string | null>(null);
 
   if (items.length === 0) {
@@ -38,9 +62,10 @@ export function VocabularyList({ items, onDelete }: VocabularyListProps): ReactE
   const toggle = (id: string): void => setOpenId((current) => (current === id ? null : id));
 
   return (
-    <div className="kn-vlist">
+    <div className={dragging ? 'kn-vlist is-dragging' : 'kn-vlist'}>
       <table className="kn-vtable">
         <colgroup>
+          <col className="kn-vtable__c-check" />
           <col className="kn-vtable__c-word" />
           <col className="kn-vtable__c-reading" />
           <col className="kn-vtable__c-sino" />
@@ -50,6 +75,17 @@ export function VocabularyList({ items, onDelete }: VocabularyListProps): ReactE
         </colgroup>
         <thead>
           <tr>
+            <th scope="col" className="kn-vtable__check">
+              <input
+                type="checkbox"
+                aria-label="Chọn cả trang"
+                ref={(el) => {
+                  if (el !== null) el.indeterminate = pageSelectState === 'some';
+                }}
+                checked={pageSelectState === 'all'}
+                onChange={onTogglePage}
+              />
+            </th>
             <th scope="col">Từ</th>
             <th scope="col">Cách đọc</th>
             <th scope="col">Âm Hán Việt</th>
@@ -68,6 +104,25 @@ export function VocabularyList({ items, onDelete }: VocabularyListProps): ReactE
             return (
               <Fragment key={item.id}>
                 <tr className="kn-vtable__row">
+                  <td
+                    className="kn-vtable__check"
+                    onPointerDown={(event) => onRowPointerDown(item.id, event)}
+                    onPointerEnter={() => onRowPointerEnter(item.id)}
+                  >
+                    <input
+                      type="checkbox"
+                      aria-label={`Chọn ${item.word}`}
+                      checked={selectedIds.has(item.id)}
+                      onChange={() => undefined}
+                      onClick={(event) => event.preventDefault()}
+                      onKeyDown={(event) => {
+                        if (event.key === ' ' || event.key === 'Enter') {
+                          event.preventDefault();
+                          onRowKeyToggle(item.id);
+                        }
+                      }}
+                    />
+                  </td>
                   <td className="kn-vtable__word" title={item.word}>
                     {item.word}
                   </td>
@@ -102,7 +157,7 @@ export function VocabularyList({ items, onDelete }: VocabularyListProps): ReactE
                 </tr>
                 {open ? (
                   <tr className="kn-vtable__detail-row">
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       <dl className="kn-vtable__detail">
                         {details.map((row) => (
                           <Fragment key={row.label}>

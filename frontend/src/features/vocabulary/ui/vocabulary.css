@@ -306,3 +306,72 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* === Chọn nhiều + xóa hàng loạt (4C) === */
+/* Cột checkbox đầu dòng + ô tiêu đề (chọn cả trang) */
+.kn-vtable__c-check {
+  width: 2.75rem;
+}
+.kn-vtable__check {
+  text-align: center;
+  overflow: visible;
+}
+.kn-vtable__check input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--kn-primary);
+}
+/* Đang kéo chuột để chọn dải → khóa bôi đen văn bản ở cột checkbox */
+.kn-vlist.is-dragging {
+  cursor: pointer;
+}
+.kn-vlist.is-dragging .kn-vtable__check {
+  user-select: none;
+}
+
+/* Thanh hành động hàng loạt — dính ở cuối vùng danh sách */
+.kn-vselect {
+  display: flex;
+  flex-direction: column;
+}
+.kn-vactions {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.25rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--kn-border);
+  border-radius: 0.6rem;
+  background: var(--kn-surface);
+  box-shadow: 0 -2px 10px color-mix(in srgb, var(--kn-text) 10%, transparent);
+}
+.kn-vactions__count {
+  font-weight: 600;
+  color: var(--kn-text);
+}
+.kn-vactions__sep {
+  color: var(--kn-text-muted);
+}
+.kn-vactions__link {
+  font: inherit;
+  padding: 0;
+  color: var(--kn-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.kn-vactions__link:hover {
+  color: var(--kn-text);
+}
+.kn-vactions__link:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 2px;
+  border-radius: 0.2rem;
+}

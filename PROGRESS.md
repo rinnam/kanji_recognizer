@@ -743,3 +743,8 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - VocabularyList: dòng GỌN (≤44px, một dòng, ellipsis; cột Từ|Cách đọc|Âm Hán Việt|Nghĩa|JLPT|hành động); ví dụ/dịch/ghi chú vào dòng chi tiết mở bằng ▾; nút Xóa → icon thùng rác (hiện khi hover/focus, luôn hiện trên cảm ứng) + hộp xác nhận cũ; `<thead>` sticky `top: var(--kn-header-h)`.
 - VocabularyOverview: chỉ render lát cắt trang bằng paginate (4A); cỡ trang [25|50|100] mặc định 50, nhớ localStorage; tóm tắt "x–y / N từ"; pager « ‹ [ô số] / N › »; sắp xếp [Thứ tự thêm|Mới nhất] (sortVocabs, mặc định Mới nhất); lọc/sắp xếp dùng useMemo; về trang 1 khi đổi thư mục/q/JLPT/sắp xếp/cỡ trang (chỉnh state trong render — KHÔNG setState trong effect).
 - Thêm `IconTrash` (shared/ui/icons) + `model/page-size.ts`. Kiểm: typecheck 0 · test 139/139 · lint 0 lỗi (2 cảnh báo cũ) · build OK (144 modules). Quick Add gọn để 4D.
+
+## [Phiên mới] Commit 4C — Chọn nhiều + xóa hàng loạt ✅
+- VocabularyList: cột checkbox đầu dòng + checkbox tiêu đề (chọn cả trang, indeterminate qua pageState); KÉO chuột qua cột (pointerdown chọn chế độ = đảo trạng thái ô, pointerenter áp cùng, pointerup nghe trên window, user-select:none khi kéo); Shift+click chọn dải (selectRange); Space bật/tắt bằng bàn phím.
+- VocabularyOverview: lựa chọn theo id (giữ qua trang), xóa khi đổi thư mục/q/JLPT; Ctrl/Cmd+A chọn cả TRANG, Esc bỏ chọn; thanh hành động dính "Đã chọn N · Chọn tất cả M · Xóa N · Bỏ chọn"; Modal xác nhận ("Không thể hoàn tác") → removeMany → tombstoneVocabularies (1 transaction, emit change-bus 1 lần).
+- Kiểm: typecheck 0 lỗi · test 139/139 · lint 0 lỗi (2 cảnh báo cũ) · build OK (144 modules). CẦN XEM MẮT: kéo chọn cả cụm, Shift+click chọn dải, xóa 20 từ → badge giảm đúng 20.

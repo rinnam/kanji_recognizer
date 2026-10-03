@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactElement,
+} from 'react';
 import { getAllFoldersLocal, type LocalFolder } from '../../../entities/folder';
 import { selectWordsInScope, type LocalVocabulary } from '../../../entities/vocabulary';
 import type { JlptLevel } from '../../../shared/api';
@@ -6,7 +15,15 @@ import { useDb } from '../../../shared/db';
 import { subscribeDataChanged } from '../../../shared/lib';
 import { Button, ErrorState, LoadingState, Modal } from '../../../shared/ui';
 import { filterVocabularies } from '../model/filter';
-import { paginate, sortVocabs, type VocabSort } from '../model/list-utils';
+import {
+  pageState,
+  paginate,
+  selectRange,
+  setMany,
+  sortVocabs,
+  toggleId,
+  type VocabSort,
+} from '../model/list-utils';
 import {
   loadPageSize,
   PAGE_SIZES,
@@ -42,6 +59,12 @@ export function VocabularyOverview({
   const [sortOrder, setSortOrder] = useState<VocabSort>('newest');
   const [pageSize, setPageSize] = useState<PageSize>(() => loadPageSize());
   const [page, setPage] = useState(1);
+  // Chọn nhiều: lưu theo id (giữ qua các trang). Neo cho shift-range + trạng thái kéo chuột.
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set<string>());
+  const [anchorId, setAnchorId] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const dragRef = useRef<{ active: boolean; mode: boolean }>({ active: false, mode: true });
   // Từ khóa đến từ URL `q` (ô tìm kiếm trên header) — giữ nguyên debounce 300ms và hàm lọc cũ.
   const debouncedSearch = useDebouncedValue(query, 300);
 
@@ -52,6 +75,15 @@ export function VocabularyOverview({
   if (resetKey !== lastResetKey) {
     setLastResetKey(resetKey);
     setPage(1);
+  }
+
+  // Xóa lựa chọn khi đổi THƯ MỤC / TÌM KIẾM / JLPT (GIỮ khi đổi trang / sắp xếp / cỡ trang).
+  const selectionKey = `${folderId ?? ''}|${debouncedSearch}|${jlpt ?? ''}`;
+  const [lastSelectionKey, setLastSelectionKey] = useState(selectionKey);
+  if (selectionKey !== lastSelectionKey) {
+    setLastSelectionKey(selectionKey);
+    setSelected(new Set<string>());
+    setAnchorId(null);
   }
 
   // Nạp thư mục còn sống để tính phạm vi (gồm thư mục con) — khớp badge sidebar.
@@ -94,6 +126,87 @@ export function VocabularyOverview({
   const goToPage = (next: number): void => {
     setPage(Math.min(Math.max(Math.round(next), 1), pageInfo.pageCount));
   };
+
+  // Id theo thứ tự: allIds = cả danh sách đã lọc (dùng cho shift-range + "Chọn tất cả M");
+  // pageIds = riêng trang hiện tại (lái checkbox tiêu đề + Ctrl/Cmd+A).
+  const allIds = useMemo(() => sorted.map((item) => item.id), [sorted]);
+  const pageIds = useMemo(() => pageInfo.items.map((item) => item.id), [pageInfo.items]);
+  const pageSel = pageState(selected, pageIds);
+
+  const clearSelection = useCallback((): void => {
+    setSelected(new Set<string>());
+    setAnchorId(null);
+  }, []);
+
+  const togglePage = useCallback((): void => {
+    setSelected((sel) => setMany(sel, pageIds, pageSel !== 'all'));
+  }, [pageIds, pageSel]);
+
+  // pointerdown ở ô checkbox: Shift = chọn dải từ neo; nếu không, chế độ = NGƯỢC trạng thái ô,
+  // áp cho chính ô đó rồi (chuột/bút) bật kéo để pointerenter áp cùng chế độ cho dòng khác.
+  const rowPointerDown = useCallback(
+    (id: string, event: ReactPointerEvent): void => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      if (event.shiftKey && anchorId !== null) {
+        setSelected((sel) => setMany(sel, selectRange(allIds, anchorId, id), true));
+        setAnchorId(id);
+        return;
+      }
+      const mode = !selected.has(id);
+      setSelected((sel) => setMany(sel, [id], mode));
+      setAnchorId(id);
+      if (event.pointerType === 'touch') return; // cảm ứng: chỉ bật/tắt, không kéo
+      dragRef.current = { active: true, mode };
+      setDragging(true);
+    },
+    [allIds, anchorId, selected],
+  );
+
+  const rowPointerEnter = useCallback((id: string): void => {
+    if (!dragRef.current.active) return;
+    setSelected((sel) => setMany(sel, [id], dragRef.current.mode));
+  }, []);
+
+  const rowKeyToggle = useCallback((id: string): void => {
+    setSelected((sel) => toggleId(sel, id));
+    setAnchorId(id);
+  }, []);
+
+  // Kết thúc kéo ở BẤT KỲ đâu — lắng nghe pointerup/pointercancel trên window.
+  useEffect(() => {
+    const end = (): void => {
+      if (!dragRef.current.active) return;
+      dragRef.current.active = false;
+      setDragging(false);
+    };
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+    return () => {
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+    };
+  }, []);
+
+  // Khi focus trong danh sách: Ctrl/Cmd+A chọn cả TRANG; Esc bỏ chọn.
+  const onListKeyDown = useCallback(
+    (event: ReactKeyboardEvent): void => {
+      if ((event.ctrlKey || event.metaKey) && (event.key === 'a' || event.key === 'A')) {
+        event.preventDefault();
+        setSelected((sel) => setMany(sel, pageIds, true));
+      } else if (event.key === 'Escape') {
+        clearSelection();
+      }
+    },
+    [pageIds, clearSelection],
+  );
+
+  const confirmBulkDelete = useCallback(async (): Promise<void> => {
+    const ids = [...selected];
+    setBulkConfirm(false);
+    await api.removeMany(ids);
+    clearSelection();
+  }, [selected, api, clearSelection]);
 
   return (
     <div className="kn-overview">
@@ -148,7 +261,48 @@ export function VocabularyOverview({
       ) : null}
       {api.status === 'ready' ? (
         <>
-          <VocabularyList items={pageInfo.items} onDelete={setPendingDelete} />
+          <div className="kn-vselect" onKeyDown={onListKeyDown}>
+            <VocabularyList
+              items={pageInfo.items}
+              onDelete={setPendingDelete}
+              selectedIds={selected}
+              pageSelectState={pageSel}
+              dragging={dragging}
+              onTogglePage={togglePage}
+              onRowPointerDown={rowPointerDown}
+              onRowPointerEnter={rowPointerEnter}
+              onRowKeyToggle={rowKeyToggle}
+            />
+            {selected.size > 0 ? (
+              <div className="kn-vactions" role="region" aria-label="Hành động hàng loạt">
+                <span className="kn-vactions__count">Đã chọn {selected.size} từ</span>
+                {selected.size < sorted.length ? (
+                  <>
+                    <span className="kn-vactions__sep" aria-hidden="true">
+                      ·
+                    </span>
+                    <button
+                      type="button"
+                      className="kn-vactions__link"
+                      onClick={() => setSelected(new Set(allIds))}
+                    >
+                      Chọn tất cả {sorted.length} từ trong phạm vi
+                    </button>
+                  </>
+                ) : null}
+                <span className="kn-vactions__sep" aria-hidden="true">
+                  ·
+                </span>
+                <Button variant="primary" onClick={() => setBulkConfirm(true)}>
+                  Xóa {selected.size} từ
+                </Button>
+                <span className="kn-vactions__sep" aria-hidden="true">
+                  ·
+                </span>
+                <Button onClick={clearSelection}>Bỏ chọn</Button>
+              </div>
+            ) : null}
+          </div>
           {pageInfo.pageCount > 1 ? (
             <nav className="kn-pager" aria-label="Phân trang">
               <button
@@ -224,6 +378,25 @@ export function VocabularyOverview({
         }
       >
         <p>Thao tác đánh dấu xóa (tombstone) và sẽ đồng bộ lên server.</p>
+      </Modal>
+
+      <Modal
+        open={bulkConfirm}
+        title={`Xóa ${selected.size} từ?`}
+        onClose={() => setBulkConfirm(false)}
+        footer={
+          <>
+            <Button onClick={() => setBulkConfirm(false)}>Hủy</Button>
+            <Button variant="primary" onClick={() => void confirmBulkDelete()}>
+              Xóa {selected.size} từ
+            </Button>
+          </>
+        }
+      >
+        <p>
+          Đánh dấu xóa (tombstone) {selected.size} từ và đồng bộ lên server.{' '}
+          <strong>Không thể hoàn tác.</strong>
+        </p>
       </Modal>
 
       {importOpen ? (
