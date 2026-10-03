@@ -18,9 +18,10 @@
   background: var(--kn-surface);
 }
 
-/* Cột giữa: ô tìm kiếm trên header (3B) */
+/* Cột giữa: ô tìm kiếm trên header, canh trái cạnh logo (3B) */
 .kn-header__center {
   display: flex;
+  justify-content: flex-start;
   min-width: 0;
 }
 

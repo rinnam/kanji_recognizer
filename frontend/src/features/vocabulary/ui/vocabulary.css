@@ -66,9 +66,6 @@
 .kn-vfilters .kn-ui-field {
   margin-bottom: 0;
 }
-.kn-vfilters .kn-ui-field:first-child {
-  flex: 1 1 16rem;
-}
 
 .kn-overview__count {
   margin: 0;
