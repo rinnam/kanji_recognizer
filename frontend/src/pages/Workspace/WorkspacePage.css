@@ -37,16 +37,24 @@
   display: none;
 }
 
-/* Thanh "Đang chọn": thẻ full-width */
+/* Thanh "Đang chọn": MỘT thanh full-width — trái = thư mục, phải = phạm vi (inline) */
 .kn-ws__scope {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
   flex-wrap: wrap;
   padding: 0.45rem 0.7rem;
   border: 1px solid var(--kn-border);
   border-radius: 0.6rem;
   background: var(--kn-surface);
+}
+
+.kn-ws__scope-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .kn-ws__scope-label {
@@ -133,6 +141,21 @@
 
 .kn-ws__panel {
   min-width: 0;
+}
+
+/* Vùng học (Flashcard/Quiz): một cột căn giữa, hẹp hơn để dễ đọc */
+.kn-ws__study {
+  width: 100%;
+  max-width: 56rem;
+  margin-inline: auto;
+}
+
+/* Dưới 64rem: thanh "Đang chọn" xuống dòng gọn (thư mục trên, phạm vi dưới) */
+@media (max-width: 64rem) {
+  .kn-ws__scope {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 
 @media (max-width: 48rem) {

@@ -548,6 +548,12 @@ Chỉ đổi hành vi/logic flashcard; GIỮ NGUYÊN công thức SM-2 (`entitie
 - `useQuiz(folderId, scope?)` + `QuizRunner` thêm prop `scope?`: CÓ → ẩn ScopeBar + chọn bộ bằng applyScope; KHÔNG → chip nội bộ cũng qua applyScope (bỏ `byCreatedAtAsc` trùng lặp). +3 ca `tests/unit/quiz-scope.test.ts`.
 - Kiểm chứng: typecheck **0 lỗi** · test **122/122** (20 file) · lint 0 lỗi, 2 cảnh báo cũ · build **OK** (142 modules). Không thêm dependency.
 - CHƯA kiểm bằng mắt: Quiz chạy thật (Ngẫu nhiên/Dạng 1/Dạng 2 + chip Tất cả/N đầu/Random); prop `scope` nối ở 3E.
+
+## Commit 3E — Page giữ scope + gộp phạm vi vào thanh "Đang chọn" ✅
+- `ScopeBar` thêm `variant="inline"` (bỏ viền/nền). WorkspacePage giữ `scope {mode,n,seed}` (đổi thư mục → reset 'all'; Random seed+1; ô N debounce 300ms kẹp [1,y]); đếm x/y qua selectWordsInScope + applyScope (nghe subscribeDataChanged).
+- Thanh "Đang chọn" full-width: trái = chip thư mục; phải (chỉ Flashcard/Quiz) = ScopeBar inline. Truyền scope (N đã debounce) xuống + key remount theo folder|mode|n|seed. Vùng học căn giữa max-56rem; dưới 64rem thanh xuống dòng.
+- Kiểm chứng: typecheck **0 lỗi** · test **122/122** (20 file) · lint 0 lỗi, 2 cảnh báo cũ · build **OK** (142 modules). Không thêm dependency.
+- CHƯA kiểm bằng mắt: Flashcard/Quiz không còn thẻ phạm vi riêng; "x/y" đúng khi chọn thư mục cha (gồm con cháu); đổi thư mục thì về "Tất cả".
 - CẦN XEM BẰNG MẮT: công tắc Xáo trộn bật/tắt (nền tint + viền accent + icon đổi màu); Space chỉ lật ở mọi chế độ; màn Anki hết thẻ (dòng "Thẻ kế tiếp đến hạn" + 2 nút); Modal "Đặt lại tiến độ SRS" (số thẻ đúng theo phạm vi); sáng/tối + mobile.
 
 ## Commit 2 — Bám bố cục KotoBase (mật độ · tab segmented+icon · ScopeBar · thẻ điều khiển · sidebar · icon · mobile) ✅

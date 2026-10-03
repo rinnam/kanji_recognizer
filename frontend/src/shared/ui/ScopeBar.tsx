@@ -15,6 +15,8 @@ interface ScopeBarProps {
   n: number;
   onKindChange: (kind: ScopeKind) => void;
   onNChange: (n: number) => void;
+  /** 'card' (mặc định): thẻ có viền + nền. 'inline': không viền/nền để gắn vào thanh khác. */
+  variant?: 'card' | 'inline';
 }
 
 /**
@@ -29,10 +31,12 @@ export function ScopeBar({
   n,
   onKindChange,
   onNChange,
+  variant = 'card',
 }: ScopeBarProps): ReactElement {
   const disabled = total === 0;
+  const className = variant === 'inline' ? 'kn-scope kn-scope--inline' : 'kn-scope';
   return (
-    <div className="kn-scope" role="group" aria-label="Phạm vi">
+    <div className={className} role="group" aria-label="Phạm vi">
       <span className="kn-scope__filter" aria-hidden="true">
         <IconSliders />
       </span>
