@@ -62,7 +62,14 @@ export function buildQueue(
     });
 }
 
-/** Thống kê bộ thẻ sống (tổng / tới hạn / mới / đã học). */
+/**
+ * Thống kê bộ thẻ sống (tổng / tới hạn / mới / đã học).
+ *
+ * "Mới" (fresh) = CHỈ thẻ CHƯA TỪNG học, tức `srsNextReview === null`. Thẻ bị chấm
+ * Again có `srsRepetition = 0` nhưng ĐÃ có lịch ôn (`srsNextReview !== null`) → KHÔNG
+ * phải "Mới" mà là "đã có lịch" (learned). Bất biến: Tới hạn >= Mới (mọi thẻ mới đều
+ * tới hạn vì `isDue(null)` = true); Tổng = chưa học (fresh) + đã có lịch (learned).
+ */
 export function summarize(
   vocabs: readonly LocalVocabulary[],
   now: Date,
@@ -73,8 +80,47 @@ export function summarize(
   let learned = 0;
   for (const vocab of living) {
     if (isDue(vocab.srsNextReview, now)) due += 1;
-    if (progressOf(vocab) === 0) fresh += 1;
+    if (vocab.srsNextReview === null) fresh += 1;
     else learned += 1;
   }
   return { total: living.length, due, fresh, learned };
+}
+
+/**
+ * Hàng đợi "Ôn trước hạn" (THUẦN): các thẻ sống ĐÃ có lịch nhưng CHƯA tới hạn
+ * (`srsNextReview !== null` và `!isDue`), sắp theo `srsNextReview` tăng dần (sớm → muộn).
+ * Thẻ mới (null) đã nằm trong hàng đợi Anki thường nên không gồm ở đây. Chấm bình thường
+ * theo SM-2 (giống chế độ Anki) — chỉ khác ở việc nạp thẻ chưa tới hạn.
+ */
+export function buildReviewAheadQueue(
+  vocabs: readonly LocalVocabulary[],
+  now: Date,
+): LocalVocabulary[] {
+  return vocabs
+    .filter(isLiving)
+    .filter((v) => v.srsNextReview !== null && !isDue(v.srsNextReview, now))
+    .sort((a, b) => {
+      const ra = a.srsNextReview as string;
+      const rb = b.srsNextReview as string;
+      if (ra !== rb) return ra < rb ? -1 : 1;
+      return byCreatedAtAsc(a, b);
+    });
+}
+
+/**
+ * Mốc tới hạn kế tiếp (THUẦN): `srsNextReview` SỚM NHẤT trong các thẻ sống CHƯA tới hạn
+ * (lịch nằm ở tương lai). Trả `null` nếu không có thẻ nào đang chờ tới hạn.
+ */
+export function nextDueAt(
+  vocabs: readonly LocalVocabulary[],
+  now: Date,
+): string | null {
+  let earliest: string | null = null;
+  for (const vocab of vocabs) {
+    if (!isLiving(vocab)) continue;
+    const at = vocab.srsNextReview;
+    if (at === null || isDue(at, now)) continue;
+    if (earliest === null || at < earliest) earliest = at;
+  }
+  return earliest;
 }

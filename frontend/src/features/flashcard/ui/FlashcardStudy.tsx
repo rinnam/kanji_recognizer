@@ -11,10 +11,12 @@ import {
   IconReset,
   IconShuffle,
   LoadingState,
+  Modal,
   ScopeBar,
   type ScopeKind,
 } from '../../../shared/ui';
-import { buildQueue, summarize } from '../model/queue';
+import { buildQueue, buildReviewAheadQueue, nextDueAt, summarize } from '../model/queue';
+import { selectResetTargets } from '../model/reset';
 import type { FlashcardMode } from '../model/types';
 import { useFlashcards } from '../model/useFlashcards';
 import { useFlashcardKeys } from '../model/useFlashcardKeys';
@@ -59,6 +61,17 @@ function shuffleIds(ids: readonly string[]): string[] {
   return copy;
 }
 
+/** Định dạng mốc tới hạn (ISO) sang ngày giờ ngắn gọn tiếng Việt. */
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 /**
  * Màn Flashcard (B1) theo bố cục tham khảo: ScopeBar + StudyControls (chế độ + Xáo trộn/
  * Làm lại + thống kê) + thanh tiến độ + thẻ lớn (bấm/Space để lật) + CardNav. Phạm vi lấy
@@ -74,6 +87,16 @@ export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement 
   const [pickedIds, setPickedIds] = useState<string[] | null>(null);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
+  // Công tắc "Xáo trộn": khi bật, giữ MỘT thứ tự Fisher–Yates ổn định (không xáo lại mỗi render).
+  const [shuffled, setShuffled] = useState(false);
+  const [shuffleSeed, setShuffleSeed] = useState<string[] | null>(null);
+  // Anki: chế độ "Ôn trước hạn" (nạp thẻ chưa tới hạn) khi hàng đợi tới hạn đã rỗng.
+  const [reviewAhead, setReviewAhead] = useState(false);
+  // "Làm lại" ở Anki = nạp lại hàng đợi: cập nhật mốc thời gian "now" (KHÔNG đụng srs*).
+  const [now, setNow] = useState<Date>(() => new Date());
+  // Modal "Đặt lại tiến độ SRS".
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   // Nạp thư mục còn sống để tính phạm vi (gồm thư mục con) — nghe thay đổi dữ liệu.
   useEffect(() => {
@@ -94,10 +117,25 @@ export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement 
     () => selectWordsInScope(api.all, folders, folderId),
     [api.all, folders, folderId],
   );
-  const summary = useMemo(() => summarize(scopeBase, new Date()), [scopeBase]);
-  const deck = useMemo(() => buildQueue(scopeBase, mode, new Date()), [scopeBase, mode]);
+  const summary = useMemo(() => summarize(scopeBase, now), [scopeBase, now]);
 
-  const used = useMemo(() => {
+  // Hàng đợi Anki tới hạn + hàng đợi "Ôn trước hạn" (THUẦN). "now" là mốc thời gian; bấm
+  // "Làm lại" cập nhật "now" để NẠP LẠI danh sách khi thời gian trôi (KHÔNG đụng srs*).
+  const ankiDueDeck = useMemo(() => buildQueue(scopeBase, 'anki', now), [scopeBase, now]);
+  const reviewAheadDeck = useMemo(
+    () => buildReviewAheadQueue(scopeBase, now),
+    [scopeBase, now],
+  );
+  const nextDue = useMemo(() => nextDueAt(scopeBase, now), [scopeBase, now]);
+  const resetTargets = useMemo(() => selectResetTargets(scopeBase), [scopeBase]);
+
+  const deck = useMemo(() => {
+    if (mode === 'anki') return reviewAhead ? reviewAheadDeck : ankiDueDeck;
+    return buildQueue(scopeBase, mode, now);
+  }, [mode, reviewAhead, reviewAheadDeck, ankiDueDeck, scopeBase, now]);
+
+  // Bộ thẻ sau khi áp chip phạm vi (ScopeBar) — giữ thứ tự deck/pickedIds.
+  const baseUsed = useMemo(() => {
     if (pickedIds === null) return deck;
     const byId = new Map(deck.map((v) => [v.id, v] as const));
     const out: LocalVocabulary[] = [];
@@ -107,6 +145,24 @@ export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement 
     }
     return out;
   }, [pickedIds, deck]);
+
+  // Công tắc "Xáo trộn": sắp lại baseUsed theo thứ tự đã CHỐT (ổn định) — lọc id còn tồn
+  // tại và nối id mới ở cuối (giữ ổn định khi bộ thẻ đổi do chấm điểm/nạp lại).
+  const used = useMemo(() => {
+    if (!shuffled || shuffleSeed === null) return baseUsed;
+    const byId = new Map(baseUsed.map((v) => [v.id, v] as const));
+    const out: LocalVocabulary[] = [];
+    const seen = new Set<string>();
+    for (const id of shuffleSeed) {
+      const found = byId.get(id);
+      if (found !== undefined) {
+        out.push(found);
+        seen.add(id);
+      }
+    }
+    for (const v of baseUsed) if (!seen.has(v.id)) out.push(v);
+    return out;
+  }, [shuffled, shuffleSeed, baseUsed]);
 
   const total = used.length;
   const safeIndex = total === 0 ? 0 : Math.min(index, total - 1);
@@ -125,27 +181,61 @@ export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement 
     }
     return shuffleIds(deck.map((v) => v.id)).slice(0, count);
   };
+  const clearShuffle = (): void => {
+    setShuffled(false);
+    setShuffleSeed(null);
+  };
   const changeMode = (next: FlashcardMode): void => {
     setMode(next);
     setKind('all');
     setPickedIds(null);
+    setReviewAhead(false);
+    clearShuffle();
     resetPos();
   };
   const applyKind = (next: ScopeKind): void => {
     setKind(next);
     setPickedIds(pickFor(next, clampN(n)));
+    clearShuffle();
     resetPos();
   };
   const changeN = (value: number): void => {
     const next = clampN(value);
     setN(next);
     if (kind !== 'all') setPickedIds(pickFor(kind, next));
+    clearShuffle();
     resetPos();
   };
-  const reshuffle = (): void => {
-    const ids = pickedIds ?? deck.map((v) => v.id);
-    setPickedIds(shuffleIds(ids));
+  // "Xáo trộn" là CÔNG TẮC: bật = chốt MỘT thứ tự xáo (ổn định); tắt = về thứ tự mặc định.
+  const toggleShuffle = (): void => {
+    const next = !shuffled;
+    setShuffled(next);
+    setShuffleSeed(next ? shuffleIds(baseUsed.map((v) => v.id)) : null);
     resetPos();
+  };
+  // "Làm lại" là NÚT HÀNH ĐỘNG: về thẻ đầu + mặt trước; ở Anki nạp lại hàng đợi (KHÔNG đụng srs*).
+  const redo = (): void => {
+    setNow(new Date());
+    resetPos();
+  };
+  const startReviewAhead = (): void => {
+    setReviewAhead(true);
+    setKind('all');
+    setPickedIds(null);
+    clearShuffle();
+    resetPos();
+  };
+  const confirmReset = async (): Promise<void> => {
+    setResetting(true);
+    try {
+      await api.resetSrs(scopeBase);
+    } finally {
+      setResetting(false);
+      setResetOpen(false);
+      setReviewAhead(false);
+      setNow(new Date());
+      resetPos();
+    }
   };
   const flip = (): void => setRevealed((value) => !value);
   const goNext = (): void => {
@@ -203,6 +293,7 @@ export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement 
           {MODES.map((item) => (
             <Button
               key={item.id}
+              className={`kn-fc__mode-btn${item.id === mode ? ' is-active' : ''}`}
               aria-pressed={item.id === mode}
               variant={item.id === mode ? 'primary' : 'secondary'}
               onClick={() => changeMode(item.id)}
@@ -214,10 +305,11 @@ export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement 
         <div className="kn-fc__tools">
           <button
             type="button"
-            className="kn-fc__icon-btn"
+            className={`kn-fc__icon-btn${shuffled ? ' is-on' : ''}`}
             aria-label="Xáo trộn thẻ"
-            title="Xáo trộn"
-            onClick={reshuffle}
+            aria-pressed={shuffled}
+            title="Xáo trộn: bật/tắt"
+            onClick={toggleShuffle}
           >
             <IconShuffle />
           </button>
@@ -226,7 +318,7 @@ export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement 
             className="kn-fc__icon-btn"
             aria-label="Làm lại từ thẻ đầu"
             title="Làm lại"
-            onClick={resetPos}
+            onClick={redo}
           >
             <IconReset />
           </button>
@@ -241,13 +333,49 @@ export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement 
           title="Thư mục này chưa có từ"
           description="Thêm từ ở tab Tổng quan rồi quay lại học."
         />
+      ) : mode === 'anki' && !reviewAhead && ankiDueDeck.length === 0 ? (
+        <div className="kn-fc__anki-empty">
+          <p className="kn-fc__anki-empty-title">Đã hết thẻ tới hạn</p>
+          <p className="kn-fc__anki-empty-desc">
+            Bạn đã ôn hết các thẻ tới hạn trong phạm vi này — đúng theo lịch SM-2.
+          </p>
+          {nextDue !== null ? (
+            <p className="kn-fc__anki-empty-next">
+              Thẻ kế tiếp đến hạn: <strong>{formatDateTime(nextDue)}</strong>
+            </p>
+          ) : null}
+          <div className="kn-fc__anki-empty-actions">
+            <Button
+              variant="primary"
+              onClick={startReviewAhead}
+              disabled={reviewAheadDeck.length === 0}
+              title={
+                reviewAheadDeck.length === 0 ? 'Không có thẻ chưa tới hạn để ôn' : undefined
+              }
+            >
+              Ôn trước hạn
+              {reviewAheadDeck.length > 0 ? ` (${String(reviewAheadDeck.length)})` : ''}
+            </Button>
+            <Button onClick={() => setResetOpen(true)} disabled={resetTargets.length === 0}>
+              Đặt lại tiến độ SRS
+            </Button>
+          </div>
+        </div>
       ) : total === 0 || current === null ? (
         <EmptyState
-          title={mode === 'anki' ? 'Không còn thẻ tới hạn' : 'Chưa có thẻ'}
+          title={
+            reviewAhead
+              ? 'Hết thẻ để ôn trước hạn'
+              : mode === 'anki'
+                ? 'Không còn thẻ tới hạn'
+                : 'Chưa có thẻ'
+          }
           description={
-            mode === 'anki'
-              ? 'Đã ôn hết thẻ tới hạn trong phạm vi này. Đổi chế độ hoặc quay lại sau.'
-              : 'Giảm phạm vi hoặc thêm từ ở tab Tổng quan.'
+            reviewAhead
+              ? 'Đã ôn hết thẻ chưa tới hạn trong phạm vi này.'
+              : mode === 'anki'
+                ? 'Đã ôn hết thẻ tới hạn trong phạm vi này. Đổi chế độ hoặc quay lại sau.'
+                : 'Giảm phạm vi hoặc thêm từ ở tab Tổng quan.'
           }
         />
       ) : (
@@ -301,11 +429,40 @@ export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement 
           )}
 
           <p className="kn-fc__hint-keys">
-            Space: lật thẻ · ← →: chuyển thẻ
+            Space: lật · ← →: chuyển thẻ
             {mode === 'anki' ? ' · 1/2/3/4: chấm điểm' : ''}
           </p>
         </>
       )}
+
+      <Modal
+        open={resetOpen}
+        title="Đặt lại tiến độ SRS"
+        onClose={() => {
+          if (!resetting) setResetOpen(false);
+        }}
+        footer={
+          <>
+            <Button onClick={() => setResetOpen(false)} disabled={resetting}>
+              Hủy
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => void confirmReset()}
+              disabled={resetting || resetTargets.length === 0}
+            >
+              {resetting ? 'Đang đặt lại…' : `Đặt lại ${String(resetTargets.length)} thẻ`}
+            </Button>
+          </>
+        }
+      >
+        <p>
+          Thao tác này sẽ đặt lại tiến độ SRS (xoá lịch ôn, số lần nhớ liên tiếp và hệ số
+          dễ) của <strong>{resetTargets.length}</strong> thẻ trong phạm vi hiện tại (thư mục
+          đang chọn, gồm cả thư mục con). Các thẻ sẽ quay về trạng thái “mới”.
+        </p>
+        <p>Thay đổi sẽ được đồng bộ lên máy chủ và không thể hoàn tác.</p>
+      </Modal>
     </section>
   );
 }

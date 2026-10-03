@@ -508,3 +508,32 @@ Chỉ lấy bố cục/hành vi; dùng token màu dự án; không thêm depende
 - `npm run typecheck`: **0 lỗi**. `npm test`: **65/65 pass** (quiz model 8 + IME keymap 4 mới). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK**.
 - CHƯA làm (theo yêu cầu, chờ duyệt giao diện): "quiz tự đồng bộ trước khi lưu phiên".
 - CẦN XEM BẰNG MẮT: Dạng 1/Dạng 2/Ngẫu nhiên; gõ IME rồi Enter (không nộp khi đang gõ dở); đếm ngược tự chuyển; Tab bỏ qua; công tắc Hán Việt; sáng/tối + mobile.
+
+## Commit 1 — Hành vi Flashcard (Space lật · Xáo trộn công tắc · Anki hết thẻ + Ôn trước hạn + Đặt lại SRS) ✅
+
+Chỉ đổi hành vi/logic flashcard; GIỮ NGUYÊN công thức SM-2 (`entities/card`), sync, local-first, FSD. KHÔNG thêm dependency; icon SVG inline; dùng token màu (sáng/tối).
+
+### 1.1 Space CHỈ lật (mọi chế độ)
+- `model/keymap.ts`: Space luôn trả `flip` ở MỌI chế độ và cả hai mặt (bỏ hành vi cũ "Space mặt sau Normal/Progress → qua thẻ"). Chuyển thẻ chỉ bằng ← → và nút Trước/Tiếp theo (Anki giữ ← →). 1/2/3/4 chấm (chỉ Anki + đã lật) giữ nguyên.
+- `tests/unit/flashcard-keymap.test.ts`: SỬA (không xóa) các ca cũ khẳng định "Space mặt sau → next/none" → nay khẳng định "flip" (gồm cả thẻ cuối). Còn 7 ca.
+- Dòng gợi ý phím: "Space: lật · ← →: chuyển thẻ" (+ " · 1/2/3/4: chấm điểm" ở Anki).
+
+### 1.2 "Xáo trộn" là CÔNG TẮC; "Làm lại" là hành động
+- `ui/FlashcardStudy.tsx`: nút Xáo trộn có `aria-pressed`; bật = chốt MỘT thứ tự Fisher–Yates ổn định (không xáo lại khi render/lật/chấm — lọc id còn tồn tại, nối id mới ở cuối), tắt = về thứ tự mặc định; tooltip "Xáo trộn: bật/tắt". CSS `.kn-fc__icon-btn.is-on` (nền tint `color-mix` + viền + icon accent). Tab chế độ đang chọn đậm hơn (`.kn-fc__mode-btn.is-active`). "Làm lại" = nút hành động: về thẻ đầu + mặt trước; ở Anki nạp lại hàng đợi qua state `now` (TUYỆT ĐỐI KHÔNG đụng srs*).
+
+### 1.3 Anki: hết thẻ + Ôn trước hạn + Đặt lại SRS
+- **Nguyên nhân "Anki không chạy":** hàng đợi RỖNG HỢP LỆ — các thẻ đã chấm có lịch ở tương lai nên chưa "tới hạn" (đúng SM-2, KHÔNG phải lỗi code). Unit test tái hiện: 2 thẻ (Again + Good) có `srsNextReview` tương lai → `buildQueue(anki)` = [] và `summarize().due` = 0.
+- **Thống kê:** `summarize` nay tính "Mới" = CHỈ `srsNextReview === null` (thẻ Again repetition 0 nhưng ĐÃ có lịch → "đã có lịch", không phải Mới). Bất biến có test: Tới hạn ≥ Mới; Tổng = Mới + đã có lịch.
+- **Màn hình hết thẻ (THUẦN + test):** `queue.ts` thêm `buildReviewAheadQueue` (thẻ chưa tới hạn, sắp theo `srsNextReview` tăng dần) + `nextDueAt` (mốc tới hạn kế tiếp). UI hiện "Đã hết thẻ tới hạn" + "Thẻ kế tiếp đến hạn: {ngày giờ}" + 2 nút "Ôn trước hạn" (chấm bình thường theo SM-2) / "Đặt lại tiến độ SRS".
+- **Đặt lại tiến độ SRS (THUẦN + test):** `model/reset.ts` — `resetSrsProgress` (null hoá srsInterval/srsRepetition/srsEaseFactor/srsNextReview + updatedAt = now), `selectResetTargets` (chỉ thẻ sống & có tiến độ trong phạm vi), `persistResetSrs` (ghi 1 transaction + emit change-bus MỘT lần). Hook `useFlashcards.resetSrs(scopeVocabs)` dùng `putVocabulariesLocal`. Modal xác nhận (primitive có sẵn) nêu rõ SỐ thẻ sẽ bị reset trong phạm vi hiện tại (thư mục đang chọn gồm con cháu).
+
+### Files
+- SỬA: `features/flashcard/model/{keymap.ts,queue.ts,types.ts,useFlashcards.ts}`, `features/flashcard/ui/{FlashcardStudy.tsx,flashcard.css}`, `tests/unit/{flashcard-keymap.test.ts,flashcard.test.ts}`.
+- MỚI: `features/flashcard/model/reset.ts`.
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**.
+- `npm test`: **71/71 pass** (flashcard-keymap 7, flashcard 14 — +7 ca mới: anki hết thẻ, bất biến summarize, buildReviewAheadQueue, nextDueAt×2, reset×2).
+- `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ (router.tsx + ThemeProvider.tsx — trong hạn ≤4).
+- `npm run build`: **OK** — 125 modules.
+- CẦN XEM BẰNG MẮT: công tắc Xáo trộn bật/tắt (nền tint + viền accent + icon đổi màu); Space chỉ lật ở mọi chế độ; màn Anki hết thẻ (dòng "Thẻ kế tiếp đến hạn" + 2 nút); Modal "Đặt lại tiến độ SRS" (số thẻ đúng theo phạm vi); sáng/tối + mobile.

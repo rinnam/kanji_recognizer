@@ -24,25 +24,25 @@ describe('flashcard/keymap decideFlashcardAction', () => {
     ).toEqual({ type: 'flip' });
   });
 
-  it('Space ở mặt sau, Normal/Progress → qua thẻ tiếp', () => {
+  it('Space ở mặt sau CHỈ lật, không chuyển thẻ (mọi chế độ)', () => {
     expect(
       decideFlashcardAction(ctx({ key: ' ', revealed: true, mode: 'normal', index: 1, total: 5 })),
-    ).toEqual({ type: 'next' });
+    ).toEqual({ type: 'flip' });
     expect(
       decideFlashcardAction(ctx({ key: ' ', revealed: true, mode: 'progress', index: 1, total: 5 })),
-    ).toEqual({ type: 'next' });
-  });
-
-  it('Space ở mặt sau, Anki → chỉ lật (KHÔNG qua thẻ)', () => {
+    ).toEqual({ type: 'flip' });
     expect(
       decideFlashcardAction(ctx({ key: ' ', revealed: true, mode: 'anki' })),
     ).toEqual({ type: 'flip' });
   });
 
-  it('Space ở mặt sau Normal nhưng là thẻ cuối → none', () => {
+  it('Space ở mặt sau là thẻ cuối vẫn chỉ lật (KHÔNG none/qua thẻ)', () => {
     expect(
       decideFlashcardAction(ctx({ key: ' ', revealed: true, mode: 'normal', index: 4, total: 5 })),
-    ).toEqual({ type: 'none' });
+    ).toEqual({ type: 'flip' });
+    expect(
+      decideFlashcardAction(ctx({ key: ' ', revealed: true, mode: 'progress', index: 4, total: 5 })),
+    ).toEqual({ type: 'flip' });
   });
 
   it('đang gõ trong ô nhập → none (kể cả Space)', () => {

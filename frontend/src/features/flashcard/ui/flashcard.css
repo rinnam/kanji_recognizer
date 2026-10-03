@@ -60,6 +60,19 @@
   outline: 2px solid var(--kn-focus);
   outline-offset: 2px;
 }
+/* Công tắc "Xáo trộn" đang BẬT: nền tint + viền accent + icon đổi màu (khác hẳn khi tắt). */
+.kn-fc__icon-btn.is-on {
+  color: var(--kn-primary);
+  border-color: var(--kn-primary);
+  background: color-mix(in srgb, var(--kn-primary) 15%, var(--kn-bg));
+}
+.kn-fc__icon-btn.is-on:hover {
+  background: color-mix(in srgb, var(--kn-primary) 22%, var(--kn-bg));
+}
+/* Tab chế độ đang chọn nổi rõ hơn (đậm). */
+.kn-fc__mode-btn.is-active {
+  font-weight: 700;
+}
 .kn-fc__summary {
   margin-left: auto;
   font-size: 0.85rem;
@@ -252,4 +265,39 @@
   .kn-fc__hint-keys {
     display: none;
   }
+}
+
+/* Màn hình Anki hết thẻ tới hạn (Ôn trước hạn / Đặt lại SRS) */
+.kn-fc__anki-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  border: 1px solid var(--kn-border);
+  border-radius: 1rem;
+  background: var(--kn-surface);
+}
+.kn-fc__anki-empty-title {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+.kn-fc__anki-empty-desc {
+  margin: 0;
+  max-width: 32rem;
+  font-size: 0.9rem;
+  color: var(--kn-text-muted);
+}
+.kn-fc__anki-empty-next {
+  margin: 0.2rem 0 0.4rem;
+  font-size: 0.9rem;
+  color: var(--kn-text-muted);
+}
+.kn-fc__anki-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
 }

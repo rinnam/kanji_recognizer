@@ -37,18 +37,16 @@ function isSpace(key: string): boolean {
  *
  * Quy tắc (brief phím tắt):
  * - Bỏ qua khi đang gõ (`typing`) hoặc giữ Ctrl/Alt/Meta → `none`.
- * - Space: mặt trước → lật. Mặt sau: Normal/Progress → qua thẻ (nếu chưa cuối);
- *   Anki → chỉ lật lại (KHÔNG qua thẻ, tránh vô tình chấm điểm).
- * - ArrowRight/ArrowLeft → tiếp/trước, chặn ở biên.
+ * - Space (MỌI chế độ): CHỈ lật thẻ qua lại (trước ↔ sau), TUYỆT ĐỐI không chuyển thẻ.
+ * - ArrowRight/ArrowLeft → tiếp/trước, chặn ở biên (cách DUY NHẤT để chuyển thẻ bằng phím).
  * - 1/2/3/4 → chấm Again/Hard/Good/Easy, CHỈ khi Anki và đã lật.
  */
 export function decideFlashcardAction(ctx: FlashcardKeyContext): FlashcardAction {
   if (ctx.typing || ctx.hasModifier) return NONE;
 
+  // Space luôn lật, ở MỌI chế độ và cả hai mặt — không bao giờ chuyển thẻ.
   if (isSpace(ctx.key)) {
-    if (!ctx.revealed) return { type: 'flip' };
-    if (ctx.mode === 'anki') return { type: 'flip' };
-    return ctx.index < ctx.total - 1 ? { type: 'next' } : NONE;
+    return { type: 'flip' };
   }
 
   if (ctx.key === 'ArrowRight') {

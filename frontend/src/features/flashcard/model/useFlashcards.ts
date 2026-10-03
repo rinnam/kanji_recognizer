@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import type { SrsRating } from '../../../entities/card';
 import {
   getAllVocabulariesLocal,
+  putVocabulariesLocal,
   putVocabularyLocal,
   type LocalVocabulary,
 } from '../../../entities/vocabulary';
 import { useDb } from '../../../shared/db';
 import { emitDataChanged } from '../../../shared/lib';
 import { persistReview } from './review';
+import { persistResetSrs, selectResetTargets } from './reset';
 
 type Status = 'loading' | 'error' | 'ready';
 
@@ -17,6 +19,11 @@ export interface FlashcardsApi {
   error: string | null;
   reload: () => Promise<void>;
   review: (vocab: LocalVocabulary, rating: SrsRating) => Promise<LocalVocabulary>;
+  /**
+   * Đặt lại tiến độ SRS cho các thẻ TRONG phạm vi truyền vào (chỉ thẻ còn sống & đang
+   * có tiến độ). Ghi local một lần + emit change-bus một lần. Trả về SỐ thẻ đã reset.
+   */
+  resetSrs: (scopeVocabs: readonly LocalVocabulary[]) => Promise<number>;
 }
 
 const READ_ERROR = 'Không đọc được bộ thẻ.';
@@ -83,5 +90,22 @@ export function useFlashcards(): FlashcardsApi {
     [db],
   );
 
-  return { all, status, error, reload, review };
+  const resetSrs = useCallback(
+    async (scopeVocabs: readonly LocalVocabulary[]): Promise<number> => {
+      const targets = selectResetTargets(scopeVocabs);
+      const done = await persistResetSrs(
+        { put: (vocabs) => putVocabulariesLocal(db, vocabs), emit: emitDataChanged },
+        targets,
+        new Date(),
+      );
+      if (done.length > 0) {
+        const byId = new Map(done.map((v) => [v.id, v] as const));
+        setAll((prev) => prev.map((item) => byId.get(item.id) ?? item));
+      }
+      return done.length;
+    },
+    [db],
+  );
+
+  return { all, status, error, reload, review, resetSrs };
 }

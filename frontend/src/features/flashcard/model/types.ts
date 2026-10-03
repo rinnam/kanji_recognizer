@@ -10,6 +10,6 @@ export type FlashcardMode = 'normal' | 'progress' | 'anki';
 export interface FlashcardSummary {
   total: number;
   due: number;
-  fresh: number; // thẻ mới: chưa từng ôn (srsRepetition null/0)
-  learned: number; // đã ôn ít nhất một lần
+  fresh: number; // thẻ mới: CHƯA TỪNG học (srsNextReview === null)
+  learned: number; // đã có lịch ôn (srsNextReview !== null)
 }
