@@ -7,6 +7,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
+import { ApiError } from '../../../shared/api';
 import { useDb } from '../../../shared/db';
 import { subscribeDataChanged } from '../../../shared/lib';
 import { runSync, type SyncRunSummary } from './runSync';
@@ -16,6 +17,16 @@ import { SyncContext, type SyncContextValue, type SyncState } from './sync-conte
 const SYNC_DEBOUNCE_MS = 3500;
 
 const SYNC_FAILED = 'Đồng bộ thất bại.';
+
+/**
+ * Mô tả lỗi đồng bộ cho tooltip SyncStatus: ApiError → kèm MÃ HTTP + message của server
+ * (ví dụ "HTTP 500 · ..."), giúp người dùng báo lại chính xác nguyên nhân.
+ */
+function describeSyncError(error: unknown): string {
+  if (error instanceof ApiError) return `HTTP ${error.status} · ${error.message}`;
+  if (error instanceof Error) return error.message;
+  return SYNC_FAILED;
+}
 
 function offlineNow(): boolean {
   return typeof navigator !== 'undefined' && !navigator.onLine;
@@ -61,7 +72,9 @@ export function SyncProvider({ children }: { children: ReactNode }): ReactElemen
         setLastSyncedAt(new Date().toISOString());
         setState('idle');
       } catch (error) {
-        setLastError(error instanceof Error ? error.message : SYNC_FAILED);
+        // Log đầy đủ (status + body) ra console để người dùng báo lại; tooltip hiện bản gọn.
+        console.error('[sync] Đồng bộ thất bại:', error);
+        setLastError(describeSyncError(error));
         setState('error');
       } finally {
         runningRef.current = false;

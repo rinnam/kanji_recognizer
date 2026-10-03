@@ -652,3 +652,31 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 ### Kiểm chứng
 - `npm run typecheck`: **0 lỗi**. `npm test`: **99/99 pass** (16 file; +4 import-write, +8 sync-batch). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** (134 modules). KHÔNG đổi SM-2/sync-grading/local-first/quiz; không thêm dependency; không file tạm.
 - CẦN XEM BẰNG MẮT: mở "Nhập từ file / dán"; dán TSV Quizlet / CSV / bảng Markdown; đổi ánh xạ cột + thư mục đích; bảng xem trước Mới/Trùng/Lỗi; nhập xong thấy từ mới trong danh sách; gõ IME ở ô dán không bị submit ngoài ý muốn.
+
+---
+
+# Phiên bàn giao mới — 6 commit sửa lỗi dữ liệu + UX (đang làm)
+
+> Đánh số commit RIÊNG cho phiên này (KHÁC "Commit 1–5" ở trên — đó là phiên bố cục KotoBase trước). Làm theo thứ tự 1→6, mỗi mục một commit; typecheck + test + lint + build sạch rồi mới commit.
+
+## [Phiên mới] Commit 1 — Xóa dây chuyền + sửa thứ tự đẩy đồng bộ (FK) ✅
+
+### Nguyên nhân THẬT (chẩn đoán từ code, CHƯA chạy BE/Postgres thật)
+- **"Xóa thư mục không đồng bộ":** `useFolderTree.remove` cũ chỉ tombstone ĐÚNG MỘT thư mục; con cháu + ~880 từ vẫn sống (local + server). `tree.ts > effectiveParentId` lại re-root thư mục con mồ côi lên gốc ⇒ xóa "Kanji N3" xong 11 thư mục con nhảy lên gốc, trông như không xóa. (Tombstone cũ ĐÃ đặt `updatedAt=now` nên bản thân nó vẫn đẩy được — giả thuyết "quên updatedAt" KHÔNG phải lỗi đang xảy ra; vẫn thêm test chốt bất biến.)
+- **"Lỗi đồng bộ" đỏ:** `runSync` cũ trộn folders+vocab theo `updatedAt` rồi chia lô 200 (mỗi lô một request/transaction). Một thư mục con có thể vào lô TRƯỚC thư mục cha ⇒ BE pha B `setParentId` trỏ `parent_id` tới cha chưa tồn tại ⇒ **FK violation** ⇒ push ném ⇒ SyncStatus đỏ. (Link vocab→folder đã lọc theo folder tồn tại nên không ném, nhưng vocab lên trước folder thì MẤT liên kết thầm lặng.)
+
+### Thay đổi
+- **1d Xóa dây chuyền (THUẦN):** `features/folder-tree/model/cascade.ts > planFolderCascade(folders, vocabs, rootId, now)` — tombstone gốc + con cháu; từ còn thư mục khác → giữ + cắt `folderIds`; từ hết thư mục → tombstone; mọi bản ghi `updatedAt=now`. Trả `counts {folders, childFolders, vocabTombstoned, vocabKept}`.
+- `useFolderTree.remove` áp plan qua `idbBulkPutMany` (MỘT transaction đa-store) + emit MỘT lần; thêm `planRemove` (dry-run) cho hộp xác nhận. `FolderTreeItem` hiện: "Xóa «tên»? Sẽ xóa {F} thư mục con và {V} từ vựng. {K} từ … giữ lại. Không thể hoàn tác."
+- `shared/lib/idb.ts > idbBulkPutMany(db, writes[])`: ghi nhiều store trong MỘT transaction (nguyên tử).
+- **tombstoneVocabularies** dùng chung cho Commit 4: `entities/vocabulary/model/tombstone.ts` (lõi THUẦN `markTombstoned` + wrapper DB emit một lần).
+- **1b Thứ tự đẩy:** `engine.ts > orderFoldersParentsFirst` (cha trước con theo độ sâu); `runSync` đẩy **TẤT CẢ folder trước (cha→con), rồi vocabulary**; con trỏ `lastPushedAt` chỉ dời SAU khi đẩy xong toàn bộ (ordering không còn tăng theo updatedAt; lô lỗi → giữ con trỏ, vòng sau đẩy lại — push idempotent).
+- **1c Lỗi đồng bộ rõ ràng:** `SyncProvider` `console.error` đầy đủ + `describeSyncError` (ApiError → "HTTP {status} · {message}") hiện trong tooltip SyncStatus; nút "Đồng bộ ngay" vẫn là retry.
+
+### Files
+- MỚI: `features/folder-tree/model/cascade.ts`, `entities/vocabulary/model/tombstone.ts`, `tests/unit/folder-cascade.test.ts` (9 ca), `tests/unit/sync-order.test.ts` (4 ca).
+- SỬA: `shared/lib/idb.ts` (+idbBulkPutMany) + `shared/lib/index.ts`; `entities/vocabulary/{model/index.ts,index.ts}` (export tombstone); `features/folder-tree/model/useFolderTree.ts` (remove dây chuyền + planRemove); `features/folder-tree/ui/FolderTreeItem.tsx` (hộp xác nhận F/V/K); `features/sync/model/engine.ts` (+orderFoldersParentsFirst), `runSync.ts` (folder-trước-vocab), `SyncProvider.tsx` (lỗi rõ + console.error).
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**. `npm test`: **112/112 pass** (18 file; +9 folder-cascade, +4 sync-order). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** (136 modules). KHÔNG thêm dependency; KHÔNG đổi SM-2/chấm quiz; KHÔNG file tạm.
+- CHƯA kiểm được bằng chạy thật: tái hiện với BE+Postgres (xem payload `/api/sync/push`, bảng `folders.deleted_at`) — cần BE chạy. CẦN XEM BẰNG MẮT: xóa thư mục cha → hộp xác nhận số đúng; con + từ biến mất; sau khi đồng bộ không hồi sinh; header không còn "Lỗi đồng bộ" khi import lớn.

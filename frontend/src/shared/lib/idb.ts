@@ -110,3 +110,35 @@ export async function idbDelete(
 ): Promise<void> {
   await toPromise(store(db, name, 'readwrite').delete(key));
 }
+
+/** Một lệnh ghi hàng loạt vào một store (dùng cho `idbBulkPutMany`). */
+export interface IdbStoreWrite {
+  store: string;
+  values: readonly unknown[];
+}
+
+/**
+ * Ghi hàng loạt vào NHIỀU store trong MỘT transaction (nguyên tử: hoặc tất cả, hoặc không).
+ * Dùng cho xóa dây chuyền (tombstone folders + vocabularies cùng lúc). Bỏ qua write rỗng;
+ * không còn write nào → no-op.
+ */
+export function idbBulkPutMany(
+  db: IDBDatabase,
+  writes: readonly IdbStoreWrite[],
+): Promise<void> {
+  const active = writes.filter((write) => write.values.length > 0);
+  if (active.length === 0) return Promise.resolve();
+  const storeNames = active.map((write) => write.store);
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeNames, 'readwrite');
+    for (const write of active) {
+      const objectStore = transaction.objectStore(write.store);
+      for (const value of write.values) objectStore.put(value);
+    }
+    transaction.oncomplete = (): void => resolve();
+    transaction.onerror = (): void =>
+      reject(transaction.error ?? new Error('Lỗi ghi hàng loạt nhiều store IndexedDB'));
+    transaction.onabort = (): void =>
+      reject(transaction.error ?? new Error('Giao dịch IndexedDB bị hủy'));
+  });
+}

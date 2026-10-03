@@ -15,3 +15,4 @@ export {
 } from './vocab.local';
 export { collectDescendantFolderIds, selectWordsInScope } from './scope';
 export type { ScopeFolder } from './scope';
+export { markTombstoned, tombstoneVocabularies } from './tombstone';

@@ -11,5 +11,6 @@ export {
   idbCount,
   idbPut,
   idbBulkPut,
+  idbBulkPutMany,
   idbDelete,
 } from './idb';

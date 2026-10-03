@@ -84,6 +84,45 @@ export function chunk<T>(items: readonly T[], size: number): T[][] {
  * bản cùng `updatedAt`, lùi về mốc < ranh giới ⇒ các bản cùng mốc được đẩy lại ở vòng sau
  * (push idempotent nên an toàn, không mất dữ liệu).
  */
+/** Bản ghi tối thiểu để sắp thư mục theo quan hệ cha–con. */
+interface FolderOrderRecord {
+  id: string;
+  parentId: string | null;
+  updatedAt: string;
+}
+
+/**
+ * Sắp thư mục CHA TRƯỚC CON (theo độ sâu tăng dần), rồi `updatedAt` tăng, rồi `id` — THUẦN,
+ * tất định. Đẩy theo thứ tự này đảm bảo một thư mục con KHÔNG tới server trước thư mục cha
+ * (tránh FK violation ⇒ "Lỗi đồng bộ"), kể cả khi chia nhiều lô. Độ sâu tính trong CHÍNH tập
+ * truyền vào: nếu cha không nằm trong tập (đã đẩy trước đó) thì cha đã tồn tại ở server nên
+ * thứ tự không còn quan trọng. Chống chu trình bằng `seen`.
+ */
+export function orderFoldersParentsFirst<T extends FolderOrderRecord>(folders: readonly T[]): T[] {
+  const byId = new Map<string, T>(folders.map((folder) => [folder.id, folder]));
+  const depthOf = (folder: T): number => {
+    let depth = 0;
+    let current: T | undefined = folder;
+    const seen = new Set<string>();
+    while (current !== undefined && current.parentId !== null && byId.has(current.parentId)) {
+      if (seen.has(current.id)) break;
+      seen.add(current.id);
+      depth += 1;
+      current = byId.get(current.parentId);
+    }
+    return depth;
+  };
+  return [...folders].sort((a, b) => {
+    const da = depthOf(a);
+    const db = depthOf(b);
+    if (da !== db) return da - db;
+    const ta = toTime(a.updatedAt);
+    const tb = toTime(b.updatedAt);
+    if (ta !== tb) return ta - tb;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+}
+
 export function highWaterMarkAfter(
   sortedAsc: readonly SyncRecord[],
   pushedCount: number,

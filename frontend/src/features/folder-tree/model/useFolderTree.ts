@@ -6,8 +6,11 @@ import {
   putFoldersLocal,
   type LocalFolder,
 } from '../../../entities/folder';
+import { getAllVocabulariesLocal } from '../../../entities/vocabulary';
 import { useDb } from '../../../shared/db';
-import { emitDataChanged, newFolderId, nowIso } from '../../../shared/lib';
+import { STORE } from '../../../shared/config';
+import { emitDataChanged, idbBulkPutMany, newFolderId, nowIso } from '../../../shared/lib';
+import { planFolderCascade, type FolderCascadeCounts } from './cascade';
 import {
   ORDER_STEP,
   buildTree,
@@ -29,6 +32,8 @@ export interface FolderTreeApi {
   create: (name: string, parentId: string | null) => Promise<void>;
   rename: (id: string, name: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
+  /** Dry-run: số liệu xóa dây chuyền (F/V/K) để hiển thị hộp xác nhận, KHÔNG ghi gì. */
+  planRemove: (id: string) => Promise<FolderCascadeCounts>;
   moveInto: (draggedId: string, parentId: string | null) => Promise<void>;
   moveBefore: (draggedId: string, beforeId: string) => Promise<void>;
 }
@@ -115,17 +120,38 @@ export function useFolderTree(): FolderTreeApi {
     [db, reload],
   );
 
-  // Xóa mềm (tombstone) để đồng bộ lan truyền; KHÔNG hard-delete (tránh server hồi sinh).
+  // Xóa mềm DÂY CHUYỀN (tombstone) để đồng bộ lan truyền; KHÔNG hard-delete (tránh server hồi
+  // sinh). Tombstone thư mục + MỌI con cháu + các từ chỉ thuộc chúng; từ còn thuộc thư mục khác
+  // chỉ bị cắt liên kết (giữ lại). Ghi folders + vocabularies trong MỘT transaction IndexedDB
+  // (nguyên tử), emit change-bus MỘT lần. Mọi bản ghi bị ảnh hưởng đều có updatedAt = now.
   const remove = useCallback(
     async (id: string): Promise<void> => {
-      const existing = await getFolderLocal(db, id);
-      if (existing === undefined) return;
-      const now = nowIso();
-      await putFolderLocal(db, { ...existing, deletedAt: now, updatedAt: now });
+      const [allFolders, allVocab] = await Promise.all([
+        getAllFoldersLocal(db),
+        getAllVocabulariesLocal(db),
+      ]);
+      const plan = planFolderCascade(allFolders, allVocab, id, nowIso());
+      if (plan.folders.length === 0 && plan.vocabularies.length === 0) return;
+      await idbBulkPutMany(db, [
+        { store: STORE.folders, values: plan.folders },
+        { store: STORE.vocabularies, values: plan.vocabularies },
+      ]);
       emitDataChanged();
       await reload();
     },
     [db, reload],
+  );
+
+  // Dry-run cho hộp xác nhận: tính số thư mục con / từ bị xóa / từ được giữ mà KHÔNG ghi gì.
+  const planRemove = useCallback(
+    async (id: string): Promise<FolderCascadeCounts> => {
+      const [allFolders, allVocab] = await Promise.all([
+        getAllFoldersLocal(db),
+        getAllVocabulariesLocal(db),
+      ]);
+      return planFolderCascade(allFolders, allVocab, id, nowIso()).counts;
+    },
+    [db],
   );
 
   const applyPatches = useCallback(
@@ -167,5 +193,17 @@ export function useFolderTree(): FolderTreeApi {
 
   const tree = useMemo(() => buildTree(folders), [folders]);
 
-  return { folders, tree, status, error, reload, create, rename, remove, moveInto, moveBefore };
+  return {
+    folders,
+    tree,
+    status,
+    error,
+    reload,
+    create,
+    rename,
+    remove,
+    planRemove,
+    moveInto,
+    moveBefore,
+  };
 }

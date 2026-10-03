@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react';
 import { Button, Input, Modal } from '../../../shared/ui';
 import type { FolderTreeApi } from '../model/useFolderTree';
+import type { FolderCascadeCounts } from '../model/cascade';
 import type { FolderTreeNode } from '../model/tree';
 import { FOLDER_DRAG_MIME } from './FolderTree';
 
@@ -37,7 +38,14 @@ export function FolderTreeItem({
   const [edit, setEdit] = useState<EditMode>('none');
   const [draft, setDraft] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [planCounts, setPlanCounts] = useState<FolderCascadeCounts | null>(null);
   const [drop, setDrop] = useState<DropHint>('none');
+
+  const openDeleteConfirm = (): void => {
+    setPlanCounts(null);
+    setConfirmDelete(true);
+    void api.planRemove(folder.id).then(setPlanCounts);
+  };
 
   const hasChildren = children.length > 0;
   const selected = selectedId === folder.id;
@@ -142,7 +150,7 @@ export function FolderTreeItem({
             type="button"
             className="kn-ftree__icon"
             aria-label={`Xóa ${folder.name}`}
-            onClick={() => setConfirmDelete(true)}
+            onClick={openDeleteConfirm}
           >
             🗑
           </button>
@@ -191,7 +199,7 @@ export function FolderTreeItem({
 
       <Modal
         open={confirmDelete}
-        title={`Xóa thư mục "${folder.name}"?`}
+        title={`Xóa thư mục «${folder.name}»?`}
         onClose={() => setConfirmDelete(false)}
         footer={
           <>
@@ -208,10 +216,21 @@ export function FolderTreeItem({
           </>
         }
       >
-        <p>
-          Thư mục con (nếu có) sẽ chuyển lên mức gốc. Thao tác đánh dấu xóa (tombstone) và sẽ
-          đồng bộ lên server.
-        </p>
+        {planCounts === null ? (
+          <p>Đang tính phạm vi xóa…</p>
+        ) : (
+          <p>
+            Sẽ xóa <strong>{planCounts.childFolders}</strong> thư mục con và{' '}
+            <strong>{planCounts.vocabTombstoned}</strong> từ vựng.
+            {planCounts.vocabKept > 0 ? (
+              <>
+                {' '}
+                <strong>{planCounts.vocabKept}</strong> từ thuộc thư mục khác sẽ được giữ lại.
+              </>
+            ) : null}{' '}
+            Không thể hoàn tác.
+          </p>
+        )}
       </Modal>
     </li>
   );

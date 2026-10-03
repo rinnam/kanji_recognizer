@@ -15,6 +15,8 @@ export {
   countVocabularies,
   collectDescendantFolderIds,
   selectWordsInScope,
+  markTombstoned,
+  tombstoneVocabularies,
 } from './model';
 export {
   listVocabularies,
