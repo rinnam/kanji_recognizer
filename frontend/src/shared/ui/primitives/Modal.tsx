@@ -12,6 +12,10 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  /** 'sm' (mặc định) cho hộp xác nhận; 'lg' cho nội dung rộng (vd nhập từ file). */
+  size?: 'sm' | 'lg';
+  /** Nội dung phụ CỐ ĐỊNH dưới tiêu đề (vd thanh bước) — nằm trong header, không cuộn. */
+  headerExtra?: ReactNode;
 }
 
 /** Hộp thoại dùng chung: Esc để đóng, click nền để đóng, focus tiêu đề khi mở. */
@@ -21,6 +25,8 @@ export function Modal({
   onClose,
   children,
   footer,
+  size = 'sm',
+  headerExtra,
 }: ModalProps): ReactElement | null {
   const titleId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -40,15 +46,20 @@ export function Modal({
   return (
     <div className="kn-ui-modal__backdrop" onClick={onClose}>
       <div
-        className="kn-ui-modal"
+        className={`kn-ui-modal kn-ui-modal--${size}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 id={titleId} className="kn-ui-modal__title" tabIndex={-1} ref={headingRef}>
-          {title}
-        </h2>
+        <div className="kn-ui-modal__header">
+          <h2 id={titleId} className="kn-ui-modal__title" tabIndex={-1} ref={headingRef}>
+            {title}
+          </h2>
+          {headerExtra !== undefined ? (
+            <div className="kn-ui-modal__header-extra">{headerExtra}</div>
+          ) : null}
+        </div>
         <div className="kn-ui-modal__body">{children}</div>
         {footer !== undefined ? (
           <div className="kn-ui-modal__footer">{footer}</div>

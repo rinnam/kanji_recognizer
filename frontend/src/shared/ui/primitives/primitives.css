@@ -59,31 +59,54 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   padding: 1rem;
-  z-index: 50;
+  /* Trên header/sidebar dính (Commit 3) — lớp phủ phải phủ kín & nằm trên mọi thứ. */
+  z-index: 1000;
 }
 .kn-ui-modal {
   width: 100%;
   max-width: 28rem;
+  max-height: calc(100dvh - 2rem);
+  display: flex;
+  flex-direction: column;
   background: var(--kn-surface);
   color: var(--kn-text);
   border: 1px solid var(--kn-border);
   border-radius: 0.75rem;
-  padding: 1.25rem;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  overflow: hidden; /* để thân cuộn bên trong, header/footer cố định */
+}
+.kn-ui-modal--lg {
+  max-width: none;
+  width: min(64rem, calc(100vw - 2rem));
+}
+.kn-ui-modal__header {
+  flex: none;
+  padding: 1.1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--kn-border);
 }
 .kn-ui-modal__title {
-  margin: 0 0 0.75rem;
+  margin: 0;
   font-size: 1.1rem;
 }
 .kn-ui-modal__title:focus-visible {
   outline: none;
 }
+.kn-ui-modal__header-extra {
+  margin-top: 0.75rem;
+}
+.kn-ui-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.25rem;
+}
 .kn-ui-modal__footer {
-  margin-top: 1rem;
+  flex: none;
+  padding: 0.85rem 1.25rem;
+  border-top: 1px solid var(--kn-border);
   display: flex;
   gap: 0.5rem;
   justify-content: flex-end;

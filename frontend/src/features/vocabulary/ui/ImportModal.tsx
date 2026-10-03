@@ -215,6 +215,18 @@ export function ImportModal({
     { key: 'result', label: 'Kết quả' },
   ];
 
+  // Thanh bước nằm trong HEADER cố định của Modal (không cuộn theo thân).
+  const stepBar = (
+    <ol className="kn-import__steps">
+      {steps.map((item, index) => (
+        <li key={item.key} className={`kn-import__step${item.key === step ? ' is-active' : ''}`}>
+          <span className="kn-import__step-num">{index + 1}</span>
+          {item.label}
+        </li>
+      ))}
+    </ol>
+  );
+
   const footer =
     step === 'source' ? (
       <>
@@ -248,20 +260,15 @@ export function ImportModal({
     );
 
   return (
-    <Modal open={open} title="Nhập từ vựng từ file / dán" onClose={onClose} footer={footer}>
+    <Modal
+      open={open}
+      size="lg"
+      title="Nhập từ vựng từ file / dán"
+      onClose={onClose}
+      headerExtra={stepBar}
+      footer={footer}
+    >
       <div className="kn-import">
-        <ol className="kn-import__steps">
-          {steps.map((item, index) => (
-            <li
-              key={item.key}
-              className={`kn-import__step${item.key === step ? ' is-active' : ''}`}
-            >
-              <span className="kn-import__step-num">{index + 1}</span>
-              {item.label}
-            </li>
-          ))}
-        </ol>
-
         {step === 'source' ? (
           <>
             <Field id="kn-import-text" label="Dán dữ liệu (CSV, TSV, Markdown hoặc copy từ Quizlet)">

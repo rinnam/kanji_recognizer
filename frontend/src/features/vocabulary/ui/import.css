@@ -11,7 +11,9 @@
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
-  min-width: min(44rem, 80vw);
+  /* Co theo bề rộng của Modal (size lg); KHÔNG tự ép rộng để tránh tràn khung + cuộn ngang. */
+  min-width: 0;
+  width: 100%;
 }
 
 /* Thanh bước 1·2·3 */
@@ -97,14 +99,21 @@
 /* Bước 2 — ánh xạ cột */
 .kn-import__mapping {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
   gap: 0.6rem;
+}
+
+@media (max-width: 40rem) {
+  .kn-import__mapping {
+    grid-template-columns: 1fr;
+  }
 }
 
 .kn-import__map-cell {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-width: 0; /* cho phép con co lại trong ô grid, tránh tràn ngang */
 }
 
 .kn-import__map-head {
@@ -116,6 +125,8 @@
 }
 
 .kn-import__select {
+  width: 100%;
+  min-width: 0;
   padding: 0.4rem 0.5rem;
   border: 1px solid var(--kn-border);
   border-radius: 0.5rem;
@@ -147,9 +158,9 @@
   font-size: 0.85rem;
 }
 
-/* Bảng xem trước */
+/* Bảng xem trước — container cuộn RIÊNG, thead dính, ô dài cắt ellipsis (không cuộn ngang). */
 .kn-import__table-wrap {
-  max-height: 20rem;
+  max-height: 40vh;
   overflow: auto;
   border: 1px solid var(--kn-border);
   border-radius: 0.6rem;
@@ -159,6 +170,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 0.88rem;
+  table-layout: fixed;
 }
 
 .kn-import__table th,
@@ -167,6 +179,14 @@
   text-align: left;
   border-bottom: 1px solid color-mix(in srgb, var(--kn-border) 60%, transparent);
   vertical-align: top;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Cột cuối (Ghi chú/lý do) được xuống dòng để đọc đủ cảnh báo. */
+.kn-import__table td:last-child {
+  white-space: normal;
 }
 
 .kn-import__table th {

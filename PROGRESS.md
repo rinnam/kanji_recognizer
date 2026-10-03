@@ -680,3 +680,20 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 ### Kiểm chứng
 - `npm run typecheck`: **0 lỗi**. `npm test`: **112/112 pass** (18 file; +9 folder-cascade, +4 sync-order). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** (136 modules). KHÔNG thêm dependency; KHÔNG đổi SM-2/chấm quiz; KHÔNG file tạm.
 - CHƯA kiểm được bằng chạy thật: tái hiện với BE+Postgres (xem payload `/api/sync/push`, bảng `folders.deleted_at`) — cần BE chạy. CẦN XEM BẰNG MẮT: xóa thư mục cha → hộp xác nhận số đúng; con + từ biến mất; sau khi đồng bộ không hồi sinh; header không còn "Lỗi đồng bộ" khi import lớn.
+
+## [Phiên mới] Commit 2 — Sửa modal "Nhập từ file / dán" tràn khung ✅
+
+### Nguyên nhân
+- Modal primitive cũ `max-width: 28rem` nhưng `.kn-import` ép `min-width: min(44rem, 80vw)` ⇒ nội dung (lưới 8 ô + bảng ~900px) TRÀN ra ngoài khung, đè nền mờ; không có vùng cuộn thân nên footer dính đáy.
+
+### Thay đổi
+- **Modal primitive** (`shared/ui/primitives/Modal.tsx` + `primitives.css`): thêm prop `size` ('sm' mặc định | 'lg') và `headerExtra` (slot cố định dưới tiêu đề). Cấu trúc flex cột: **header cố định** (tiêu đề + headerExtra) / **thân cuộn** (`overflow:auto`, `min-height:0`) / **footer cố định** (đường kẻ trên, nút canh phải). Lớp phủ `display:grid; place-items:center`, `z-index:1000` (trên header/sidebar dính của Commit 3). `size=lg`: `width: min(64rem, calc(100vw - 2rem))`, `max-height: calc(100dvh - 2rem)`.
+- **ImportModal**: dùng `size="lg"`, chuyển thanh bước 1·2·3 vào `headerExtra` (cố định, không cuộn). Thứ tự thân giữ đúng: lưới ánh xạ → hàng tùy chọn (tiêu đề + thư mục đích) → tổng kết → bảng xem trước.
+- **import.css**: bỏ `min-width` ép rộng (`min-width:0; width:100%`), lưới `minmax(11rem,1fr)` + con `min-width:0`, select `width:100%`; bảng xem trước container cuộn riêng `max-height:40vh`, `table-layout:fixed`, thead dính, ô dài cắt ellipsis (cột cuối xuống dòng); `@media (max-width:40rem)` lưới 1 cột.
+
+### Files
+- SỬA: `shared/ui/primitives/Modal.tsx`, `shared/ui/primitives/primitives.css`, `features/vocabulary/ui/ImportModal.tsx`, `features/vocabulary/ui/import.css`.
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**. `npm test`: **112/112 pass** (không đổi). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** (136 modules).
+- CẦN XEM BẰNG MẮT (không kiểm được bằng unit test): modal căn giữa, không tràn/không đè nền; footer "Quay lại / Nhập N từ" cố định đáy; thân cuộn, KHÔNG cuộn ngang ở 1280/1024/390px; hộp xác nhận (size sm) vẫn gọn.
