@@ -760,3 +760,9 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - Flashcard & Quiz dùng ToggleIconButton cho nút Xáo trộn (giữ hành vi). Quiz: Xáo trộn thành CÔNG TẮC — BẬT mặc định = câu ngẫu nhiên, TẮT = thứ tự thêm (createdAt tăng dần); tách hàm thuần `orderQuestions(questions, shuffle, seed)` + thêm `createdAt` vào QuizQuestion; "Làm lại" vẫn là nút thường.
 - Test: `toggle-icon-button.test.tsx` (click đổi aria-pressed + class is-on), `quiz-order.test.ts` (bật xáo tất định theo seed, tắt ổn định theo createdAt); cập nhật 2 assertion `quiz.test.ts`.
 - Kiểm: typecheck 0 lỗi · test 145/145 · lint 0 lỗi (2 cảnh báo cũ) · build OK (148 modules). CẦN XEM MẮT: nút Xáo đổi màu & giữ màu, bấm lại trở lại; Quiz mặc định hiện màu "đang bật".
+
+## [Phiên mới] Phần 5B — Giao diện tối: token điều khiển + test tương phản ✅
+- Thêm token `--kn-btn-bg/-bg-hover/-border/-fg` (sáng & tối) ở tokens.css: nền nút phụ, viền (≥3 so nền thẻ), chữ/icon (≥4.5) đủ tương phản ở CẢ hai theme; `--kn-border` giữ cho viền trang trí.
+- Áp token vào nút phụ/tab (primitives `.kn-ui-btn` + `.kn-ui-input`), ToggleIconButton, nút icon Flashcard/Quiz, ô nhập hẹn giờ — bỏ màu `--kn-bg/--kn-border` cố định; focus-visible vòng accent 2px.
+- Test thuần `tests/unit/contrast.test.ts` (hàm WCAG + đọc tokens.css qua `?raw`): 5 cặp × 2 theme đều đạt ngưỡng. Commit tách: (i) test+token, (ii) áp component.
+- Kiểm: typecheck 0 lỗi · test 156/156 · lint 0 lỗi (2 cảnh báo cũ) · build OK (148 modules). CẦN XEM MẮT: theme tối — nút phụ, tab chưa chọn, ô nhập, viên hẹn giờ rõ viền & icon.

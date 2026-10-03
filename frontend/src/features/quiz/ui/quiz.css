@@ -43,9 +43,9 @@
   height: 2.2rem;
   font-size: 1.1rem;
   cursor: pointer;
-  color: var(--kn-text);
-  background: var(--kn-bg);
-  border: 1px solid var(--kn-border);
+  color: var(--kn-btn-fg);
+  background: var(--kn-btn-bg);
+  border: 1px solid var(--kn-btn-border);
   border-radius: 0.5rem;
 }
 .kn-quiz__icon-btn:hover {

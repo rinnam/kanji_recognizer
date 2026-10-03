@@ -7,9 +7,9 @@
   height: 2.2rem;
   font-size: 1.1rem;
   cursor: pointer;
-  color: var(--kn-text);
-  background: var(--kn-bg);
-  border: 1px solid var(--kn-border);
+  color: var(--kn-btn-fg);
+  background: var(--kn-btn-bg);
+  border: 1px solid var(--kn-btn-border);
   border-radius: 0.5rem;
 }
 .kn-toggle-icon-btn:hover {
@@ -34,11 +34,11 @@
 .kn-toggle-icon-btn[aria-pressed='true'] {
   color: var(--kn-primary);
   border-color: var(--kn-primary);
-  background: color-mix(in srgb, var(--kn-primary) 15%, var(--kn-bg));
+  background: color-mix(in srgb, var(--kn-primary) 15%, var(--kn-btn-bg));
 }
 .kn-toggle-icon-btn.is-on:hover,
 .kn-toggle-icon-btn[aria-pressed='true']:hover {
   color: var(--kn-primary);
   border-color: var(--kn-primary);
-  background: color-mix(in srgb, var(--kn-primary) 22%, var(--kn-bg));
+  background: color-mix(in srgb, var(--kn-primary) 22%, var(--kn-btn-bg));
 }

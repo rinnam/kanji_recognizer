@@ -2,11 +2,14 @@
 .kn-ui-btn {
   font: inherit;
   cursor: pointer;
-  border: 1px solid var(--kn-border);
+  border: 1px solid var(--kn-btn-border);
   border-radius: 0.5rem;
   padding: 0.45rem 0.85rem;
-  background: var(--kn-surface);
-  color: var(--kn-text);
+  background: var(--kn-btn-bg);
+  color: var(--kn-btn-fg);
+}
+.kn-ui-btn--secondary:hover:not(:disabled) {
+  background: var(--kn-btn-bg-hover);
 }
 .kn-ui-btn:focus-visible {
   outline: 2px solid var(--kn-focus);
@@ -26,14 +29,14 @@
   font: inherit;
   width: 100%;
   padding: 0.45rem 0.6rem;
-  border: 1px solid var(--kn-border);
+  border: 1px solid var(--kn-btn-border);
   border-radius: 0.5rem;
-  background: var(--kn-surface);
+  background: var(--kn-btn-bg);
   color: var(--kn-text);
 }
 .kn-ui-input:focus-visible {
   outline: 2px solid var(--kn-focus);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 .kn-ui-input[aria-invalid='true'] {
   border-color: var(--kn-danger);
