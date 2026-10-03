@@ -10,6 +10,7 @@ import {
   LoadingState,
   ScopeBar,
 } from '../../../shared/ui';
+import type { ScopeSelection } from '../../../entities/vocabulary';
 import { decideQuizKey } from '../model/keymap';
 import type { QuizMode } from '../model/questions';
 import type { QuizType } from '../model/types';
@@ -19,6 +20,8 @@ import './quiz.css';
 
 interface QuizRunnerProps {
   folderId: string | null;
+  /** Phạm vi do page truyền xuống (3D/3E). Khi CÓ: ẩn ScopeBar nội bộ + chọn bộ bằng applyScope. */
+  scope?: ScopeSelection;
 }
 
 const MODES: { id: QuizMode; label: string }[] = [
@@ -47,8 +50,8 @@ function hasText(value: string | null | undefined): value is string {
  * TimerPill) + QuizProgress + thẻ câu hỏi + ô nhập + hành động + phản hồi từng câu (đếm ngược).
  * Phím: Enter nộp→tiếp, Tab bỏ qua; IME đang gõ dở thì KHÔNG nộp/bỏ qua. Chấm giữ nguyên.
  */
-export function QuizRunner({ folderId }: QuizRunnerProps): ReactElement {
-  const api = useQuiz(folderId);
+export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
+  const api = useQuiz(folderId, scope);
   const {
     loadStatus,
     loadError,
@@ -185,14 +188,16 @@ export function QuizRunner({ folderId }: QuizRunnerProps): ReactElement {
         Quiz
       </h2>
 
-      <ScopeBar
-        total={scopeTotal}
-        used={total}
-        kind={kind}
-        n={n}
-        onKindChange={chooseKind}
-        onNChange={changeN}
-      />
+      {scope === undefined ? (
+        <ScopeBar
+          total={scopeTotal}
+          used={total}
+          kind={kind}
+          n={n}
+          onKindChange={chooseKind}
+          onNChange={changeN}
+        />
+      ) : null}
 
       <div className="kn-quiz__control">
         <div className="kn-quiz__dirs" role="group" aria-label="Dạng câu hỏi">

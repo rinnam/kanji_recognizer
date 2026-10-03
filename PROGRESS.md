@@ -542,6 +542,12 @@ Chỉ đổi hành vi/logic flashcard; GIỮ NGUYÊN công thức SM-2 (`entitie
 - `FlashcardStudy` thêm prop TÙY CHỌN `scope?`: CÓ → ẩn ScopeBar nội bộ + dùng `applyScope`; KHÔNG → chip nội bộ cũng gọi `applyScope` (bỏ `byCreatedAtAsc` trùng lặp). Thêm +7 ca `tests/unit/scope-apply.test.ts`.
 - Kiểm chứng: typecheck **0 lỗi** · test **119/119** (19 file) · lint 0 lỗi, 2 cảnh báo cũ · build **OK** (141 modules). Không thêm dependency; không đụng SM-2/chấm quiz.
 - CHƯA kiểm bằng mắt: Flashcard chạy thật (chip Tất cả / N từ đầu / Random vẫn chạy); prop `scope` sẽ được page truyền ở 3E.
+
+## Commit 3D — QuizRunner/useQuiz nhận prop scope (giống 3C) ✅
+- MỚI `features/quiz/model/pool.ts`: `selectQuizPool(base, selection)` thuần (ủy quyền `applyScope`) — CHỈ chọn BỘ; thứ tự câu trong phiên vẫn Fisher–Yates mỗi phiên; KHÔNG đổi chấm điểm.
+- `useQuiz(folderId, scope?)` + `QuizRunner` thêm prop `scope?`: CÓ → ẩn ScopeBar + chọn bộ bằng applyScope; KHÔNG → chip nội bộ cũng qua applyScope (bỏ `byCreatedAtAsc` trùng lặp). +3 ca `tests/unit/quiz-scope.test.ts`.
+- Kiểm chứng: typecheck **0 lỗi** · test **122/122** (20 file) · lint 0 lỗi, 2 cảnh báo cũ · build **OK** (142 modules). Không thêm dependency.
+- CHƯA kiểm bằng mắt: Quiz chạy thật (Ngẫu nhiên/Dạng 1/Dạng 2 + chip Tất cả/N đầu/Random); prop `scope` nối ở 3E.
 - CẦN XEM BẰNG MẮT: công tắc Xáo trộn bật/tắt (nền tint + viền accent + icon đổi màu); Space chỉ lật ở mọi chế độ; màn Anki hết thẻ (dòng "Thẻ kế tiếp đến hạn" + 2 nút); Modal "Đặt lại tiến độ SRS" (số thẻ đúng theo phạm vi); sáng/tối + mobile.
 
 ## Commit 2 — Bám bố cục KotoBase (mật độ · tab segmented+icon · ScopeBar · thẻ điều khiển · sidebar · icon · mobile) ✅

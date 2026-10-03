@@ -4,12 +4,14 @@ import {
   getAllVocabulariesLocal,
   selectWordsInScope,
   type LocalVocabulary,
+  type ScopeSelection,
 } from '../../../entities/vocabulary';
 import { ApiError, createQuizSession } from '../../../shared/api';
 import { useDb } from '../../../shared/db';
 import { nowIso } from '../../../shared/lib';
 import type { ScopeKind } from '../../../shared/ui';
 import { gradeAnswer } from './grade';
+import { selectQuizPool } from './pool';
 import { buildQuestions, type QuizMode } from './questions';
 import { gradeSession, toCreateSessionInput } from './session';
 import type { QuizQuestion, QuizResult } from './types';
@@ -65,18 +67,13 @@ function shuffle<T>(items: readonly T[]): T[] {
   return copy;
 }
 
-function byCreatedAtAsc(a: LocalVocabulary, b: LocalVocabulary): number {
-  if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-}
-
 /**
  * Điều phối typing quiz local-first (B2): nạp vocab + thư mục → phạm vi theo thư mục
  * (gồm con cháu) → chọn pool theo ScopeBar → bốc ngẫu nhiên thứ tự (Fisher–Yates) → dựng
  * câu hỏi theo chế độ (Ngẫu nhiên/Dạng 1/Dạng 2). Chấm CỤC BỘ (mirror BE), lưu phiên khi
  * online. KHÔNG đổi logic chấm.
  */
-export function useQuiz(folderId: string | null): QuizApi {
+export function useQuiz(folderId: string | null, scope?: ScopeSelection): QuizApi {
   const db = useDb();
   const [all, setAll] = useState<LocalVocabulary[]>([]);
   const [folders, setFolders] = useState<LocalFolder[]>([]);
@@ -86,6 +83,8 @@ export function useQuiz(folderId: string | null): QuizApi {
   const [mode, setMode] = useState<QuizMode>('random');
   const [kind, setKind] = useState<ScopeKind>('all');
   const [n, setN] = useState(DEFAULT_N);
+  // Seed cho chip "Random" nội bộ: mỗi lần bấm Random tăng 1 để bốc lại (applyScope có seed).
+  const [seed, setSeed] = useState(0);
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [index, setIndex] = useState(0);
@@ -111,15 +110,10 @@ export function useQuiz(folderId: string | null): QuizApi {
     [scopeBase.length],
   );
 
-  // Chọn pool theo chip rồi bốc ngẫu nhiên thứ tự, cuối cùng dựng câu hỏi theo chế độ.
+  // Chọn BỘ từ qua applyScope (một nguồn sự thật) rồi bốc ngẫu nhiên thứ tự câu mỗi phiên.
   const buildFor = useCallback(
-    (m: QuizMode, k: ScopeKind, nn: number, base: readonly LocalVocabulary[]): QuizQuestion[] => {
-      let pool: LocalVocabulary[];
-      if (k === 'all') pool = [...base];
-      else if (k === 'first') pool = [...base].sort(byCreatedAtAsc).slice(0, Math.min(nn, base.length));
-      else pool = shuffle(base).slice(0, Math.min(nn, base.length));
-      return buildQuestions(shuffle(pool), m);
-    },
+    (m: QuizMode, selection: ScopeSelection, base: readonly LocalVocabulary[]): QuizQuestion[] =>
+      buildQuestions(shuffle(selectQuizPool(base, selection)), m),
     [],
   );
 
@@ -161,7 +155,7 @@ export function useQuiz(folderId: string | null): QuizApi {
         setLoadError(null);
         setLoadStatus('ready');
         const base = selectWordsInScope(livingVocab, livingFolders, folderId);
-        startWith(buildFor('random', 'all', DEFAULT_N, base));
+        startWith(buildFor('random', scope ?? { mode: 'all', n: DEFAULT_N, seed: 0 }, base));
       } catch (err) {
         if (!active) return;
         setLoadError(err instanceof Error ? err.message : READ_ERROR);
@@ -171,7 +165,7 @@ export function useQuiz(folderId: string | null): QuizApi {
     return () => {
       active = false;
     };
-  }, [db, folderId, buildFor, startWith]);
+  }, [db, folderId, scope, buildFor, startWith]);
 
   const reload = useCallback(async (): Promise<void> => {
     setLoadStatus('loading');
@@ -187,12 +181,12 @@ export function useQuiz(folderId: string | null): QuizApi {
       setLoadError(null);
       setLoadStatus('ready');
       const base = selectWordsInScope(livingVocab, livingFolders, folderId);
-      startWith(buildFor(mode, kind, n, base));
+      startWith(buildFor(mode, scope ?? { mode: kind, n, seed }, base));
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : READ_ERROR);
       setLoadStatus('error');
     }
-  }, [db, folderId, mode, kind, n, buildFor, startWith]);
+  }, [db, folderId, mode, kind, n, seed, scope, buildFor, startWith]);
 
   const allById = useMemo(() => {
     const map = new Map<string, LocalVocabulary>();
@@ -284,24 +278,27 @@ export function useQuiz(folderId: string | null): QuizApi {
   const chooseMode = useCallback(
     (next: QuizMode): void => {
       setMode(next);
-      startWith(buildFor(next, kind, n, scopeBase));
+      startWith(buildFor(next, scope ?? { mode: kind, n, seed }, scopeBase));
     },
-    [kind, n, scopeBase, buildFor, startWith],
+    [scope, kind, n, seed, scopeBase, buildFor, startWith],
   );
+  // Chip Random bốc lại (seed + 1) kể cả khi đang ở Random. Chỉ dùng khi KHÔNG có prop scope.
   const chooseKind = useCallback(
     (next: ScopeKind): void => {
+      const nextSeed = next === 'random' ? seed + 1 : seed;
+      if (next === 'random') setSeed(nextSeed);
       setKind(next);
-      startWith(buildFor(mode, next, n, scopeBase));
+      startWith(buildFor(mode, { mode: next, n, seed: nextSeed }, scopeBase));
     },
-    [mode, n, scopeBase, buildFor, startWith],
+    [mode, n, seed, scopeBase, buildFor, startWith],
   );
   const changeN = useCallback(
     (value: number): void => {
       const next = clampN(value);
       setN(next);
-      startWith(buildFor(mode, kind, next, scopeBase));
+      startWith(buildFor(mode, { mode: kind, n: next, seed }, scopeBase));
     },
-    [mode, kind, scopeBase, buildFor, startWith, clampN],
+    [mode, kind, seed, scopeBase, buildFor, startWith, clampN],
   );
   // Xáo trộn: trộn lại thứ tự bộ câu hiện có (giữ nguyên loại câu), về câu 1.
   const reshuffle = useCallback((): void => {
