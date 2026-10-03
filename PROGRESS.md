@@ -738,3 +738,8 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - `features/vocabulary/model/list-utils.ts`: paginate (kẹp trang; size<=0/rỗng an toàn pageCount≥1; from/to 1-based); chọn nhiều BẤT BIẾN trên Set (toggleId/setMany/selectRange gồm 2 đầu + đảo chiều/pageState none|some|all); sortVocabs 'added'|'newest' tie-break id ổn định.
 - Test `tests/unit/list-utils.test.ts` (17 ca: trang vượt giới hạn, size>tổng, size<=0, range ngược, tập rỗng, bất biến). CHƯA export ra UI (file không ai import → build giữ 142 modules).
 - Kiểm: typecheck 0 lỗi · test 139/139 · lint 0 lỗi (2 cảnh báo cũ) · build OK.
+
+## [Phiên mới] Commit 4B — Tổng quan: dòng gọn + phân trang + sắp xếp ✅
+- VocabularyList: dòng GỌN (≤44px, một dòng, ellipsis; cột Từ|Cách đọc|Âm Hán Việt|Nghĩa|JLPT|hành động); ví dụ/dịch/ghi chú vào dòng chi tiết mở bằng ▾; nút Xóa → icon thùng rác (hiện khi hover/focus, luôn hiện trên cảm ứng) + hộp xác nhận cũ; `<thead>` sticky `top: var(--kn-header-h)`.
+- VocabularyOverview: chỉ render lát cắt trang bằng paginate (4A); cỡ trang [25|50|100] mặc định 50, nhớ localStorage; tóm tắt "x–y / N từ"; pager « ‹ [ô số] / N › »; sắp xếp [Thứ tự thêm|Mới nhất] (sortVocabs, mặc định Mới nhất); lọc/sắp xếp dùng useMemo; về trang 1 khi đổi thư mục/q/JLPT/sắp xếp/cỡ trang (chỉnh state trong render — KHÔNG setState trong effect).
+- Thêm `IconTrash` (shared/ui/icons) + `model/page-size.ts`. Kiểm: typecheck 0 · test 139/139 · lint 0 lỗi (2 cảnh báo cũ) · build OK (144 modules). Quick Add gọn để 4D.

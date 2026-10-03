@@ -63,24 +63,72 @@
   font-size: 0.9rem;
 }
 
+/* Thanh nút phụ (Nhập từ file…) */
+.kn-overview__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Thanh điều khiển danh sách: sắp xếp (trái) + cỡ trang (phải) */
+.kn-overview__listbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  flex-wrap: wrap;
+}
+.kn-overview__sort {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+.kn-overview__pagesize {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--kn-text-muted);
+}
+.kn-overview__pagesize select {
+  font: inherit;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--kn-border);
+  border-radius: 0.4rem;
+  background: var(--kn-surface);
+  color: var(--kn-text);
+}
+
 .kn-vlist {
-  overflow-x: auto;
+  /* KHÔNG tạo scroll container để <thead> sticky bám theo viewport (ngay dưới header). */
+  width: 100%;
 }
 .kn-vtable {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 .kn-vtable th,
 .kn-vtable td {
   text-align: left;
-  padding: 0.45rem 0.6rem;
+  padding: 0.3rem 0.6rem;
   border-bottom: 1px solid var(--kn-border);
-  vertical-align: top;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.kn-vtable th {
-  font-size: 0.85rem;
+.kn-vtable thead th {
+  position: sticky;
+  top: var(--kn-header-h);
+  z-index: 2;
+  background: var(--kn-surface);
+  font-size: 0.8rem;
   color: var(--kn-text-muted);
   font-weight: 600;
+}
+/* Dòng gọn: cao tối đa ~44px, nội dung một dòng */
+.kn-vtable__row > td {
+  height: 2.75rem;
 }
 .kn-vtable__word {
   font-weight: 600;
@@ -90,20 +138,161 @@
   letter-spacing: 0.03em;
   color: var(--kn-text-muted);
 }
-/* Câu ví dụ: dòng phụ mờ, cắt bớt (ellipsis) dưới Nghĩa */
-.kn-vtable__example {
-  display: block;
-  margin-top: 0.15rem;
-  max-width: 24rem;
-  font-size: 0.8rem;
+.kn-vtable__jlpt {
   color: var(--kn-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .kn-vtable__actions {
+  overflow: visible;
   text-align: right;
   white-space: nowrap;
+}
+/* Bề rộng cột (table-layout: fixed); cột Nghĩa lấy phần còn lại */
+.kn-vtable__c-word {
+  width: 20%;
+}
+.kn-vtable__c-reading {
+  width: 16%;
+}
+.kn-vtable__c-sino {
+  width: 16%;
+}
+.kn-vtable__c-jlpt {
+  width: 4.5rem;
+}
+.kn-vtable__c-act {
+  width: 6rem;
+}
+
+/* Nút biểu tượng trong dòng: thùng rác + mở chi tiết */
+.kn-vtable__trash,
+.kn-vtable__expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  cursor: pointer;
+  color: var(--kn-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  font-size: 1rem;
+}
+.kn-vtable__trash:hover {
+  color: var(--kn-danger);
+  border-color: var(--kn-danger);
+}
+.kn-vtable__expand:hover {
+  color: var(--kn-primary);
+  border-color: var(--kn-border);
+}
+.kn-vtable__trash:focus-visible,
+.kn-vtable__expand:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 1px;
+}
+/* Thùng rác ẩn mặc định; hiện khi hover/focus trong dòng */
+.kn-vtable__trash {
+  opacity: 0;
+}
+.kn-vtable__row:hover .kn-vtable__trash,
+.kn-vtable__row:focus-within .kn-vtable__trash,
+.kn-vtable__trash:focus-visible {
+  opacity: 1;
+}
+/* Thiết bị cảm ứng (không hover): luôn hiện thùng rác */
+@media (hover: none) {
+  .kn-vtable__trash {
+    opacity: 1;
+  }
+}
+/* Mũi tên chi tiết: trỏ xuống (▾); quay lên khi mở */
+.kn-vtable__expand {
+  transform: rotate(90deg);
+  transition: transform 0.15s ease;
+}
+.kn-vtable__expand.is-open {
+  transform: rotate(-90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .kn-vtable__expand {
+    transition: none;
+  }
+}
+
+/* Dòng chi tiết mở (ví dụ / dịch ví dụ / ghi chú) */
+.kn-vtable__detail-row > td {
+  padding: 0.5rem 0.9rem 0.7rem;
+  background: color-mix(in srgb, var(--kn-primary) 4%, var(--kn-surface));
+  white-space: normal;
+  overflow: visible;
+}
+.kn-vtable__detail {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+}
+.kn-vtable__detail dt {
+  color: var(--kn-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.kn-vtable__detail dd {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Phân trang */
+.kn-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+.kn-pager__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2rem;
+  height: 2.2rem;
+  font: inherit;
+  cursor: pointer;
+  color: var(--kn-text);
+  background: var(--kn-surface);
+  border: 1px solid var(--kn-border);
+  border-radius: 0.4rem;
+}
+.kn-pager__btn:hover:not(:disabled) {
+  border-color: var(--kn-primary);
+  color: var(--kn-primary);
+}
+.kn-pager__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.kn-pager__btn:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 2px;
+}
+.kn-pager__pos {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--kn-text-muted);
+}
+.kn-pager__input {
+  width: 3.5rem;
+  font: inherit;
+  text-align: center;
+  padding: 0.25rem 0.3rem;
+  border: 1px solid var(--kn-border);
+  border-radius: 0.4rem;
+  background: var(--kn-surface);
+  color: var(--kn-text);
 }
 
 .kn-sr-only {

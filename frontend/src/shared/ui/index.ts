@@ -30,4 +30,5 @@ export {
   IconArrowRight,
   IconSearch,
   IconClose,
+  IconTrash,
 } from './icons';
