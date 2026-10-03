@@ -254,3 +254,47 @@
     display: none;
   }
 }
+
+/* 6B: ô nhập sai (viền đỏ + rung), dòng "Còn k lần", nghĩa nổi bật, ghi chú soát lại */
+.kn-quiz__answer-input--err {
+  border-color: var(--kn-danger);
+}
+.kn-quiz__retry {
+  margin: 0;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--kn-danger);
+}
+.kn-quiz__meaning {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.kn-quiz__note {
+  font-weight: 700;
+}
+/* Rung nhẹ khi sai; TẮT khi người dùng chọn giảm chuyển động. */
+@media (prefers-reduced-motion: no-preference) {
+  .kn-quiz__answer-input--shake {
+    animation: kn-quiz-shake 0.3s ease;
+  }
+}
+@keyframes kn-quiz-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+}

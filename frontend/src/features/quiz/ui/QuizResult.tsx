@@ -1,6 +1,6 @@
 import { type ReactElement } from 'react';
 import { Button } from '../../../shared/ui';
-import type { QuizResult as QuizResultData } from '../model/types';
+import type { GradedQuizItem, QuizResult as QuizResultData } from '../model/types';
 import type { SaveStatus } from '../model/useQuiz';
 
 interface QuizResultProps {
@@ -8,6 +8,14 @@ interface QuizResultProps {
   saveStatus: SaveStatus;
   saveMessage: string | null;
   onRestart: () => void;
+}
+
+/** Ghi chú soát lại một câu: ✓ / ✓ lần n / ✗ xem đáp án (gợi ý) / ✗ sai 3 lần. */
+function reviewNote(item: GradedQuizItem): string {
+  if (item.isCorrect) {
+    return (item.attemptNo ?? 1) > 1 ? `✓ lần ${String(item.attemptNo)}` : '✓';
+  }
+  return item.usedHint === true ? '✗ xem đáp án' : '✗ sai 3 lần';
 }
 
 /** Màn kết quả: điểm cục bộ + trạng thái lưu BE + soát lại từng câu. */
@@ -48,7 +56,8 @@ export function QuizResult({
           >
             <span className="kn-quiz__prompt">{item.prompt}</span>
             <span className="kn-quiz__answer">
-              Bạn gõ: {item.userAnswer ?? '—'} {item.isCorrect ? '✓' : '✗'}
+              Bạn gõ: {item.userAnswer ?? '—'}{' '}
+              <span className="kn-quiz__note">{reviewNote(item)}</span>
             </span>
             {!item.isCorrect ? (
               <span className="kn-quiz__accepted">

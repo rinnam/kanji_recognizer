@@ -33,4 +33,5 @@ export {
   IconSearch,
   IconClose,
   IconTrash,
+  IconBulb,
 } from './icons';

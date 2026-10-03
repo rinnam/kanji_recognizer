@@ -187,3 +187,13 @@ export function IconTrash(props: IconProps): ReactElement {
     </Svg>
   );
 }
+
+export function IconBulb(props: IconProps): ReactElement {
+  return (
+    <Svg {...props}>
+      <path d="M9 18h6" />
+      <path d="M10 22h4" />
+      <path d="M15.1 14c.2-1 .7-1.8 1.4-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.2 1.5 1.4 2.5" />
+    </Svg>
+  );
+}

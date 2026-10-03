@@ -10,6 +10,13 @@ import { ApiError, createQuizSession } from '../../../shared/api';
 import { useDb } from '../../../shared/db';
 import { nowIso } from '../../../shared/lib';
 import type { ScopeKind } from '../../../shared/ui';
+import {
+  applyAnswer,
+  applyHint,
+  initialAttemptState,
+  toOutcome,
+  type AttemptState,
+} from './attempt';
 import { gradeAnswer } from './grade';
 import { orderQuestions } from './order';
 import { selectQuizPool } from './pool';
@@ -20,11 +27,6 @@ import type { QuizQuestion, QuizResult } from './types';
 type LoadStatus = 'loading' | 'error' | 'ready';
 export type QuizPhase = 'active' | 'result';
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'offline' | 'error';
-
-export interface QuizFeedback {
-  answer: string | null;
-  correct: boolean;
-}
 
 export interface QuizApi {
   loadStatus: LoadStatus;
@@ -38,8 +40,7 @@ export interface QuizApi {
   total: number;
   current: QuizQuestion | null;
   currentVocab: LocalVocabulary | null;
-  submitted: boolean;
-  feedback: QuizFeedback | null;
+  attempt: AttemptState;
   result: QuizResult | null;
   saveStatus: SaveStatus;
   saveMessage: string | null;
@@ -50,7 +51,7 @@ export interface QuizApi {
   shuffled: boolean;
   toggleShuffle: () => void;
   submit: (value: string) => void;
-  skip: () => void;
+  hint: () => void;
   advance: () => void;
   restart: () => void;
 }
@@ -88,14 +89,16 @@ export function useQuiz(folderId: string | null, scope?: ScopeSelection): QuizAp
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [index, setIndex] = useState(0);
-  const [submitted, setSubmitted] = useState(false);
-  const [feedback, setFeedback] = useState<QuizFeedback | null>(null);
+  // Trạng thái "3 lần thử" của câu HIỆN TẠI (6A). 'answering' = chưa chốt; 'correct'/'revealed' = đã chốt.
+  const [attempt, setAttempt] = useState<AttemptState>(initialAttemptState());
   const [phase, setPhase] = useState<QuizPhase>('active');
   const [result, setResult] = useState<QuizResult | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const answersRef = useRef<(string | null)[]>([]);
+  // Dữ liệu ghi chú mỗi câu để soát lại (attemptNo + usedHint), canh theo index câu hỏi.
+  const outcomesRef = useRef<{ attemptNo: number; usedHint: boolean }[]>([]);
   const startedAtRef = useRef<string>('');
 
   const scopeBase = useMemo(
@@ -120,10 +123,10 @@ export function useQuiz(folderId: string | null, scope?: ScopeSelection): QuizAp
 
   const resetProgress = useCallback((): void => {
     answersRef.current = [];
+    outcomesRef.current = [];
     startedAtRef.current = nowIso();
     setIndex(0);
-    setSubmitted(false);
-    setFeedback(null);
+    setAttempt(initialAttemptState());
     setResult(null);
     setSaveStatus('idle');
     setSaveMessage(null);
@@ -241,7 +244,17 @@ export function useQuiz(folderId: string | null, scope?: ScopeSelection): QuizAp
 
   const finishWith = useCallback(
     (finalAnswers: readonly (string | null)[]): void => {
-      const finished = gradeSession(questions, finalAnswers);
+      const graded = gradeSession(questions, finalAnswers);
+      // Gắn ghi chú mỗi câu (attemptNo + usedHint) để soát lại; payload BE KHÔNG dùng field này.
+      const items = graded.items.map((item, i) => {
+        const meta = outcomesRef.current[i];
+        return {
+          ...item,
+          attemptNo: meta?.attemptNo ?? (item.userAnswer === null ? 0 : 1),
+          usedHint: meta?.usedHint ?? false,
+        };
+      });
+      const finished: QuizResult = { ...graded, items };
       setResult(finished);
       setPhase('result');
       void saveToServer(finished, startedAtRef.current);
@@ -249,20 +262,43 @@ export function useQuiz(folderId: string | null, scope?: ScopeSelection): QuizAp
     [questions, saveToServer],
   );
 
+  // Ghi kết quả cuối của câu (6A toOutcome): answersRef = chữ gõ cuối (null nếu chưa gõ),
+  // outcomesRef = attemptNo + usedHint. Payload lưu phiên lên BE KHÔNG đổi.
+  const commitOutcome = useCallback(
+    (state: AttemptState): void => {
+      const outcome = toOutcome(state);
+      const nextAnswers = answersRef.current.slice();
+      nextAnswers[index] = outcome.userAnswer;
+      answersRef.current = nextAnswers;
+      const nextOutcomes = outcomesRef.current.slice();
+      nextOutcomes[index] = { attemptNo: outcome.attemptNo, usedHint: state.usedHint };
+      outcomesRef.current = nextOutcomes;
+    },
+    [index],
+  );
+
+  // Nộp MỘT lần thử (6A). Đúng → 'correct'; sai còn lượt → 'answering' (giữ ở câu, chờ gõ lại);
+  // sai lần cuối → 'revealed'. Chỉ khi CHỐT (correct/revealed) mới ghi kết quả câu.
   const submit = useCallback(
     (value: string): void => {
-      if (submitted) return;
+      if (attempt.status !== 'answering') return;
       const cur = index < questions.length ? questions[index] : null;
       if (cur === null) return;
-      const clean = value.trim() === '' ? null : value;
-      const next = answersRef.current.slice();
-      next[index] = clean;
-      answersRef.current = next;
-      setFeedback({ answer: clean, correct: gradeAnswer(clean, cur.acceptedAnswers) });
-      setSubmitted(true);
+      const isCorrect = gradeAnswer(value, cur.acceptedAnswers);
+      const next = applyAnswer(attempt, isCorrect, value);
+      setAttempt(next);
+      if (next.status !== 'answering') commitOutcome(next);
     },
-    [submitted, index, questions],
+    [attempt, index, questions, commitOutcome],
   );
+
+  // Bấm Gợi ý (6A): lộ đáp án ngay, tính SAI, đánh dấu usedHint rồi chốt câu.
+  const hint = useCallback((): void => {
+    if (attempt.status !== 'answering') return;
+    const next = applyHint(attempt);
+    setAttempt(next);
+    commitOutcome(next);
+  }, [attempt, commitOutcome]);
 
   const advance = useCallback((): void => {
     if (index >= questions.length - 1) {
@@ -270,22 +306,8 @@ export function useQuiz(folderId: string | null, scope?: ScopeSelection): QuizAp
       return;
     }
     setIndex(index + 1);
-    setSubmitted(false);
-    setFeedback(null);
+    setAttempt(initialAttemptState());
   }, [index, questions.length, finishWith]);
-
-  const skip = useCallback((): void => {
-    if (submitted) return;
-    const next = answersRef.current.slice();
-    next[index] = null;
-    answersRef.current = next;
-    if (index >= questions.length - 1) {
-      finishWith(next);
-      return;
-    }
-    setIndex(index + 1);
-    setFeedback(null);
-  }, [submitted, index, questions.length, finishWith]);
 
   const chooseMode = useCallback(
     (next: QuizMode): void => {
@@ -336,8 +358,7 @@ export function useQuiz(folderId: string | null, scope?: ScopeSelection): QuizAp
     total,
     current,
     currentVocab,
-    submitted,
-    feedback,
+    attempt,
     result,
     saveStatus,
     saveMessage,
@@ -348,7 +369,7 @@ export function useQuiz(folderId: string | null, scope?: ScopeSelection): QuizAp
     shuffled,
     toggleShuffle,
     submit,
-    skip,
+    hint,
     advance,
     restart,
   };

@@ -22,6 +22,10 @@ export interface GradedQuizItem {
   userAnswer: string | null;
   acceptedAnswers: string[];
   isCorrect: boolean;
+  /** Số lần đã nhập để chốt câu (0 nếu chỉ gợi ý mà chưa gõ). Tùy chọn (6B). */
+  attemptNo?: number;
+  /** Có bấm gợi ý để lộ đáp án không. Tùy chọn (6B). */
+  usedHint?: boolean;
 }
 
 /** Kết quả chấm cả phiên (cục bộ). */

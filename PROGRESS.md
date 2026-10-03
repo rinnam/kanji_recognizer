@@ -772,3 +772,9 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - `quiz/model/feedback.ts`: selectFeedbackContent — LUÔN có nghĩa; Dạng 1: Cách đọc + Hán Việt (bỏ Hán Việt nếu showSinoHint); Dạng 2: Từ + Cách đọc; kèm ví dụ + dịch nếu có.
 - keymap: Tab = gợi ý (hint) thay "bỏ qua" + sửa test keymap cũ; CHƯA đổi QuizRunner (để dành phần UI). Thêm test `quiz-attempt` (9 ca).
 - Kiểm: typecheck 0 lỗi · test 165/165 · lint 0 lỗi (2 cảnh báo cũ) · build OK (148 modules).
+
+## [Phiên mới] Commit 6B — Quiz: nối 3 lần thử + Gợi ý + phản hồi vào giao diện ✅
+- useQuiz: thay nộp-1-lần bằng attempt (applyAnswer/applyHint); sai còn lượt → giữ câu (không chốt, không đếm ngược), sai lần 3 hoặc Gợi ý → lộ đáp án; ghi attemptNo/usedHint mỗi câu. Payload BE KHÔNG đổi.
+- QuizRunner: sai còn lượt → viền ô nhập đỏ + rung (tắt khi prefers-reduced-motion) + bôi chọn để gõ đè + "Chưa đúng. Còn k lần"; chốt → khối phản hồi nghĩa→chip→ví dụ rồi đếm ngược. Nút "Gợi ý (Tab)" (IconBulb) thay "Bỏ qua".
+- QuizResult: ghi chú ✓ / ✓ lần n / ✗ xem đáp án / ✗ sai 3 lần (GradedQuizItem thêm attemptNo/usedHint tùy chọn).
+- Kiểm: typecheck 0 lỗi · test 165/165 · lint 0 lỗi (2 cảnh báo cũ) · build OK (150 modules).

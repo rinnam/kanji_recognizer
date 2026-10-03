@@ -3,6 +3,7 @@ import {
   Button,
   EmptyState,
   ErrorState,
+  IconBulb,
   IconClock,
   IconInfo,
   IconReset,
@@ -12,6 +13,8 @@ import {
   ToggleIconButton,
 } from '../../../shared/ui';
 import type { ScopeSelection } from '../../../entities/vocabulary';
+import { remainingAttempts, toOutcome } from '../model/attempt';
+import { selectFeedbackContent } from '../model/feedback';
 import { decideQuizKey } from '../model/keymap';
 import type { QuizMode } from '../model/questions';
 import type { QuizType } from '../model/types';
@@ -65,8 +68,7 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
     total,
     current,
     currentVocab,
-    submitted,
-    feedback,
+    attempt,
     result,
     saveStatus,
     saveMessage,
@@ -77,7 +79,7 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
     shuffled,
     toggleShuffle,
     submit,
-    skip,
+    hint,
     advance,
     restart,
   } = api;
@@ -86,20 +88,41 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
   const [showSino, setShowSino] = useState(false);
   const [seconds, setSeconds] = useState(5);
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [shaking, setShaking] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevAttemptsRef = useRef(0);
 
   const isLast = index >= total - 1;
+  // 'answering' = đang trả lời (kể cả sau khi sai còn lượt); 'correct'/'revealed' = đã chốt (hiện phản hồi).
+  const resolved = attempt.status !== 'answering';
+  // Vừa sai mà CÒN lượt: viền đỏ + "Còn k lần" (chưa chốt, chưa đếm ngược).
+  const hasWrong = !resolved && attempt.attempts > 0;
+  const triesLeft = remainingAttempts(attempt);
 
-  // Tự focus ô nhập khi sang câu mới (chưa nộp). CHỈ focus — không setState trong thân effect.
+  // Tự focus ô nhập khi sang câu mới (chưa chốt). CHỈ focus — không setState trong thân effect.
   useEffect(() => {
-    if (phase === 'active' && !submitted) {
+    if (phase === 'active' && !resolved) {
       inputRef.current?.focus();
     }
-  }, [phase, submitted, index]);
+  }, [phase, resolved, index]);
 
-  // Đếm ngược tự chuyển sau khi nộp (setState chỉ trong callback setInterval → không vi phạm rule).
+  // Sai mà CÒN lượt: rung + bôi chọn chữ cũ để gõ đè (không chuyển câu, không đếm ngược).
   useEffect(() => {
-    if (phase !== 'active' || !submitted) return;
+    if (
+      phase === 'active' &&
+      attempt.status === 'answering' &&
+      attempt.attempts > prevAttemptsRef.current
+    ) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+      setShaking(true);
+    }
+    prevAttemptsRef.current = attempt.attempts;
+  }, [attempt.attempts, attempt.status, phase]);
+
+  // Đếm ngược tự chuyển SAU KHI chốt câu (setState chỉ trong callback setInterval → không vi phạm rule).
+  useEffect(() => {
+    if (phase !== 'active' || !resolved) return;
     const deadline = Date.now() + seconds * 1000;
     const id = setInterval(() => {
       const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
@@ -114,7 +137,7 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
     return () => {
       clearInterval(id);
     };
-  }, [phase, submitted, index, seconds, advance]);
+  }, [phase, resolved, index, seconds, advance]);
 
   if (loadStatus === 'loading') {
     return <LoadingState label="Đang tải từ vựng…" />;
@@ -154,15 +177,19 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
   const meta = current !== null ? TYPE_META[current.type] : null;
   const progressPct = total === 0 ? 0 : Math.round(((index + 1) / total) * 100);
   const canSubmit = input.trim() !== '';
+  const attemptNo = attempt.attempts;
+  // Nội dung phản hồi (6A selectFeedbackContent) — chỉ dựng khi đã chốt câu. showSino: nếu đang
+  // bật gợi ý Hán Việt thì KHÔNG lặp chip Hán Việt trong phản hồi.
+  const feedback =
+    resolved && current !== null && currentVocab !== null
+      ? selectFeedbackContent(currentVocab, current.type, toOutcome(attempt), showSino)
+      : null;
 
   const doSubmit = (): void => {
     submit(input);
-    setRemaining(seconds);
   };
-  const doSkip = (): void => {
-    skip();
-    setInput('');
-    setRemaining(null);
+  const doHint = (): void => {
+    hint();
   };
   const doAdvance = (): void => {
     advance();
@@ -172,16 +199,16 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
     const composing = event.nativeEvent.isComposing || event.keyCode === 229;
-    const action = decideQuizKey({ key: event.key, composing, submitted, canSubmit });
+    const action = decideQuizKey({ key: event.key, composing, submitted: resolved, canSubmit });
     if (action === 'none') {
-      // Chặn Tab rời ô nhập (trừ khi đang gõ IME) — Tab chỉ để bỏ qua.
+      // Chặn Tab rời ô nhập (trừ khi đang gõ IME) — Tab để gợi ý.
       if (event.key === 'Tab' && !composing) event.preventDefault();
       return;
     }
     event.preventDefault();
     if (action === 'submit') doSubmit();
     else if (action === 'advance') doAdvance();
-    else doSkip();
+    else doHint();
   };
 
   return (
@@ -271,8 +298,8 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
         <>
           <div
             className={
-              submitted
-                ? feedback?.correct === true
+              resolved
+                ? feedback?.isCorrect === true
                   ? 'kn-quiz__card kn-quiz__card--ok'
                   : 'kn-quiz__card kn-quiz__card--no'
                 : 'kn-quiz__card'
@@ -295,34 +322,31 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
               </div>
             ) : null}
 
-            {submitted && feedback !== null ? (
+            {resolved && feedback !== null ? (
               <div className="kn-quiz__feedback" role="status">
-                {feedback.correct ? (
-                  <p className="kn-quiz__verdict kn-quiz__verdict--ok">✓ Chính xác!</p>
+                {feedback.isCorrect ? (
+                  <p className="kn-quiz__verdict kn-quiz__verdict--ok">
+                    ✓ Chính xác!{attemptNo > 1 ? ` (đúng ở lần ${String(attemptNo)})` : ''}
+                  </p>
                 ) : (
-                  <>
-                    <p className="kn-quiz__verdict kn-quiz__verdict--no">
-                      ✗ Bạn gõ: {feedback.answer ?? '—'}
-                    </p>
-                    <p className="kn-quiz__accepted">
-                      Đáp án: {current.acceptedAnswers.join(' / ')}
-                    </p>
-                  </>
+                  <p className="kn-quiz__verdict kn-quiz__verdict--no">
+                    {attempt.usedHint ? '✗ Đáp án (đã gợi ý)' : '✗ Chưa đúng — đáp án đúng'}
+                  </p>
                 )}
-                <div className="kn-quiz__chips-row">
-                  {hasText(currentVocab?.reading ?? null) ? (
-                    <span className="kn-quiz__chip">Cách đọc: {currentVocab?.reading}</span>
-                  ) : null}
-                  {hasText(currentVocab?.sinoVietnamese ?? null) ? (
-                    <span className="kn-quiz__chip">Hán Việt: {currentVocab?.sinoVietnamese}</span>
-                  ) : null}
-                </div>
-                {hasText(currentVocab?.example ?? null) ? (
+                <p className="kn-quiz__meaning">{feedback.meaning}</p>
+                {feedback.chips.length > 0 ? (
+                  <div className="kn-quiz__chips-row">
+                    {feedback.chips.map((chip) => (
+                      <span key={chip.label} className="kn-quiz__chip">
+                        {chip.label}: {chip.value}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+                {feedback.example !== null ? (
                   <p className="kn-quiz__example">
-                    {currentVocab?.example}
-                    {hasText(currentVocab?.exampleMeaning ?? null)
-                      ? ` — ${String(currentVocab?.exampleMeaning)}`
-                      : ''}
+                    {feedback.example}
+                    {feedback.exampleMeaning !== null ? ` — ${feedback.exampleMeaning}` : ''}
                   </p>
                 ) : null}
               </div>
@@ -332,18 +356,28 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
           <div className="kn-quiz__answer">
             <input
               ref={inputRef}
-              className="kn-ui-input kn-quiz__answer-input"
+              className={`kn-ui-input kn-quiz__answer-input${
+                hasWrong ? ' kn-quiz__answer-input--err' : ''
+              }${shaking ? ' kn-quiz__answer-input--shake' : ''}`}
               value={input}
-              readOnly={submitted}
+              readOnly={resolved}
               placeholder="Nhập câu trả lời vào đây..."
               aria-label="Câu trả lời"
+              aria-invalid={hasWrong}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={onKeyDown}
+              onAnimationEnd={() => setShaking(false)}
             />
-            {!submitted ? (
+            {hasWrong ? (
+              <p className="kn-quiz__retry" role="status" aria-live="polite">
+                Chưa đúng. Còn {triesLeft} lần.
+              </p>
+            ) : null}
+            {!resolved ? (
               <div className="kn-quiz__answer-actions">
-                <Button onClick={doSkip}>
-                  Bỏ qua <kbd className="kn-quiz__kbd">Tab</kbd>
+                <Button onClick={doHint}>
+                  <IconBulb className="kn-quiz__btn-icon" /> Gợi ý{' '}
+                  <kbd className="kn-quiz__kbd">Tab</kbd>
                 </Button>
                 <Button variant="primary" onClick={doSubmit} disabled={!canSubmit}>
                   Kiểm tra
@@ -365,7 +399,7 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
                 </Button>
               </div>
             )}
-            <p className="kn-quiz__hint-keys">Enter: nộp / tiếp · Tab: bỏ qua</p>
+            <p className="kn-quiz__hint-keys">Enter: nộp / tiếp · Tab: gợi ý</p>
           </div>
         </>
       )}
