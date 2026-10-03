@@ -1,0 +1,230 @@
+/* Hộp thoại Nhập từ vựng (3 bước): nguồn → cột & xem trước → kết quả. */
+
+/* Thanh công cụ Overview: nút "Nhập từ file / dán" canh phải, ngay dưới Quick Add. */
+.kn-overview__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin: -0.3rem 0 0.2rem;
+}
+
+.kn-import {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: min(44rem, 80vw);
+}
+
+/* Thanh bước 1·2·3 */
+.kn-import__steps {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kn-import__step {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--kn-text-muted);
+  background: color-mix(in srgb, var(--kn-border) 24%, transparent);
+}
+
+.kn-import__step.is-active {
+  color: var(--kn-primary);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--kn-primary) 14%, transparent);
+}
+
+.kn-import__step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--kn-text-muted) 20%, transparent);
+  font-size: 0.8rem;
+}
+
+.kn-import__step.is-active .kn-import__step-num {
+  background: var(--kn-primary);
+  color: var(--kn-primary-contrast);
+}
+
+/* Bước 1 — nguồn */
+.kn-import__textarea {
+  width: 100%;
+  min-height: 9rem;
+  resize: vertical;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--kn-border);
+  border-radius: 0.6rem;
+  background: var(--kn-surface);
+  color: var(--kn-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.kn-import__textarea:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 1px;
+}
+
+.kn-import__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.kn-import__hint {
+  margin: 0;
+  color: var(--kn-text-muted);
+  font-size: 0.85rem;
+}
+
+.kn-import__spacer {
+  flex: 1;
+}
+
+/* Bước 2 — ánh xạ cột */
+.kn-import__mapping {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.6rem;
+}
+
+.kn-import__map-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.kn-import__map-head {
+  font-size: 0.8rem;
+  color: var(--kn-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kn-import__select {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--kn-border);
+  border-radius: 0.5rem;
+  background: var(--kn-surface);
+  color: var(--kn-text);
+  font-size: 0.9rem;
+}
+
+.kn-import__select:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 1px;
+}
+
+.kn-import__summary {
+  margin: 0;
+  font-weight: 600;
+}
+
+.kn-import__summary b {
+  color: var(--kn-primary);
+}
+
+.kn-import__warn {
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--kn-danger) 12%, transparent);
+  color: var(--kn-danger);
+  font-size: 0.85rem;
+}
+
+/* Bảng xem trước */
+.kn-import__table-wrap {
+  max-height: 20rem;
+  overflow: auto;
+  border: 1px solid var(--kn-border);
+  border-radius: 0.6rem;
+}
+
+.kn-import__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.kn-import__table th,
+.kn-import__table td {
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid color-mix(in srgb, var(--kn-border) 60%, transparent);
+  vertical-align: top;
+}
+
+.kn-import__table th {
+  position: sticky;
+  top: 0;
+  background: var(--kn-surface);
+  color: var(--kn-text-muted);
+  font-size: 0.8rem;
+}
+
+.kn-import__badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.kn-import__badge--new {
+  color: var(--kn-primary);
+  background: color-mix(in srgb, var(--kn-primary) 16%, transparent);
+}
+
+.kn-import__badge--duplicate {
+  color: var(--kn-text-muted);
+  background: color-mix(in srgb, var(--kn-text-muted) 16%, transparent);
+}
+
+.kn-import__badge--error {
+  color: var(--kn-danger);
+  background: color-mix(in srgb, var(--kn-danger) 16%, transparent);
+}
+
+.kn-import__reason {
+  color: var(--kn-danger);
+  font-size: 0.82rem;
+}
+
+/* Bước 3 — kết quả */
+.kn-import__result-head {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.kn-import__errors {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  max-height: 14rem;
+  overflow: auto;
+  color: var(--kn-danger);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .kn-import {
+    min-width: 0;
+    width: 100%;
+  }
+}

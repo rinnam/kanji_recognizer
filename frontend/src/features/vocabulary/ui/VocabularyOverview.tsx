@@ -8,6 +8,8 @@ import { Button, ErrorState, LoadingState, Modal } from '../../../shared/ui';
 import { filterVocabularies } from '../model/filter';
 import { useDebouncedValue } from '../model/useDebouncedValue';
 import { useVocabulary } from '../model/useVocabulary';
+import { dedupeKey } from '../model/dedupe';
+import { ImportModal } from './ImportModal';
 import { QuickAddForm } from './QuickAddForm';
 import { VocabularyFilters } from './VocabularyFilters';
 import { VocabularyList } from './VocabularyList';
@@ -25,6 +27,7 @@ export function VocabularyOverview({ folderId }: VocabularyOverviewProps): React
   const [jlpt, setJlpt] = useState<JlptLevel | null>(null);
   const [pendingDelete, setPendingDelete] = useState<LocalVocabulary | null>(null);
   const [folders, setFolders] = useState<LocalFolder[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
   const debouncedSearch = useDebouncedValue(search, 300);
 
   // Nạp thư mục còn sống để tính phạm vi (gồm thư mục con) — khớp badge sidebar.
@@ -49,9 +52,18 @@ export function VocabularyOverview({ folderId }: VocabularyOverviewProps): React
     return filterVocabularies(scoped, { folderId: null, search: debouncedSearch, jlpt });
   }, [api.all, folders, folderId, debouncedSearch, jlpt]);
 
+  // Khóa chống trùng từ KHO HIỆN TẠI (từ còn sống) để bảng xem trước đánh dấu "Trùng".
+  const existingKeys = useMemo(
+    () => new Set(api.all.map((item) => dedupeKey(item.word, item.reading))),
+    [api.all],
+  );
+
   return (
     <div className="kn-overview">
       <QuickAddForm folderId={folderId} onAdd={api.quickAdd} />
+      <div className="kn-overview__toolbar">
+        <Button onClick={() => setImportOpen(true)}>Nhập từ file / dán</Button>
+      </div>
       <VocabularyFilters
         search={search}
         onSearchChange={setSearch}
@@ -92,6 +104,17 @@ export function VocabularyOverview({ folderId }: VocabularyOverviewProps): React
       >
         <p>Thao tác đánh dấu xóa (tombstone) và sẽ đồng bộ lên server.</p>
       </Modal>
+
+      {importOpen ? (
+        <ImportModal
+          open
+          onClose={() => setImportOpen(false)}
+          folders={folders}
+          defaultFolderId={folderId}
+          existingKeys={existingKeys}
+          onImport={api.importNew}
+        />
+      ) : null}
     </div>
   );
 }

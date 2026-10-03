@@ -3,12 +3,15 @@ import {
   getAllVocabulariesLocal,
   getVocabularyLocal,
   putVocabularyLocal,
+  putVocabulariesLocal,
   type LocalVocabulary,
 } from '../../../entities/vocabulary';
 import { useDb } from '../../../shared/db';
 import { emitDataChanged, newVocabId, nowIso } from '../../../shared/lib';
 import type { JlptLevel } from '../../../shared/api';
 import { findDuplicate } from './dedupe';
+import { assembleImportVocabularies } from './import';
+import type { NormalizedImport } from './import';
 
 type Status = 'loading' | 'error' | 'ready';
 
@@ -35,6 +38,7 @@ export interface VocabularyApi {
   reload: () => Promise<void>;
   quickAdd: (input: QuickAddInput) => Promise<QuickAddResult>;
   remove: (id: string) => Promise<void>;
+  importNew: (records: NormalizedImport[], folderId: string | null) => Promise<number>;
 }
 
 const READ_ERROR = 'Không đọc được từ vựng.';
@@ -149,5 +153,19 @@ export function useVocabulary(): VocabularyApi {
     [db, reload],
   );
 
-  return { all, status, error, reload, quickAdd, remove };
+  // Nhập hàng loạt: GHI chỉ các bản ghi MỚI (một transaction IndexedDB), phát đổi dữ liệu
+  // MỘT lần rồi nạp lại. `createdAt` tăng dần theo thứ tự dòng (xem assembleImportVocabularies).
+  const importNew = useCallback(
+    async (records: NormalizedImport[], folderId: string | null): Promise<number> => {
+      if (records.length === 0) return 0;
+      const rows = assembleImportVocabularies(records, folderId, nowIso(), newVocabId);
+      await putVocabulariesLocal(db, rows);
+      emitDataChanged();
+      await reload();
+      return rows.length;
+    },
+    [db, reload],
+  );
+
+  return { all, status, error, reload, quickAdd, remove, importNew };
 }

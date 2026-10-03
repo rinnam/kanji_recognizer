@@ -623,3 +623,32 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 
 ### Kiểm chứng
 - `npm run typecheck`: **0 lỗi**. `npm test`: **87/87 pass** (+14 import). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** (126 modules; lõi import chưa vào bundle app vì UI dùng ở Commit 5).
+
+## Commit 5 — Import UI 3 bước + ghi IndexedDB 1 transaction + sync đẩy theo lô ✅
+
+### Kết quả kiểm tra giới hạn push (ĐÃ kiểm theo yêu cầu)
+- `backend/src/server.ts` dùng `Fastify({ logger })` — **KHÔNG đặt `bodyLimit`** ⇒ áp mặc định **1 MiB (1048576 bytes)** cho body `POST /api/sync/push`.
+- `backend/src/validators/sync.ts` `pushBodySchema`: hai mảng `folders`/`vocabularies` **KHÔNG có `.max()`** ⇒ Zod không chặn số lượng; chặn thực tế là bodyLimit ở trên.
+- `runSync` cũ đẩy TẤT CẢ bản ghi bẩn trong MỘT lần ⇒ import lớn (tới 5000 từ) dễ vượt 1 MiB → 413 `FST_ERR_CTP_BODY_TOO_LARGE`. ⇒ **cần đẩy theo lô** (đã làm, KHÔNG đổi backend/giao thức sync).
+
+### UI nhập (features/vocabulary/ui/ImportModal.tsx) — 3 bước
+1. **Nguồn:** dán văn bản hoặc chọn file (CSV/TSV/MD/dán Quizlet) + nút **Tải mẫu CSV / Markdown** (Blob + `<a download>`, KHÔNG gọi server). 4 trạng thái: đang đọc file / lỗi đọc file / rỗng / sẵn sàng. Tự chọn parser: có dòng ngăn `|---|` → `parseMarkdownTable`, còn lại → `parseCsv` (tự dò `, ; Tab`).
+2. **Cột & xem trước:** dropdown ánh xạ từng cột, công tắc "Dòng đầu là tiêu đề", chọn **Thư mục đích** (mặc định theo phạm vi đang chọn; "Tất cả từ vựng" = không gán). Bảng xem trước **50 dòng đầu** gắn nhãn Mới/**Trùng**/**Lỗi** + cảnh báo JLPT; tổng kết `{total} dòng: {new} mới · {dup} trùng · {err} lỗi` tính trên **TẤT CẢ** dòng. Cảnh báo cắt dòng (>5000) và không-UTF-8.
+3. **Kết quả:** `Đã thêm {n} · Bỏ qua (trùng) {d} · Lỗi {e}` + danh sách dòng lỗi.
+- Hộp thoại **remount mỗi lần mở** (parent render có điều kiện) nên không cần effect reset (tránh lỗi lint "setState trong effect"). Dùng Modal primitive (Esc/click nền đóng, khóa bàn phím).
+
+### Ghi IndexedDB (features/vocabulary/model/import/assemble.ts + useVocabulary.importNew)
+- `assembleImportVocabularies(records, folderId, baseIso, makeId)` THUẦN: `id = makeId()` (dùng `newVocabId` thật → test 5000 id KHÔNG trùng); `createdAt` TĂNG DẦN theo thứ tự dòng (`base + chỉ số` ms), `updatedAt = createdAt`; `srs*` = null (không đụng SM-2); `folderIds` là mảng RIÊNG mỗi bản.
+- `useVocabulary.importNew(records, folderId)`: GHI chỉ dòng Mới qua `putVocabulariesLocal` (**MỘT transaction**), `emitDataChanged()` **MỘT lần**, rồi `reload()`. Trả về số đã thêm.
+
+### Sync đẩy theo lô (features/sync/model/engine.ts + runSync.ts)
+- Thêm hàm THUẦN `chunk(items, size)` và `highWaterMarkAfter(sortedAsc, pushedCount, previous)` (con trỏ an toàn: mốc muộn nhất mà MỌI bản `<=` nó đã đẩy, không lùi dưới `previous`; cắt ngang mốc trùng → lùi về `< ranh giới`, push lại idempotent).
+- `runSync`: gộp folders+vocabularies thành MỘT dòng thời gian tăng theo `updatedAt`, đẩy từng lô `PUSH_BATCH_SIZE=200`; **sau MỖI lô thành công** lưu `lastPushedAt` an toàn ⇒ lô sau lỗi KHÔNG mất phần chưa đẩy (vòng kế đẩy tiếp). LWW/idempotent/tombstone giữ nguyên.
+
+### Files
+- MỚI: `features/vocabulary/ui/ImportModal.tsx`, `features/vocabulary/ui/import.css`, `features/vocabulary/model/import/assemble.ts`, `tests/unit/import-write.test.ts`, `tests/unit/sync-batch.test.ts`.
+- SỬA: `features/vocabulary/model/import/index.ts` (export assemble), `features/vocabulary/model/useVocabulary.ts` (+`importNew`), `features/vocabulary/ui/VocabularyOverview.tsx` (nút "Nhập từ file / dán" + mount modal có điều kiện + `existingKeys`), `features/sync/model/engine.ts` (+chunk/highWaterMarkAfter), `features/sync/model/runSync.ts` (đẩy theo lô).
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**. `npm test`: **99/99 pass** (16 file; +4 import-write, +8 sync-batch). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** (134 modules). KHÔNG đổi SM-2/sync-grading/local-first/quiz; không thêm dependency; không file tạm.
+- CẦN XEM BẰNG MẮT: mở "Nhập từ file / dán"; dán TSV Quizlet / CSV / bảng Markdown; đổi ánh xạ cột + thư mục đích; bảng xem trước Mới/Trùng/Lỗi; nhập xong thấy từ mới trong danh sách; gõ IME ở ô dán không bị submit ngoài ý muốn.

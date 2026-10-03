@@ -32,3 +32,4 @@ export {
   buildPreview,
 } from './validate';
 export { TEMPLATE_HEADERS, buildTemplateCsv, buildTemplateMarkdown } from './template';
+export { assembleImportVocabularies } from './assemble';

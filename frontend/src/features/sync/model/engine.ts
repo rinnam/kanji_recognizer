@@ -65,6 +65,42 @@ export function latestIso(values: readonly (string | null)[]): string | null {
  * (local chưa có HOẶC incoming mới hơn). Giữ nguyên tombstone (`deletedAt`) để
  * xóa lan truyền; bản bằng/cũ hơn bị bỏ qua (không ghi đè bản local mới hơn).
  */
+/**
+ * Chia mảng thành các lô tối đa `size` phần tử (THUẦN). `size<=0` → một lô chứa tất cả
+ * (rỗng → `[]`). Dùng để đẩy push theo lô, tránh vượt giới hạn body của server.
+ */
+export function chunk<T>(items: readonly T[], size: number): T[][] {
+  if (items.length === 0) return [];
+  if (size <= 0) return [[...items]];
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Con trỏ `lastPushedAt` AN TOÀN sau khi đã đẩy `pushedCount` bản ghi ĐẦU của danh sách đã
+ * SẮP TĂNG theo `updatedAt`. Trả về mốc muộn nhất T sao cho MỌI bản `updatedAt <= T` đều đã
+ * đẩy — KHÔNG bao giờ lùi dưới `previous` (giữ con trỏ tăng đơn điệu). Nếu lô cắt ngang các
+ * bản cùng `updatedAt`, lùi về mốc < ranh giới ⇒ các bản cùng mốc được đẩy lại ở vòng sau
+ * (push idempotent nên an toàn, không mất dữ liệu).
+ */
+export function highWaterMarkAfter(
+  sortedAsc: readonly SyncRecord[],
+  pushedCount: number,
+  previous: string | null,
+): string | null {
+  if (pushedCount <= 0) return previous;
+  const pushed = Math.min(pushedCount, sortedAsc.length);
+  if (pushed >= sortedAsc.length) return latestIso([previous, maxUpdatedAt(sortedAsc)]);
+  const boundary = toTime(sortedAsc[pushed].updatedAt);
+  for (let i = pushed - 1; i >= 0; i -= 1) {
+    if (toTime(sortedAsc[i].updatedAt) < boundary) {
+      return latestIso([previous, sortedAsc[i].updatedAt]);
+    }
+  }
+  return previous;
+}
+
 export function pickIncomingWinners<T extends SyncRecord>(
   local: readonly T[],
   incoming: readonly T[],
