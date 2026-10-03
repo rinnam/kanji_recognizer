@@ -766,3 +766,9 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - Áp token vào nút phụ/tab (primitives `.kn-ui-btn` + `.kn-ui-input`), ToggleIconButton, nút icon Flashcard/Quiz, ô nhập hẹn giờ — bỏ màu `--kn-bg/--kn-border` cố định; focus-visible vòng accent 2px.
 - Test thuần `tests/unit/contrast.test.ts` (hàm WCAG + đọc tokens.css qua `?raw`): 5 cặp × 2 theme đều đạt ngưỡng. Commit tách: (i) test+token, (ii) áp component.
 - Kiểm: typecheck 0 lỗi · test 156/156 · lint 0 lỗi (2 cảnh báo cũ) · build OK (148 modules). CẦN XEM MẮT: theme tối — nút phụ, tab chưa chọn, ô nhập, viên hẹn giờ rõ viền & icon.
+
+## [Phiên mới] Commit 6A — Quiz: logic 3 lần thử + phản hồi (THUẦN, chưa gắn UI) ✅
+- `quiz/model/attempt.ts`: MAX_ATTEMPTS=3; applyAnswer (đúng→correct / sai còn lượt→answering / sai lần 3→revealed), applyHint→revealed+usedHint, toOutcome (isCorrect chỉ khi 'correct', userAnswer=chữ gõ cuối|null, attemptNo). Payload BE KHÔNG đổi.
+- `quiz/model/feedback.ts`: selectFeedbackContent — LUÔN có nghĩa; Dạng 1: Cách đọc + Hán Việt (bỏ Hán Việt nếu showSinoHint); Dạng 2: Từ + Cách đọc; kèm ví dụ + dịch nếu có.
+- keymap: Tab = gợi ý (hint) thay "bỏ qua" + sửa test keymap cũ; CHƯA đổi QuizRunner (để dành phần UI). Thêm test `quiz-attempt` (9 ca).
+- Kiểm: typecheck 0 lỗi · test 165/165 · lint 0 lỗi (2 cảnh báo cũ) · build OK (148 modules).

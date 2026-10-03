@@ -22,8 +22,8 @@ describe('quiz/keymap decideQuizKey', () => {
     expect(decideQuizKey(ctx({ key: 'Enter', submitted: true }))).toBe('advance');
   });
 
-  it('Tab: chưa nộp → skip; đã nộp → none', () => {
-    expect(decideQuizKey(ctx({ key: 'Tab', submitted: false }))).toBe('skip');
+  it('Tab: chưa nộp → gợi ý (hint); đã nộp → none', () => {
+    expect(decideQuizKey(ctx({ key: 'Tab', submitted: false }))).toBe('hint');
     expect(decideQuizKey(ctx({ key: 'Tab', submitted: true }))).toBe('none');
   });
 
