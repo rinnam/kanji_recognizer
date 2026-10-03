@@ -754,3 +754,9 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - Overview đưa [Thêm từ] (bật/tắt Quick Add) + [Nhập từ file / dán] lên slot (bỏ nút Nhập lẻ dưới form); Quick Add mặc định ĐÓNG khi phạm vi có từ, MỞ khi rỗng, tính lại khi đổi thư mục, thêm xong vẫn mở.
 - CSS: hàng cuối form JLPT ~8rem + Ghi chú giãn (cùng hàng nút Thêm từ) + .kn-ws__scope-actions; giữ IME-safe Enter/chống trùng/focus ô Từ.
 - Kiểm: typecheck 0 lỗi · test 139/139 · lint 0 lỗi (2 cảnh báo cũ) · build OK (145 modules). CẦN XEM MẮT: 2 nút ở thanh Đang chọn; có từ→form đóng, bấm Thêm từ mở; thư mục rỗng→form tự mở.
+
+## [Phiên mới] Phần 5A — ToggleIconButton + công tắc Xáo trộn (Flashcard & Quiz) ✅
+- `shared/ui/ToggleIconButton.tsx` (+`toggle-icon-button.css`): nút công tắc controlled có `aria-pressed`; BẬT → nền tint + viền/icon accent (cả sáng/tối), selector `.is-on`/`[aria-pressed='true']` đủ đặc hiệu; export qua `shared/ui`.
+- Flashcard & Quiz dùng ToggleIconButton cho nút Xáo trộn (giữ hành vi). Quiz: Xáo trộn thành CÔNG TẮC — BẬT mặc định = câu ngẫu nhiên, TẮT = thứ tự thêm (createdAt tăng dần); tách hàm thuần `orderQuestions(questions, shuffle, seed)` + thêm `createdAt` vào QuizQuestion; "Làm lại" vẫn là nút thường.
+- Test: `toggle-icon-button.test.tsx` (click đổi aria-pressed + class is-on), `quiz-order.test.ts` (bật xáo tất định theo seed, tắt ổn định theo createdAt); cập nhật 2 assertion `quiz.test.ts`.
+- Kiểm: typecheck 0 lỗi · test 145/145 · lint 0 lỗi (2 cảnh báo cũ) · build OK (148 modules). CẦN XEM MẮT: nút Xáo đổi màu & giữ màu, bấm lại trở lại; Quiz mặc định hiện màu "đang bật".

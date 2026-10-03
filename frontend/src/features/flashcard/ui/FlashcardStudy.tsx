@@ -20,6 +20,7 @@ import {
   LoadingState,
   Modal,
   ScopeBar,
+  ToggleIconButton,
   type ScopeKind,
 } from '../../../shared/ui';
 import { buildQueue, buildReviewAheadQueue, nextDueAt, summarize } from '../model/queue';
@@ -318,16 +319,13 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
           ))}
         </div>
         <div className="kn-fc__tools">
-          <button
-            type="button"
-            className={`kn-fc__icon-btn${shuffled ? ' is-on' : ''}`}
-            aria-label="Xáo trộn thẻ"
-            aria-pressed={shuffled}
-            title="Xáo trộn: bật/tắt"
-            onClick={toggleShuffle}
-          >
-            <IconShuffle />
-          </button>
+          <ToggleIconButton
+            pressed={shuffled}
+            onPressedChange={toggleShuffle}
+            label="Xáo trộn thẻ"
+            tooltip="Xáo trộn: bật/tắt"
+            icon={<IconShuffle />}
+          />
           <button
             type="button"
             className="kn-fc__icon-btn"

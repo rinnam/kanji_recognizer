@@ -62,6 +62,7 @@ describe('quiz/questions buildQuestions', () => {
       type: 'reading',
       prompt: '水',
       acceptedAnswers: ['みず'],
+      createdAt: '2026-01-01T00:00:00.000Z',
     });
   });
 
@@ -73,6 +74,7 @@ describe('quiz/questions buildQuestions', () => {
       type: 'meaning',
       prompt: 'nước',
       acceptedAnswers: ['水', 'みず'],
+      createdAt: '2026-01-01T00:00:00.000Z',
     });
     expect(qs[1].acceptedAnswers).toEqual(['火']); // reading null → chỉ word
   });

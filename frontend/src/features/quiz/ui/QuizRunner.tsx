@@ -9,6 +9,7 @@ import {
   IconShuffle,
   LoadingState,
   ScopeBar,
+  ToggleIconButton,
 } from '../../../shared/ui';
 import type { ScopeSelection } from '../../../entities/vocabulary';
 import { decideQuizKey } from '../model/keymap';
@@ -73,7 +74,8 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
     chooseMode,
     chooseKind,
     changeN,
-    reshuffle,
+    shuffled,
+    toggleShuffle,
     submit,
     skip,
     advance,
@@ -213,15 +215,13 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
           ))}
         </div>
         <div className="kn-quiz__tools">
-          <button
-            type="button"
-            className="kn-quiz__icon-btn"
-            aria-label="Xáo trộn câu"
-            title="Xáo trộn"
-            onClick={reshuffle}
-          >
-            <IconShuffle />
-          </button>
+          <ToggleIconButton
+            pressed={shuffled}
+            onPressedChange={toggleShuffle}
+            label="Xáo trộn câu"
+            tooltip="Xáo trộn: bật/tắt"
+            icon={<IconShuffle />}
+          />
           <button
             type="button"
             className="kn-quiz__icon-btn"

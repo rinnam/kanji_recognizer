@@ -11,6 +11,8 @@ export interface QuizQuestion {
   type: QuizType;
   prompt: string;
   acceptedAnswers: string[];
+  /** ISO createdAt của từ nguồn — để sắp "thứ tự thêm" khi TẮT Xáo trộn (Phần 5A). */
+  createdAt: string;
 }
 
 /** Kết quả chấm MỘT câu (dùng cho hiển thị + dựng attempt gửi BE). */

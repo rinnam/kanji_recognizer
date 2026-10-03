@@ -9,8 +9,13 @@ function hasText(value: string | null): value is string {
 }
 
 /** Dạng 1: nhìn chữ (word) → nhập cách đọc (reading). */
-function readingQuestion(id: string, word: string, reading: string): QuizQuestion {
-  return { vocabularyId: id, type: 'reading', prompt: word, acceptedAnswers: [reading] };
+function readingQuestion(
+  id: string,
+  word: string,
+  reading: string,
+  createdAt: string,
+): QuizQuestion {
+  return { vocabularyId: id, type: 'reading', prompt: word, acceptedAnswers: [reading], createdAt };
 }
 
 /** Dạng 2: nhìn nghĩa → dịch sang tiếng Nhật (chấp nhận word hoặc reading). */
@@ -22,6 +27,7 @@ function meaningQuestion(vocab: LocalVocabulary): QuizQuestion {
     type: 'meaning',
     prompt: vocab.meaning,
     acceptedAnswers: [...new Set(answers)],
+    createdAt: vocab.createdAt,
   };
 }
 
@@ -43,11 +49,11 @@ export function buildQuestions(
     if (!hasText(vocab.word) || !hasText(vocab.meaning)) continue;
 
     if (mode === 'reading') {
-      if (hasText(vocab.reading)) out.push(readingQuestion(vocab.id, vocab.word, vocab.reading));
+      if (hasText(vocab.reading)) out.push(readingQuestion(vocab.id, vocab.word, vocab.reading, vocab.createdAt));
     } else if (mode === 'meaning') {
       out.push(meaningQuestion(vocab));
     } else if (hasText(vocab.reading) && pickReading(vocab)) {
-      out.push(readingQuestion(vocab.id, vocab.word, vocab.reading));
+      out.push(readingQuestion(vocab.id, vocab.word, vocab.reading, vocab.createdAt));
     } else {
       out.push(meaningQuestion(vocab));
     }

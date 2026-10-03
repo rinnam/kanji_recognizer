@@ -1,0 +1,44 @@
+/* Nút icon công tắc dùng chung (shared/ui/ToggleIconButton). Theme sáng/tối qua token --kn-*. */
+.kn-toggle-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--kn-text);
+  background: var(--kn-bg);
+  border: 1px solid var(--kn-border);
+  border-radius: 0.5rem;
+}
+.kn-toggle-icon-btn:hover {
+  border-color: var(--kn-primary);
+  color: var(--kn-primary);
+}
+.kn-toggle-icon-btn:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 2px;
+}
+.kn-toggle-icon-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/*
+ * Trạng thái BẬT (aria-pressed="true"): nền tint accent + viền accent + icon accent — rõ ở
+ * CẢ sáng lẫn tối. Kèm cả class `.is-on` và attr `[aria-pressed='true']` để đủ đặc hiệu
+ * (thắng rule :hover/base ở trên), không bị ghi đè dù dùng cách nào.
+ */
+.kn-toggle-icon-btn.is-on,
+.kn-toggle-icon-btn[aria-pressed='true'] {
+  color: var(--kn-primary);
+  border-color: var(--kn-primary);
+  background: color-mix(in srgb, var(--kn-primary) 15%, var(--kn-bg));
+}
+.kn-toggle-icon-btn.is-on:hover,
+.kn-toggle-icon-btn[aria-pressed='true']:hover {
+  color: var(--kn-primary);
+  border-color: var(--kn-primary);
+  background: color-mix(in srgb, var(--kn-primary) 22%, var(--kn-bg));
+}
