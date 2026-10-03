@@ -697,3 +697,9 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 ### Kiểm chứng
 - `npm run typecheck`: **0 lỗi**. `npm test`: **112/112 pass** (không đổi). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** (136 modules).
 - CẦN XEM BẰNG MẮT (không kiểm được bằng unit test): modal căn giữa, không tràn/không đè nền; footer "Quay lại / Nhập N từ" cố định đáy; thân cuộn, KHÔNG cuộn ngang ở 1280/1024/390px; hộp xác nhận (size sm) vẫn gọn.
+
+## [Phiên mới] Commit 3 — Phần 3A: Header dính + sidebar dính (chỉ CSS/layout) ✅
+- Token `--kn-header-h: 3.5rem` (tokens.css); header `sticky top:0 z-index:30`, nền đặc, grid 3 cột: logo | giữa trống (min-width:0, chừa cho 3B) | SyncStatus+theme.
+- Sidebar desktop `sticky` dưới header, `max-height` theo viewport; FolderTree tách 3 vùng: đầu cố định (tiêu đề + "Tất cả từ vựng") · `.kn-ftree__scroll` cuộn riêng · ô "Thư mục mới" cố định đáy.
+- Mobile ≤48rem: ngăn kéo z-index 60, scrim 50 (đều trên header); không tổ tiên nào đặt overflow nên sticky chạy.
+- Kiểm: typecheck 0 lỗi · test 112/112 · lint 0 lỗi (2 cảnh báo cũ) · build OK.

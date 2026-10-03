@@ -24,6 +24,11 @@
   --kn-focus: #e2794b;
 }
 
+/* Layout — độc lập theme */
+:root {
+  --kn-header-h: 3.5rem;
+}
+
 * {
   box-sizing: border-box;
 }

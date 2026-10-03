@@ -64,60 +64,64 @@ export function FolderTree({ selectedId, onSelect }: FolderTreeProps): ReactElem
 
   return (
     <div className="kn-ftree">
-      <div className="kn-ftree__head">
-        <h3 className="kn-ftree__title">Quản lý Thư mục</h3>
+      <div className="kn-ftree__top">
+        <div className="kn-ftree__head">
+          <h3 className="kn-ftree__title">Quản lý Thư mục</h3>
+        </div>
+
+        <button
+          type="button"
+          className={
+            selectedId === null ? 'kn-ftree__all kn-ftree__all--active' : 'kn-ftree__all'
+          }
+          aria-pressed={selectedId === null}
+          onClick={() => onSelect(null, null)}
+        >
+          <span className="kn-ftree__all-label">Tất cả từ vựng</span>
+          <span className="kn-ftree__badge kn-ftree__badge--all">{total}</span>
+        </button>
       </div>
 
-      <button
-        type="button"
-        className={
-          selectedId === null ? 'kn-ftree__all kn-ftree__all--active' : 'kn-ftree__all'
-        }
-        aria-pressed={selectedId === null}
-        onClick={() => onSelect(null, null)}
-      >
-        <span className="kn-ftree__all-label">Tất cả từ vựng</span>
-        <span className="kn-ftree__badge kn-ftree__badge--all">{total}</span>
-      </button>
+      <div className="kn-ftree__scroll">
+        <p className="kn-ftree__section">CÂY THƯ MỤC</p>
 
-      <p className="kn-ftree__section">CÂY THƯ MỤC</p>
+        <div
+          className={
+            rootOver ? 'kn-ftree__root-drop kn-ftree__root-drop--over' : 'kn-ftree__root-drop'
+          }
+          onDragOver={(event) => {
+            event.preventDefault();
+            setRootOver(true);
+          }}
+          onDragLeave={() => setRootOver(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setRootOver(false);
+            const id = event.dataTransfer.getData(FOLDER_DRAG_MIME);
+            if (id !== '') void api.moveInto(id, null);
+          }}
+        >
+          Kéo vào đây để đưa ra thư mục gốc
+        </div>
 
-      <div
-        className={
-          rootOver ? 'kn-ftree__root-drop kn-ftree__root-drop--over' : 'kn-ftree__root-drop'
-        }
-        onDragOver={(event) => {
-          event.preventDefault();
-          setRootOver(true);
-        }}
-        onDragLeave={() => setRootOver(false)}
-        onDrop={(event) => {
-          event.preventDefault();
-          setRootOver(false);
-          const id = event.dataTransfer.getData(FOLDER_DRAG_MIME);
-          if (id !== '') void api.moveInto(id, null);
-        }}
-      >
-        Kéo vào đây để đưa ra thư mục gốc
+        {api.tree.length === 0 ? (
+          <EmptyState title="Chưa có thư mục" description="Tạo thư mục đầu tiên bên dưới." />
+        ) : (
+          <ul className="kn-ftree__list" role="tree" aria-label="Cây thư mục">
+            {api.tree.map((node) => (
+              <FolderTreeItem
+                key={node.folder.id}
+                node={node}
+                depth={0}
+                api={api}
+                selectedId={selectedId}
+                onSelect={onSelect}
+                counts={counts}
+              />
+            ))}
+          </ul>
+        )}
       </div>
-
-      {api.tree.length === 0 ? (
-        <EmptyState title="Chưa có thư mục" description="Tạo thư mục đầu tiên bên dưới." />
-      ) : (
-        <ul className="kn-ftree__list" role="tree" aria-label="Cây thư mục">
-          {api.tree.map((node) => (
-            <FolderTreeItem
-              key={node.folder.id}
-              node={node}
-              depth={0}
-              api={api}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              counts={counts}
-            />
-          ))}
-        </ul>
-      )}
 
       <form
         className="kn-ftree__add"

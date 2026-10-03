@@ -1,4 +1,21 @@
 .kn-ftree {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+/* Vùng trên cùng cố định: tiêu đề + "Tất cả từ vựng" */
+.kn-ftree__top {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+/* Vùng cây cuộn riêng ở giữa */
+.kn-ftree__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;

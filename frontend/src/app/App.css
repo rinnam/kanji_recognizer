@@ -5,13 +5,22 @@
 }
 
 .kn-header {
-  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: var(--kn-header-h);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
-  padding: 0.75rem 1rem;
+  padding: 0 1rem;
   border-bottom: 1px solid var(--kn-border);
   background: var(--kn-surface);
+}
+
+/* Cột giữa để trống — chừa chỗ cho ô tìm kiếm (3B) */
+.kn-header__center {
+  min-width: 0;
 }
 
 .kn-header__title {

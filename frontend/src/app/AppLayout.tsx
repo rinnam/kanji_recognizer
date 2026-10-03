@@ -9,6 +9,7 @@ export function AppLayout(): ReactElement {
     <div className="kn-shell">
       <header className="kn-header">
         <h1 className="kn-header__title">Kanji Nest</h1>
+        <div className="kn-header__center" />
         <div className="kn-header__right">
           <SyncStatus />
           <ThemeToggle />
