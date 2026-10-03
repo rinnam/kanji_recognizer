@@ -42,6 +42,13 @@
   flex: 0 0 auto;
   margin-left: auto;
 }
+/* 4D: hàng cuối — JLPT hẹp (~8rem), Ghi chú chiếm phần còn lại (cùng hàng với nút Thêm từ) */
+.kn-qadd__row--last > .kn-ui-field:first-child {
+  flex: 0 0 8rem;
+}
+.kn-qadd__row--last > .kn-ui-field:nth-child(2) {
+  flex: 1 1 12rem;
+}
 .kn-qadd__actions {
   display: flex;
   align-items: center;

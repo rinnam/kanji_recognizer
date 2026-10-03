@@ -13,7 +13,7 @@ import { selectWordsInScope, type LocalVocabulary } from '../../../entities/voca
 import type { JlptLevel } from '../../../shared/api';
 import { useDb } from '../../../shared/db';
 import { subscribeDataChanged } from '../../../shared/lib';
-import { Button, ErrorState, LoadingState, Modal } from '../../../shared/ui';
+import { Button, ErrorState, LoadingState, Modal, ToolbarSlot } from '../../../shared/ui';
 import { filterVocabularies } from '../model/filter';
 import {
   pageState,
@@ -56,6 +56,9 @@ export function VocabularyOverview({
   const [pendingDelete, setPendingDelete] = useState<LocalVocabulary | null>(null);
   const [folders, setFolders] = useState<LocalFolder[]>([]);
   const [importOpen, setImportOpen] = useState(false);
+  // Quick Add: đóng/mở theo phạm vi (khối quyết định nằm dưới, sau khi tính `scoped`).
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [lastScopeKey, setLastScopeKey] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<VocabSort>('newest');
   const [pageSize, setPageSize] = useState<PageSize>(() => loadPageSize());
   const [page, setPage] = useState(1);
@@ -101,12 +104,26 @@ export function VocabularyOverview({
     };
   }, [db]);
 
-  // Phạm vi theo thư mục (gồm con cháu) dùng chung hàm thuần với badge sidebar,
-  // rồi mới áp lọc JLPT + tìm kiếm (filterVocabularies với folderId = null).
-  const filtered = useMemo(() => {
-    const scoped = selectWordsInScope(api.all, folders, folderId);
-    return filterVocabularies(scoped, { folderId: null, search: debouncedSearch, jlpt });
-  }, [api.all, folders, folderId, debouncedSearch, jlpt]);
+  // Phạm vi theo thư mục (gồm con cháu) dùng chung hàm thuần với badge sidebar — tách riêng
+  // để tái dùng cho quyết định mở Quick Add; rồi mới áp lọc JLPT + tìm kiếm (folderId = null).
+  const scoped = useMemo(
+    () => selectWordsInScope(api.all, folders, folderId),
+    [api.all, folders, folderId],
+  );
+  const filtered = useMemo(
+    () => filterVocabularies(scoped, { folderId: null, search: debouncedSearch, jlpt }),
+    [scoped, debouncedSearch, jlpt],
+  );
+
+  // Quick Add: mặc định ĐÓNG khi phạm vi đã có từ, MỞ khi chưa có; tính lại khi ĐỔI thư mục.
+  // Chỉ chốt khi dữ liệu 'ready' (tránh mở nhầm lúc tải); sau đó giữ nguyên thao tác bật/tắt tay.
+  if (api.status === 'ready') {
+    const scopeKey = folderId ?? '';
+    if (scopeKey !== lastScopeKey) {
+      setLastScopeKey(scopeKey);
+      setQuickAddOpen(scoped.length === 0);
+    }
+  }
 
   // Khóa chống trùng từ KHO HIỆN TẠI (từ còn sống) để bảng xem trước đánh dấu "Trùng".
   const existingKeys = useMemo(
@@ -210,10 +227,18 @@ export function VocabularyOverview({
 
   return (
     <div className="kn-overview">
-      <QuickAddForm folderId={folderId} onAdd={api.quickAdd} />
-      <div className="kn-overview__toolbar">
+      <ToolbarSlot>
+        <Button
+          variant={quickAddOpen ? 'primary' : 'secondary'}
+          aria-pressed={quickAddOpen}
+          aria-expanded={quickAddOpen}
+          onClick={() => setQuickAddOpen((open) => !open)}
+        >
+          Thêm từ
+        </Button>
         <Button onClick={() => setImportOpen(true)}>Nhập từ file / dán</Button>
-      </div>
+      </ToolbarSlot>
+      {quickAddOpen ? <QuickAddForm folderId={folderId} onAdd={api.quickAdd} /> : null}
       {api.status === 'ready' ? (
         <div className="kn-overview__listbar">
           <div className="kn-overview__sort" role="group" aria-label="Sắp xếp">

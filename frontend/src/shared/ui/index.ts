@@ -13,6 +13,7 @@ export { Field } from './primitives/Field';
 export { Modal } from './primitives/Modal';
 export { ScopeBar } from './ScopeBar';
 export type { ScopeKind } from './ScopeBar';
+export { ToolbarSlotProvider, ToolbarSlotTarget, ToolbarSlot } from './ToolbarSlot';
 export {
   IconShuffle,
   IconReset,

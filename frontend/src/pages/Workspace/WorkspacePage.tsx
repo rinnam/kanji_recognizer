@@ -28,6 +28,8 @@ import {
   IconKeyboard,
   IconLayers,
   ScopeBar,
+  ToolbarSlotProvider,
+  ToolbarSlotTarget,
   type ScopeKind,
 } from '../../shared/ui';
 import './WorkspacePage.css';
@@ -159,7 +161,8 @@ export function WorkspacePage(): ReactElement {
   };
 
   return (
-    <div className={drawerOpen ? 'kn-ws kn-ws--drawer-open' : 'kn-ws'}>
+    <ToolbarSlotProvider>
+      <div className={drawerOpen ? 'kn-ws kn-ws--drawer-open' : 'kn-ws'}>
       <aside className="kn-ws__sidebar" aria-label="Quản lý thư mục">
         <div className="kn-ws__drawer-head">
           <span>Thư mục</span>
@@ -201,6 +204,7 @@ export function WorkspacePage(): ReactElement {
               {scopeLabel}
             </span>
           </div>
+          {tab === 'overview' ? <ToolbarSlotTarget className="kn-ws__scope-actions" /> : null}
           {tab === 'flashcard' || tab === 'quiz' ? (
             <ScopeBar
               variant="inline"
@@ -252,5 +256,6 @@ export function WorkspacePage(): ReactElement {
         </div>
       </div>
     </div>
+    </ToolbarSlotProvider>
   );
 }

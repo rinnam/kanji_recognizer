@@ -79,6 +79,14 @@
   color: var(--kn-text-muted);
 }
 
+/* Ô đích slot (4D): nút [Thêm từ] / [Nhập] của tab Tổng quan nằm bên phải thanh "Đang chọn" */
+.kn-ws__scope-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .kn-ws__tabbar {
   display: flex;
   align-items: center;

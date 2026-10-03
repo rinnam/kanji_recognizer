@@ -748,3 +748,9 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - VocabularyList: cột checkbox đầu dòng + checkbox tiêu đề (chọn cả trang, indeterminate qua pageState); KÉO chuột qua cột (pointerdown chọn chế độ = đảo trạng thái ô, pointerenter áp cùng, pointerup nghe trên window, user-select:none khi kéo); Shift+click chọn dải (selectRange); Space bật/tắt bằng bàn phím.
 - VocabularyOverview: lựa chọn theo id (giữ qua trang), xóa khi đổi thư mục/q/JLPT; Ctrl/Cmd+A chọn cả TRANG, Esc bỏ chọn; thanh hành động dính "Đã chọn N · Chọn tất cả M · Xóa N · Bỏ chọn"; Modal xác nhận ("Không thể hoàn tác") → removeMany → tombstoneVocabularies (1 transaction, emit change-bus 1 lần).
 - Kiểm: typecheck 0 lỗi · test 139/139 · lint 0 lỗi (2 cảnh báo cũ) · build OK (144 modules). CẦN XEM MẮT: kéo chọn cả cụm, Shift+click chọn dải, xóa 20 từ → badge giảm đúng 20.
+
+## [Phiên mới] Commit 4D — Quick Add thu gọn + nút hành động lên thanh "Đang chọn" ✅
+- shared/ui/ToolbarSlot.tsx: cơ chế slot (Provider giữ node · Target đăng ký node · Slot portal con vào đích); feature CHỈ import từ shared. WorkspacePage bọc Provider, đặt Target bên phải thanh "Đang chọn" CHỈ ở tab Tổng quan.
+- Overview đưa [Thêm từ] (bật/tắt Quick Add) + [Nhập từ file / dán] lên slot (bỏ nút Nhập lẻ dưới form); Quick Add mặc định ĐÓNG khi phạm vi có từ, MỞ khi rỗng, tính lại khi đổi thư mục, thêm xong vẫn mở.
+- CSS: hàng cuối form JLPT ~8rem + Ghi chú giãn (cùng hàng nút Thêm từ) + .kn-ws__scope-actions; giữ IME-safe Enter/chống trùng/focus ô Từ.
+- Kiểm: typecheck 0 lỗi · test 139/139 · lint 0 lỗi (2 cảnh báo cũ) · build OK (145 modules). CẦN XEM MẮT: 2 nút ở thanh Đang chọn; có từ→form đóng, bấm Thêm từ mở; thư mục rỗng→form tự mở.
