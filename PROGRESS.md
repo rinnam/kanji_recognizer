@@ -733,3 +733,8 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - Bỏ nút lớn "Lật thẻ"; Space + bấm thẻ vẫn lật (giữ keymap). Normal/Tiến độ: LUÔN hiện "Trước" (ghost, mũi tên trái, mờ ở thẻ đầu) + "Tiếp theo" (primary, mũi tên phải), cao 48px, rộng 152–224px, cách 16px, cả mặt trước lẫn sau.
 - Anki: trước lật chỉ "Hiện đáp án (Space)"; sau lật 4 nút Again/Hard/Good/Easy cùng cỡ (giữ phím 1/2/3/4). Không có test phụ thuộc cấu trúc nút.
 - Sửa: `features/flashcard/ui/FlashcardStudy.tsx`, `flashcard.css`. Kiểm: typecheck 0 lỗi · test 122/122 · lint 0 lỗi (2 cảnh báo cũ) · build OK.
+
+## [Phiên mới] Commit 4A — Logic danh sách từ (thuần, chưa gắn UI) ✅
+- `features/vocabulary/model/list-utils.ts`: paginate (kẹp trang; size<=0/rỗng an toàn pageCount≥1; from/to 1-based); chọn nhiều BẤT BIẾN trên Set (toggleId/setMany/selectRange gồm 2 đầu + đảo chiều/pageState none|some|all); sortVocabs 'added'|'newest' tie-break id ổn định.
+- Test `tests/unit/list-utils.test.ts` (17 ca: trang vượt giới hạn, size>tổng, size<=0, range ngược, tập rỗng, bất biến). CHƯA export ra UI (file không ai import → build giữ 142 modules).
+- Kiểm: typecheck 0 lỗi · test 139/139 · lint 0 lỗi (2 cảnh báo cũ) · build OK.
