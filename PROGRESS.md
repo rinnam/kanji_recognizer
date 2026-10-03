@@ -598,3 +598,28 @@ Chỉ đổi bố cục/kích thước/CSS + icon SVG inline; KHÔNG đổi hàn
 ### Kiểm chứng
 - `npm run typecheck`: **0 lỗi**. `npm test`: **73/73 pass** (+2: trimToNull + normalizeQuickAdd). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** — 126 modules.
 - CẦN XEM BẰNG MẮT: form 3 hàng đủ trường; gõ IME xong Enter KHÔNG submit khi đang gõ dở; thêm xong focus về ô Từ + giữ JLPT; cột Âm Hán Việt IN HOA; dòng ví dụ mờ cắt bớt; mobile bảng cuộn ngang.
+
+## Commit 4 — Import, phần lõi THUẦN + test (features/vocabulary/model/import/) ✅
+
+Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize) + `dedupeKey` (dedupe) đã có. UI nhập nằm ở Commit 5.
+
+### Parse (`import/parse.ts`)
+- `parseCsv(text, delimiter?)`: máy trạng thái đúng **RFC 4180** (ô trong `"`, `""` = một dấu nháy, xuống dòng trong ô, CRLF/CR/LF), bỏ **BOM**, tự **dò dấu phân cách** `, ; Tab` ở dòng đầu (ngoài dấu nháy; mặc định phẩy).
+- `parseDelimited(text, {colSep, rowSep})`: tách đơn giản cho ô dán (mặc định Tab × xuống dòng kiểu Quizlet; hỗ trợ cột `, | Tab/Tùy chọn`, dòng `xuống dòng ; /Tùy chọn`), chuẩn hóa CRLF, bỏ dòng rỗng.
+- `parseMarkdownTable(text)`: bảng pipe, bỏ dòng ngăn `|---|`, trim ô.
+
+### Ánh xạ cột (`import/columns.ts`)
+- `normalizeHeader` (thường + bỏ dấu + đ→d) + bí danh tiêu đề cho từng đích; `detectHeaderMapping` (null nếu không ô nào khớp → coi như không có tiêu đề); `defaultMappingByPosition` (2 cột = [Từ, Nghĩa]; ≥3 cột theo `TEMPLATE_ORDER`); `mapRowsToRecords` (bỏ tiêu đề/dòng rỗng, giữ số dòng gốc 1-based).
+
+### Kiểm tra & giới hạn (`import/validate.ts`)
+- `buildPreview(rows, existingKeys)`: Mới / **Trùng** (bỏ qua — so `dedupeKey` với DB còn sống VÀ các dòng Mới trước đó trong file) / **Lỗi** (thiếu Từ hoặc Nghĩa, kèm lý do + số dòng); `normalizeJlpt` chấp nhận N1–N5 không phân biệt hoa/thường (cả "n 3"), sai → null + cảnh báo (KHÔNG phải lỗi). Tổng kết tính trên TẤT CẢ dòng.
+- `MAX_IMPORT_ROWS=5000`, `MAX_IMPORT_BYTES=2MB`, `byteLength` (TextEncoder), `hasReplacementChar` (U+FFFD → cảnh báo không phải UTF-8), `clampRows` (cắt theo giới hạn dòng).
+
+### Mẫu (`import/template.ts`)
+- `buildTemplateCsv()` (BOM UTF-8 + tiêu đề `Từ,Cách đọc,Âm Hán Việt,Nghĩa,Câu ví dụ,Dịch câu ví dụ,JLPT,Ghi chú` + 2 dòng ví dụ, CRLF) và `buildTemplateMarkdown()`.
+
+### Files
+- MỚI: `features/vocabulary/model/import/{types.ts,parse.ts,columns.ts,validate.ts,template.ts,index.ts}`, `tests/unit/import.test.ts` (14 ca).
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**. `npm test`: **87/87 pass** (+14 import). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** (126 modules; lõi import chưa vào bundle app vì UI dùng ở Commit 5).
