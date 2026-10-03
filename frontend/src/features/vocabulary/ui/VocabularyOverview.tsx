@@ -17,18 +17,19 @@ import './vocabulary.css';
 
 interface VocabularyOverviewProps {
   folderId: string | null;
+  query: string;
 }
 
 /** Overview từ vựng: Quick Add + lọc (tìm kiếm debounce, JLPT) + bảng danh sách. */
-export function VocabularyOverview({ folderId }: VocabularyOverviewProps): ReactElement {
+export function VocabularyOverview({ folderId, query }: VocabularyOverviewProps): ReactElement {
   const api = useVocabulary();
   const db = useDb();
-  const [search, setSearch] = useState('');
   const [jlpt, setJlpt] = useState<JlptLevel | null>(null);
   const [pendingDelete, setPendingDelete] = useState<LocalVocabulary | null>(null);
   const [folders, setFolders] = useState<LocalFolder[]>([]);
   const [importOpen, setImportOpen] = useState(false);
-  const debouncedSearch = useDebouncedValue(search, 300);
+  // Từ khóa đến từ URL `q` (ô tìm kiếm trên header) — giữ nguyên debounce 300ms và hàm lọc cũ.
+  const debouncedSearch = useDebouncedValue(query, 300);
 
   // Nạp thư mục còn sống để tính phạm vi (gồm thư mục con) — khớp badge sidebar.
   useEffect(() => {
@@ -64,12 +65,7 @@ export function VocabularyOverview({ folderId }: VocabularyOverviewProps): React
       <div className="kn-overview__toolbar">
         <Button onClick={() => setImportOpen(true)}>Nhập từ file / dán</Button>
       </div>
-      <VocabularyFilters
-        search={search}
-        onSearchChange={setSearch}
-        jlpt={jlpt}
-        onJlptChange={setJlpt}
-      />
+      <VocabularyFilters jlpt={jlpt} onJlptChange={setJlpt} />
 
       <p className="kn-overview__count">
         {folderId === null ? 'Tất cả từ' : 'Thư mục đã chọn'} · {filtered.length} từ

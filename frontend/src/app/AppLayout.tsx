@@ -1,6 +1,7 @@
 import { Suspense, type ReactElement } from 'react';
 import { Outlet } from 'react-router-dom';
 import { SyncStatus } from '../features/sync';
+import { HeaderSearch } from './HeaderSearch';
 import { LoadingState, ThemeToggle } from '../shared/ui';
 
 /** Khung chung: header gọn (tên app + trạng thái đồng bộ + đổi theme) và vùng nội dung. */
@@ -9,7 +10,9 @@ export function AppLayout(): ReactElement {
     <div className="kn-shell">
       <header className="kn-header">
         <h1 className="kn-header__title">Kanji Nest</h1>
-        <div className="kn-header__center" />
+        <div className="kn-header__center">
+          <HeaderSearch />
+        </div>
         <div className="kn-header__right">
           <SyncStatus />
           <ThemeToggle />

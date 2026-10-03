@@ -28,4 +28,6 @@ export {
   IconSkip,
   IconArrowLeft,
   IconArrowRight,
+  IconSearch,
+  IconClose,
 } from './icons';

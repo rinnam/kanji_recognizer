@@ -1,6 +1,7 @@
 export {
   ROUTE_PATHS,
   TAB_PARAM,
+  SEARCH_PARAM,
   TABS,
   DEFAULT_TAB,
   parseTab,

@@ -157,3 +157,21 @@ export function IconArrowRight(props: IconProps): ReactElement {
     </Svg>
   );
 }
+
+export function IconSearch(props: IconProps): ReactElement {
+  return (
+    <Svg {...props}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </Svg>
+  );
+}
+
+export function IconClose(props: IconProps): ReactElement {
+  return (
+    <Svg {...props}>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </Svg>
+  );
+}

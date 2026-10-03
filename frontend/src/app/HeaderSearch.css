@@ -1,0 +1,62 @@
+.kn-hsearch {
+  flex: 1;
+  min-width: 0;
+  max-width: 32rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--kn-border);
+  border-radius: 0.5rem;
+  background: var(--kn-bg);
+  color: var(--kn-text);
+}
+
+.kn-hsearch:focus-within {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 1px;
+}
+
+.kn-hsearch__icon {
+  flex: none;
+  font-size: 1rem;
+  color: var(--kn-text-muted);
+}
+
+.kn-hsearch__input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0.1rem 0;
+}
+
+.kn-hsearch__input:focus {
+  outline: none;
+}
+
+/* Ẩn nút xóa mặc định của trình duyệt vì đã có nút × riêng */
+.kn-hsearch__input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.kn-hsearch__clear {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--kn-text-muted);
+  padding: 0.1rem;
+  border-radius: 0.3rem;
+}
+
+.kn-hsearch__clear:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 1px;
+}

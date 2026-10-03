@@ -18,8 +18,9 @@
   background: var(--kn-surface);
 }
 
-/* Cột giữa để trống — chừa chỗ cho ô tìm kiếm (3B) */
+/* Cột giữa: ô tìm kiếm trên header (3B) */
 .kn-header__center {
+  display: flex;
   min-width: 0;
 }
 

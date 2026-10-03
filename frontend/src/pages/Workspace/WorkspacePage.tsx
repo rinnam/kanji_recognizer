@@ -4,7 +4,7 @@ import { FlashcardStudy } from '../../features/flashcard';
 import { FolderTree } from '../../features/folder-tree';
 import { QuizRunner } from '../../features/quiz';
 import { VocabularyOverview } from '../../features/vocabulary';
-import { parseTab, TAB_PARAM, type TabId } from '../../routes';
+import { parseTab, SEARCH_PARAM, TAB_PARAM, type TabId } from '../../routes';
 import { IconFolder, IconGrid, IconKeyboard, IconLayers } from '../../shared/ui';
 import './WorkspacePage.css';
 
@@ -40,6 +40,7 @@ const ALL_LABEL = 'Tất cả từ vựng';
 export function WorkspacePage(): ReactElement {
   const [params, setParams] = useSearchParams();
   const tab = parseTab(params.get(TAB_PARAM));
+  const query = params.get(SEARCH_PARAM) ?? '';
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedFolderName, setSelectedFolderName] = useState<string | null>(null);
@@ -128,7 +129,9 @@ export function WorkspacePage(): ReactElement {
         </div>
 
         <div className="kn-ws__panel">
-          {tab === 'overview' ? <VocabularyOverview folderId={selectedFolderId} /> : null}
+          {tab === 'overview' ? (
+            <VocabularyOverview folderId={selectedFolderId} query={query} />
+          ) : null}
           {tab === 'flashcard' ? (
             <FlashcardStudy key={selectedFolderId ?? 'all'} folderId={selectedFolderId} />
           ) : null}

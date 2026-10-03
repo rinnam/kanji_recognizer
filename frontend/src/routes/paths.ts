@@ -8,6 +8,9 @@ export const ROUTE_PATHS = {
 /** Query param mang tab đang mở trên màn hình gộp (ví dụ /?tab=flashcard). */
 export const TAB_PARAM = 'tab';
 
+/** Query param mang từ khóa tìm kiếm Overview, chia sẻ giữa header và trang (ví dụ /?q=ăn). */
+export const SEARCH_PARAM = 'q';
+
 /** Các tab trong màn hình làm việc gộp (Tổng quan | Flashcard | Quiz). */
 export const TABS = ['overview', 'flashcard', 'quiz'] as const;
 export type TabId = (typeof TABS)[number];
