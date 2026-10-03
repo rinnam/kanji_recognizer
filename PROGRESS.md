@@ -728,3 +728,8 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - Xóa ô tìm kiếm khỏi VocabularyFilters (chỉ còn JLPT); thêm `SEARCH_PARAM='q'` + IconSearch/IconClose. Gõ ở tab khác → tab=overview (replace).
 - Kiểm: typecheck 0 lỗi · test 112/112 · lint 0 lỗi (2 cảnh báo cũ) · build OK (138 modules).
 - Chỉnh 3B (phản hồi): ô tìm kiếm canh GIỮA header + đưa bộ lọc JLPT lên header cạnh ô tìm kiếm, chia sẻ qua URL param `jlpt` (parseJlpt + JLPT_LEVELS ở shared/api); gỡ VocabularyFilters (đã rỗng). test 112/112 · build OK (140 modules).
+
+## [Phiên mới] Commit 3F — Điều hướng Flashcard ✅
+- Bỏ nút lớn "Lật thẻ"; Space + bấm thẻ vẫn lật (giữ keymap). Normal/Tiến độ: LUÔN hiện "Trước" (ghost, mũi tên trái, mờ ở thẻ đầu) + "Tiếp theo" (primary, mũi tên phải), cao 48px, rộng 152–224px, cách 16px, cả mặt trước lẫn sau.
+- Anki: trước lật chỉ "Hiện đáp án (Space)"; sau lật 4 nút Again/Hard/Good/Easy cùng cỡ (giữ phím 1/2/3/4). Không có test phụ thuộc cấu trúc nút.
+- Sửa: `features/flashcard/ui/FlashcardStudy.tsx`, `flashcard.css`. Kiểm: typecheck 0 lỗi · test 122/122 · lint 0 lỗi (2 cảnh báo cũ) · build OK.

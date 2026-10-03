@@ -228,13 +228,30 @@
 .kn-fc__nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 1rem;
   justify-content: center;
 }
 .kn-fc__nav .kn-ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   min-width: 9.5rem;
   max-width: 14rem;
-  min-height: 2.9rem;
+  min-height: 3rem;
+}
+/* Nút "Trước": kiểu ghost (nền trong suốt); vẫn mờ khi ở thẻ đầu nhờ :disabled của primitive. */
+.kn-fc__nav .kn-fc__nav-prev {
+  background: transparent;
+  border-color: transparent;
+  color: var(--kn-text);
+}
+.kn-fc__nav .kn-fc__nav-prev:hover:not(:disabled) {
+  border-color: var(--kn-border);
+  background: color-mix(in srgb, var(--kn-text) 8%, transparent);
+}
+.kn-fc__nav-icon {
+  font-size: 1.15rem;
 }
 .kn-fc__ratings {
   width: 100%;

@@ -13,6 +13,8 @@ import {
   Button,
   EmptyState,
   ErrorState,
+  IconArrowLeft,
+  IconArrowRight,
   IconReset,
   IconShuffle,
   LoadingState,
@@ -412,31 +414,39 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
             <FlashcardCard vocab={current} revealed={revealed} />
           </div>
 
-          {!revealed ? (
-            <div className="kn-fc__nav">
-              <Button variant="primary" onClick={flip}>
-                Lật thẻ <kbd className="kn-fc__kbd">Space</kbd>
-              </Button>
-            </div>
-          ) : mode === 'anki' ? (
-            <div className="kn-fc__nav kn-fc__ratings" aria-label="Đánh giá">
-              {RATINGS.map((item) => (
-                <Button key={item.id} onClick={() => void rate(item.id)}>
-                  {item.label} <kbd className="kn-fc__kbd">{item.num}</kbd>
+          {mode === 'anki' ? (
+            !revealed ? (
+              <div className="kn-fc__nav">
+                <Button variant="primary" onClick={flip}>
+                  Hiện đáp án <kbd className="kn-fc__kbd">Space</kbd>
                 </Button>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div className="kn-fc__nav kn-fc__ratings" aria-label="Đánh giá">
+                {RATINGS.map((item) => (
+                  <Button key={item.id} onClick={() => void rate(item.id)}>
+                    {item.label} <kbd className="kn-fc__kbd">{item.num}</kbd>
+                  </Button>
+                ))}
+              </div>
+            )
           ) : (
             <div className="kn-fc__nav">
-              <Button onClick={goPrev} disabled={safeIndex === 0}>
-                <kbd className="kn-fc__kbd">←</kbd> Trước
+              <Button
+                className="kn-fc__nav-prev"
+                onClick={goPrev}
+                disabled={safeIndex === 0}
+              >
+                <IconArrowLeft className="kn-fc__nav-icon" />
+                Trước
               </Button>
               <Button
                 variant="primary"
                 onClick={goNext}
                 disabled={safeIndex >= total - 1}
               >
-                Tiếp theo <kbd className="kn-fc__kbd">→</kbd>
+                Tiếp theo
+                <IconArrowRight className="kn-fc__nav-icon" />
               </Button>
             </div>
           )}
