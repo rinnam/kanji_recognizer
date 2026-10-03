@@ -1,0 +1,15 @@
+.kn-hjlpt {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  color: var(--kn-text-muted);
+  font-size: 0.85rem;
+}
+
+/* Ghi đè width:100% của .kn-ui-input để select gọn trên header */
+.kn-hjlpt__select {
+  width: auto;
+  padding: 0.3rem 0.5rem;
+}

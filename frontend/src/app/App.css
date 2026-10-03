@@ -18,10 +18,12 @@
   background: var(--kn-surface);
 }
 
-/* Cột giữa: ô tìm kiếm trên header, canh trái cạnh logo (3B) */
+/* Cột giữa: nhóm tìm kiếm + lọc JLPT, canh giữa header (3B) */
 .kn-header__center {
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
   min-width: 0;
 }
 

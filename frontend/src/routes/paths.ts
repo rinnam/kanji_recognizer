@@ -1,3 +1,5 @@
+import { JLPT_LEVELS, type JlptLevel } from '../shared/api';
+
 /** Phân đoạn đường dẫn cũ (/library, /study, /quiz) — giữ lại để redirect về tab. */
 export const ROUTE_PATHS = {
   library: 'library',
@@ -10,6 +12,14 @@ export const TAB_PARAM = 'tab';
 
 /** Query param mang từ khóa tìm kiếm Overview, chia sẻ giữa header và trang (ví dụ /?q=ăn). */
 export const SEARCH_PARAM = 'q';
+
+/** Query param mang cấp JLPT đang lọc Overview, chia sẻ giữa header và trang (ví dụ /?jlpt=N3). */
+export const JLPT_PARAM = 'jlpt';
+
+/** Chuẩn hóa giá trị JLPT lấy từ URL về một JlptLevel hợp lệ, hoặc null nếu không hợp lệ. */
+export function parseJlpt(value: string | null): JlptLevel | null {
+  return (JLPT_LEVELS as readonly string[]).includes(value ?? '') ? (value as JlptLevel) : null;
+}
 
 /** Các tab trong màn hình làm việc gộp (Tổng quan | Flashcard | Quiz). */
 export const TABS = ['overview', 'flashcard', 'quiz'] as const;

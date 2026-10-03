@@ -709,3 +709,4 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - Chia sẻ qua `q`: WorkspacePage đọc `q` → prop `query` cho VocabularyOverview; Overview dùng prop thay state nội bộ, GIỮ debounce 300ms + filterVocabularies cũ.
 - Xóa ô tìm kiếm khỏi VocabularyFilters (chỉ còn JLPT); thêm `SEARCH_PARAM='q'` + IconSearch/IconClose. Gõ ở tab khác → tab=overview (replace).
 - Kiểm: typecheck 0 lỗi · test 112/112 · lint 0 lỗi (2 cảnh báo cũ) · build OK (138 modules).
+- Chỉnh 3B (phản hồi): ô tìm kiếm canh GIỮA header + đưa bộ lọc JLPT lên header cạnh ô tìm kiếm, chia sẻ qua URL param `jlpt` (parseJlpt + JLPT_LEVELS ở shared/api); gỡ VocabularyFilters (đã rỗng). test 112/112 · build OK (140 modules).

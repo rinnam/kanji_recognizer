@@ -11,20 +11,23 @@ import { useVocabulary } from '../model/useVocabulary';
 import { dedupeKey } from '../model/dedupe';
 import { ImportModal } from './ImportModal';
 import { QuickAddForm } from './QuickAddForm';
-import { VocabularyFilters } from './VocabularyFilters';
 import { VocabularyList } from './VocabularyList';
 import './vocabulary.css';
 
 interface VocabularyOverviewProps {
   folderId: string | null;
   query: string;
+  jlpt: JlptLevel | null;
 }
 
 /** Overview từ vựng: Quick Add + lọc (tìm kiếm debounce, JLPT) + bảng danh sách. */
-export function VocabularyOverview({ folderId, query }: VocabularyOverviewProps): ReactElement {
+export function VocabularyOverview({
+  folderId,
+  query,
+  jlpt,
+}: VocabularyOverviewProps): ReactElement {
   const api = useVocabulary();
   const db = useDb();
-  const [jlpt, setJlpt] = useState<JlptLevel | null>(null);
   const [pendingDelete, setPendingDelete] = useState<LocalVocabulary | null>(null);
   const [folders, setFolders] = useState<LocalFolder[]>([]);
   const [importOpen, setImportOpen] = useState(false);
@@ -65,8 +68,6 @@ export function VocabularyOverview({ folderId, query }: VocabularyOverviewProps)
       <div className="kn-overview__toolbar">
         <Button onClick={() => setImportOpen(true)}>Nhập từ file / dán</Button>
       </div>
-      <VocabularyFilters jlpt={jlpt} onJlptChange={setJlpt} />
-
       <p className="kn-overview__count">
         {folderId === null ? 'Tất cả từ' : 'Thư mục đã chọn'} · {filtered.length} từ
       </p>

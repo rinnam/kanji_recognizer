@@ -4,7 +4,14 @@ import { FlashcardStudy } from '../../features/flashcard';
 import { FolderTree } from '../../features/folder-tree';
 import { QuizRunner } from '../../features/quiz';
 import { VocabularyOverview } from '../../features/vocabulary';
-import { parseTab, SEARCH_PARAM, TAB_PARAM, type TabId } from '../../routes';
+import {
+  JLPT_PARAM,
+  parseJlpt,
+  parseTab,
+  SEARCH_PARAM,
+  TAB_PARAM,
+  type TabId,
+} from '../../routes';
 import { IconFolder, IconGrid, IconKeyboard, IconLayers } from '../../shared/ui';
 import './WorkspacePage.css';
 
@@ -41,6 +48,7 @@ export function WorkspacePage(): ReactElement {
   const [params, setParams] = useSearchParams();
   const tab = parseTab(params.get(TAB_PARAM));
   const query = params.get(SEARCH_PARAM) ?? '';
+  const jlpt = parseJlpt(params.get(JLPT_PARAM));
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedFolderName, setSelectedFolderName] = useState<string | null>(null);
@@ -130,7 +138,7 @@ export function WorkspacePage(): ReactElement {
 
         <div className="kn-ws__panel">
           {tab === 'overview' ? (
-            <VocabularyOverview folderId={selectedFolderId} query={query} />
+            <VocabularyOverview folderId={selectedFolderId} query={query} jlpt={jlpt} />
           ) : null}
           {tab === 'flashcard' ? (
             <FlashcardStudy key={selectedFolderId ?? 'all'} folderId={selectedFolderId} />

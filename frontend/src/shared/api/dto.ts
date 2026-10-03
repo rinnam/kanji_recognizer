@@ -5,6 +5,9 @@
  */
 export type JlptLevel = 'N1' | 'N2' | 'N3' | 'N4' | 'N5';
 
+/** Danh sách cấp JLPT (thứ tự hiển thị dễ → khó) để render bộ lọc. */
+export const JLPT_LEVELS: readonly JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
+
 /** 4 nút đánh giá SM-2 (ánh xạ q: Again=0, Hard=3, Good=4, Easy=5). */
 export type SrsRating = 'again' | 'hard' | 'good' | 'easy';
 
