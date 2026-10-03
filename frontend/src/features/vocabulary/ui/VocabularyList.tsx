@@ -22,6 +22,7 @@ export function VocabularyList({ items, onDelete }: VocabularyListProps): ReactE
           <tr>
             <th scope="col">Từ</th>
             <th scope="col">Cách đọc</th>
+            <th scope="col">Âm Hán Việt</th>
             <th scope="col">Nghĩa</th>
             <th scope="col">JLPT</th>
             <th scope="col">
@@ -34,7 +35,15 @@ export function VocabularyList({ items, onDelete }: VocabularyListProps): ReactE
             <tr key={item.id}>
               <td className="kn-vtable__word">{item.word}</td>
               <td>{item.reading ?? '—'}</td>
-              <td>{item.meaning}</td>
+              <td className="kn-vtable__sino">{item.sinoVietnamese ?? '—'}</td>
+              <td>
+                {item.meaning}
+                {item.example !== null ? (
+                  <span className="kn-vtable__example" title={item.example}>
+                    {item.example}
+                  </span>
+                ) : null}
+              </td>
               <td>{item.jlptLevel ?? '—'}</td>
               <td className="kn-vtable__actions">
                 <Button aria-label={`Xóa ${item.word}`} onClick={() => onDelete(item)}>

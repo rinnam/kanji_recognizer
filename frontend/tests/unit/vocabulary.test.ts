@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { LocalVocabulary } from '../../src/entities/vocabulary';
 import { dedupeKey, findDuplicate } from '../../src/features/vocabulary/model/dedupe';
 import { filterVocabularies } from '../../src/features/vocabulary/model/filter';
+import { normalizeQuickAdd, trimToNull } from '../../src/features/vocabulary/model/normalize';
 
 function vocab(partial: Partial<LocalVocabulary> & { id: string }): LocalVocabulary {
   return {
@@ -62,5 +63,38 @@ describe('vocabulary/filter', () => {
   it('tìm kiếm theo nghĩa, mới nhất trước', () => {
     const ids = filterVocabularies(list, { folderId: null, search: 'l', jlpt: null }).map((v) => v.id);
     expect(ids).toEqual(['b']);
+  });
+});
+
+describe('vocabulary/normalize', () => {
+  it('trimToNull: trim 2 đầu, rỗng -> null', () => {
+    expect(trimToNull('  xin chào  ')).toBe('xin chào');
+    expect(trimToNull('   ')).toBeNull();
+    expect(trimToNull('')).toBeNull();
+    expect(trimToNull(null)).toBeNull();
+    expect(trimToNull(undefined)).toBeNull();
+  });
+
+  it('normalizeQuickAdd: word/meaning trim; trường tùy chọn rỗng -> null; Âm Hán Việt giữ nguyên như gõ', () => {
+    const out = normalizeQuickAdd({
+      word: '  水  ',
+      reading: '  みず ',
+      sinoVietnamese: '  Thủy  ',
+      meaning: '  nước ',
+      example: '   ',
+      exampleMeaning: '',
+      jlptLevel: 'N5',
+      note: '  ghi chú ',
+    });
+    expect(out).toEqual({
+      word: '水',
+      meaning: 'nước',
+      reading: 'みず',
+      sinoVietnamese: 'Thủy',
+      example: null,
+      exampleMeaning: null,
+      note: 'ghi chú',
+      jlptLevel: 'N5',
+    });
   });
 });

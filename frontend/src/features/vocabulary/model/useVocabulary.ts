@@ -16,6 +16,9 @@ export interface QuickAddInput {
   word: string;
   meaning: string;
   reading: string | null;
+  sinoVietnamese: string | null;
+  example: string | null;
+  exampleMeaning: string | null;
   jlptLevel: JlptLevel | null;
   note: string | null;
   folderId: string | null;
@@ -110,9 +113,9 @@ export function useVocabulary(): VocabularyApi {
         word,
         meaning,
         reading,
-        sinoVietnamese: null,
-        example: null,
-        exampleMeaning: null,
+        sinoVietnamese: cleanOptional(input.sinoVietnamese),
+        example: cleanOptional(input.example),
+        exampleMeaning: cleanOptional(input.exampleMeaning),
         note: cleanOptional(input.note),
         tags: [],
         jlptLevel: input.jlptLevel,

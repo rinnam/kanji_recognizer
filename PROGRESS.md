@@ -573,3 +573,28 @@ Chỉ đổi bố cục/kích thước/CSS + icon SVG inline; KHÔNG đổi hàn
 ### Kiểm chứng
 - `npm run typecheck`: **0 lỗi**. `npm test`: **71/71 pass**. `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** — 125 modules.
 - CẦN XEM BẰNG MẮT: tab segmented có icon + viên nổi; ScopeBar một N (chip Random có ô số); thẻ điều khiển 2 hàng; thanh tiến độ nằm dưới số; nhãn "TIẾN ĐỘ KIỂM TRA" không xuống dòng; sidebar nền tint khi chọn; độ cao thẻ vừa cửa sổ ~900px; mobile 320/390 không cuộn ngang.
+
+## Commit 3 — Quick Add đủ trường (tab Tổng quan) ✅
+
+Đối chiếu `backend/src/validators/vocabulary.ts`: `createVocabularySchema` ĐÃ có đủ các trường word/meaning (bắt buộc), reading, sinoVietnamese, example, exampleMeaning, note, jlptLevel (N1–N5), folderIds — nên KHÔNG cần sửa BE/DTO. Chỉ bổ sung ở FE.
+
+### Trường & bố cục form
+- Hàng 1: Từ vựng* | Cách đọc | Âm Hán Việt | Nghĩa tiếng Việt*.
+- Hàng 2: Câu ví dụ (textarea 2 dòng) | Dịch câu ví dụ (textarea 2 dòng).
+- Hàng 3: JLPT | Ghi chú | nút "Thêm từ" (căn phải).
+
+### Hành vi (hàm thuần `model/normalize.ts` + test)
+- `trimToNull` (trim 2 đầu, rỗng → null) + `normalizeQuickAdd` (word/meaning trim; các trường tùy chọn trim→null). **Âm Hán Việt LƯU NGUYÊN như gõ** (chỉ trim); IN HOA chỉ bằng CSS lúc hiển thị (`.kn-qadd__sino` / `.kn-vtable__sino` `text-transform: uppercase`).
+- Chống trùng (word + reading) giữ nguyên ở `useVocabulary`; báo lỗi ngay dưới form. Thêm xong: xóa các ô CHỮ, **GIỮ JLPT**, focus lại ô Từ (qua `document.getElementById('qa-word')`).
+- **IME-safe:** ô một dòng Enter → submit (qua form onSubmit); đang gõ IME (`isComposing` hoặc `keyCode 229`) → chặn submit. Textarea: Ctrl/Cmd+Enter → submit; Enter thường = xuống dòng.
+
+### Danh sách
+- `VocabularyList` thêm cột **Âm Hán Việt**; câu ví dụ hiện thành **dòng phụ mờ, cắt bớt (ellipsis)** dưới Nghĩa (`.kn-vtable__example`). Mobile: bảng cuộn ngang trong `.kn-vlist` (overflow-x auto).
+
+### Files
+- MỚI: `features/vocabulary/model/normalize.ts`.
+- SỬA: `features/vocabulary/model/useVocabulary.ts` (QuickAddInput + quickAdd nhận sinoVietnamese/example/exampleMeaning), `features/vocabulary/ui/{QuickAddForm.tsx,VocabularyList.tsx,vocabulary.css}`, `tests/unit/vocabulary.test.ts`.
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**. `npm test`: **73/73 pass** (+2: trimToNull + normalizeQuickAdd). `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** — 126 modules.
+- CẦN XEM BẰNG MẮT: form 3 hàng đủ trường; gõ IME xong Enter KHÔNG submit khi đang gõ dở; thêm xong focus về ô Từ + giữ JLPT; cột Âm Hán Việt IN HOA; dòng ví dụ mờ cắt bớt; mobile bảng cuộn ngang.

@@ -5,6 +5,9 @@
 }
 
 .kn-qadd {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
   border: 1px solid var(--kn-border);
   border-radius: 0.6rem;
   padding: 0.75rem;
@@ -19,6 +22,26 @@
   flex: 1 1 10rem;
   margin-bottom: 0;
 }
+.kn-qadd__row--areas .kn-ui-field {
+  flex: 1 1 18rem;
+}
+.kn-qadd__row--last {
+  align-items: flex-end;
+}
+.kn-qadd__ta {
+  width: 100%;
+  min-height: 3.4rem;
+  resize: vertical;
+  font: inherit;
+}
+/* Âm Hán Việt: IN HOA chỉ ở hiển thị (giá trị lưu giữ nguyên như gõ) */
+.kn-qadd__sino {
+  text-transform: uppercase;
+}
+.kn-qadd__submit {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
 .kn-qadd__actions {
   display: flex;
   align-items: center;
@@ -26,6 +49,7 @@
   margin-top: 0.75rem;
 }
 .kn-qadd__msg {
+  margin: 0;
   font-size: 0.9rem;
   color: var(--kn-text-muted);
 }
@@ -73,6 +97,22 @@
 }
 .kn-vtable__word {
   font-weight: 600;
+}
+.kn-vtable__sino {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--kn-text-muted);
+}
+/* Câu ví dụ: dòng phụ mờ, cắt bớt (ellipsis) dưới Nghĩa */
+.kn-vtable__example {
+  display: block;
+  margin-top: 0.15rem;
+  max-width: 24rem;
+  font-size: 0.8rem;
+  color: var(--kn-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .kn-vtable__actions {
   text-align: right;
