@@ -1,4 +1,5 @@
 import { type ReactElement } from 'react';
+import { IconSliders } from './icons';
 import './scope-bar.css';
 
 /** 3 kiểu lấy phạm vi: tất cả / N thẻ đầu / N thẻ ngẫu nhiên. */
@@ -10,21 +11,16 @@ interface ScopeBarProps {
   /** x — số từ thực dùng sau khi áp chip. */
   used: number;
   kind: ScopeKind;
-  /** N của "N từ đầu" / "Random N" (1..total). */
+  /** N chung cho "N từ đầu" / "Random" (1..total). */
   n: number;
   onKindChange: (kind: ScopeKind) => void;
   onNChange: (n: number) => void;
 }
 
-const CHIPS: { id: ScopeKind; label: string }[] = [
-  { id: 'all', label: 'Tất cả' },
-  { id: 'first', label: 'N từ đầu' },
-  { id: 'random', label: 'Random N' },
-];
-
 /**
  * Thanh phạm vi (presentational, dùng chung Flashcard & Quiz). Chỉ hiển thị + phát sự kiện;
- * logic chọn "N từ đầu" (createdAt tăng dần) / "Random N" (bốc lại khi bấm) nằm ở nơi dùng.
+ * logic chọn "N từ đầu" (createdAt tăng dần) / "Random" (bốc lại khi bấm) nằm ở nơi dùng.
+ * Dùng MỘT ô N chung (nằm trong chip Random); nhãn "N từ đầu" hiện số N thật.
  */
 export function ScopeBar({
   total,
@@ -37,36 +33,61 @@ export function ScopeBar({
   const disabled = total === 0;
   return (
     <div className="kn-scope" role="group" aria-label="Phạm vi">
+      <span className="kn-scope__filter" aria-hidden="true">
+        <IconSliders />
+      </span>
+      <span className="kn-scope__label">Phạm vi:</span>
       <span className="kn-scope__count">
-        Phạm vi: <strong>{used}</strong>/{total}
+        <strong>{used}</strong>/{total}
       </span>
       <div className="kn-scope__chips">
-        {CHIPS.map((chip) => (
+        <button
+          type="button"
+          className={kind === 'all' ? 'kn-scope__chip kn-scope__chip--active' : 'kn-scope__chip'}
+          aria-pressed={kind === 'all'}
+          disabled={disabled}
+          onClick={() => onKindChange('all')}
+        >
+          Tất cả
+        </button>
+        <button
+          type="button"
+          className={
+            kind === 'first' ? 'kn-scope__chip kn-scope__chip--active' : 'kn-scope__chip'
+          }
+          aria-pressed={kind === 'first'}
+          disabled={disabled}
+          onClick={() => onKindChange('first')}
+        >
+          {n} từ đầu
+        </button>
+        <div
+          className={
+            kind === 'random'
+              ? 'kn-scope__chip kn-scope__chip--random kn-scope__chip--active'
+              : 'kn-scope__chip kn-scope__chip--random'
+          }
+        >
           <button
-            key={chip.id}
             type="button"
-            className={
-              kind === chip.id ? 'kn-scope__chip kn-scope__chip--active' : 'kn-scope__chip'
-            }
-            aria-pressed={kind === chip.id}
+            className="kn-scope__chip-main"
+            aria-pressed={kind === 'random'}
             disabled={disabled}
-            onClick={() => onKindChange(chip.id)}
+            onClick={() => onKindChange('random')}
           >
-            {chip.label}
+            Random
           </button>
-        ))}
-        <label className="kn-scope__n">
-          <span className="kn-scope__n-label">N</span>
           <input
             type="number"
-            className="kn-scope__n-input"
+            className="kn-scope__chip-n"
+            aria-label="Số thẻ N"
             min={1}
             max={Math.max(1, total)}
             value={n}
             disabled={disabled}
             onChange={(event) => onNChange(Number(event.target.value))}
           />
-        </label>
+        </div>
       </div>
     </div>
   );

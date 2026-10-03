@@ -17,7 +17,7 @@ describe('shared/ui/ScopeBar', () => {
         onNChange={() => {}}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'N từ đầu' }));
+    fireEvent.click(screen.getByRole('button', { name: '3 từ đầu' }));
     expect(onKindChange).toHaveBeenCalledWith('first');
   });
 

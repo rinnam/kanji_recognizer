@@ -1,18 +1,35 @@
 .kn-scope {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
-  padding: 0.5rem 0.6rem;
+  padding: 0.4rem 0.6rem;
   border: 1px solid var(--kn-border);
-  border-radius: 0.5rem;
-  background: var(--kn-surface);
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--kn-primary) 6%, var(--kn-surface));
+  font-size: 0.82rem;
+}
+
+.kn-scope__filter {
+  display: inline-flex;
+  align-items: center;
+  font-size: 1rem;
+  color: var(--kn-text-muted);
+}
+
+.kn-scope__label {
+  color: var(--kn-text-muted);
 }
 
 .kn-scope__count {
-  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--kn-border);
+  border-radius: 999px;
+  background: var(--kn-bg);
   color: var(--kn-text-muted);
+  font-size: 0.78rem;
 }
 
 .kn-scope__count strong {
@@ -24,6 +41,7 @@
   align-items: center;
   gap: 0.35rem;
   flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .kn-scope__chip {
@@ -34,8 +52,8 @@
   background: var(--kn-bg);
   color: var(--kn-text-muted);
   border-radius: 999px;
-  padding: 0.25rem 0.7rem;
-  font-size: 0.8rem;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.78rem;
 }
 
 .kn-scope__chip--active {
@@ -50,29 +68,50 @@
   opacity: 0.5;
 }
 
-.kn-scope__chip:focus-visible,
-.kn-scope__n-input:focus-visible {
-  outline: 2px solid var(--kn-focus);
-  outline-offset: 1px;
-}
-
-.kn-scope__n {
+/* Chip Random chứa ô N nằm ngay bên trong (một viên) */
+.kn-scope__chip--random {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.25rem;
+  padding: 0.1rem 0.3rem 0.1rem 0.6rem;
 }
 
-.kn-scope__n-label {
-  font-size: 0.8rem;
-  color: var(--kn-text-muted);
-}
-
-.kn-scope__n-input {
-  width: 3.5rem;
+.kn-scope__chip-main {
   font: inherit;
-  padding: 0.2rem 0.35rem;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 0.78rem;
+  padding: 0;
+}
+
+.kn-scope__chip--random.kn-scope__chip--active .kn-scope__chip-main {
+  color: var(--kn-primary-contrast);
+  font-weight: 600;
+}
+
+.kn-scope__chip-n {
+  width: 2.6rem;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 0.1rem 0.2rem;
   border: 1px solid var(--kn-border);
   border-radius: 0.35rem;
   background: var(--kn-bg);
   color: var(--kn-text);
+}
+
+.kn-scope__chip:focus-visible,
+.kn-scope__chip-main:focus-visible,
+.kn-scope__chip-n:focus-visible {
+  outline: 2px solid var(--kn-focus);
+  outline-offset: 1px;
+}
+
+.kn-scope__chip-main:disabled,
+.kn-scope__chip-n:disabled {
+  cursor: default;
+  opacity: 0.6;
 }

@@ -1,8 +1,8 @@
 .kn-fc {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  max-width: 46rem;
+  gap: 0.8rem;
+  max-width: 50rem;
   margin: 0 auto;
 }
 
@@ -79,20 +79,21 @@
   color: var(--kn-text-muted);
 }
 
-/* Thanh tiến độ */
+/* Khối tiến độ: số "i/total" ở trên, thanh mảnh full-width nằm DƯỚI */
 .kn-fc__progress {
   display: flex;
-  align-items: center;
-  gap: 0.6rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
 }
 .kn-fc__counter {
-  font-size: 0.85rem;
-  color: var(--kn-text-muted);
-  min-width: 3.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--kn-text);
 }
 .kn-fc__bar {
-  flex: 1;
-  height: 4px;
+  width: 100%;
+  height: 8px;
   border-radius: 999px;
   background: var(--kn-border);
   overflow: hidden;
@@ -114,15 +115,21 @@
 }
 .kn-fc-card {
   position: relative;
-  min-height: 30rem;
+  /* Co theo chiều cao viewport: ở cửa sổ ~900px vẫn thấy nút Trước/Tiếp theo mà không cuộn. */
+  height: clamp(16rem, calc(100dvh - 34rem), 28rem);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2.5rem 1.75rem;
+  padding: 2rem 1.75rem;
   border: 1px solid var(--kn-border);
   border-radius: 1rem;
-  background: var(--kn-surface);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--kn-primary) 5%, var(--kn-surface)),
+    var(--kn-surface)
+  );
   text-align: center;
+  overflow: auto;
   perspective: 1000px;
 }
 .kn-fc-card--back {
@@ -224,11 +231,18 @@
   gap: 0.5rem;
   justify-content: center;
 }
+.kn-fc__nav .kn-ui-btn {
+  min-width: 9.5rem;
+  max-width: 14rem;
+  min-height: 2.9rem;
+}
 .kn-fc__ratings {
   width: 100%;
 }
 .kn-fc__ratings .kn-ui-btn {
   flex: 1 1 6rem;
+  min-width: 0;
+  max-width: none;
 }
 .kn-fc__kbd {
   font-size: 0.72rem;
@@ -252,8 +266,8 @@
 
 @media (max-width: 640px) {
   .kn-fc-card {
-    min-height: 21rem;
-    padding: 1.75rem 1rem;
+    height: clamp(14rem, calc(100dvh - 26rem), 24rem);
+    padding: 1.5rem 1rem;
   }
   .kn-fc-card__meaning {
     font-size: 1.8rem;

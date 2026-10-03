@@ -13,4 +13,19 @@ export { Field } from './primitives/Field';
 export { Modal } from './primitives/Modal';
 export { ScopeBar } from './ScopeBar';
 export type { ScopeKind } from './ScopeBar';
-export { IconShuffle, IconReset, IconFlip, IconClock, IconInfo } from './icons';
+export {
+  IconShuffle,
+  IconReset,
+  IconFlip,
+  IconClock,
+  IconInfo,
+  IconGrid,
+  IconLayers,
+  IconKeyboard,
+  IconFolder,
+  IconChevron,
+  IconSliders,
+  IconSkip,
+  IconArrowLeft,
+  IconArrowRight,
+} from './icons';

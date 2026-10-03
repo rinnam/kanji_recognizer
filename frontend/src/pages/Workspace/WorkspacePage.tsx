@@ -5,6 +5,7 @@ import { FolderTree } from '../../features/folder-tree';
 import { QuizRunner } from '../../features/quiz';
 import { VocabularyOverview } from '../../features/vocabulary';
 import { parseTab, TAB_PARAM, type TabId } from '../../routes';
+import { IconFolder, IconGrid, IconKeyboard, IconLayers } from '../../shared/ui';
 import './WorkspacePage.css';
 
 interface TabMeta {
@@ -22,6 +23,12 @@ const TAB_META: readonly TabMeta[] = [
   { id: 'flashcard', label: 'Flashcard', hint: 'Bấm thẻ hoặc nhấn Space để lật.' },
   { id: 'quiz', label: 'Quiz', hint: 'Gõ đáp án rồi nhấn Enter để nộp.' },
 ];
+
+const TAB_ICON: Record<TabId, ReactElement> = {
+  overview: <IconGrid />,
+  flashcard: <IconLayers />,
+  quiz: <IconKeyboard />,
+};
 
 const ALL_LABEL = 'Tất cả từ vựng';
 
@@ -93,7 +100,10 @@ export function WorkspacePage(): ReactElement {
 
         <div className="kn-ws__scope">
           <span className="kn-ws__scope-label">Đang chọn:</span>
-          <span className="kn-ws__scope-chip">{scopeLabel}</span>
+          <span className="kn-ws__scope-chip">
+            <IconFolder className="kn-ws__scope-chip-icon" />
+            {scopeLabel}
+          </span>
         </div>
 
         <div className="kn-ws__tabbar">
@@ -107,6 +117,9 @@ export function WorkspacePage(): ReactElement {
                 className={tab === item.id ? 'kn-ws__tab kn-ws__tab--active' : 'kn-ws__tab'}
                 onClick={() => setTab(item.id)}
               >
+                <span className="kn-ws__tab-icon" aria-hidden="true">
+                  {TAB_ICON[item.id]}
+                </span>
                 {item.label}
               </button>
             ))}

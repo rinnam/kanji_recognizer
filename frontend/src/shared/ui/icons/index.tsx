@@ -73,3 +73,87 @@ export function IconInfo(props: IconProps): ReactElement {
     </Svg>
   );
 }
+
+export function IconGrid(props: IconProps): ReactElement {
+  return (
+    <Svg {...props}>
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+    </Svg>
+  );
+}
+
+export function IconLayers(props: IconProps): ReactElement {
+  return (
+    <Svg {...props}>
+      <path d="m12 2 9 5-9 5-9-5 9-5Z" />
+      <path d="m3 12 9 5 9-5" />
+      <path d="m3 17 9 5 9-5" />
+    </Svg>
+  );
+}
+
+export function IconKeyboard(props: IconProps): ReactElement {
+  return (
+    <Svg {...props}>
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" />
+    </Svg>
+  );
+}
+
+export function IconFolder(props: IconProps): ReactElement {
+  return (
+    <Svg {...props}>
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </Svg>
+  );
+}
+
+export function IconChevron(props: IconProps): ReactElement {
+  return (
+    <Svg {...props}>
+      <path d="m9 6 6 6-6 6" />
+    </Svg>
+  );
+}
+
+export function IconSliders(props: IconProps): ReactElement {
+  return (
+    <Svg {...props}>
+      <path d="M3 6h18M3 12h18M3 18h18" />
+      <circle cx="8" cy="6" r="2" />
+      <circle cx="16" cy="12" r="2" />
+      <circle cx="10" cy="18" r="2" />
+    </Svg>
+  );
+}
+
+export function IconSkip(props: IconProps): ReactElement {
+  return (
+    <Svg {...props}>
+      <path d="m4 5 8 7-8 7V5Z" />
+      <path d="m13 5 8 7-8 7V5Z" />
+    </Svg>
+  );
+}
+
+export function IconArrowLeft(props: IconProps): ReactElement {
+  return (
+    <Svg {...props}>
+      <path d="M19 12H5" />
+      <path d="m12 19-7-7 7-7" />
+    </Svg>
+  );
+}
+
+export function IconArrowRight(props: IconProps): ReactElement {
+  return (
+    <Svg {...props}>
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </Svg>
+  );
+}

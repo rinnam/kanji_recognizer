@@ -8,6 +8,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--kn-border);
 }
 .kn-ftree__title {
   margin: 0;
@@ -32,9 +34,10 @@
   outline: 2px solid var(--kn-focus);
   outline-offset: 1px;
 }
+/* Trạng thái chọn = nền tint + viền accent mảnh (KHÔNG tô đặc cả khối) */
 .kn-ftree__all--active {
-  color: var(--kn-primary-contrast);
-  background: var(--kn-primary);
+  color: var(--kn-primary);
+  background: color-mix(in srgb, var(--kn-primary) 12%, var(--kn-surface));
   border-color: var(--kn-primary);
   font-weight: 600;
 }
@@ -99,7 +102,9 @@
   border-radius: 0.4rem;
 }
 .kn-ftree__row--selected {
-  background: var(--kn-bg);
+  background: color-mix(in srgb, var(--kn-primary) 10%, transparent);
+  outline: 1px solid var(--kn-primary);
+  outline-offset: -1px;
 }
 .kn-ftree__row--over {
   outline: 2px dashed var(--kn-primary);
@@ -141,6 +146,12 @@
 .kn-ftree__row:hover .kn-ftree__actions,
 .kn-ftree__row:focus-within .kn-ftree__actions {
   opacity: 1;
+}
+/* Thiết bị cảm ứng (không hover): luôn hiện nút sửa/xóa/thêm con */
+@media (hover: none) {
+  .kn-ftree__actions {
+    opacity: 1;
+  }
 }
 .kn-ftree__icon {
   font: inherit;

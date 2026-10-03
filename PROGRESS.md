@@ -537,3 +537,39 @@ Chỉ đổi hành vi/logic flashcard; GIỮ NGUYÊN công thức SM-2 (`entitie
 - `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ (router.tsx + ThemeProvider.tsx — trong hạn ≤4).
 - `npm run build`: **OK** — 125 modules.
 - CẦN XEM BẰNG MẮT: công tắc Xáo trộn bật/tắt (nền tint + viền accent + icon đổi màu); Space chỉ lật ở mọi chế độ; màn Anki hết thẻ (dòng "Thẻ kế tiếp đến hạn" + 2 nút); Modal "Đặt lại tiến độ SRS" (số thẻ đúng theo phạm vi); sáng/tối + mobile.
+
+## Commit 2 — Bám bố cục KotoBase (mật độ · tab segmented+icon · ScopeBar · thẻ điều khiển · sidebar · icon · mobile) ✅
+
+Chỉ đổi bố cục/kích thước/CSS + icon SVG inline; KHÔNG đổi hành vi (keymap, Xáo trộn công tắc, Anki hết thẻ/Ôn trước hạn/Đặt lại SRS, SM-2, chấm quiz, IME, sync). Dùng token màu (`--kn-*`, sáng/tối); không thêm dependency.
+
+### 2.0 Mật độ & kích thước
+- Cột giữa Flashcard rộng tối đa **50rem**, Quiz 44rem, căn giữa; gap các khối 0.75–0.8rem; cỡ chữ nhãn/nút ~0.8–0.85rem.
+- **Thẻ flashcard co theo viewport:** `height: clamp(16rem, calc(100dvh - 34rem), 28rem)` (mobile `clamp(14rem, calc(100dvh - 26rem), 24rem)`). Ở cửa sổ cao ~900px (≈56rem) → thẻ ≈22rem, cộng các khối ≈15rem → tổng ≈37rem (~592px) < 900px nên nút Trước/Tiếp theo HIỆN mà không cuộn. (Chưa kiểm bằng mắt.)
+
+### 2.1 Thanh tab + "Đang chọn"
+- `WorkspacePage`: thanh tab là **segmented control** (container bo tròn nền tint, tab đang chọn là "viên" nổi `box-shadow`), mỗi tab có icon nhỏ (lưới=Tổng quan, lớp=Flashcard, bàn phím=Quiz); dòng gợi ý nằm bên phải ngoài container. Thanh "Đang chọn:" thành **thẻ full-width**, chip tên thư mục có icon thư mục.
+
+### 2.2 ScopeBar
+- Thẻ nền tint nhẹ: icon bộ lọc + "Phạm vi:" + viên đếm "x/y" + chip `[Tất cả] [{N} từ đầu] [Random + ô N inline]`. Dùng **MỘT N chung** (ô N nằm trong chip Random); bỏ ô N tách rời. Giữ props cũ nên không phá caller. Cập nhật `scope-bar.test.tsx` (nhãn chip giờ là "{n} từ đầu").
+
+### 2.3–2.5 Flashcard
+- Thẻ điều khiển 2 hàng (segmented chế độ có class is-active + nhóm icon Xáo trộn/Làm lại + thống kê). Khối tiến độ: số "i/total" đậm nhỏ ở trên, thanh ~8px full-width nằm DƯỚI. Thẻ flashcard nền gradient rất nhẹ (token). Nút điều hướng cao ~2.9rem, rộng ~9.5–14rem; Anki = 4 nút chấm cùng kích thước.
+
+### 2.6–2.7 Quiz
+- Nhãn **"TIẾN ĐỘ KIỂM TRA" `white-space: nowrap`** (không xuống dòng). Thẻ câu hỏi: dải tiêu đề riêng (đường kẻ dưới) chữ hoa căn giữa; thân cao `min-height: 17rem`, căn giữa dọc. Ô nhập cao `min-height: 3.5rem`, bo ~0.9rem, chữ + placeholder căn GIỮA, viền accent 2px + vòng focus. Hai nút căn giữa.
+
+### 2.8 Sidebar
+- Tiêu đề "Quản lý Thư mục" + đường kẻ dưới. Trạng thái chọn ("Tất cả từ vựng" + dòng cây) = **nền tint + viền accent mảnh** (không tô đặc cả khối). Nút sửa/xóa/thêm con hiện khi hover/focus-within và **luôn hiện trên thiết bị cảm ứng** (`@media (hover: none)`).
+
+### 2.9 Icon
+- Thêm icon SVG inline vào `shared/ui/icons`: grid, layers, keyboard, folder, chevron, sliders, skip, arrow-left, arrow-right (+ export qua `shared/ui`). Không thêm thư viện.
+
+### 2.10 Mobile
+- Tab bar + ScopeBar cuộn ngang trong khối riêng; thẻ flashcard/câu hỏi co nhỏ; mobile 320/390 không cuộn ngang trang (cần kiểm bằng mắt).
+
+### Files
+- SỬA: `pages/Workspace/{WorkspacePage.tsx,WorkspacePage.css}`, `shared/ui/{ScopeBar.tsx,scope-bar.css,icons/index.tsx,index.ts}`, `features/flashcard/ui/flashcard.css`, `features/quiz/ui/quiz.css`, `features/folder-tree/ui/folder-tree.css`, `tests/unit/scope-bar.test.tsx`.
+
+### Kiểm chứng
+- `npm run typecheck`: **0 lỗi**. `npm test`: **71/71 pass**. `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ. `npm run build`: **OK** — 125 modules.
+- CẦN XEM BẰNG MẮT: tab segmented có icon + viên nổi; ScopeBar một N (chip Random có ô số); thẻ điều khiển 2 hàng; thanh tiến độ nằm dưới số; nhãn "TIẾN ĐỘ KIỂM TRA" không xuống dòng; sidebar nền tint khi chọn; độ cao thẻ vừa cửa sổ ~900px; mobile 320/390 không cuộn ngang.
