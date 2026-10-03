@@ -10,6 +10,11 @@
   --kn-primary-contrast: #ffffff;
   --kn-danger: #a3301f;
   --kn-focus: #b4532a;
+  /* Nút/điều khiển phụ (Phần 5B): nền + viền + chữ đủ tương phản trên nền thẻ (--kn-surface). */
+  --kn-btn-bg: #efe9dc;
+  --kn-btn-bg-hover: #e3dccb;
+  --kn-btn-border: #8a7f6e;
+  --kn-btn-fg: #2b2622;
 }
 
 [data-theme='dark'] {
@@ -22,6 +27,11 @@
   --kn-primary-contrast: #1c1917;
   --kn-danger: #e8795f;
   --kn-focus: #e2794b;
+  /* Nút/điều khiển phụ (Phần 5B): nền SÁNG hơn nền thẻ một nấc; viền + chữ đủ tương phản. */
+  --kn-btn-bg: #3c352f;
+  --kn-btn-bg-hover: #4a423a;
+  --kn-btn-border: #7d7366;
+  --kn-btn-fg: #ece5d8;
 }
 
 /* Layout — độc lập theme */
