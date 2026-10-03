@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import type { SrsRating } from '../../../entities/card';
 import { getAllFoldersLocal, type LocalFolder } from '../../../entities/folder';
-import { selectWordsInScope, type LocalVocabulary } from '../../../entities/vocabulary';
+import {
+  applyScope,
+  selectWordsInScope,
+  type LocalVocabulary,
+  type ScopeSelection,
+} from '../../../entities/vocabulary';
 import { useDb } from '../../../shared/db';
 import { subscribeDataChanged } from '../../../shared/lib';
 import {
@@ -26,6 +31,11 @@ import './flashcard.css';
 interface FlashcardStudyProps {
   /** Thư mục đang chọn ở sidebar (null = tất cả) — phạm vi dữ liệu cho màn học. */
   folderId: string | null;
+  /**
+   * Phạm vi chọn thẻ do page truyền xuống (3C/3E). Khi CÓ: ẩn ScopeBar nội bộ và chọn
+   * bộ thẻ bằng applyScope. Khi KHÔNG: dùng ScopeBar + chip nội bộ (tương thích ngược).
+   */
+  scope?: ScopeSelection;
 }
 
 const DEFAULT_N = 30;
@@ -42,12 +52,6 @@ const RATINGS: { id: SrsRating; label: string; num: string }[] = [
   { id: 'good', label: 'Good', num: '3' },
   { id: 'easy', label: 'Easy', num: '4' },
 ];
-
-/** So sánh createdAt tăng dần (tie-break id) — cho chip "N từ đầu". */
-function byCreatedAtAsc(a: LocalVocabulary, b: LocalVocabulary): number {
-  if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-}
 
 /** Trộn thứ tự id (Fisher–Yates) — chỉ gọi trong event handler, không trong render. */
 function shuffleIds(ids: readonly string[]): string[] {
@@ -77,13 +81,15 @@ function formatDateTime(iso: string): string {
  * Làm lại + thống kê) + thanh tiến độ + thẻ lớn (bấm/Space để lật) + CardNav. Phạm vi lấy
  * theo thư mục đang chọn (gồm thư mục con). Phím tắt & logic SM-2 giữ nguyên.
  */
-export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement {
+export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactElement {
   const api = useFlashcards();
   const db = useDb();
   const [folders, setFolders] = useState<LocalFolder[]>([]);
   const [mode, setMode] = useState<FlashcardMode>('normal');
   const [kind, setKind] = useState<ScopeKind>('all');
   const [n, setN] = useState(DEFAULT_N);
+  // Seed cho chip "Random" nội bộ: mỗi lần bấm Random tăng 1 để bốc lại (applyScope có seed).
+  const [seed, setSeed] = useState(0);
   const [pickedIds, setPickedIds] = useState<string[] | null>(null);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -134,8 +140,12 @@ export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement 
     return buildQueue(scopeBase, mode, now);
   }, [mode, reviewAhead, reviewAheadDeck, ankiDueDeck, scopeBase, now]);
 
-  // Bộ thẻ sau khi áp chip phạm vi (ScopeBar) — giữ thứ tự deck/pickedIds.
+  // Bộ thẻ sau khi áp phạm vi. Nguồn sự thật: applyScope. Ưu tiên prop `scope` (từ page);
+  // nếu không có prop thì dùng `pickedIds` do chip nội bộ chốt (giữ ổn định khi deck đổi).
   const baseUsed = useMemo(() => {
+    if (scope !== undefined) {
+      return scope.mode === 'all' ? deck : applyScope(deck, scope);
+    }
     if (pickedIds === null) return deck;
     const byId = new Map(deck.map((v) => [v.id, v] as const));
     const out: LocalVocabulary[] = [];
@@ -144,7 +154,7 @@ export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement 
       if (found !== undefined) out.push(found);
     }
     return out;
-  }, [pickedIds, deck]);
+  }, [scope, pickedIds, deck]);
 
   // Công tắc "Xáo trộn": sắp lại baseUsed theo thứ tự đã CHỐT (ổn định) — lọc id còn tồn
   // tại và nối id mới ở cuối (giữ ổn định khi bộ thẻ đổi do chấm điểm/nạp lại).
@@ -174,12 +184,10 @@ export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement 
     setIndex(0);
     setRevealed(false);
   };
-  const pickFor = (next: ScopeKind, count: number): string[] | null => {
-    if (next === 'all') return null;
-    if (next === 'first') {
-      return [...deck].sort(byCreatedAtAsc).slice(0, count).map((v) => v.id);
-    }
-    return shuffleIds(deck.map((v) => v.id)).slice(0, count);
+  // Chốt id bộ thẻ theo chip nội bộ, qua applyScope (một nguồn sự thật). 'all' → null (cả deck).
+  const pickFor = (selection: ScopeSelection): string[] | null => {
+    if (selection.mode === 'all') return null;
+    return applyScope(deck, selection).map((v) => v.id);
   };
   const clearShuffle = (): void => {
     setShuffled(false);
@@ -194,15 +202,18 @@ export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement 
     resetPos();
   };
   const applyKind = (next: ScopeKind): void => {
+    // Bấm "Random" (kể cả khi đang ở Random) tăng seed để bốc lại bộ thẻ.
+    const nextSeed = next === 'random' ? seed + 1 : seed;
+    if (next === 'random') setSeed(nextSeed);
     setKind(next);
-    setPickedIds(pickFor(next, clampN(n)));
+    setPickedIds(pickFor({ mode: next, n: clampN(n), seed: nextSeed }));
     clearShuffle();
     resetPos();
   };
   const changeN = (value: number): void => {
     const next = clampN(value);
     setN(next);
-    if (kind !== 'all') setPickedIds(pickFor(kind, next));
+    if (kind !== 'all') setPickedIds(pickFor({ mode: kind, n: next, seed }));
     clearShuffle();
     resetPos();
   };
@@ -279,14 +290,16 @@ export function FlashcardStudy({ folderId }: FlashcardStudyProps): ReactElement 
         Flashcard
       </h2>
 
-      <ScopeBar
-        total={deck.length}
-        used={total}
-        kind={kind}
-        n={n}
-        onKindChange={applyKind}
-        onNChange={changeN}
-      />
+      {scope === undefined ? (
+        <ScopeBar
+          total={deck.length}
+          used={total}
+          kind={kind}
+          n={n}
+          onKindChange={applyKind}
+          onNChange={changeN}
+        />
+      ) : null}
 
       <div className="kn-fc__control">
         <div className="kn-fc__modes" role="group" aria-label="Chế độ học">

@@ -536,6 +536,12 @@ Chỉ đổi hành vi/logic flashcard; GIỮ NGUYÊN công thức SM-2 (`entitie
 - `npm test`: **71/71 pass** (flashcard-keymap 7, flashcard 14 — +7 ca mới: anki hết thẻ, bất biến summarize, buildReviewAheadQueue, nextDueAt×2, reset×2).
 - `npm run lint`: **0 lỗi, 2 cảnh báo** react-refresh cũ (router.tsx + ThemeProvider.tsx — trong hạn ≤4).
 - `npm run build`: **OK** — 125 modules.
+
+## Commit 3C — applyScope thuần + FlashcardStudy nhận prop scope ✅
+- MỚI `entities/vocabulary/model/scope-apply.ts`: `applyScope(words,{mode,n,seed})` thuần/tất định — 'first' theo createdAt (tie-break id); 'random' Fisher–Yates + mulberry32 có seed; kẹp n∈[1,len], rỗng→[], không mutate; export qua barrel.
+- `FlashcardStudy` thêm prop TÙY CHỌN `scope?`: CÓ → ẩn ScopeBar nội bộ + dùng `applyScope`; KHÔNG → chip nội bộ cũng gọi `applyScope` (bỏ `byCreatedAtAsc` trùng lặp). Thêm +7 ca `tests/unit/scope-apply.test.ts`.
+- Kiểm chứng: typecheck **0 lỗi** · test **119/119** (19 file) · lint 0 lỗi, 2 cảnh báo cũ · build **OK** (141 modules). Không thêm dependency; không đụng SM-2/chấm quiz.
+- CHƯA kiểm bằng mắt: Flashcard chạy thật (chip Tất cả / N từ đầu / Random vẫn chạy); prop `scope` sẽ được page truyền ở 3E.
 - CẦN XEM BẰNG MẮT: công tắc Xáo trộn bật/tắt (nền tint + viền accent + icon đổi màu); Space chỉ lật ở mọi chế độ; màn Anki hết thẻ (dòng "Thẻ kế tiếp đến hạn" + 2 nút); Modal "Đặt lại tiến độ SRS" (số thẻ đúng theo phạm vi); sáng/tối + mobile.
 
 ## Commit 2 — Bám bố cục KotoBase (mật độ · tab segmented+icon · ScopeBar · thẻ điều khiển · sidebar · icon · mobile) ✅

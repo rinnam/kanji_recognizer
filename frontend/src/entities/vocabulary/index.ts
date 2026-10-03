@@ -4,6 +4,7 @@ export type {
   UpdateVocabularyInput,
   ListVocabulariesQuery,
   ScopeFolder,
+  ScopeSelection,
 } from './model';
 export {
   getAllVocabulariesLocal,
@@ -15,6 +16,7 @@ export {
   countVocabularies,
   collectDescendantFolderIds,
   selectWordsInScope,
+  applyScope,
   markTombstoned,
   tombstoneVocabularies,
 } from './model';
