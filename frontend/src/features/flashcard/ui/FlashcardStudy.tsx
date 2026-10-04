@@ -335,9 +335,6 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
           >
             <IconReset />
           </button>
-          <span className="kn-fc__summary">
-            Tổng {summary.total} · Tới hạn {summary.due} · Mới {summary.fresh}
-          </span>
         </div>
       </div>
 
@@ -394,12 +391,16 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
       ) : (
         <>
           <div className="kn-fc__progress">
+            <span className="kn-fc__progress-label">Tiến độ học</span>
             <span className="kn-fc__counter">
               {safeIndex + 1}/{total}
             </span>
             <div className="kn-fc__bar">
               <div className="kn-fc__bar-fill" style={{ width: `${String(progressPct)}%` }} />
             </div>
+            <span className="kn-fc__summary">
+              Tổng {summary.total} · Tới hạn {summary.due} · Mới {summary.fresh}
+            </span>
           </div>
 
           <div

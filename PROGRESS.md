@@ -812,3 +812,8 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - MỘT thanh gộp `.kn-ws__scope` dạng lưới 3 vùng (`minmax(0,1fr) auto minmax(0,1fr)`): TRÁI = chip "Đang chọn"; GIỮA = viên tab [Tổng quan|Flashcard|Quiz] căn chính giữa; PHẢI (`.kn-ws__scope-right`) = phạm vi (ScopeBar inline)/nút hành động + gợi ý nhỏ. Bỏ thanh tab riêng; <64rem xếp dọc.
 - Kiểm: typecheck 0 lỗi · test 207/207 · lint 0 lỗi (2 cảnh báo cũ) · build OK (154 modules). Chỉ sửa CSS/TSX + portal, không thêm test. XEM MẮT: thanh gộp 1 dòng (chip trái · tabs chính giữa · phạm vi/nút phải); popup xóa khi drawer mở (mobile) nền phủ kín.
 - Theo yêu cầu: BỎ 3 dòng gợi ý (overview/flashcard/quiz) — xóa `hint` khỏi TAB_META + `activeHint` + thẻ `<p>` + CSS `.kn-ws__hint`; kiểm lại typecheck 0 · test 207/207 · lint 0 · build OK (154 modules).
+
+## [Phiên mới] Phần 7G — Thanh điều khiển Flashcard/Quiz một hàng 40px ✅
+- Điều khiển MỘT hàng 40px (gap 8px): segmented 2.5rem + spacer + icon 40x40 + hẹn giờ `s` 40px; segmented chữ 0.9375rem, active accent; ≤40rem chế độ full-width dòng riêng.
+- Thống kê Flashcard xuống hàng tiến độ (căn phải); tiến độ Quiz ra ngoài thẻ điều khiển (nhãn+số+thanh 6px, cao 2.5rem) → đỉnh thẻ hai tab trùng nhau.
+- Kiểm: typecheck 0 · test 207/207 · lint 0 (2 cảnh báo cũ) · build OK (154 modules). XEM MẮT: một hàng điều khiển, cùng chiều cao, thẻ trùng vị trí.

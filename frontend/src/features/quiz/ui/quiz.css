@@ -18,29 +18,62 @@
   border: 0;
 }
 
-/* Thẻ điều khiển: dạng câu + công cụ + TimerPill + tiến độ */
+/* Thẻ điều khiển: MỘT hàng (segmented ... spacer ... icon 40x40 + hẹn giờ 40px) */
 .kn-quiz__control {
   display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.75rem;
   border: 1px solid var(--kn-border);
   border-radius: 0.75rem;
   background: var(--kn-surface);
 }
-.kn-quiz__dirs,
+/* Segmented control: một khung viền chung cao 40px */
+.kn-quiz__dirs {
+  display: flex;
+  align-items: stretch;
+  gap: 0.2rem;
+  height: 2.5rem;
+  padding: 0.2rem;
+  border: 1px solid var(--kn-btn-border);
+  border-radius: 0.6rem;
+  background: var(--kn-btn-bg);
+}
+.kn-quiz__dirs .kn-ui-btn {
+  display: inline-flex;
+  align-items: center;
+  border-color: transparent;
+  background: transparent;
+  color: var(--kn-btn-fg);
+  font-size: 0.9375rem;
+  padding: 0 0.8rem;
+  white-space: nowrap;
+}
+/* Mục đang chọn nổi bật bằng accent */
+.kn-quiz__dirs .kn-ui-btn--primary {
+  background: var(--kn-primary);
+  border-color: var(--kn-primary);
+  color: var(--kn-primary-contrast);
+  font-weight: 700;
+}
 .kn-quiz__tools {
   display: flex;
   gap: 0.5rem;
-  flex-wrap: wrap;
   align-items: center;
+  margin-left: auto;
+}
+/* Nút icon trong hàng điều khiển: 40x40 */
+.kn-quiz__control .kn-toggle-icon-btn,
+.kn-quiz__icon-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
 }
 .kn-quiz__icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.2rem;
-  height: 2.2rem;
   font-size: 1.1rem;
   cursor: pointer;
   color: var(--kn-btn-fg);
@@ -57,20 +90,32 @@
   outline: 2px solid var(--kn-focus);
   outline-offset: 2px;
 }
+/* Viên hẹn giờ: icon + ô số + 's', cao 40px */
 .kn-quiz__timer {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.82rem;
+  height: 2.5rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--kn-btn-border);
+  border-radius: 0.6rem;
+  background: var(--kn-btn-bg);
+  font-size: 0.9375rem;
   color: var(--kn-text-muted);
+  flex: none;
 }
 .kn-quiz__timer-input {
-  width: 3.2rem;
+  width: 2.8rem;
+  height: 1.7rem;
+  padding: 0.1rem 0.3rem;
+  text-align: center;
 }
+/* Khối tiến độ ngoài thẻ điều khiển (giống Flashcard): một hàng, cao ~40px */
 .kn-quiz__progress {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
+  min-height: 2.5rem;
 }
 .kn-quiz__progress-label {
   font-size: 0.7rem;
@@ -81,12 +126,14 @@
 }
 .kn-quiz__counter {
   font-size: 0.85rem;
-  color: var(--kn-text-muted);
-  margin-left: auto;
+  font-weight: 700;
+  color: var(--kn-text);
+  white-space: nowrap;
 }
 .kn-quiz__bar {
-  flex: 1 1 100%;
-  height: 4px;
+  flex: 1 1 auto;
+  min-width: 2rem;
+  height: 6px;
   border-radius: 999px;
   background: var(--kn-border);
   overflow: hidden;
@@ -242,10 +289,18 @@
   color: var(--kn-text-muted);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 40rem) {
+  /* Màn hẹp: nhóm chế độ dòng riêng full width, icon + hẹn giờ dòng dưới (mỗi dòng 40px) */
+  .kn-quiz__control {
+    flex-wrap: wrap;
+  }
   .kn-quiz__dirs {
-    flex-wrap: nowrap;
+    flex: 1 1 100%;
     overflow-x: auto;
+  }
+  .kn-quiz__tools {
+    flex: 1 1 100%;
+    margin-left: 0;
   }
   .kn-quiz__question {
     font-size: 2rem;

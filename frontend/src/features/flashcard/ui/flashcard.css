@@ -18,33 +18,62 @@
   border: 0;
 }
 
-/* Thẻ điều khiển: chế độ + công cụ + thống kê */
+/* Thẻ điều khiển: MỘT hàng (segmented chế độ ... spacer ... icon 40x40), cao 40px */
 .kn-fc__control {
   display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.75rem;
   border: 1px solid var(--kn-border);
   border-radius: 0.75rem;
   background: var(--kn-surface);
 }
+/* Segmented control: một khung viền chung cao 40px */
 .kn-fc__modes {
   display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.2rem;
+  height: 2.5rem;
+  padding: 0.2rem;
+  border: 1px solid var(--kn-btn-border);
+  border-radius: 0.6rem;
+  background: var(--kn-btn-bg);
+}
+.kn-fc__modes .kn-fc__mode-btn {
+  display: inline-flex;
+  align-items: center;
+  border-color: transparent;
+  background: transparent;
+  color: var(--kn-btn-fg);
+  font-size: 0.9375rem;
+  padding: 0 0.8rem;
+  white-space: nowrap;
+}
+/* Mục đang chọn nổi bật bằng accent */
+.kn-fc__modes .kn-fc__mode-btn.is-active {
+  background: var(--kn-primary);
+  border-color: var(--kn-primary);
+  color: var(--kn-primary-contrast);
+  font-weight: 700;
 }
 .kn-fc__tools {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  margin-left: auto;
+}
+/* Nút icon trong hàng điều khiển: 40x40 */
+.kn-fc__control .kn-toggle-icon-btn,
+.kn-fc__icon-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
 }
 .kn-fc__icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.2rem;
-  height: 2.2rem;
   font-size: 1.1rem;
   cursor: pointer;
   color: var(--kn-btn-fg);
@@ -69,7 +98,7 @@
 .kn-fc__icon-btn.is-on:hover {
   background: color-mix(in srgb, var(--kn-primary) 22%, var(--kn-btn-bg));
 }
-/* Tab chế độ đang chọn nổi rõ hơn (đậm). */
+/* Tab chế độ đang chọn nổi rõ hơn (đậm) — giữ cho trường hợp ngoài segmented. */
 .kn-fc__mode-btn.is-active {
   font-weight: 700;
 }
@@ -77,14 +106,22 @@
   margin-left: auto;
   font-size: 0.85rem;
   color: var(--kn-text-muted);
+  white-space: nowrap;
 }
 
-/* Khối tiến độ: số "i/total" ở trên, thanh mảnh full-width nằm DƯỚI */
+/* Khối tiến độ: MỘT hàng (nhãn + số + thanh + thống kê), cao ~40px */
 .kn-fc__progress {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.3rem;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+}
+.kn-fc__progress-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--kn-text-muted);
+  white-space: nowrap;
 }
 .kn-fc__counter {
   font-size: 0.8rem;
@@ -92,8 +129,9 @@
   color: var(--kn-text);
 }
 .kn-fc__bar {
-  width: 100%;
-  height: 8px;
+  flex: 1 1 auto;
+  min-width: 2rem;
+  height: 6px;
   border-radius: 999px;
   background: var(--kn-border);
   overflow: hidden;
@@ -281,7 +319,19 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 40rem) {
+  /* Màn hẹp: nhóm chế độ xuống dòng riêng full width, icon ở dòng dưới (mỗi dòng 40px) */
+  .kn-fc__control {
+    flex-wrap: wrap;
+  }
+  .kn-fc__modes {
+    flex: 1 1 100%;
+    overflow-x: auto;
+  }
+  .kn-fc__tools {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
   .kn-fc-card {
     height: clamp(14rem, calc(100dvh - 26rem), 24rem);
     padding: 1.5rem 1rem;
@@ -289,9 +339,13 @@
   .kn-fc-card__meaning {
     font-size: 1.8rem;
   }
-  .kn-fc__modes {
-    flex-wrap: nowrap;
-    overflow-x: auto;
+  .kn-fc__progress {
+    flex-wrap: wrap;
+  }
+  .kn-fc__summary {
+    flex: 1 1 100%;
+    margin-left: 0;
+    text-align: right;
   }
   .kn-fc__hint-keys {
     display: none;

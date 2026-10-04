@@ -271,10 +271,11 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
                 setSeconds(Math.min(10, Math.max(1, Number(event.target.value) || 1)))
               }
             />
-            <span>giây</span>
+            <span>s</span>
           </span>
         </div>
-        <div className="kn-quiz__progress">
+      </div>
+      <div className="kn-quiz__progress">
           <span className="kn-quiz__progress-label">TIẾN ĐỘ KIỂM TRA</span>
           <span className="kn-quiz__counter">
             {Math.min(index + 1, total)}/{total}
@@ -282,7 +283,6 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
           <div className="kn-quiz__bar">
             <div className="kn-quiz__bar-fill" style={{ width: `${String(progressPct)}%` }} />
           </div>
-        </div>
       </div>
 
       {current === null || meta === null ? (
