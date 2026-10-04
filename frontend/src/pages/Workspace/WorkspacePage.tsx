@@ -199,31 +199,31 @@ export function WorkspacePage(): ReactElement {
           {scopeLabel} ⌄
         </button>
 
-        {/* Thanh gộp (7F): tabs + chip "Đang chọn" ở TRÁI; phạm vi/nút hành động + gợi ý ở PHẢI. */}
+        {/* Thanh gộp (7F): TRÁI = chip "Đang chọn" · GIỮA = tabs · PHẢI = phạm vi/nút + gợi ý. */}
         <div className="kn-ws__scope">
           <div className="kn-ws__scope-left">
-            <div className="kn-ws__tabs" role="tablist" aria-label="Chế độ học">
-              {TAB_META.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === item.id}
-                  className={tab === item.id ? 'kn-ws__tab kn-ws__tab--active' : 'kn-ws__tab'}
-                  onClick={() => setTab(item.id)}
-                >
-                  <span className="kn-ws__tab-icon" aria-hidden="true">
-                    {TAB_ICON[item.id]}
-                  </span>
-                  {item.label}
-                </button>
-              ))}
-            </div>
             <span className="kn-ws__scope-label">Đang chọn:</span>
             <span className="kn-ws__scope-chip" title={scopePath}>
               <IconFolder className="kn-ws__scope-chip-icon" />
               <span className="kn-ws__scope-path">{scopePath}</span>
             </span>
+          </div>
+          <div className="kn-ws__tabs" role="tablist" aria-label="Chế độ học">
+            {TAB_META.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === item.id}
+                className={tab === item.id ? 'kn-ws__tab kn-ws__tab--active' : 'kn-ws__tab'}
+                onClick={() => setTab(item.id)}
+              >
+                <span className="kn-ws__tab-icon" aria-hidden="true">
+                  {TAB_ICON[item.id]}
+                </span>
+                {item.label}
+              </button>
+            ))}
           </div>
           <div className="kn-ws__scope-right">
             {tab === 'overview' ? <ToolbarSlotTarget className="kn-ws__scope-actions" /> : null}

@@ -37,13 +37,13 @@
   display: none;
 }
 
-/* Thanh "Đang chọn": MỘT thanh full-width — trái = thư mục, phải = phạm vi (inline) */
+/* Thanh gộp (7F): lưới 3 vùng — TRÁI chip "Đang chọn" · GIỮA tabs · PHẢI phạm vi/nút + gợi ý.
+   Hai cột biên 1fr cân nhau nên cụm tab (cột auto) nằm chính giữa thanh. */
 .kn-ws__scope {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 0.5rem 0.75rem;
-  flex-wrap: wrap;
   padding: 0.45rem 0.7rem;
   border: 1px solid var(--kn-border);
   border-radius: 0.6rem;
@@ -55,6 +55,8 @@
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+  justify-self: start;
+  min-width: 0;
 }
 
 .kn-ws__scope-label {
@@ -98,16 +100,18 @@
   flex-wrap: wrap;
 }
 
-/* Nhóm PHẢI của thanh gộp: phạm vi (ScopeBar inline) / nút hành động + gợi ý nhỏ. */
+/* Vùng PHẢI (cột 3): phạm vi (ScopeBar inline) / nút hành động + gợi ý nhỏ, dồn sát mép phải. */
 .kn-ws__scope-right {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem 0.75rem;
   flex-wrap: wrap;
+  justify-self: end;
+  min-width: 0;
 }
 
-/* Segmented control: container bo tròn nền nhạt, tab đang chọn là "viên" nổi */
+/* Vùng GIỮA (cột auto): segmented control, căn chính giữa thanh gộp. */
 .kn-ws__tabs {
   display: inline-flex;
   gap: 0.2rem;
@@ -117,6 +121,7 @@
   border: 1px solid var(--kn-border);
   border-radius: 0.6rem;
   background: color-mix(in srgb, var(--kn-primary) 8%, var(--kn-surface));
+  justify-self: center;
 }
 
 .kn-ws__tab {
@@ -170,11 +175,20 @@
   margin-inline: auto;
 }
 
-/* Dưới 64rem: thanh "Đang chọn" xuống dòng gọn (thư mục trên, phạm vi dưới) */
+/* Dưới 64rem: thanh gộp xếp dọc 1 cột (chip → tabs → phạm vi/gợi ý), căn trái. */
 @media (max-width: 64rem) {
   .kn-ws__scope {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .kn-ws__scope-left,
+  .kn-ws__tabs,
+  .kn-ws__scope-right {
+    justify-self: start;
+  }
+
+  .kn-ws__scope-right {
+    justify-content: flex-start;
   }
 }
 

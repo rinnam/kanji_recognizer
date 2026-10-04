@@ -809,5 +809,5 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 
 ## [Phiên mới] Phần 7F — Gộp tab vào thanh "Đang chọn" + popup xóa dùng portal ✅
 - `Modal` portal ra `document.body`: nền phủ kín & z-index trên header/sidebar, không bị kẹt bởi transform của drawer sidebar (mobile); vẫn unmount khi đóng.
-- Đưa viên tab [Tổng quan|Flashcard|Quiz] LÊN cùng thanh `.kn-ws__scope` ("Đang chọn") = MỘT thanh gộp: TRÁI = tabs + chip đường dẫn; PHẢI (`.kn-ws__scope-right`) = phạm vi (ScopeBar inline)/nút hành động + gợi ý nhỏ. Bỏ thanh tab riêng; nội dung cách thanh 12px.
-- Kiểm: typecheck 0 lỗi · test 207/207 · lint 0 lỗi (2 cảnh báo cũ) · build OK (154 modules). Chỉ sửa CSS/TSX + portal, không thêm test. XEM MẮT: thanh gộp 1 dòng (tabs+chip trái · phạm vi/nút+gợi ý phải); popup xóa khi drawer mở (mobile) nền phủ kín.
+- MỘT thanh gộp `.kn-ws__scope` dạng lưới 3 vùng (`minmax(0,1fr) auto minmax(0,1fr)`): TRÁI = chip "Đang chọn"; GIỮA = viên tab [Tổng quan|Flashcard|Quiz] căn chính giữa; PHẢI (`.kn-ws__scope-right`) = phạm vi (ScopeBar inline)/nút hành động + gợi ý nhỏ. Bỏ thanh tab riêng; <64rem xếp dọc.
+- Kiểm: typecheck 0 lỗi · test 207/207 · lint 0 lỗi (2 cảnh báo cũ) · build OK (154 modules). Chỉ sửa CSS/TSX + portal, không thêm test. XEM MẮT: thanh gộp 1 dòng (chip trái · tabs chính giữa · phạm vi/nút+gợi ý phải); popup xóa khi drawer mở (mobile) nền phủ kín.
