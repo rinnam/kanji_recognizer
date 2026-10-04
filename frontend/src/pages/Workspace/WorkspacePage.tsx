@@ -4,7 +4,7 @@ import { FlashcardStudy } from '../../features/flashcard';
 import { FolderTree } from '../../features/folder-tree';
 import { QuizRunner } from '../../features/quiz';
 import { VocabularyOverview } from '../../features/vocabulary';
-import { getAllFoldersLocal, type LocalFolder } from '../../entities/folder';
+import { folderPath, getAllFoldersLocal, type LocalFolder } from '../../entities/folder';
 import {
   applyScope,
   getAllVocabulariesLocal,
@@ -127,6 +127,9 @@ export function WorkspacePage(): ReactElement {
     [tab],
   );
   const scopeLabel = selectedFolderName ?? ALL_LABEL;
+  // Chip "Đang chọn": đường dẫn đầy đủ (vd 'Ôn Thi Giữa Kì › Hán Tự'); rỗng/ở gốc → nhãn thường.
+  const scopePath =
+    selectedFolderId === null ? ALL_LABEL : folderPath(folders, selectedFolderId) || scopeLabel;
 
   const setTab = (next: TabId): void => {
     const nextParams = new URLSearchParams(params);
@@ -199,9 +202,9 @@ export function WorkspacePage(): ReactElement {
         <div className="kn-ws__scope">
           <div className="kn-ws__scope-left">
             <span className="kn-ws__scope-label">Đang chọn:</span>
-            <span className="kn-ws__scope-chip">
+            <span className="kn-ws__scope-chip" title={scopePath}>
               <IconFolder className="kn-ws__scope-chip-icon" />
-              {scopeLabel}
+              <span className="kn-ws__scope-path">{scopePath}</span>
             </span>
           </div>
           {tab === 'overview' ? <ToolbarSlotTarget className="kn-ws__scope-actions" /> : null}

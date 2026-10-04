@@ -183,8 +183,33 @@
   display: flex;
   gap: 0.35rem;
   align-items: center;
+  flex-wrap: wrap;
   margin: 0.3rem 0;
 }
 .kn-ftree__add {
   margin-top: 0.5rem;
+}
+/* Lỗi trùng tên ngay dưới ô nhập (chiếm trọn hàng trong form) */
+.kn-ftree__error {
+  flex-basis: 100%;
+  margin: 0.1rem 0 0;
+  color: var(--kn-danger);
+  font-size: 0.78rem;
+}
+/* Thông báo khi kéo–thả bị chặn (role="alert") */
+.kn-ftree__alert {
+  margin: 0;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--kn-danger);
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, var(--kn-danger) 12%, transparent);
+  color: var(--kn-danger);
+  font-size: 0.78rem;
+}
+/* Dấu ⚠ cạnh thư mục cũ đang trùng tên cùng cấp */
+.kn-ftree__warn {
+  display: inline-flex;
+  align-items: center;
+  color: var(--kn-danger);
+  font-size: 0.9rem;
 }

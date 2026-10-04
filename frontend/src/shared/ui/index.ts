@@ -34,4 +34,5 @@ export {
   IconClose,
   IconTrash,
   IconBulb,
+  IconWarning,
 } from './icons';

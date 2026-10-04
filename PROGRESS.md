@@ -778,3 +778,9 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - QuizRunner: sai còn lượt → viền ô nhập đỏ + rung (tắt khi prefers-reduced-motion) + bôi chọn để gõ đè + "Chưa đúng. Còn k lần"; chốt → khối phản hồi nghĩa→chip→ví dụ rồi đếm ngược. Nút "Gợi ý (Tab)" (IconBulb) thay "Bỏ qua".
 - QuizResult: ghi chú ✓ / ✓ lần n / ✗ xem đáp án / ✗ sai 3 lần (GradedQuizItem thêm attemptNo/usedHint tùy chọn).
 - Kiểm: typecheck 0 lỗi · test 165/165 · lint 0 lỗi (2 cảnh báo cũ) · build OK (150 modules).
+
+## [Phiên mới] Phần 7A — Chống trùng tên thư mục cùng cấp + hiển thị đường dẫn ✅
+- `entities/folder/model/path.ts` (thuần, có test): normalizeFolderName, isFolderNameTaken, findDuplicateSiblingIds, compareFolders (folder-tree dùng lại), folderPath, folderOptions.
+- Chặn trùng tên khi tạo gốc / thêm con / đổi tên / kéo-thả khác cha (HỦY + báo ngay ô nhập hoặc role="alert" khi kéo-thả); thư mục cũ trùng tên hiện ⚠ (IconWarning). KHÔNG ràng buộc BE/DB.
+- Chip "Đang chọn" + select "Thư mục đích" (import) dùng đường dẫn đầy đủ, thứ tự DFS (cha trước con). Thêm test `folder-path` (14 ca).
+- Kiểm: typecheck 0 lỗi · test 179/179 · lint 0 lỗi (2 cảnh báo cũ) · build OK (151 modules).

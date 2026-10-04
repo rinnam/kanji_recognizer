@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { findDuplicateSiblingIds } from '../../../entities/folder';
 import {
   getAllVocabulariesLocal,
   selectWordsInScope,
@@ -26,6 +27,8 @@ export function FolderTree({ selectedId, onSelect }: FolderTreeProps): ReactElem
   const [newName, setNewName] = useState('');
   const [rootOver, setRootOver] = useState(false);
   const [vocab, setVocab] = useState<LocalVocabulary[]>([]);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [treeAlert, setTreeAlert] = useState<string | null>(null);
 
   // Nạp từ vựng còn sống để tính badge; nghe thay đổi dữ liệu để số luôn khớp Overview.
   useEffect(() => {
@@ -51,15 +54,28 @@ export function FolderTree({ selectedId, onSelect }: FolderTreeProps): ReactElem
     return map;
   }, [api.folders, vocab]);
   const total = vocab.length;
+  // Thư mục cũ trùng tên anh em cùng cấp (dữ liệu trước ràng buộc) → đánh dấu ⚠ (không tự sửa).
+  const duplicateIds = useMemo(() => findDuplicateSiblingIds(api.folders), [api.folders]);
 
   if (api.status === 'loading') return <LoadingState label="Đang tải thư mục…" />;
   if (api.status === 'error') {
     return <ErrorState message={api.error ?? undefined} onRetry={() => void api.reload()} />;
   }
 
-  const addRoot = (): void => {
-    void api.create(newName, null);
-    setNewName('');
+  const addRoot = async (): Promise<void> => {
+    const result = await api.create(newName, null);
+    if (result.ok) {
+      setNewName('');
+      setAddError(null);
+    } else {
+      setAddError(result.error ?? null);
+    }
+  };
+
+  // Kéo–thả vào một thư mục/gốc: nếu trùng tên cùng cấp thì HỦY và báo role="alert" trong cây.
+  const handleMoveInto = async (draggedId: string, parentId: string | null): Promise<void> => {
+    const result = await api.moveInto(draggedId, parentId);
+    setTreeAlert(result.ok ? null : result.error ?? null);
   };
 
   return (
@@ -85,6 +101,12 @@ export function FolderTree({ selectedId, onSelect }: FolderTreeProps): ReactElem
       <div className="kn-ftree__scroll">
         <p className="kn-ftree__section">CÂY THƯ MỤC</p>
 
+        {treeAlert !== null ? (
+          <p className="kn-ftree__alert" role="alert">
+            {treeAlert}
+          </p>
+        ) : null}
+
         <div
           className={
             rootOver ? 'kn-ftree__root-drop kn-ftree__root-drop--over' : 'kn-ftree__root-drop'
@@ -98,7 +120,7 @@ export function FolderTree({ selectedId, onSelect }: FolderTreeProps): ReactElem
             event.preventDefault();
             setRootOver(false);
             const id = event.dataTransfer.getData(FOLDER_DRAG_MIME);
-            if (id !== '') void api.moveInto(id, null);
+            if (id !== '') void handleMoveInto(id, null);
           }}
         >
           Kéo vào đây để đưa ra thư mục gốc
@@ -117,6 +139,8 @@ export function FolderTree({ selectedId, onSelect }: FolderTreeProps): ReactElem
                 selectedId={selectedId}
                 onSelect={onSelect}
                 counts={counts}
+                duplicateIds={duplicateIds}
+                onMoveInto={handleMoveInto}
               />
             ))}
           </ul>
@@ -127,18 +151,26 @@ export function FolderTree({ selectedId, onSelect }: FolderTreeProps): ReactElem
         className="kn-ftree__add"
         onSubmit={(event) => {
           event.preventDefault();
-          addRoot();
+          void addRoot();
         }}
       >
         <Input
           aria-label="Tên thư mục gốc mới"
           placeholder="Thư mục mới…"
           value={newName}
-          onChange={(event) => setNewName(event.target.value)}
+          onChange={(event) => {
+            setNewName(event.target.value);
+            setAddError(null);
+          }}
         />
         <Button type="submit" variant="primary" disabled={newName.trim() === ''}>
           Thêm
         </Button>
+        {addError !== null ? (
+          <p className="kn-ftree__error" role="alert">
+            {addError}
+          </p>
+        ) : null}
       </form>
     </div>
   );

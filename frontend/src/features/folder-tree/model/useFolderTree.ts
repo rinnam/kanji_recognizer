@@ -4,6 +4,7 @@ import {
   getFolderLocal,
   putFolderLocal,
   putFoldersLocal,
+  isFolderNameTaken,
   type LocalFolder,
 } from '../../../entities/folder';
 import { getAllVocabulariesLocal } from '../../../entities/vocabulary';
@@ -23,22 +24,40 @@ import {
 
 type Status = 'loading' | 'error' | 'ready';
 
+/** Kết quả thao tác thư mục: `ok=false` kèm `error` khi bị chặn (vd trùng tên cùng cấp). */
+export interface FolderOpResult {
+  ok: boolean;
+  error?: string;
+}
+
 export interface FolderTreeApi {
   folders: LocalFolder[];
   tree: FolderTreeNode[];
   status: Status;
   error: string | null;
   reload: () => Promise<void>;
-  create: (name: string, parentId: string | null) => Promise<void>;
-  rename: (id: string, name: string) => Promise<void>;
+  create: (name: string, parentId: string | null) => Promise<FolderOpResult>;
+  rename: (id: string, name: string) => Promise<FolderOpResult>;
   remove: (id: string) => Promise<void>;
   /** Dry-run: số liệu xóa dây chuyền (F/V/K) để hiển thị hộp xác nhận, KHÔNG ghi gì. */
   planRemove: (id: string) => Promise<FolderCascadeCounts>;
-  moveInto: (draggedId: string, parentId: string | null) => Promise<void>;
+  moveInto: (draggedId: string, parentId: string | null) => Promise<FolderOpResult>;
   moveBefore: (draggedId: string, beforeId: string) => Promise<void>;
 }
 
 const READ_ERROR = 'Không đọc được thư mục.';
+const ROOT_LABEL = 'Gốc';
+
+/** Thông báo ngắn khi trùng tên cùng cấp — hiện ngay chỗ nhập hoặc trong cây khi kéo–thả. */
+function duplicateMessage(
+  folders: LocalFolder[],
+  name: string,
+  parentId: string | null,
+): string {
+  const parentName =
+    parentId === null ? ROOT_LABEL : folders.find((folder) => folder.id === parentId)?.name ?? ROOT_LABEL;
+  return `Đã có thư mục «${name}» trong «${parentName}»`;
+}
 
 /** Quản lý cây thư mục local-first (đọc/ghi IndexedDB qua entities/folder). */
 export function useFolderTree(): FolderTreeApi {
@@ -86,9 +105,12 @@ export function useFolderTree(): FolderTreeApi {
   }, [fetchLiving]);
 
   const create = useCallback(
-    async (name: string, parentId: string | null): Promise<void> => {
+    async (name: string, parentId: string | null): Promise<FolderOpResult> => {
       const trimmed = name.trim();
-      if (trimmed === '') return;
+      if (trimmed === '') return { ok: false };
+      if (isFolderNameTaken(folders, parentId, trimmed)) {
+        return { ok: false, error: duplicateMessage(folders, trimmed, parentId) };
+      }
       const now = nowIso();
       const siblings = siblingsOf(folders, parentId);
       const folder: LocalFolder = {
@@ -103,21 +125,26 @@ export function useFolderTree(): FolderTreeApi {
       await putFolderLocal(db, folder);
       emitDataChanged();
       await reload();
+      return { ok: true };
     },
     [db, folders, reload],
   );
 
   const rename = useCallback(
-    async (id: string, name: string): Promise<void> => {
+    async (id: string, name: string): Promise<FolderOpResult> => {
       const trimmed = name.trim();
-      if (trimmed === '') return;
+      if (trimmed === '') return { ok: false };
       const existing = await getFolderLocal(db, id);
-      if (existing === undefined) return;
+      if (existing === undefined) return { ok: false };
+      if (isFolderNameTaken(folders, existing.parentId, trimmed, id)) {
+        return { ok: false, error: duplicateMessage(folders, trimmed, existing.parentId) };
+      }
       await putFolderLocal(db, { ...existing, name: trimmed, updatedAt: nowIso() });
       emitDataChanged();
       await reload();
+      return { ok: true };
     },
-    [db, reload],
+    [db, folders, reload],
   );
 
   // Xóa mềm DÂY CHUYỀN (tombstone) để đồng bộ lan truyền; KHÔNG hard-delete (tránh server hồi
@@ -178,8 +205,13 @@ export function useFolderTree(): FolderTreeApi {
   );
 
   const moveInto = useCallback(
-    async (draggedId: string, parentId: string | null): Promise<void> => {
+    async (draggedId: string, parentId: string | null): Promise<FolderOpResult> => {
+      const dragged = folders.find((folder) => folder.id === draggedId);
+      if (dragged !== undefined && isFolderNameTaken(folders, parentId, dragged.name, draggedId)) {
+        return { ok: false, error: duplicateMessage(folders, dragged.name.trim(), parentId) };
+      }
       await applyPatches(reparentAppend(folders, draggedId, parentId));
+      return { ok: true };
     },
     [applyPatches, folders],
   );

@@ -66,6 +66,8 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  max-width: 100%;
+  min-width: 0;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
   background: var(--kn-bg);
@@ -74,7 +76,16 @@
   font-size: 0.82rem;
 }
 
+/* Đường dẫn đầy đủ: cắt ellipsis khi hẹp (title giữ bản đầy đủ để hover xem) */
+.kn-ws__scope-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .kn-ws__scope-chip-icon {
+  flex: none;
   font-size: 0.95rem;
   color: var(--kn-text-muted);
 }

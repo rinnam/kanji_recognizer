@@ -197,3 +197,13 @@ export function IconBulb(props: IconProps): ReactElement {
     </Svg>
   );
 }
+
+export function IconWarning(props: IconProps): ReactElement {
+  return (
+    <Svg {...props}>
+      <path d="m10.29 3.86-8.18 14a2 2 0 0 0 1.71 3h16.36a2 2 0 0 0 1.71-3l-8.18-14a2 2 0 0 0-3.42 0Z" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </Svg>
+  );
+}

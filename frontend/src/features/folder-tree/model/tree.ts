@@ -1,4 +1,5 @@
 import type { LocalFolder } from '../../../entities/folder';
+import { compareFolders } from '../../../entities/folder/model/path';
 
 /** Khoảng cách giữa các giá trị order (chừa chỗ chèn giữa mà không phải đánh lại số). */
 export const ORDER_STEP = 1000;
@@ -33,16 +34,6 @@ export function effectiveParentId(
   folder: LocalFolder,
 ): string | null {
   return folder.parentId !== null && byId.has(folder.parentId) ? folder.parentId : null;
-}
-
-/** So sánh thứ tự hiển thị: order tăng dần (null xuống cuối), rồi createdAt tăng dần. */
-function compareFolders(a: LocalFolder, b: LocalFolder): number {
-  const ao = a.order ?? Number.POSITIVE_INFINITY;
-  const bo = b.order ?? Number.POSITIVE_INFINITY;
-  if (ao !== bo) return ao - bo;
-  if (a.createdAt < b.createdAt) return -1;
-  if (a.createdAt > b.createdAt) return 1;
-  return 0;
 }
 
 /** Danh sách folder con (còn sống) của một parent, đã sắp thứ tự. */

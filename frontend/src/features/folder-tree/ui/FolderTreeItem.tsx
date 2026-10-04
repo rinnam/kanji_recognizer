@@ -1,9 +1,11 @@
 import { useState, type ReactElement } from 'react';
-import { Button, Input, Modal } from '../../../shared/ui';
+import { Button, IconWarning, Input, Modal } from '../../../shared/ui';
 import type { FolderTreeApi } from '../model/useFolderTree';
 import type { FolderCascadeCounts } from '../model/cascade';
 import type { FolderTreeNode } from '../model/tree';
 import { FOLDER_DRAG_MIME } from './FolderTree';
+
+const DUPLICATE_HINT = 'Trùng tên với thư mục cùng cấp, hãy đổi tên';
 
 interface FolderTreeItemProps {
   node: FolderTreeNode;
@@ -12,6 +14,10 @@ interface FolderTreeItemProps {
   selectedId: string | null;
   onSelect: (id: string | null, name: string | null) => void;
   counts: Map<string, number>;
+  /** id các thư mục đang trùng tên anh em cùng cấp (hiển thị ⚠). */
+  duplicateIds: Set<string>;
+  /** Kéo–thả vào thư mục này: do cha xử lý để báo lỗi trùng tên tập trung. */
+  onMoveInto: (draggedId: string, parentId: string | null) => Promise<void>;
 }
 
 type EditMode = 'none' | 'rename' | 'add-child';
@@ -31,15 +37,19 @@ export function FolderTreeItem({
   selectedId,
   onSelect,
   counts,
+  duplicateIds,
+  onMoveInto,
 }: FolderTreeItemProps): ReactElement {
   const { folder, children } = node;
   const count = counts.get(folder.id) ?? 0;
   const [expanded, setExpanded] = useState(true);
   const [edit, setEdit] = useState<EditMode>('none');
   const [draft, setDraft] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [planCounts, setPlanCounts] = useState<FolderCascadeCounts | null>(null);
   const [drop, setDrop] = useState<DropHint>('none');
+  const isDuplicate = duplicateIds.has(folder.id);
 
   const openDeleteConfirm = (): void => {
     setPlanCounts(null);
@@ -50,11 +60,27 @@ export function FolderTreeItem({
   const hasChildren = children.length > 0;
   const selected = selectedId === folder.id;
 
-  const submitEdit = (): void => {
-    if (edit === 'rename') void api.rename(folder.id, draft);
-    else if (edit === 'add-child') void api.create(draft, folder.id);
+  const closeEdit = (): void => {
     setEdit('none');
     setDraft('');
+    setEditError(null);
+  };
+
+  const openEdit = (mode: EditMode, initial: string): void => {
+    setDraft(initial);
+    setEditError(null);
+    setEdit(mode);
+  };
+
+  // Lưu đổi tên / thêm con; trùng tên cùng cấp → GIỮ form mở và báo lỗi ngay dưới ô nhập.
+  const submitEdit = async (): Promise<void> => {
+    if (edit === 'none') return;
+    const result =
+      edit === 'rename'
+        ? await api.rename(folder.id, draft)
+        : await api.create(draft, folder.id);
+    if (result.ok) closeEdit();
+    else setEditError(result.error ?? null);
   };
 
   const readDragId = (event: React.DragEvent): string =>
@@ -99,7 +125,7 @@ export function FolderTreeItem({
           event.preventDefault();
           setDrop('none');
           const id = readDragId(event);
-          if (id !== '') void api.moveInto(id, folder.id);
+          if (id !== '') void onMoveInto(id, folder.id);
         }}
       >
         <button
@@ -120,6 +146,11 @@ export function FolderTreeItem({
         >
           {folder.name}
         </button>
+        {isDuplicate ? (
+          <span className="kn-ftree__warn" role="img" aria-label={DUPLICATE_HINT} title={DUPLICATE_HINT}>
+            <IconWarning />
+          </span>
+        ) : null}
         <span className="kn-ftree__badge" aria-label={`${count} từ`}>
           {count}
         </span>
@@ -128,10 +159,7 @@ export function FolderTreeItem({
             type="button"
             className="kn-ftree__icon"
             aria-label={`Thêm thư mục con trong ${folder.name}`}
-            onClick={() => {
-              setDraft('');
-              setEdit('add-child');
-            }}
+            onClick={() => openEdit('add-child', '')}
           >
             ＋
           </button>
@@ -139,10 +167,7 @@ export function FolderTreeItem({
             type="button"
             className="kn-ftree__icon"
             aria-label={`Đổi tên ${folder.name}`}
-            onClick={() => {
-              setDraft(folder.name);
-              setEdit('rename');
-            }}
+            onClick={() => openEdit('rename', folder.name)}
           >
             ✎
           </button>
@@ -163,21 +188,29 @@ export function FolderTreeItem({
           style={{ paddingLeft: `${depth * 1.1 + 1.5}rem` }}
           onSubmit={(event) => {
             event.preventDefault();
-            submitEdit();
+            void submitEdit();
           }}
         >
           <Input
             autoFocus
             aria-label={edit === 'rename' ? 'Tên mới' : 'Tên thư mục con'}
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setEditError(null);
+            }}
           />
           <Button type="submit" variant="primary" disabled={draft.trim() === ''}>
             Lưu
           </Button>
-          <Button type="button" onClick={() => setEdit('none')}>
+          <Button type="button" onClick={closeEdit}>
             Hủy
           </Button>
+          {editError !== null ? (
+            <p className="kn-ftree__error" role="alert">
+              {editError}
+            </p>
+          ) : null}
         </form>
       ) : null}
 
@@ -192,6 +225,8 @@ export function FolderTreeItem({
               selectedId={selectedId}
               onSelect={onSelect}
               counts={counts}
+              duplicateIds={duplicateIds}
+              onMoveInto={onMoveInto}
             />
           ))}
         </ul>

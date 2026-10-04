@@ -1,5 +1,5 @@
 import { useMemo, useState, type ChangeEvent, type ReactElement } from 'react';
-import type { LocalFolder } from '../../../entities/folder';
+import { folderOptions, type LocalFolder } from '../../../entities/folder';
 import { Button, Field, Modal } from '../../../shared/ui';
 import {
   buildTemplateCsv,
@@ -121,6 +121,8 @@ export function ImportModal({
   const [targetFolderId, setTargetFolderId] = useState<string | null>(defaultFolderId);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
+  // Thư mục đích: nhãn là đường dẫn đầy đủ, thứ tự DFS (cha ngay trước con) — bỏ danh sách phẳng cũ.
+  const folderChoices = useMemo(() => folderOptions(folders), [folders]);
 
   // "Nhập tiếp": xóa trạng thái, quay về bước Nguồn. Hộp thoại được MOUNT MỚI mỗi lần mở
   // (parent render có điều kiện) nên KHÔNG cần effect đồng bộ — tránh gọi setState trong
@@ -366,9 +368,9 @@ export function ImportModal({
                     }
                   >
                     <option value="">Tất cả từ vựng (không gán thư mục)</option>
-                    {folders.map((folder) => (
-                      <option key={folder.id} value={folder.id}>
-                        {folder.name}
+                    {folderChoices.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
                       </option>
                     ))}
                   </select>

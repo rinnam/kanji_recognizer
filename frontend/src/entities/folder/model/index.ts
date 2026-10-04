@@ -7,3 +7,12 @@ export {
   deleteFolderLocal,
   countFolders,
 } from './folder.local';
+export {
+  normalizeFolderName,
+  isFolderNameTaken,
+  findDuplicateSiblingIds,
+  compareFolders,
+  folderPath,
+  folderOptions,
+} from './path';
+export type { FolderOption } from './path';

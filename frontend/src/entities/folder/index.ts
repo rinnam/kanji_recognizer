@@ -8,6 +8,15 @@ export {
   countFolders,
 } from './model';
 export {
+  normalizeFolderName,
+  isFolderNameTaken,
+  findDuplicateSiblingIds,
+  compareFolders,
+  folderPath,
+  folderOptions,
+} from './model';
+export type { FolderOption } from './model';
+export {
   listFolders,
   getFolder,
   createFolder,
