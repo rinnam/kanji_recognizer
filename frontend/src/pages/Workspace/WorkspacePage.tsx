@@ -199,47 +199,47 @@ export function WorkspacePage(): ReactElement {
           {scopeLabel} ⌄
         </button>
 
+        {/* Thanh gộp (7F): tabs + chip "Đang chọn" ở TRÁI; phạm vi/nút hành động + gợi ý ở PHẢI. */}
         <div className="kn-ws__scope">
           <div className="kn-ws__scope-left">
+            <div className="kn-ws__tabs" role="tablist" aria-label="Chế độ học">
+              {TAB_META.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === item.id}
+                  className={tab === item.id ? 'kn-ws__tab kn-ws__tab--active' : 'kn-ws__tab'}
+                  onClick={() => setTab(item.id)}
+                >
+                  <span className="kn-ws__tab-icon" aria-hidden="true">
+                    {TAB_ICON[item.id]}
+                  </span>
+                  {item.label}
+                </button>
+              ))}
+            </div>
             <span className="kn-ws__scope-label">Đang chọn:</span>
             <span className="kn-ws__scope-chip" title={scopePath}>
               <IconFolder className="kn-ws__scope-chip-icon" />
               <span className="kn-ws__scope-path">{scopePath}</span>
             </span>
           </div>
-          {tab === 'overview' ? <ToolbarSlotTarget className="kn-ws__scope-actions" /> : null}
-          {tab === 'flashcard' || tab === 'quiz' ? (
-            <ScopeBar
-              variant="inline"
-              total={scopeTotal}
-              used={scopeUsed}
-              kind={scope.mode}
-              n={scope.n}
-              onKindChange={changeKind}
-              onNChange={changeN}
-            />
-          ) : null}
-        </div>
-
-        <div className="kn-ws__tabbar">
-          <div className="kn-ws__tabs" role="tablist" aria-label="Chế độ học">
-            {TAB_META.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={tab === item.id}
-                className={tab === item.id ? 'kn-ws__tab kn-ws__tab--active' : 'kn-ws__tab'}
-                onClick={() => setTab(item.id)}
-              >
-                <span className="kn-ws__tab-icon" aria-hidden="true">
-                  {TAB_ICON[item.id]}
-                </span>
-                {item.label}
-              </button>
-            ))}
+          <div className="kn-ws__scope-right">
+            {tab === 'overview' ? <ToolbarSlotTarget className="kn-ws__scope-actions" /> : null}
+            {tab === 'flashcard' || tab === 'quiz' ? (
+              <ScopeBar
+                variant="inline"
+                total={scopeTotal}
+                used={scopeUsed}
+                kind={scope.mode}
+                n={scope.n}
+                onKindChange={changeKind}
+                onNChange={changeN}
+              />
+            ) : null}
+            <p className="kn-ws__hint">{activeHint}</p>
           </div>
-          <p className="kn-ws__hint">{activeHint}</p>
         </div>
 
         <div className="kn-ws__panel">

@@ -807,7 +807,7 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - QuickAddForm: khi Thêm → classifyIncoming theo thư mục đang chọn (7B) rồi decideQuickAddAction. 'link' hiện 'Từ này đã có trong «…».' + nút 'Thêm vào «đường dẫn»' (gọi `useVocabulary.linkExisting` = linkVocabulary + emit MỘT lần, báo 'Đã gắn vào thư mục', xóa ô + focus ô Từ); 'blocked' báo lỗi; giữ IME-safe Enter. Overview truyền vocabs/folders/onLink.
 - Kiểm: typecheck 0 lỗi · test 207/207 · lint 0 lỗi (2 cảnh báo cũ) · build OK. Thêm `quick-add-action.test.ts` (5 ca). XEM MẮT: thêm từ đã có ở N3 khi đang chọn 'Ôn Thi' → nút 'Thêm vào «…»'; bấm xong từ ở cả hai thư mục, tổng số không tăng.
 
-## [Phiên mới] Phần 7F — Gộp/căn 2 thanh + popup xóa dùng portal ✅
+## [Phiên mới] Phần 7F — Gộp tab vào thanh "Đang chọn" + popup xóa dùng portal ✅
 - `Modal` portal ra `document.body`: nền phủ kín & z-index trên header/sidebar, không bị kẹt bởi transform của drawer sidebar (mobile); vẫn unmount khi đóng.
-- `.kn-ws__tabbar` thành hộp CÙNG kiểu `.kn-ws__scope` (viền/bo/nền `--kn-surface`): hai thanh "Đang chọn" (a) & tab (b) thẳng mép trái/phải, cách 12px (gap `.kn-ws__content`); viên tab + gợi ý bên phải giữ nguyên.
-- Kiểm: typecheck 0 lỗi · test 207/207 · lint 0 lỗi (2 cảnh báo cũ) · build OK (154 modules). Chỉ sửa CSS + portal, không thêm test. XEM MẮT: mở popup xóa thư mục khi drawer mở (mobile) nền phủ kín; hai thanh thẳng mép.
+- Đưa viên tab [Tổng quan|Flashcard|Quiz] LÊN cùng thanh `.kn-ws__scope` ("Đang chọn") = MỘT thanh gộp: TRÁI = tabs + chip đường dẫn; PHẢI (`.kn-ws__scope-right`) = phạm vi (ScopeBar inline)/nút hành động + gợi ý nhỏ. Bỏ thanh tab riêng; nội dung cách thanh 12px.
+- Kiểm: typecheck 0 lỗi · test 207/207 · lint 0 lỗi (2 cảnh báo cũ) · build OK (154 modules). Chỉ sửa CSS/TSX + portal, không thêm test. XEM MẮT: thanh gộp 1 dòng (tabs+chip trái · phạm vi/nút+gợi ý phải); popup xóa khi drawer mở (mobile) nền phủ kín.
