@@ -14,6 +14,7 @@ import { findDuplicate } from './dedupe';
 import { assembleImportWrites } from './import';
 import type { PreviewRow } from './import';
 import { planWordRemoval, type WordRemovalCounts } from './word-removal';
+import { linkVocabulary } from './branch-dedupe';
 
 type Status = 'loading' | 'error' | 'ready';
 
@@ -51,6 +52,7 @@ export interface VocabularyApi {
     ids: readonly string[],
     scopeFolderIds: ReadonlySet<string> | null,
   ) => Promise<WordRemovalCounts>;
+  linkExisting: (existingId: string, folderId: string) => Promise<void>;
   importNew: (previews: PreviewRow[], folderId: string | null) => Promise<ImportWriteResult>;
 }
 
@@ -199,6 +201,19 @@ export function useVocabulary(): VocabularyApi {
     [all, db, reload],
   );
 
+  // Gắn từ CÓ SẴN vào một thư mục (Phần 7E): hợp folderIds không trùng + updatedAt=now (giữ SRS),
+  // ghi một bản ghi + emit change-bus MỘT lần rồi nạp lại. Từ đã tombstone / không tồn tại → bỏ qua.
+  const linkExisting = useCallback(
+    async (existingId: string, folderId: string): Promise<void> => {
+      const existing = await getVocabularyLocal(db, existingId);
+      if (existing === undefined || existing.deletedAt !== null) return;
+      await putVocabularyLocal(db, linkVocabulary(existing, folderId, nowIso()));
+      emitDataChanged();
+      await reload();
+    },
+    [db, reload],
+  );
+
   // Nhập hàng loạt: GHI từ MỚI + CẬP NHẬT từ 'Gắn' (linkVocabulary) trong MỘT transaction
   // IndexedDB, phát đổi dữ liệu MỘT lần rồi nạp lại. Từ 'Gắn' chỉ thêm thư mục đích vào
   // folderIds + updatedAt = now (không đụng SRS). `createdAt` của từ mới tăng dần theo thứ tự.
@@ -214,5 +229,16 @@ export function useVocabulary(): VocabularyApi {
     [all, db, reload],
   );
 
-  return { all, status, error, reload, quickAdd, remove, removeMany, removeInScope, importNew };
+  return {
+    all,
+    status,
+    error,
+    reload,
+    quickAdd,
+    remove,
+    removeMany,
+    removeInScope,
+    linkExisting,
+    importNew,
+  };
 }

@@ -1,14 +1,21 @@
 import { useState, type KeyboardEvent, type ReactElement } from 'react';
+import { folderPath, type LocalFolder } from '../../../entities/folder';
+import type { LocalVocabulary } from '../../../entities/vocabulary';
 import { Button, Field, Input } from '../../../shared/ui';
 import type { JlptLevel } from '../../../shared/api';
+import { classifyIncoming } from '../model/branch-dedupe';
 import { normalizeQuickAdd } from '../model/normalize';
+import { decideQuickAddAction } from '../model/quick-add-action';
 import type { QuickAddInput, QuickAddResult } from '../model/useVocabulary';
 
 const JLPT_LEVELS: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];
 
 interface QuickAddFormProps {
   folderId: string | null;
+  vocabs: LocalVocabulary[];
+  folders: LocalFolder[];
   onAdd: (input: QuickAddInput) => Promise<QuickAddResult>;
+  onLink: (existingId: string, folderId: string) => Promise<void>;
 }
 
 type FormMessage = { kind: 'error' | 'success'; text: string };
@@ -23,7 +30,13 @@ function isComposing(event: KeyboardEvent): boolean {
  * exampleMeaning/jlpt/note). Chuẩn hóa (trim, rỗng -> null) ở hàm thuần `normalizeQuickAdd`;
  * chống trùng word+reading ở tầng model. Thêm xong: xóa ô chữ, GIỮ JLPT, focus lại ô Từ.
  */
-export function QuickAddForm({ folderId, onAdd }: QuickAddFormProps): ReactElement {
+export function QuickAddForm({
+  folderId,
+  vocabs,
+  folders,
+  onAdd,
+  onLink,
+}: QuickAddFormProps): ReactElement {
   const [word, setWord] = useState('');
   const [reading, setReading] = useState('');
   const [sino, setSino] = useState('');
@@ -33,6 +46,10 @@ export function QuickAddForm({ folderId, onAdd }: QuickAddFormProps): ReactEleme
   const [jlpt, setJlpt] = useState<JlptLevel | ''>('');
   const [note, setNote] = useState('');
   const [message, setMessage] = useState<FormMessage | null>(null);
+  // Phần 7E: khi từ đã có ở nhánh khác → giữ lời mời GẮN vào thư mục đang chọn (chưa ghi gì).
+  const [pendingLink, setPendingLink] = useState<{ existingId: string; existingPath: string } | null>(
+    null,
+  );
 
   // Xóa các ô CHỮ nhưng GIỮ lựa chọn JLPT để nhập liên tục cùng cấp độ.
   const clearText = (): void => {
@@ -43,6 +60,11 @@ export function QuickAddForm({ folderId, onAdd }: QuickAddFormProps): ReactEleme
     setExample('');
     setExampleMeaning('');
     setNote('');
+  };
+
+  // Đưa con trỏ về ô Từ để nhập liên tục sau khi thêm/gắn thành công.
+  const focusWord = (): void => {
+    (document.getElementById('qa-word') as HTMLInputElement | null)?.focus();
   };
 
   const submit = async (): Promise<void> => {
@@ -57,17 +79,48 @@ export function QuickAddForm({ folderId, onAdd }: QuickAddFormProps): ReactEleme
       note,
     });
     if (normalized.word === '' || normalized.meaning === '') {
+      setPendingLink(null);
       setMessage({ kind: 'error', text: 'Cần nhập ít nhất Từ và Nghĩa.' });
+      return;
+    }
+    // Phần 7E: phân loại theo nhánh của thư mục đang chọn TRƯỚC khi tạo mới.
+    const action = decideQuickAddAction(
+      classifyIncoming({
+        incoming: { word: normalized.word, reading: normalized.reading },
+        targetFolderId: folderId,
+        vocabs,
+        folders,
+      }),
+    );
+    if (action.kind === 'link') {
+      setMessage(null);
+      setPendingLink({ existingId: action.existingId, existingPath: action.existingPath });
+      return;
+    }
+    if (action.kind === 'blocked') {
+      setPendingLink(null);
+      setMessage({ kind: 'error', text: action.message });
       return;
     }
     const result = await onAdd({ ...normalized, folderId });
     if (result.ok) {
       clearText();
+      setPendingLink(null);
       setMessage({ kind: 'success', text: `Đã thêm "${result.vocabulary.word}".` });
-      (document.getElementById('qa-word') as HTMLInputElement | null)?.focus();
+      focusWord();
     } else {
       setMessage({ kind: 'error', text: result.message });
     }
+  };
+
+  // Bấm nút trong lời mời: GẮN từ có sẵn vào thư mục đang chọn, rồi xóa ô như khi thêm thành công.
+  const confirmLink = async (): Promise<void> => {
+    if (pendingLink === null || folderId === null) return;
+    await onLink(pendingLink.existingId, folderId);
+    clearText();
+    setPendingLink(null);
+    setMessage({ kind: 'success', text: 'Đã gắn vào thư mục.' });
+    focusWord();
   };
 
   // Ô MỘT dòng: Enter → submit qua onSubmit của form; chặn submit khi đang gõ IME.
@@ -99,7 +152,10 @@ export function QuickAddForm({ folderId, onAdd }: QuickAddFormProps): ReactEleme
           <Input
             id="qa-word"
             value={word}
-            onChange={(event) => setWord(event.target.value)}
+            onChange={(event) => {
+              setWord(event.target.value);
+              setPendingLink(null);
+            }}
             onKeyDown={onLineKeyDown}
           />
         </Field>
@@ -107,7 +163,10 @@ export function QuickAddForm({ folderId, onAdd }: QuickAddFormProps): ReactEleme
           <Input
             id="qa-reading"
             value={reading}
-            onChange={(event) => setReading(event.target.value)}
+            onChange={(event) => {
+              setReading(event.target.value);
+              setPendingLink(null);
+            }}
             onKeyDown={onLineKeyDown}
           />
         </Field>
@@ -185,6 +244,14 @@ export function QuickAddForm({ folderId, onAdd }: QuickAddFormProps): ReactEleme
         </div>
       </div>
 
+      {pendingLink !== null ? (
+        <p className="kn-qadd__msg" role="status">
+          Từ này đã có trong «{pendingLink.existingPath}».{' '}
+          <Button type="button" onClick={() => void confirmLink()}>
+            Thêm vào «{folderId === null ? '' : folderPath(folders, folderId)}»
+          </Button>
+        </p>
+      ) : null}
       {message !== null ? (
         <p
           className={

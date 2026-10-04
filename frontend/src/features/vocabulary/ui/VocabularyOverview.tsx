@@ -307,7 +307,15 @@ export function VocabularyOverview({
         </Button>
         <Button onClick={() => setImportOpen(true)}>Nhập từ file / dán</Button>
       </ToolbarSlot>
-      {quickAddOpen ? <QuickAddForm folderId={folderId} onAdd={api.quickAdd} /> : null}
+      {quickAddOpen ? (
+        <QuickAddForm
+          folderId={folderId}
+          vocabs={api.all}
+          folders={folders}
+          onAdd={api.quickAdd}
+          onLink={api.linkExisting}
+        />
+      ) : null}
       {api.status === 'ready' ? (
         <div className="kn-overview__listbar">
           <div className="kn-overview__sort" role="group" aria-label="Sắp xếp">
