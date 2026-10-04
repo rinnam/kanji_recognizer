@@ -94,6 +94,25 @@ export function folderPath(folders: LocalFolder[], id: string, sep = ' › '): s
   return names.reverse().join(sep);
 }
 
+/**
+ * Thư mục GỐC (cao nhất) của `id`: đi lên theo `parentId` cho tới khi hết cha.
+ * Chống vòng lặp (gặp lại id đã thăm thì dừng). `id` lạ hoặc cha không tồn tại → trả về chính nó.
+ * Dùng toàn bộ folders (kể cả tombstone) để leo đúng theo quan hệ cha-con đã lưu.
+ */
+export function rootFolderId(folders: readonly LocalFolder[], id: string): string {
+  const byId = new Map(folders.map((folder) => [folder.id, folder] as const));
+  const seen = new Set<string>();
+  let current = byId.get(id);
+  if (current === undefined) return id;
+  while (current.parentId !== null && !seen.has(current.id)) {
+    seen.add(current.id);
+    const parent = byId.get(current.parentId);
+    if (parent === undefined) break;
+    current = parent;
+  }
+  return current.id;
+}
+
 /** Một dòng chọn thư mục: id, nhãn = đường dẫn đầy đủ, độ sâu (để thụt lề nếu cần). */
 export interface FolderOption {
   id: string;

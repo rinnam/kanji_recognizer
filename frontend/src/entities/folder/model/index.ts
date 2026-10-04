@@ -13,6 +13,7 @@ export {
   findDuplicateSiblingIds,
   compareFolders,
   folderPath,
+  rootFolderId,
   folderOptions,
 } from './path';
 export type { FolderOption } from './path';

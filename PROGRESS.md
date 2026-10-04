@@ -784,3 +784,9 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - Chặn trùng tên khi tạo gốc / thêm con / đổi tên / kéo-thả khác cha (HỦY + báo ngay ô nhập hoặc role="alert" khi kéo-thả); thư mục cũ trùng tên hiện ⚠ (IconWarning). KHÔNG ràng buộc BE/DB.
 - Chip "Đang chọn" + select "Thư mục đích" (import) dùng đường dẫn đầy đủ, thứ tự DFS (cha trước con). Thêm test `folder-path` (14 ca).
 - Kiểm: typecheck 0 lỗi · test 179/179 · lint 0 lỗi (2 cảnh báo cũ) · build OK (151 modules).
+
+## [Phiên mới] Phần 7B — Trùng từ theo nhánh + gắn từ có sẵn (hàm thuần, chưa gắn UI) ✅
+- `entities/folder/model/path.ts`: thêm `rootFolderId` (leo parentId tới gốc, chống vòng lặp; id lạ trả chính nó) + export qua barrel.
+- `features/vocabulary/model/branch-dedupe.ts`: `classifyIncoming` (new / link / skip theo nhánh của rootFolderId: in-branch | exists | in-file) + `linkVocabulary` (gộp folderIds, updatedAt=now, giữ nguyên SRS & bản cũ).
+- Thêm test `branch-dedupe` (12 ca): mới / link (nhánh khác, chưa gán) / skip in-branch (anh em, lồng sâu) / exists / in-file / từ đã xóa không tính.
+- Kiểm: typecheck 0 lỗi · test 191/191 · lint 0 lỗi (2 cảnh báo cũ) · build OK (151 modules).
