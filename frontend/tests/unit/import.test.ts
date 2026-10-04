@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dedupeKey } from '../../src/features/vocabulary/model/dedupe';
+import type { LocalVocabulary } from '../../src/entities/vocabulary';
 import {
   buildPreview,
   buildTemplateCsv,
@@ -122,8 +122,31 @@ describe('import/normalizeJlpt', () => {
   });
 });
 
+function vocab(word: string, reading: string | null, folderIds: string[] = []): LocalVocabulary {
+  return {
+    id: `v-${word}`,
+    word,
+    meaning: 'nghĩa',
+    reading,
+    sinoVietnamese: null,
+    example: null,
+    exampleMeaning: null,
+    note: null,
+    tags: [],
+    jlptLevel: null,
+    srsInterval: null,
+    srsRepetition: null,
+    srsEaseFactor: null,
+    srsNextReview: null,
+    folderIds,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    deletedAt: null,
+  };
+}
+
 describe('import/buildPreview', () => {
-  it('phân loại Mới / Trùng (DB + trong file) / Lỗi + cảnh báo JLPT', () => {
+  it('phân loại Mới / Trùng (trong file + đã có) / Lỗi + cảnh báo JLPT', () => {
     const parsed = [
       parsedRow({ line: 2, word: '水', reading: 'みず', meaning: 'nước', jlpt: 'N5' }),
       parsedRow({ line: 3, word: '水', reading: 'みず', meaning: 'trùng trong file' }),
@@ -131,19 +154,25 @@ describe('import/buildPreview', () => {
       parsedRow({ line: 5, word: '木', reading: 'き', meaning: 'cây', jlpt: 'xx' }),
       parsedRow({ line: 6, word: '火', reading: 'ひ', meaning: 'lửa' }),
     ];
-    const existing = new Set([dedupeKey('火', 'ひ')]);
-    const { rows, summary } = buildPreview(parsed, existing);
+    // Chưa chọn thư mục đích → từ đã có hiện 'Trùng (exists)'; không có hàng 'Gắn'.
+    const { rows, summary } = buildPreview(parsed, {
+      vocabs: [vocab('火', 'ひ')],
+      folders: [],
+      targetFolderId: null,
+    });
 
-    expect(summary).toEqual({ total: 5, new: 2, duplicate: 2, error: 1 });
+    expect(summary).toEqual({ total: 5, new: 2, link: 0, duplicate: 2, error: 1 });
     const byLine = Object.fromEntries(rows.map((r) => [r.line, r]));
     expect(byLine[2].status).toBe('new');
     expect(byLine[3].status).toBe('duplicate');
+    expect(byLine[3].dupReason).toBe('in-file');
     expect(byLine[4].status).toBe('error');
     expect(byLine[4].reason).toBe('Thiếu Từ');
     expect(byLine[5].status).toBe('new');
     expect(byLine[5].warnings).toHaveLength(1);
     expect(byLine[5].record.jlptLevel).toBeNull();
     expect(byLine[6].status).toBe('duplicate');
+    expect(byLine[6].dupReason).toBe('exists');
   });
 });
 

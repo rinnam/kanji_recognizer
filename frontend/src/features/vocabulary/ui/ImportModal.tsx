@@ -1,5 +1,6 @@
 import { useMemo, useState, type ChangeEvent, type ReactElement } from 'react';
-import { folderOptions, type LocalFolder } from '../../../entities/folder';
+import { folderOptions, folderPath, type LocalFolder } from '../../../entities/folder';
+import type { LocalVocabulary } from '../../../entities/vocabulary';
 import { Button, Field, Modal } from '../../../shared/ui';
 import {
   buildTemplateCsv,
@@ -16,7 +17,6 @@ import {
   parseCsv,
   parseMarkdownTable,
   type ColumnTarget,
-  type NormalizedImport,
   type PreviewRow,
 } from '../model/import';
 import './import.css';
@@ -26,8 +26,11 @@ interface ImportModalProps {
   onClose: () => void;
   folders: LocalFolder[];
   defaultFolderId: string | null;
-  existingKeys: ReadonlySet<string>;
-  onImport: (records: NormalizedImport[], folderId: string | null) => Promise<number>;
+  vocabs: LocalVocabulary[];
+  onImport: (
+    previews: PreviewRow[],
+    folderId: string | null,
+  ) => Promise<{ added: number; linked: number }>;
 }
 
 type Step = 'source' | 'preview' | 'result';
@@ -35,9 +38,12 @@ type FileStatus = 'idle' | 'reading' | 'error';
 
 interface ImportResult {
   added: number;
+  linked: number;
   duplicate: number;
   error: number;
   errors: PreviewRow[];
+  /** Đường dẫn thư mục đích (null nếu không gán) — để câu kết quả nêu nơi đã gắn. */
+  targetPath: string | null;
 }
 
 const PREVIEW_LIMIT = 50;
@@ -68,9 +74,23 @@ const TARGET_LABELS: Record<ColumnTarget, string> = {
 
 const STATUS_LABEL: Record<PreviewRow['status'], string> = {
   new: 'Mới',
-  duplicate: 'Trùng',
+  link: 'Gắn vào thư mục',
+  duplicate: 'Trùng (bỏ qua)',
   error: 'Lỗi',
 };
+
+/** Tooltip giải thích badge: 'Gắn vào thư mục' hoặc 'Trùng (bỏ qua)'. Khác → không tooltip. */
+function badgeTitle(row: PreviewRow): string | undefined {
+  if (row.status === 'link') {
+    return `Từ đã có trong «${row.existingPath ?? 'Chưa gán thư mục'}», sẽ gắn thêm vào thư mục đích (không tạo bản sao)`;
+  }
+  if (row.status === 'duplicate') {
+    return row.dupReason === 'in-file'
+      ? 'Trùng trong file'
+      : `Đã có trong nhánh «${row.existingPath ?? ''}»`;
+  }
+  return undefined;
+}
 
 /** Markdown khi có dòng ngăn kiểu `|---|` (khớp heuristic của parseMarkdownTable). */
 function looksLikeMarkdown(text: string): boolean {
@@ -106,7 +126,7 @@ export function ImportModal({
   onClose,
   folders,
   defaultFolderId,
-  existingKeys,
+  vocabs,
   onImport,
 }: ImportModalProps): ReactElement {
   const [step, setStep] = useState<Step>('source');
@@ -148,9 +168,9 @@ export function ImportModal({
 
   const { previewRows, summary } = useMemo(() => {
     const parsed = mapRowsToRecords(columns, mapping, hasHeader);
-    const built = buildPreview(parsed, existingKeys);
+    const built = buildPreview(parsed, { vocabs, folders, targetFolderId });
     return { previewRows: built.rows, summary: built.summary };
-  }, [columns, mapping, hasHeader, existingKeys]);
+  }, [columns, mapping, hasHeader, vocabs, folders, targetFolderId]);
 
   const handleFile = (event: ChangeEvent<HTMLInputElement>): void => {
     const file = event.target.files?.[0];
@@ -193,17 +213,16 @@ export function ImportModal({
   };
 
   const handleImport = async (): Promise<void> => {
-    const newRecords = previewRows
-      .filter((row) => row.status === 'new')
-      .map((row) => row.record);
     setImporting(true);
     try {
-      const added = await onImport(newRecords, targetFolderId);
+      const { added, linked } = await onImport(previewRows, targetFolderId);
       setResult({
         added,
+        linked,
         duplicate: summary.duplicate,
         error: summary.error,
         errors: previewRows.filter((row) => row.status === 'error'),
+        targetPath: targetFolderId === null ? null : folderPath(folders, targetFolderId),
       });
       setStep('result');
     } finally {
@@ -246,10 +265,10 @@ export function ImportModal({
         <Button onClick={() => setStep('source')}>Quay lại</Button>
         <Button
           variant="primary"
-          disabled={summary.new === 0 || importing}
+          disabled={summary.new + summary.link === 0 || importing}
           onClick={() => void handleImport()}
         >
-          {importing ? 'Đang nhập…' : `Nhập ${summary.new} từ`}
+          {importing ? 'Đang nhập…' : `Nhập ${summary.new + summary.link} từ`}
         </Button>
       </>
     ) : (
@@ -378,9 +397,12 @@ export function ImportModal({
               </div>
 
               <p className="kn-import__summary">
-                {summary.total} dòng: <b>{summary.new}</b> mới · {summary.duplicate} trùng ·{' '}
-                {summary.error} lỗi
+                {summary.total} dòng: <b>{summary.new}</b> mới · {summary.link} gắn vào thư mục ·{' '}
+                {summary.duplicate} trùng · {summary.error} lỗi
               </p>
+              {targetFolderId === null ? (
+                <p className="kn-import__hint">Chọn thư mục đích để gắn từ có sẵn vào thư mục.</p>
+              ) : null}
               {truncated ? (
                 <p className="kn-import__warn">
                   Đã cắt còn {MAX_IMPORT_ROWS} dòng đầu (vượt giới hạn nhập).
@@ -408,7 +430,10 @@ export function ImportModal({
                       <tr key={row.line}>
                         <td>{row.line}</td>
                         <td>
-                          <span className={`kn-import__badge kn-import__badge--${row.status}`}>
+                          <span
+                            className={`kn-import__badge kn-import__badge--${row.status}`}
+                            title={badgeTitle(row)}
+                          >
                             {STATUS_LABEL[row.status]}
                           </span>
                         </td>
@@ -441,7 +466,11 @@ export function ImportModal({
         {step === 'result' && result !== null ? (
           <>
             <p className="kn-import__result-head">
-              Đã thêm {result.added} · Bỏ qua (trùng) {result.duplicate} · Lỗi {result.error}
+              Đã thêm {result.added} từ mới
+              {result.targetPath !== null
+                ? ` · gắn ${result.linked} từ có sẵn vào «${result.targetPath}»`
+                : ''}
+              {` · bỏ qua ${result.duplicate} trùng · ${result.error} lỗi`}
             </p>
             {result.errors.length > 0 ? (
               <ul className="kn-import__errors">

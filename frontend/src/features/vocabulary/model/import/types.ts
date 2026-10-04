@@ -37,7 +37,10 @@ export interface NormalizedImport {
   note: string | null;
 }
 
-export type RowStatus = 'new' | 'duplicate' | 'error';
+export type RowStatus = 'new' | 'link' | 'duplicate' | 'error';
+
+/** Lý do một dòng bị 'Trùng (bỏ qua)': đã có trong nhánh / chưa chọn thư mục / trùng trong file. */
+export type DuplicateReason = 'in-branch' | 'exists' | 'in-file';
 
 /** Một dòng trong bảng xem trước nhập. */
 export interface PreviewRow {
@@ -48,12 +51,19 @@ export interface PreviewRow {
   /** Cảnh báo không chặn (ví dụ JLPT sai -> bỏ qua cấp độ). */
   warnings: string[];
   record: NormalizedImport;
+  /** Chỉ khi status = 'link': id từ CÒN SỐNG sẽ được gắn thêm vào thư mục đích. */
+  existingId?: string;
+  /** Đường dẫn thư mục hiện có của từ (status 'link' hoặc 'duplicate' in-branch/exists). */
+  existingPath?: string;
+  /** Chỉ khi status = 'duplicate': để chọn tooltip phù hợp. */
+  dupReason?: DuplicateReason;
 }
 
 /** Tổng kết toàn bộ dòng (tính trên TẤT CẢ dòng, không chỉ 50 dòng xem trước). */
 export interface ImportSummary {
   total: number;
   new: number;
+  link: number;
   duplicate: number;
   error: number;
 }

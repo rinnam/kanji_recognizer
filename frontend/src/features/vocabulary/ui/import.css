@@ -211,6 +211,12 @@
   background: color-mix(in srgb, var(--kn-primary) 16%, transparent);
 }
 
+/* 'Gắn vào thư mục' — tô đậm primary (phân biệt với 'Mới' nhạt), đủ tương phản ở cả 2 theme. */
+.kn-import__badge--link {
+  color: var(--kn-primary-contrast);
+  background: var(--kn-primary);
+}
+
 .kn-import__badge--duplicate {
   color: var(--kn-text-muted);
   background: color-mix(in srgb, var(--kn-text-muted) 16%, transparent);

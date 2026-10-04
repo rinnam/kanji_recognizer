@@ -11,8 +11,8 @@ import { useDb } from '../../../shared/db';
 import { emitDataChanged, newVocabId, nowIso } from '../../../shared/lib';
 import type { JlptLevel } from '../../../shared/api';
 import { findDuplicate } from './dedupe';
-import { assembleImportVocabularies } from './import';
-import type { NormalizedImport } from './import';
+import { assembleImportWrites } from './import';
+import type { PreviewRow } from './import';
 
 type Status = 'loading' | 'error' | 'ready';
 
@@ -32,6 +32,12 @@ export type QuickAddResult =
   | { ok: true; vocabulary: LocalVocabulary }
   | { ok: false; reason: 'invalid' | 'duplicate'; message: string };
 
+/** Kết quả nhập hàng loạt: số từ MỚI đã thêm + số từ CÓ SẴN được gắn thêm vào thư mục đích. */
+export interface ImportWriteResult {
+  added: number;
+  linked: number;
+}
+
 export interface VocabularyApi {
   all: LocalVocabulary[];
   status: Status;
@@ -40,7 +46,7 @@ export interface VocabularyApi {
   quickAdd: (input: QuickAddInput) => Promise<QuickAddResult>;
   remove: (id: string) => Promise<void>;
   removeMany: (ids: readonly string[]) => Promise<number>;
-  importNew: (records: NormalizedImport[], folderId: string | null) => Promise<number>;
+  importNew: (previews: PreviewRow[], folderId: string | null) => Promise<ImportWriteResult>;
 }
 
 const READ_ERROR = 'Không đọc được từ vựng.';
@@ -167,18 +173,19 @@ export function useVocabulary(): VocabularyApi {
     [db, reload],
   );
 
-  // Nhập hàng loạt: GHI chỉ các bản ghi MỚI (một transaction IndexedDB), phát đổi dữ liệu
-  // MỘT lần rồi nạp lại. `createdAt` tăng dần theo thứ tự dòng (xem assembleImportVocabularies).
+  // Nhập hàng loạt: GHI từ MỚI + CẬP NHẬT từ 'Gắn' (linkVocabulary) trong MỘT transaction
+  // IndexedDB, phát đổi dữ liệu MỘT lần rồi nạp lại. Từ 'Gắn' chỉ thêm thư mục đích vào
+  // folderIds + updatedAt = now (không đụng SRS). `createdAt` của từ mới tăng dần theo thứ tự.
   const importNew = useCallback(
-    async (records: NormalizedImport[], folderId: string | null): Promise<number> => {
-      if (records.length === 0) return 0;
-      const rows = assembleImportVocabularies(records, folderId, nowIso(), newVocabId);
-      await putVocabulariesLocal(db, rows);
+    async (previews: PreviewRow[], folderId: string | null): Promise<ImportWriteResult> => {
+      const plan = assembleImportWrites(previews, all, folderId, nowIso(), newVocabId);
+      if (plan.rows.length === 0) return { added: 0, linked: 0 };
+      await putVocabulariesLocal(db, plan.rows);
       emitDataChanged();
       await reload();
-      return rows.length;
+      return { added: plan.added, linked: plan.linked };
     },
-    [db, reload],
+    [all, db, reload],
   );
 
   return { all, status, error, reload, quickAdd, remove, removeMany, importNew };

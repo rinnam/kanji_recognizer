@@ -1,5 +1,6 @@
 import type { LocalVocabulary } from '../../../../entities/vocabulary';
-import type { NormalizedImport } from './types';
+import { linkVocabulary } from '../branch-dedupe';
+import type { NormalizedImport, PreviewRow } from './types';
 
 /**
  * Dựng danh sách `LocalVocabulary` sẵn sàng GHI từ các bản ghi đã chuẩn hóa (THUẦN, tất định).
@@ -44,4 +45,43 @@ export function assembleImportVocabularies(
       deletedAt: null,
     };
   });
+}
+
+/** Kết quả dựng danh sách GHI khi nhập: các hàng cần ghi + số từ mới / số từ gắn thêm. */
+export interface ImportWritePlan {
+  /** Gộp từ mới + từ gắn, GHI trong MỘT transaction (new id → thêm; id cũ → cập nhật). */
+  rows: LocalVocabulary[];
+  added: number;
+  linked: number;
+}
+
+/**
+ * Dựng danh sách GHI (THUẦN) từ bảng xem trước đã phân loại:
+ * - status 'new'  → tạo bản mới (assembleImportVocabularies, `createdAt` tăng dần theo thứ tự).
+ * - status 'link' → linkVocabulary(bản CÒN SỐNG có sẵn, folderId, now): gộp folderIds không
+ *   trùng, `updatedAt = now`; KHÔNG đụng SRS/các trường khác, KHÔNG sửa đối tượng cũ.
+ * Bỏ qua 'duplicate'/'error'. `folderId === null` ⇒ không có hàng 'link'. Dùng cho một
+ * transaction IndexedDB ở useVocabulary.importNew.
+ */
+export function assembleImportWrites(
+  previews: readonly PreviewRow[],
+  vocabs: readonly LocalVocabulary[],
+  folderId: string | null,
+  now: string,
+  makeId: () => string,
+): ImportWritePlan {
+  const byId = new Map(vocabs.map((item) => [item.id, item] as const));
+  const newRecords = previews.filter((row) => row.status === 'new').map((row) => row.record);
+  const newRows = assembleImportVocabularies(newRecords, folderId, now, makeId);
+
+  const linkRows: LocalVocabulary[] = [];
+  if (folderId !== null) {
+    for (const row of previews) {
+      if (row.status !== 'link' || row.existingId === undefined) continue;
+      const existing = byId.get(row.existingId);
+      if (existing !== undefined) linkRows.push(linkVocabulary(existing, folderId, now));
+    }
+  }
+
+  return { rows: [...newRows, ...linkRows], added: newRows.length, linked: linkRows.length };
 }

@@ -33,7 +33,6 @@ import {
 } from '../model/page-size';
 import { useDebouncedValue } from '../model/useDebouncedValue';
 import { useVocabulary } from '../model/useVocabulary';
-import { dedupeKey } from '../model/dedupe';
 import { ImportModal } from './ImportModal';
 import { QuickAddForm } from './QuickAddForm';
 import { VocabularyList } from './VocabularyList';
@@ -124,12 +123,6 @@ export function VocabularyOverview({
       setQuickAddOpen(scoped.length === 0);
     }
   }
-
-  // Khóa chống trùng từ KHO HIỆN TẠI (từ còn sống) để bảng xem trước đánh dấu "Trùng".
-  const existingKeys = useMemo(
-    () => new Set(api.all.map((item) => dedupeKey(item.word, item.reading))),
-    [api.all],
-  );
 
   // Sắp xếp danh sách đã lọc theo lựa chọn (ổn định nhờ tie-break id trong sortVocabs).
   const sorted = useMemo(() => sortVocabs(filtered, sortOrder), [filtered, sortOrder]);
@@ -430,7 +423,7 @@ export function VocabularyOverview({
           onClose={() => setImportOpen(false)}
           folders={folders}
           defaultFolderId={folderId}
-          existingKeys={existingKeys}
+          vocabs={api.all}
           onImport={api.importNew}
         />
       ) : null}

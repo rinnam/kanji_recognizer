@@ -790,3 +790,9 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - `features/vocabulary/model/branch-dedupe.ts`: `classifyIncoming` (new / link / skip theo nhánh của rootFolderId: in-branch | exists | in-file) + `linkVocabulary` (gộp folderIds, updatedAt=now, giữ nguyên SRS & bản cũ).
 - Thêm test `branch-dedupe` (12 ca): mới / link (nhánh khác, chưa gán) / skip in-branch (anh em, lồng sâu) / exists / in-file / từ đã xóa không tính.
 - Kiểm: typecheck 0 lỗi · test 191/191 · lint 0 lỗi (2 cảnh báo cũ) · build OK (151 modules).
+
+## [Phiên mới] Phần 7C — Import: từ trùng khác nhánh thì GẮN vào thư mục đích ✅
+- `buildPreview` nay phân loại theo nhánh (dùng classifyIncoming 7B): Mới / Gắn vào thư mục / Trùng (in-branch|exists|in-file) / Lỗi; đổi thư mục đích tính lại toàn bộ; thêm `assembleImportWrites` dựng danh sách ghi (mới + gắn).
+- `useVocabulary.importNew`: ghi từ mới + cập nhật từ 'Gắn' (linkVocabulary, updatedAt=now, không đụng SRS) trong MỘT transaction, emit đổi dữ liệu 1 lần; VocabularyOverview truyền `vocabs` thay `existingKeys`.
+- ImportModal: badge 'Gắn vào thư mục'(+tooltip)/'Trùng (bỏ qua)'; tổng kết 'X mới · Y gắn · Z trùng · W lỗi', nút 'Nhập {mới+gắn} từ', gợi ý khi 'Tất cả từ vựng'; màn kết quả nêu đường dẫn thư mục đích.
+- Kiểm: typecheck 0 lỗi · test 195/195 · lint 0 lỗi (2 cảnh báo cũ) · build OK (152 modules). Thêm test import-link (4 ca) + cập nhật import.test.

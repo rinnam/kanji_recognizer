@@ -3,6 +3,7 @@ export type {
   ParsedRow,
   NormalizedImport,
   RowStatus,
+  DuplicateReason,
   PreviewRow,
   ImportSummary,
 } from './types';
@@ -31,5 +32,7 @@ export {
   normalizeJlpt,
   buildPreview,
 } from './validate';
+export type { PreviewContext } from './validate';
 export { TEMPLATE_HEADERS, buildTemplateCsv, buildTemplateMarkdown } from './template';
-export { assembleImportVocabularies } from './assemble';
+export { assembleImportVocabularies, assembleImportWrites } from './assemble';
+export type { ImportWritePlan } from './assemble';
