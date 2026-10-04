@@ -37,17 +37,12 @@ import './WorkspacePage.css';
 interface TabMeta {
   readonly id: TabId;
   readonly label: string;
-  readonly hint: string;
 }
 
 const TAB_META: readonly TabMeta[] = [
-  {
-    id: 'overview',
-    label: 'Tổng quan',
-    hint: 'Thêm, lọc và quản lý từ trong phạm vi đang chọn.',
-  },
-  { id: 'flashcard', label: 'Flashcard', hint: 'Bấm thẻ hoặc nhấn Space để lật.' },
-  { id: 'quiz', label: 'Quiz', hint: 'Gõ đáp án rồi nhấn Enter để nộp.' },
+  { id: 'overview', label: 'Tổng quan' },
+  { id: 'flashcard', label: 'Flashcard' },
+  { id: 'quiz', label: 'Quiz' },
 ];
 
 const TAB_ICON: Record<TabId, ReactElement> = {
@@ -122,10 +117,6 @@ export function WorkspacePage(): ReactElement {
   );
   const studyKey = `${selectedFolderId ?? 'all'}|${scope.mode}|${String(appliedN)}|${String(scope.seed)}`;
 
-  const activeHint = useMemo(
-    () => TAB_META.find((item) => item.id === tab)?.hint ?? '',
-    [tab],
-  );
   const scopeLabel = selectedFolderName ?? ALL_LABEL;
   // Chip "Đang chọn": đường dẫn đầy đủ (vd 'Ôn Thi Giữa Kì › Hán Tự'); rỗng/ở gốc → nhãn thường.
   const scopePath =
@@ -199,7 +190,7 @@ export function WorkspacePage(): ReactElement {
           {scopeLabel} ⌄
         </button>
 
-        {/* Thanh gộp (7F): TRÁI = chip "Đang chọn" · GIỮA = tabs · PHẢI = phạm vi/nút + gợi ý. */}
+        {/* Thanh gộp (7F): TRÁI = chip "Đang chọn" · GIỮA = tabs · PHẢI = phạm vi / nút hành động. */}
         <div className="kn-ws__scope">
           <div className="kn-ws__scope-left">
             <span className="kn-ws__scope-label">Đang chọn:</span>
@@ -238,7 +229,6 @@ export function WorkspacePage(): ReactElement {
                 onNChange={changeN}
               />
             ) : null}
-            <p className="kn-ws__hint">{activeHint}</p>
           </div>
         </div>
 

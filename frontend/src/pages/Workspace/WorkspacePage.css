@@ -100,7 +100,7 @@
   flex-wrap: wrap;
 }
 
-/* Vùng PHẢI (cột 3): phạm vi (ScopeBar inline) / nút hành động + gợi ý nhỏ, dồn sát mép phải. */
+/* Vùng PHẢI (cột 3): phạm vi (ScopeBar inline) / nút hành động, dồn sát mép phải. */
 .kn-ws__scope-right {
   display: inline-flex;
   align-items: center;
@@ -157,13 +157,6 @@
   outline-offset: 2px;
 }
 
-.kn-ws__hint {
-  margin: 0;
-  color: var(--kn-text-muted);
-  font-size: 0.8rem;
-  text-align: right;
-}
-
 .kn-ws__panel {
   min-width: 0;
 }
@@ -175,7 +168,7 @@
   margin-inline: auto;
 }
 
-/* Dưới 64rem: thanh gộp xếp dọc 1 cột (chip → tabs → phạm vi/gợi ý), căn trái. */
+/* Dưới 64rem: thanh gộp xếp dọc 1 cột (chip → tabs → phạm vi/nút), căn trái. */
 @media (max-width: 64rem) {
   .kn-ws__scope {
     grid-template-columns: 1fr;
@@ -245,10 +238,6 @@
     border-radius: 999px;
     padding: 0.35rem 0.8rem;
     font-weight: 600;
-  }
-
-  .kn-ws__hint {
-    text-align: left;
   }
 }
 
