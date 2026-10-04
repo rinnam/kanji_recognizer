@@ -5,6 +5,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ModalProps {
   open: boolean;
@@ -43,7 +44,10 @@ export function Modal({
 
   if (!open) return null;
 
-  return (
+  // Portal ra document.body: tránh bị kẹt dưới header/sidebar dính (và sidebar dạng
+  // drawer dùng transform ở mobile tạo containing block cho position:fixed) — bảo đảm
+  // lớp nền phủ kín & nằm trên mọi thứ. Vẫn unmount khi đóng (đã return null ở trên).
+  return createPortal(
     <div className="kn-ui-modal__backdrop" onClick={onClose}>
       <div
         className={`kn-ui-modal kn-ui-modal--${size}`}
@@ -65,6 +69,7 @@ export function Modal({
           <div className="kn-ui-modal__footer">{footer}</div>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
