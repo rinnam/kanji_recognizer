@@ -796,3 +796,8 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - `useVocabulary.importNew`: ghi từ mới + cập nhật từ 'Gắn' (linkVocabulary, updatedAt=now, không đụng SRS) trong MỘT transaction, emit đổi dữ liệu 1 lần; VocabularyOverview truyền `vocabs` thay `existingKeys`.
 - ImportModal: badge 'Gắn vào thư mục'(+tooltip)/'Trùng (bỏ qua)'; tổng kết 'X mới · Y gắn · Z trùng · W lỗi', nút 'Nhập {mới+gắn} từ', gợi ý khi 'Tất cả từ vựng'; màn kết quả nêu đường dẫn thư mục đích.
 - Kiểm: typecheck 0 lỗi · test 195/195 · lint 0 lỗi (2 cảnh báo cũ) · build OK (152 modules). Thêm test import-link (4 ca) + cập nhật import.test.
+
+## [Phiên mới] Phần 7D — Xóa từ trong một thư mục = GỠ khỏi thư mục (từ thuộc nhiều thư mục) ✅
+- Hàm thuần `features/vocabulary/model/word-removal.ts > planWordRemoval(vocabs, ids, scopeFolderIds|null, now)`: scope null → tombstone tất cả; có scope → gỡ id trong phạm vi, còn thư mục khác thì GIỮ (update), hết thì tombstone; trả `{toUpdate, toTombstone, counts{detached, deleted}}`, mọi bản ghi `updatedAt=now`.
+- `useVocabulary.removeInScope`: ghi cả GIỮ lẫn TOMBSTONE trong MỘT transaction + emit MỘT lần; VocabularyOverview tính `scopeFolderIds` (null khi 'Tất cả'/tìm kiếm) + `folderPath`, hộp xác nhận lấy số từ plan ('Gỡ N từ khỏi «đường dẫn»?' / 'Xóa hẳn N từ?', nút 'Gỡ'/'Xóa'), áp cho xóa từng dòng lẫn hàng loạt.
+- Kiểm: typecheck 0 lỗi · test 202/202 · lint 0 lỗi (2 cảnh báo cũ) · build OK (153 modules). Thêm `word-removal.test.ts` (7 ca). XEM MẮT: xóa từ ở N3+Ôn Thi khi xem 'Ôn Thi' vẫn còn ở N3; xem 'Tất cả' thì mất hẳn.

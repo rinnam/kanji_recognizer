@@ -13,6 +13,7 @@ import type { JlptLevel } from '../../../shared/api';
 import { findDuplicate } from './dedupe';
 import { assembleImportWrites } from './import';
 import type { PreviewRow } from './import';
+import { planWordRemoval, type WordRemovalCounts } from './word-removal';
 
 type Status = 'loading' | 'error' | 'ready';
 
@@ -46,6 +47,10 @@ export interface VocabularyApi {
   quickAdd: (input: QuickAddInput) => Promise<QuickAddResult>;
   remove: (id: string) => Promise<void>;
   removeMany: (ids: readonly string[]) => Promise<number>;
+  removeInScope: (
+    ids: readonly string[],
+    scopeFolderIds: ReadonlySet<string> | null,
+  ) => Promise<WordRemovalCounts>;
   importNew: (previews: PreviewRow[], folderId: string | null) => Promise<ImportWriteResult>;
 }
 
@@ -173,6 +178,27 @@ export function useVocabulary(): VocabularyApi {
     [db, reload],
   );
 
+  // Gỡ/xóa theo PHẠM VI (Phần 7D): gỡ liên kết thư mục trong phạm vi, chỉ tombstone khi từ hết
+  // thư mục; `scopeFolderIds === null` (Tất cả / tìm kiếm toàn cục) → tombstone tất cả. Ghi cả
+  // từ GIỮ lẫn từ TOMBSTONE trong MỘT transaction, emit change-bus MỘT lần, rồi nạp lại.
+  const removeInScope = useCallback(
+    async (
+      ids: readonly string[],
+      scopeFolderIds: ReadonlySet<string> | null,
+    ): Promise<WordRemovalCounts> => {
+      if (ids.length === 0) return { detached: 0, deleted: 0 };
+      const plan = planWordRemoval(all, ids, scopeFolderIds, nowIso());
+      const rows = [...plan.toUpdate, ...plan.toTombstone];
+      if (rows.length > 0) {
+        await putVocabulariesLocal(db, rows);
+        emitDataChanged();
+      }
+      await reload();
+      return plan.counts;
+    },
+    [all, db, reload],
+  );
+
   // Nhập hàng loạt: GHI từ MỚI + CẬP NHẬT từ 'Gắn' (linkVocabulary) trong MỘT transaction
   // IndexedDB, phát đổi dữ liệu MỘT lần rồi nạp lại. Từ 'Gắn' chỉ thêm thư mục đích vào
   // folderIds + updatedAt = now (không đụng SRS). `createdAt` của từ mới tăng dần theo thứ tự.
@@ -188,5 +214,5 @@ export function useVocabulary(): VocabularyApi {
     [all, db, reload],
   );
 
-  return { all, status, error, reload, quickAdd, remove, removeMany, importNew };
+  return { all, status, error, reload, quickAdd, remove, removeMany, removeInScope, importNew };
 }

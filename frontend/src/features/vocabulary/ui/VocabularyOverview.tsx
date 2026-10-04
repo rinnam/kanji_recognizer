@@ -8,8 +8,12 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactElement,
 } from 'react';
-import { getAllFoldersLocal, type LocalFolder } from '../../../entities/folder';
-import { selectWordsInScope, type LocalVocabulary } from '../../../entities/vocabulary';
+import { folderPath, getAllFoldersLocal, type LocalFolder } from '../../../entities/folder';
+import {
+  collectDescendantFolderIds,
+  selectWordsInScope,
+  type LocalVocabulary,
+} from '../../../entities/vocabulary';
 import type { JlptLevel } from '../../../shared/api';
 import { useDb } from '../../../shared/db';
 import { subscribeDataChanged } from '../../../shared/lib';
@@ -33,6 +37,7 @@ import {
 } from '../model/page-size';
 import { useDebouncedValue } from '../model/useDebouncedValue';
 import { useVocabulary } from '../model/useVocabulary';
+import { planWordRemoval, type WordRemovalCounts } from '../model/word-removal';
 import { ImportModal } from './ImportModal';
 import { QuickAddForm } from './QuickAddForm';
 import { VocabularyList } from './VocabularyList';
@@ -42,6 +47,49 @@ interface VocabularyOverviewProps {
   folderId: string | null;
   query: string;
   jlpt: JlptLevel | null;
+}
+
+/** `now` giả cho dry-run tính số liệu hộp xác nhận — counts KHÔNG phụ thuộc now. */
+const COUNTS_ONLY = '';
+
+interface RemovalCopy {
+  title: string;
+  body: ReactElement;
+  confirm: string;
+}
+
+/**
+ * Lời cho hộp xác nhận gỡ/xóa từ (Phần 7D), dựng từ số liệu plan:
+ *  - đang xem một thư mục → 'Gỡ N từ khỏi «đường dẫn»?' + chi tiết xóa hẳn/giữ lại, nút 'Gỡ';
+ *  - 'Tất cả từ vựng' / tìm kiếm toàn cục → 'Xóa hẳn N từ?' + 'Không thể hoàn tác', nút 'Xóa'.
+ */
+function removalCopy(
+  counts: WordRemovalCounts,
+  scopeFolderIds: ReadonlySet<string> | null,
+  scopePath: string,
+): RemovalCopy {
+  const total = counts.detached + counts.deleted;
+  if (scopeFolderIds === null) {
+    return {
+      title: `Xóa hẳn ${String(total)} từ?`,
+      body: (
+        <p>
+          <strong>Không thể hoàn tác.</strong>
+        </p>
+      ),
+      confirm: 'Xóa',
+    };
+  }
+  return {
+    title: `Gỡ ${String(total)} từ khỏi «${scopePath}»?`,
+    body: (
+      <p>
+        {counts.deleted} từ chỉ thuộc thư mục này sẽ bị xóa hẳn; {counts.detached} từ còn thuộc thư
+        mục khác sẽ được giữ lại.
+      </p>
+    ),
+    confirm: 'Gỡ',
+  };
 }
 
 /** Overview từ vựng: Quick Add + lọc (tìm kiếm debounce, JLPT) + bảng danh sách. */
@@ -112,6 +160,17 @@ export function VocabularyOverview({
   const filtered = useMemo(
     () => filterVocabularies(scoped, { folderId: null, search: debouncedSearch, jlpt }),
     [scoped, debouncedSearch, jlpt],
+  );
+
+  // Phần 7D: phạm vi thư mục để quyết định GỠ (giữ từ) hay XÓA HẲN khi người dùng xóa.
+  // null = 'Tất cả từ vựng' / tìm kiếm toàn cục; ngược lại = thư mục đang chọn + con cháu.
+  const scopeFolderIds = useMemo(
+    () => (folderId === null ? null : collectDescendantFolderIds(folders, folderId)),
+    [folders, folderId],
+  );
+  const scopePath = useMemo(
+    () => (folderId === null ? '' : folderPath(folders, folderId)),
+    [folders, folderId],
   );
 
   // Quick Add: mặc định ĐÓNG khi phạm vi đã có từ, MỞ khi chưa có; tính lại khi ĐỔI thư mục.
@@ -214,9 +273,26 @@ export function VocabularyOverview({
   const confirmBulkDelete = useCallback(async (): Promise<void> => {
     const ids = [...selected];
     setBulkConfirm(false);
-    await api.removeMany(ids);
+    await api.removeInScope(ids, scopeFolderIds);
     clearSelection();
-  }, [selected, api, clearSelection]);
+  }, [selected, api, scopeFolderIds, clearSelection]);
+
+  // Số liệu hộp xác nhận (dry-run THUẦN, không ghi gì) cho xóa từng dòng và xóa hàng loạt.
+  const rowCopy =
+    pendingDelete === null
+      ? null
+      : removalCopy(
+          planWordRemoval(api.all, [pendingDelete.id], scopeFolderIds, COUNTS_ONLY).counts,
+          scopeFolderIds,
+          scopePath,
+        );
+  const bulkCopy = bulkConfirm
+    ? removalCopy(
+        planWordRemoval(api.all, [...selected], scopeFolderIds, COUNTS_ONLY).counts,
+        scopeFolderIds,
+        scopePath,
+      )
+    : null;
 
   return (
     <div className="kn-overview">
@@ -378,7 +454,7 @@ export function VocabularyOverview({
 
       <Modal
         open={pendingDelete !== null}
-        title={pendingDelete !== null ? `Xóa từ "${pendingDelete.word}"?` : 'Xóa từ'}
+        title={rowCopy?.title ?? 'Xóa từ'}
         onClose={() => setPendingDelete(null)}
         footer={
           <>
@@ -386,35 +462,34 @@ export function VocabularyOverview({
             <Button
               variant="primary"
               onClick={() => {
-                if (pendingDelete !== null) void api.remove(pendingDelete.id);
+                if (pendingDelete !== null) {
+                  void api.removeInScope([pendingDelete.id], scopeFolderIds);
+                }
                 setPendingDelete(null);
               }}
             >
-              Xóa
+              {rowCopy?.confirm ?? 'Xóa'}
             </Button>
           </>
         }
       >
-        <p>Thao tác đánh dấu xóa (tombstone) và sẽ đồng bộ lên server.</p>
+        {rowCopy?.body}
       </Modal>
 
       <Modal
         open={bulkConfirm}
-        title={`Xóa ${selected.size} từ?`}
+        title={bulkCopy?.title ?? 'Xóa từ'}
         onClose={() => setBulkConfirm(false)}
         footer={
           <>
             <Button onClick={() => setBulkConfirm(false)}>Hủy</Button>
             <Button variant="primary" onClick={() => void confirmBulkDelete()}>
-              Xóa {selected.size} từ
+              {bulkCopy?.confirm ?? 'Xóa'}
             </Button>
           </>
         }
       >
-        <p>
-          Đánh dấu xóa (tombstone) {selected.size} từ và đồng bộ lên server.{' '}
-          <strong>Không thể hoàn tác.</strong>
-        </p>
+        {bulkCopy?.body}
       </Modal>
 
       {importOpen ? (
