@@ -153,8 +153,8 @@
 }
 .kn-fc-card {
   position: relative;
-  /* Co theo chiều cao viewport: ở cửa sổ ~900px vẫn thấy nút Trước/Tiếp theo mà không cuộn. */
-  height: clamp(16rem, calc(100dvh - 34rem), 28rem);
+  /* CỐ ĐỊNH chiều cao (chung với Quiz qua --kn-study-card-h): lật/đổi mặt không đổi cao */
+  height: var(--kn-study-card-h);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -167,7 +167,7 @@
     var(--kn-surface)
   );
   text-align: center;
-  overflow: auto;
+  overflow-y: auto;
   perspective: 1000px;
 }
 .kn-fc-card--back {
@@ -262,12 +262,14 @@
   color: var(--kn-text-muted);
 }
 
-/* Điều hướng */
+/* Điều hướng: hàng cố định 48px, cùng vị trí mọi chế độ/mặt */
 .kn-fc__nav {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
   justify-content: center;
+  min-height: 3rem;
+  align-items: stretch;
 }
 .kn-fc__nav .kn-ui-btn {
   display: inline-flex;
@@ -276,6 +278,7 @@
   gap: 0.4rem;
   min-width: 9.5rem;
   max-width: 14rem;
+  height: 3rem;
   min-height: 3rem;
 }
 /* Nút "Trước": kiểu ghost (nền trong suốt); vẫn mờ khi ở thẻ đầu nhờ :disabled của primitive. */
@@ -333,7 +336,6 @@
     margin-left: 0;
   }
   .kn-fc-card {
-    height: clamp(14rem, calc(100dvh - 26rem), 24rem);
     padding: 1.5rem 1rem;
   }
   .kn-fc-card__meaning {

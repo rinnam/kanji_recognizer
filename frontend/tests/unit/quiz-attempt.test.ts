@@ -106,4 +106,17 @@ describe('quiz/feedback selectFeedbackContent', () => {
     expect(noEx.example).toBeNull();
     expect(noEx.exampleMeaning).toBeNull();
   });
+
+  it('chip rỗng: không hiện chip khi giá trị rỗng/gạch ngang', () => {
+    const out = toOutcome(applyAnswer(initialAttemptState(), true, 'みず'));
+    expect(
+      selectFeedbackContent(vocab({ reading: '  ', sinoVietnamese: '' }), 'reading', out).chips,
+    ).toEqual([]);
+    expect(
+      selectFeedbackContent(vocab({ reading: '—', sinoVietnamese: '–' }), 'reading', out).chips,
+    ).toEqual([]);
+    expect(
+      selectFeedbackContent(vocab({ word: '  ', reading: '—' }), 'meaning', out).chips,
+    ).toEqual([]);
+  });
 });

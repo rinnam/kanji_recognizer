@@ -338,6 +338,19 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
         </div>
       </div>
 
+      <div className="kn-fc__progress">
+        <span className="kn-fc__progress-label">Tiến độ học</span>
+        <span className="kn-fc__counter">
+          {safeIndex + 1}/{total}
+        </span>
+        <div className="kn-fc__bar">
+          <div className="kn-fc__bar-fill" style={{ width: `${String(progressPct)}%` }} />
+        </div>
+        <span className="kn-fc__summary">
+          Tổng {summary.total} · Tới hạn {summary.due} · Mới {summary.fresh}
+        </span>
+      </div>
+
       {scopeBase.length === 0 ? (
         <EmptyState
           title="Thư mục này chưa có từ"
@@ -390,19 +403,6 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
         />
       ) : (
         <>
-          <div className="kn-fc__progress">
-            <span className="kn-fc__progress-label">Tiến độ học</span>
-            <span className="kn-fc__counter">
-              {safeIndex + 1}/{total}
-            </span>
-            <div className="kn-fc__bar">
-              <div className="kn-fc__bar-fill" style={{ width: `${String(progressPct)}%` }} />
-            </div>
-            <span className="kn-fc__summary">
-              Tổng {summary.total} · Tới hạn {summary.due} · Mới {summary.fresh}
-            </span>
-          </div>
-
           <div
             className="kn-fc__card-wrap"
             role="button"

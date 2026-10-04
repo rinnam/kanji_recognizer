@@ -817,3 +817,9 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - Điều khiển MỘT hàng 40px (gap 8px): segmented 2.5rem + spacer + icon 40x40 + hẹn giờ `s` 40px; segmented chữ 0.9375rem, active accent; ≤40rem chế độ full-width dòng riêng.
 - Thống kê Flashcard xuống hàng tiến độ (căn phải); tiến độ Quiz ra ngoài thẻ điều khiển (nhãn+số+thanh 6px, cao 2.5rem) → đỉnh thẻ hai tab trùng nhau.
 - Kiểm: typecheck 0 · test 207/207 · lint 0 (2 cảnh báo cũ) · build OK (154 modules). XEM MẮT: một hàng điều khiển, cùng chiều cao, thẻ trùng vị trí.
+
+## [Phiên mới] Phần 7H — Thẻ cố định chống nhảy giao diện ✅
+- `--kn-study-card-h` chung (tokens.css); Flashcard/Quiz `height` cố định + `overflow-y:auto`; Quiz chia 3 vùng (tiêu đề 2.5rem / câu hỏi flex:1 / phản hồi giữ chỗ 40% bằng `visibility`); ví dụ line-clamp 2.
+- Ô nhập cao 3.5rem; hàng nút 2 ô cố định (Gợi ý ≥10rem luôn hiện + disabled khi chốt / Kiểm tra-Tiếp ≥12rem, cao 48px); dòng "Còn k lần" giữ chỗ; nav Flashcard cao 48px.
+- `selectFeedbackContent` lọc chip rỗng/gạch ngang + test mới; rỗng/kết quả vẫn giữ khối điều khiển + tiến độ.
+- Kiểm: typecheck 0 · test 208/208 · lint 0 (2 cảnh báo cũ) · build OK (154 modules). XEM MẮT: ô nhập/nút không xê dịch; lật thẻ không đổi cao.

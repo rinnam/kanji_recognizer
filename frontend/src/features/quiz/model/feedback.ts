@@ -30,7 +30,10 @@ export interface FeedbackContent {
 }
 
 function hasText(value: string | null | undefined): value is string {
-  return value !== null && value !== undefined && value.trim() !== '';
+  if (value === null || value === undefined) return false;
+  const text = value.trim();
+  // Coi placeholder gạch ngang như rỗng (không hiện chip 'Hán Việt: —').
+  return text !== '' && text !== '—' && text !== '-' && text !== '–';
 }
 
 /**

@@ -151,6 +151,60 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
         <h2 id="quiz-heading" className="kn-quiz__sr-only">
           Quiz
         </h2>
+        <div className="kn-quiz__control">
+          <div className="kn-quiz__dirs" role="group" aria-label="Dạng câu hỏi">
+            {MODES.map((item) => (
+              <Button
+                key={item.id}
+                aria-pressed={item.id === mode}
+                variant={item.id === mode ? 'primary' : 'secondary'}
+                onClick={() => chooseMode(item.id)}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
+          <div className="kn-quiz__tools">
+            <ToggleIconButton
+              pressed={shuffled}
+              onPressedChange={toggleShuffle}
+              label="Xáo trộn câu"
+              tooltip="Xáo trộn: bật/tắt"
+              icon={<IconShuffle />}
+            />
+            <button
+              type="button"
+              className="kn-quiz__icon-btn"
+              aria-label="Làm lại từ câu đầu"
+              title="Làm lại"
+              onClick={restart}
+            >
+              <IconReset />
+            </button>
+            <span className="kn-quiz__timer" title="Tự chuyển câu sau khi nộp">
+              <IconClock />
+              <input
+                className="kn-ui-input kn-quiz__timer-input"
+                type="number"
+                min={1}
+                max={10}
+                aria-label="Số giây tự chuyển"
+                value={seconds}
+                onChange={(event) =>
+                  setSeconds(Math.min(10, Math.max(1, Number(event.target.value) || 1)))
+                }
+              />
+              <span>s</span>
+            </span>
+          </div>
+        </div>
+        <div className="kn-quiz__progress">
+          <span className="kn-quiz__progress-label">TIẾN ĐỘ KIỂM TRA</span>
+          <span className="kn-quiz__counter">0/0</span>
+          <div className="kn-quiz__bar">
+            <div className="kn-quiz__bar-fill" style={{ width: '0%' }} />
+          </div>
+        </div>
         <EmptyState
           title="Thư mục này chưa có từ"
           description="Thêm từ ở tab Tổng quan rồi quay lại kiểm tra."
@@ -164,6 +218,62 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
         <h2 id="quiz-heading" className="kn-quiz__sr-only">
           Quiz — Kết quả
         </h2>
+        <div className="kn-quiz__control">
+          <div className="kn-quiz__dirs" role="group" aria-label="Dạng câu hỏi">
+            {MODES.map((item) => (
+              <Button
+                key={item.id}
+                aria-pressed={item.id === mode}
+                variant={item.id === mode ? 'primary' : 'secondary'}
+                onClick={() => chooseMode(item.id)}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
+          <div className="kn-quiz__tools">
+            <ToggleIconButton
+              pressed={shuffled}
+              onPressedChange={toggleShuffle}
+              label="Xáo trộn câu"
+              tooltip="Xáo trộn: bật/tắt"
+              icon={<IconShuffle />}
+            />
+            <button
+              type="button"
+              className="kn-quiz__icon-btn"
+              aria-label="Làm lại từ câu đầu"
+              title="Làm lại"
+              onClick={restart}
+            >
+              <IconReset />
+            </button>
+            <span className="kn-quiz__timer" title="Tự chuyển câu sau khi nộp">
+              <IconClock />
+              <input
+                className="kn-ui-input kn-quiz__timer-input"
+                type="number"
+                min={1}
+                max={10}
+                aria-label="Số giây tự chuyển"
+                value={seconds}
+                onChange={(event) =>
+                  setSeconds(Math.min(10, Math.max(1, Number(event.target.value) || 1)))
+                }
+              />
+              <span>s</span>
+            </span>
+          </div>
+        </div>
+        <div className="kn-quiz__progress">
+          <span className="kn-quiz__progress-label">TIẾN ĐỘ KIỂM TRA</span>
+          <span className="kn-quiz__counter">
+            {result.total}/{result.total}
+          </span>
+          <div className="kn-quiz__bar">
+            <div className="kn-quiz__bar-fill" style={{ width: '100%' }} />
+          </div>
+        </div>
         <QuizResult
           result={result}
           saveStatus={saveStatus}
@@ -308,49 +418,62 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
             <p className="kn-quiz__card-title">
               <IconInfo className="kn-quiz__card-icon" /> {meta.title}
             </p>
-            <p className="kn-quiz__question">{current.prompt}</p>
-            <p className="kn-quiz__hint">{meta.hint}</p>
+            <div className="kn-quiz__qzone">
+              <p className="kn-quiz__question">{current.prompt}</p>
+              <p className="kn-quiz__hint">{meta.hint}</p>
 
-            {hasText(currentVocab?.sinoVietnamese ?? null) ? (
-              <div className="kn-quiz__sino">
-                <Button onClick={() => setShowSino((value) => !value)}>
-                  {showSino ? 'Ẩn' : 'Hiển thị'} gợi ý Âm Hán Việt
-                </Button>
-                {showSino ? (
-                  <span className="kn-quiz__chip">{currentVocab?.sinoVietnamese}</span>
-                ) : null}
-              </div>
-            ) : null}
+              {hasText(currentVocab?.sinoVietnamese ?? null) ? (
+                <div className="kn-quiz__sino">
+                  <Button onClick={() => setShowSino((value) => !value)}>
+                    {showSino ? 'Ẩn' : 'Hiển thị'} gợi ý Âm Hán Việt
+                  </Button>
+                  {showSino ? (
+                    <span className="kn-quiz__chip">{currentVocab?.sinoVietnamese}</span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
 
-            {resolved && feedback !== null ? (
-              <div className="kn-quiz__feedback" role="status">
-                {feedback.isCorrect ? (
-                  <p className="kn-quiz__verdict kn-quiz__verdict--ok">
-                    ✓ Chính xác!{attemptNo > 1 ? ` (đúng ở lần ${String(attemptNo)})` : ''}
-                  </p>
-                ) : (
-                  <p className="kn-quiz__verdict kn-quiz__verdict--no">
-                    {attempt.usedHint ? '✗ Đáp án (đã gợi ý)' : '✗ Chưa đúng — đáp án đúng'}
-                  </p>
-                )}
-                <p className="kn-quiz__meaning">{feedback.meaning}</p>
-                {feedback.chips.length > 0 ? (
-                  <div className="kn-quiz__chips-row">
-                    {feedback.chips.map((chip) => (
-                      <span key={chip.label} className="kn-quiz__chip">
-                        {chip.label}: {chip.value}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-                {feedback.example !== null ? (
-                  <p className="kn-quiz__example">
-                    {feedback.example}
-                    {feedback.exampleMeaning !== null ? ` — ${feedback.exampleMeaning}` : ''}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
+            <div
+              className={`kn-quiz__feedback${resolved && feedback !== null ? '' : ' is-hidden'}`}
+              role="status"
+              aria-hidden={resolved && feedback !== null ? undefined : true}
+            >
+              {resolved && feedback !== null ? (
+                <>
+                  {feedback.isCorrect ? (
+                    <p className="kn-quiz__verdict kn-quiz__verdict--ok">
+                      ✓ Chính xác!{attemptNo > 1 ? ` (đúng ở lần ${String(attemptNo)})` : ''}
+                    </p>
+                  ) : (
+                    <p className="kn-quiz__verdict kn-quiz__verdict--no">
+                      {attempt.usedHint ? '✗ Đáp án (đã gợi ý)' : '✗ Chưa đúng — đáp án đúng'}
+                    </p>
+                  )}
+                  <p className="kn-quiz__meaning">{feedback.meaning}</p>
+                  {feedback.chips.length > 0 ? (
+                    <div className="kn-quiz__chips-row">
+                      {feedback.chips.map((chip) => (
+                        <span key={chip.label} className="kn-quiz__chip">
+                          {chip.label}: {chip.value}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {feedback.example !== null ? (
+                    <p className="kn-quiz__example">
+                      {feedback.example}
+                      {feedback.exampleMeaning !== null ? ` — ${feedback.exampleMeaning}` : ''}
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <p className="kn-quiz__verdict">{"\u00a0"}</p>
+                  <p className="kn-quiz__meaning">{"\u00a0"}</p>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="kn-quiz__answer">
@@ -368,24 +491,37 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
               onKeyDown={onKeyDown}
               onAnimationEnd={() => setShaking(false)}
             />
-            {hasWrong ? (
-              <p className="kn-quiz__retry" role="status" aria-live="polite">
-                Chưa đúng. Còn {triesLeft} lần.
-              </p>
-            ) : null}
-            {!resolved ? (
-              <div className="kn-quiz__answer-actions">
-                <Button onClick={doHint}>
-                  <IconBulb className="kn-quiz__btn-icon" /> Gợi ý{' '}
-                  <kbd className="kn-quiz__kbd">Tab</kbd>
-                </Button>
-                <Button variant="primary" onClick={doSubmit} disabled={!canSubmit}>
+            <p
+              className={`kn-quiz__retry${hasWrong ? '' : ' is-hidden'}`}
+              role="status"
+              aria-live="polite"
+            >
+              {hasWrong ? `Chưa đúng. Còn ${triesLeft} lần.` : ' '}
+            </p>
+            <div className="kn-quiz__answer-actions">
+              <Button
+                className="kn-quiz__action-hint"
+                onClick={doHint}
+                disabled={resolved}
+              >
+                <IconBulb className="kn-quiz__btn-icon" /> Gợi ý{' '}
+                <kbd className="kn-quiz__kbd">Tab</kbd>
+              </Button>
+              {!resolved ? (
+                <Button
+                  className="kn-quiz__action-submit"
+                  variant="primary"
+                  onClick={doSubmit}
+                  disabled={!canSubmit}
+                >
                   Kiểm tra
                 </Button>
-              </div>
-            ) : (
-              <div className="kn-quiz__answer-actions">
-                <Button variant="primary" onClick={doAdvance}>
+              ) : (
+                <Button
+                  className="kn-quiz__action-submit"
+                  variant="primary"
+                  onClick={doAdvance}
+                >
                   {isLast ? (
                     <>
                       Nộp bài <kbd className="kn-quiz__kbd">Enter</kbd>
@@ -397,8 +533,8 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
                     </>
                   )}
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
             <p className="kn-quiz__hint-keys">Enter: nộp / tiếp · Tab: gợi ý</p>
           </div>
         </>

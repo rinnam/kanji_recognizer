@@ -37,6 +37,8 @@
 /* Layout — độc lập theme */
 :root {
   --kn-header-h: 3.5rem;
+  /* Chiều cao CỐ ĐỊNH của thẻ học (Flashcard + Quiz) — chống nhảy giao diện */
+  --kn-study-card-h: clamp(20rem, calc(100dvh - 26rem), 28rem);
 }
 
 * {

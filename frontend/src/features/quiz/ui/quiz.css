@@ -144,19 +144,18 @@
   transition: width 0.2s ease;
 }
 
-/* Thẻ câu hỏi: thân cao ~260-300px, nội dung căn giữa theo chiều dọc */
+/* Thẻ câu hỏi CỐ ĐỊNH chiều cao (chung với Flashcard): không tự cao thêm khi có phản hồi */
 .kn-quiz__card {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
   align-items: center;
-  justify-content: center;
   text-align: center;
-  min-height: 17rem;
-  padding: 1rem 1.25rem 1.75rem;
+  height: var(--kn-study-card-h);
+  padding: 0 1.25rem 1rem;
   border: 1px solid var(--kn-border);
   border-radius: 1rem;
   background: var(--kn-surface);
+  overflow: hidden;
 }
 .kn-quiz__card--ok {
   border-color: var(--kn-primary);
@@ -164,12 +163,14 @@
 .kn-quiz__card--no {
   border-color: var(--kn-danger);
 }
-/* Dải tiêu đề riêng (đường kẻ phía dưới): icon ⓘ + tên dạng chữ hoa căn giữa */
+/* Dải tiêu đề riêng (cao cố định ~2.5rem): icon ⓘ + tên dạng chữ hoa căn giữa */
 .kn-quiz__card-title {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.3rem;
+  flex: none;
+  height: 2.5rem;
   width: 100%;
   margin: 0;
   padding-bottom: 0.6rem;
@@ -178,6 +179,19 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--kn-text-muted);
+}
+/* Vùng câu hỏi (flex: 1, căn giữa): đề + gợi ý + công tắc Hán Việt */
+.kn-quiz__qzone {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0;
+  overflow-y: auto;
 }
 .kn-quiz__card-icon {
   font-size: 0.9rem;
@@ -203,15 +217,22 @@
   justify-content: center;
 }
 
-/* Phản hồi */
+/* Vùng phản hồi LUÔN giữ chỗ (~40% thẻ); chưa chốt thì ẩn bằng visibility */
 .kn-quiz__feedback {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.3rem;
   align-items: center;
+  flex: none;
+  height: 40%;
+  min-height: 0;
   width: 100%;
   padding-top: 0.6rem;
   border-top: 1px dashed var(--kn-border);
+  overflow-y: auto;
+}
+.kn-quiz__feedback.is-hidden {
+  visibility: hidden;
 }
 .kn-quiz__verdict {
   margin: 0;
@@ -244,16 +265,21 @@
   margin: 0;
   font-size: 0.9rem;
   color: var(--kn-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-/* Ô nhập + hành động */
+/* Ô nhập + hành động: vị trí cố định */
 .kn-quiz__answer {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.4rem;
 }
 .kn-quiz__answer-input {
   font-size: 1.2rem;
+  height: 3.5rem;
   min-height: 3.5rem;
   padding: 0.7rem 0.9rem;
   text-align: center;
@@ -271,6 +297,21 @@
   display: flex;
   gap: 0.5rem;
   justify-content: center;
+  min-height: 3rem;
+}
+/* Hai ô nút cố định: trái Gợi ý >=10rem, phải Kiểm tra/Tiếp >=12rem, cao 48px */
+.kn-quiz__answer-actions .kn-ui-btn {
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+.kn-quiz__action-hint {
+  min-width: 10rem;
+}
+.kn-quiz__action-submit {
+  min-width: 12rem;
 }
 .kn-quiz__btn-icon {
   vertical-align: -0.1em;
@@ -316,10 +357,14 @@
 }
 .kn-quiz__retry {
   margin: 0;
+  min-height: 1.4rem;
   text-align: center;
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--kn-danger);
+}
+.kn-quiz__retry.is-hidden {
+  visibility: hidden;
 }
 .kn-quiz__meaning {
   margin: 0;
