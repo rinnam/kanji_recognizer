@@ -1,6 +1,6 @@
-import { newVocabId, findDuplicate, type VocabularyDto } from '@kanji-nest/core';
+import { newVocabId, findDuplicate, selectWordsInScope, applyScope, type FolderDto, type VocabularyDto } from '@kanji-nest/core';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState, type ReactElement } from 'react';
+import { useCallback, useMemo, useState, type ReactElement } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,6 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStoragePort } from '../src/db/DbProvider';
 import { nowIso } from '../src/lib/time';
+import { ScopePicker } from '../src/components/ScopePicker';
+import { useScope } from '../src/scope/ScopeProvider';
 
 function newLocalVocab(word: string, meaning: string, now: string): VocabularyDto {
   return {
@@ -43,17 +45,23 @@ function newLocalVocab(word: string, meaning: string, now: string): VocabularyDt
  */
 export default function Overview(): ReactElement {
   const port = useStoragePort();
+  const { folderId, selection } = useScope();
   const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [vocabs, setVocabs] = useState<VocabularyDto[]>([]);
+  const [folders, setFolders] = useState<FolderDto[]>([]);
   const [word, setWord] = useState('');
   const [meaning, setMeaning] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
-      const all = await port.vocabs.all();
-      setVocabs(all.filter((v) => v.deletedAt === null));
+      const [allVocabs, allFolders] = await Promise.all([
+        port.vocabs.all(),
+        port.folders.all(),
+      ]);
+      setVocabs(allVocabs.filter((v) => v.deletedAt === null));
+      setFolders(allFolders.filter((f) => f.deletedAt === null));
       setStatus('ready');
       setError(null);
     } catch (err) {
@@ -61,6 +69,11 @@ export default function Overview(): ReactElement {
       setStatus('error');
     }
   }, [port]);
+
+  const visible = useMemo(() => {
+    const base = selectWordsInScope(vocabs, folders, folderId);
+    return selection.mode === 'all' ? base : applyScope(base, selection);
+  }, [vocabs, folders, folderId, selection]);
 
   useFocusEffect(
     useCallback(() => {
@@ -102,6 +115,7 @@ export default function Overview(): ReactElement {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScopePicker />
       <View style={styles.form}>
         <TextInput
           style={styles.input}
@@ -129,14 +143,14 @@ export default function Overview(): ReactElement {
             <Text style={styles.addText}>Thử lại</Text>
           </Pressable>
         </View>
-      ) : vocabs.length === 0 ? (
+      ) : visible.length === 0 ? (
         <View style={styles.center}>
           <Text>Chưa có từ nào — thêm từ đầu tiên ở trên.</Text>
         </View>
       ) : (
         <FlatList
           style={styles.list}
-          data={vocabs}
+          data={visible}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View style={styles.row}>

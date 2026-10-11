@@ -859,3 +859,8 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - Mobile `src/api/http.ts` (base `EXPO_PUBLIC_API_URL`), `src/db/DbProvider.tsx` (mở DB 1 lần + port), 3 màn Stack: chính (số lượng) / Tổng quan (liệt kê + thêm nhanh chống trùng + xóa mềm) / Flashcard (3 chế độ core, chạm lật, Anki chấm + putMany).
 - React dùng chung: mobile dùng react 19.3.0 ở root (tránh 2 bản hooks trong 1 bundle); expo-doctor còn 1 cảnh báo nhẹ sai minor kỳ vọng (19.2.3). Chưa có phạm vi thư mục/sync BE (M4/M5).
 - Kiểm: mobile typecheck 0 · `expo export` android bundle OK (2.9MB) · core 187 + web 26 (tổng 213). Chưa chạy trên thiết bị thật.
+
+## Đa nền tảng — M4: Quiz + phạm vi thư mục + sync BE trên mobile ✅
+- `sync-client.ts` mirror runSync web (push lô 200 folder-trước-vocab + pull merge LWW qua port, nút "Đồng bộ ngay" ở trang chính); `ScopeProvider` + `ScopePicker` (chip thư mục/chế độ + ô N) dùng chung 3 màn.
+- Quiz: 3 dạng + xáo trộn, 3 lần thử + gợi ý, phản hồi chip, kết quả + lưu BE (lỗi mạng vẫn giữ kết quả). Tổng quan/Flashcard lọc theo phạm vi.
+- Kiểm: mobile typecheck 0 · export android OK · core 187 + web 26 (tổng 213) · web build OK. Chưa chạy thiết bị (cần BE + `EXPO_PUBLIC_API_URL`).

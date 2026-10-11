@@ -1,8 +1,11 @@
 import {
   applyReview,
+  applyScope,
   buildQueue,
+  selectWordsInScope,
   summarize,
   type FlashcardMode,
+  type FolderDto,
   type SrsRating,
   type VocabularyDto,
 } from '@kanji-nest/core';
@@ -10,7 +13,9 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState, type ReactElement } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScopePicker } from '../src/components/ScopePicker';
 import { useStoragePort } from '../src/db/DbProvider';
+import { useScope } from '../src/scope/ScopeProvider';
 
 const MODES: { id: FlashcardMode; label: string }[] = [
   { id: 'normal', label: 'Bình thường' },
@@ -32,9 +37,11 @@ const RATINGS: { id: SrsRating; label: string }[] = [
  */
 export default function Flashcard(): ReactElement {
   const port = useStoragePort();
+  const { folderId, selection } = useScope();
   const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [all, setAll] = useState<VocabularyDto[]>([]);
+  const [folders, setFolders] = useState<FolderDto[]>([]);
   const [mode, setMode] = useState<FlashcardMode>('normal');
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -42,8 +49,12 @@ export default function Flashcard(): ReactElement {
 
   const reload = useCallback(async () => {
     try {
-      const rows = await port.vocabs.all();
-      setAll(rows);
+      const [vocabs, folderRows] = await Promise.all([
+        port.vocabs.all(),
+        port.folders.all(),
+      ]);
+      setAll(vocabs);
+      setFolders(folderRows);
       setNow(new Date());
       setStatus('ready');
       setError(null);
@@ -59,8 +70,15 @@ export default function Flashcard(): ReactElement {
     }, [reload]),
   );
 
-  const deck = useMemo(() => buildQueue(all, mode, now), [all, mode, now]);
-  const summary = useMemo(() => summarize(all, now), [all, now]);
+  const scopeBase = useMemo(
+    () => selectWordsInScope(all, folders, folderId),
+    [all, folders, folderId],
+  );
+  const deck = useMemo(() => {
+    const modeDeck = buildQueue(scopeBase, mode, now);
+    return selection.mode === 'all' ? modeDeck : applyScope(modeDeck, selection);
+  }, [scopeBase, mode, now, selection]);
+  const summary = useMemo(() => summarize(scopeBase, now), [scopeBase, now]);
   const total = deck.length;
   const safeIndex = total === 0 ? 0 : Math.min(index, total - 1);
   const current = total === 0 ? null : deck[safeIndex];
@@ -84,6 +102,7 @@ export default function Flashcard(): ReactElement {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScopePicker />
       <View style={styles.modes}>
         {MODES.map((item) => (
           <Pressable
