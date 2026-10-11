@@ -1,13 +1,12 @@
-import type { LocalVocabulary } from '../../../entities/vocabulary';
-import type { AttemptOutcome } from './attempt';
-import type { QuizType } from './types';
+import type { VocabularyDto as LocalVocabulary } from './dto';
+import type { AttemptOutcome } from './quiz-attempt';
+import type { QuizType } from './quiz-types';
 
 /** Dữ liệu từ cần cho phản hồi (THUẦN — UI tự render chip/dòng từ đây). */
 export type FeedbackVocab = Pick<
   LocalVocabulary,
   'word' | 'reading' | 'meaning' | 'sinoVietnamese' | 'example' | 'exampleMeaning'
 >;
-
 /** Một chip đáp án: nhãn + giá trị. */
 export interface FeedbackChip {
   label: string;

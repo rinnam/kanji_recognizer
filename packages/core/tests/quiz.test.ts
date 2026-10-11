@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { LocalVocabulary } from '../../src/entities/vocabulary';
-import { gradeAnswer, normalizeAnswer } from '../../src/features/quiz/model/grade';
-import { buildQuestions } from '../../src/features/quiz/model/questions';
-import { gradeSession, toCreateSessionInput } from '../../src/features/quiz/model/session';
+import type { VocabularyDto as LocalVocabulary } from '../src/dto';
+import { gradeAnswer, normalizeAnswer } from '../src/quiz-grade';
+import { buildQuestions } from '../src/quiz-questions';
+import { gradeSession, toCreateSessionInput } from '../src/quiz-session';
 
 function vocab(partial: Partial<LocalVocabulary> & { id: string }): LocalVocabulary {
   return {

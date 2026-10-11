@@ -1,20 +1,6 @@
 import type { QuizSessionDto } from './dto';
+import type { CreateQuizSessionInput } from '@kanji-nest/core';
 import { request } from './http';
-
-/** Một câu trong phiên quiz (khớp validators/quiz.ts của BE). */
-export interface QuizAttemptInput {
-  vocabularyId?: string | null;
-  prompt: string;
-  userAnswer?: string | null;
-  acceptedAnswers: string[];
-}
-
-export interface CreateQuizSessionInput {
-  mode?: string;
-  startedAt?: string;
-  finishedAt?: string;
-  attempts: QuizAttemptInput[];
-}
 
 /**
  * Chấm điểm + lưu phiên quiz (POST /quiz/sessions). Lưu ý: vocabularyId không tồn tại

@@ -33,6 +33,7 @@ desktop.ini
 # Build output
 dist/
 build/
+.expo/
 .github/skills/create-skill/SKILL.md
 
 # Local transport archives

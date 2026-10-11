@@ -13,11 +13,14 @@ import {
   ToggleIconButton,
 } from '../../../shared/ui';
 import type { ScopeSelection } from '../../../entities/vocabulary';
-import { remainingAttempts, toOutcome } from '../model/attempt';
-import { selectFeedbackContent } from '../model/feedback';
-import { decideQuizKey } from '@kanji-nest/core';
-import type { QuizMode } from '../model/questions';
-import type { QuizType } from '../model/types';
+import {
+  decideQuizKey,
+  remainingAttempts,
+  selectFeedbackContent,
+  toOutcome,
+  type QuizMode,
+  type QuizType,
+} from '@kanji-nest/core';
 import { useQuiz } from '../model/useQuiz';
 import { QuizResult } from './QuizResult';
 import './quiz.css';

@@ -833,3 +833,7 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - `packages/core` (tsconfig strict + vitest node, cấm React/DOM/DB): `src/dto.ts` (dời từ `shared/api/dto.ts`), `src/quiz-keymap.ts` + test 4 ca; web giữ tương thích qua re-export (`shared/api`) và import `@kanji-nest/core` (QuizRunner).
 - Sự cố: `npm install` ở root hoist vitest lên root làm worker mất `jsdom` (lồng trong web) → sửa bằng `jsdom` ở root devDeps; tổng vẫn 208 ca (204 web + 4 core).
 - Kiểm: core typecheck 0 · test 4/4; web typecheck 0 · test 204/204 · lint 0 (2 cảnh báo cũ) · build OK; mobile typecheck 0.
+
+## Đa nền tảng — M1b: dời cụm quiz thuần + scope sang core ✅
+- Core thêm `quiz-types/grade/attempt/feedback/questions/session/order/pool`, `scope-apply` (+ input POST quiz); 5 test dời theo. Web giữ tương thích: barrel re-export scope/input, `useQuiz`/QuizRunner/QuizResult trỏ core.
+- Kiểm: core 6 file/36 ca · web 24 file/172 ca (tổng 208) · typecheck 0 · lint 0 (2 cảnh báo cũ) · build OK.

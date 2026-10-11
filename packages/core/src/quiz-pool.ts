@@ -1,4 +1,5 @@
-import { applyScope, type LocalVocabulary, type ScopeSelection } from '../../../entities/vocabulary';
+import type { VocabularyDto as LocalVocabulary } from './dto';
+import { applyScope, type ScopeSelection } from './scope-apply';
 
 /**
  * Chọn BỘ từ cho một phiên quiz theo phạm vi — THUẦN, tất định (ủy quyền `applyScope`,

@@ -1,6 +1,20 @@
-import type { CreateQuizSessionInput, QuizAttemptInput } from '../../../shared/api';
-import { gradeAnswer } from './grade';
-import type { GradedQuizItem, QuizQuestion, QuizResult } from './types';
+import { gradeAnswer } from './quiz-grade';
+import type { GradedQuizItem, QuizQuestion, QuizResult } from './quiz-types';
+
+/** Một câu trong phiên quiz (khớp validators/quiz.ts của BE) — input POST /quiz/sessions. */
+export interface QuizAttemptInput {
+  vocabularyId?: string | null;
+  prompt: string;
+  userAnswer?: string | null;
+  acceptedAnswers: string[];
+}
+
+export interface CreateQuizSessionInput {
+  mode?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  attempts: QuizAttemptInput[];
+}
 
 /**
  * Chấm cả phiên cục bộ — THUẦN. `answers` canh theo index của `questions`

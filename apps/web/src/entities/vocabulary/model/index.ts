@@ -15,6 +15,6 @@ export {
 } from './vocab.local';
 export { collectDescendantFolderIds, selectWordsInScope } from './scope';
 export type { ScopeFolder } from './scope';
-export { applyScope } from './scope-apply';
-export type { ScopeSelection } from './scope-apply';
+export { applyScope } from '@kanji-nest/core';
+export type { ScopeSelection } from '@kanji-nest/core';
 export { markTombstoned, tombstoneVocabularies } from './tombstone';

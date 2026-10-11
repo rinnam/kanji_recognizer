@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyScope,
-  type LocalVocabulary,
   type ScopeSelection,
-} from '../../src/entities/vocabulary';
+} from '../src/scope-apply';
+import type { VocabularyDto as LocalVocabulary } from '../src/dto';
 
 function word(id: string, createdAt: string): LocalVocabulary {
   return {

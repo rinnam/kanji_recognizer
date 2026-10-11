@@ -1,6 +1,6 @@
 import { type ReactElement } from 'react';
 import { Button } from '../../../shared/ui';
-import type { GradedQuizItem, QuizResult as QuizResultData } from '../model/types';
+import type { GradedQuizItem, QuizResult as QuizResultData } from '@kanji-nest/core';
 import type { SaveStatus } from '../model/useQuiz';
 
 interface QuizResultProps {
