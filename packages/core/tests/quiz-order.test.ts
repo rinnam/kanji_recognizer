@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { orderQuestions } from '../src/quiz-order';
-import type { QuizQuestion } from '../src/quiz-types';
+import { orderQuestions } from '../src/quiz/order';
+import type { QuizQuestion } from '../src/quiz/types';
 
 function q(id: string, createdAt: string): QuizQuestion {
   return {

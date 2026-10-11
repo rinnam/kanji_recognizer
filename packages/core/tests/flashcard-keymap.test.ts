@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   decideFlashcardAction,
   type FlashcardKeyContext,
-} from '../src/flashcard-keymap';
+} from '../src/flashcard/keymap';
 
 function ctx(partial: Partial<FlashcardKeyContext>): FlashcardKeyContext {
   return {

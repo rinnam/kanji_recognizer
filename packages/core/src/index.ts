@@ -1,7 +1,10 @@
 /**
  * @kanji-nest/core — logic + kiểu THUẦN dùng chung cho Web (apps/web) và
  * Mobile (apps/mobile). CẤM import React/DOM/IndexedDB/network ở đây.
+ *
+ * Cấu trúc mirror theo domain của apps/web (features, entities).
  */
+export { newVocabId, newFolderId } from './ids';
 export type {
   JlptLevel,
   SrsRating,
@@ -18,16 +21,15 @@ export {
   decideQuizKey,
   type QuizKeyAction,
   type QuizKeyContext,
-} from './quiz-keymap';
-export { newVocabId, newFolderId } from './ids';
-export { applyScope, type ScopeSelection } from './scope-apply';
-export { normalizeAnswer, gradeAnswer } from './quiz-grade';
+} from './quiz/keymap';
+export { applyScope, type ScopeSelection } from './vocab/scope-apply';
+export { normalizeAnswer, gradeAnswer } from './quiz/grade';
 export type {
   QuizType,
   QuizQuestion,
   GradedQuizItem,
   QuizResult,
-} from './quiz-types';
+} from './quiz/types';
 export {
   MAX_ATTEMPTS,
   initialAttemptState,
@@ -38,18 +40,18 @@ export {
   type AttemptState,
   type AttemptStatus,
   type AttemptOutcome,
-} from './quiz-attempt';
+} from './quiz/attempt';
 export {
   selectFeedbackContent,
   type FeedbackVocab,
   type FeedbackChip,
   type FeedbackContent,
-} from './quiz-feedback';
-export { buildQuestions, type QuizMode } from './quiz-questions';
-export { gradeSession, toCreateSessionInput } from './quiz-session';
-export type { QuizAttemptInput, CreateQuizSessionInput } from './quiz-session';
-export { orderQuestions } from './quiz-order';
-export { selectQuizPool } from './quiz-pool';
+} from './quiz/feedback';
+export { buildQuestions, type QuizMode } from './quiz/questions';
+export { gradeSession, toCreateSessionInput } from './quiz/session';
+export type { QuizAttemptInput, CreateQuizSessionInput } from './quiz/session';
+export { orderQuestions } from './quiz/order';
+export { selectQuizPool } from './quiz/pool';
 export {
   DEFAULT_EASE_FACTOR,
   MIN_EASE_FACTOR,
@@ -59,45 +61,45 @@ export {
   review,
   type SrsState,
   type SrsReviewResult,
-} from './srs';
-export type { FlashcardMode, FlashcardSummary } from './flashcard-types';
+} from './srs/srs';
+export type { FlashcardMode, FlashcardSummary } from './flashcard/types';
 export {
   buildQueue,
   buildReviewAheadQueue,
   nextDueAt,
   summarize,
-} from './flashcard-queue';
+} from './flashcard/queue';
 export {
   applyReview,
   persistReview,
   type ReviewPersistDeps,
-} from './flashcard-review';
+} from './flashcard/review';
 export {
   decideFlashcardAction,
   type FlashcardAction,
   type FlashcardKeyContext,
-} from './flashcard-keymap';
+} from './flashcard/keymap';
 export {
   selectFaceContent,
   type CardFace,
   type FrontFace,
   type BackFace,
-} from './flashcard-face';
+} from './flashcard/face';
 export {
   hasSrsProgress,
   selectResetTargets,
   resetSrsProgress,
   persistResetSrs,
   type ResetPersistDeps,
-} from './flashcard-reset';
-export { dedupeKey, findDuplicate } from './vocab-dedupe';
-export { filterVocabularies, type VocabularyFilter } from './vocab-filter';
+} from './flashcard/reset';
+export { dedupeKey, findDuplicate } from './vocab/dedupe';
+export { filterVocabularies, type VocabularyFilter } from './vocab/filter';
 export {
   trimToNull,
   normalizeQuickAdd,
   type RawQuickAdd,
   type NormalizedQuickAdd,
-} from './vocab-normalize';
+} from './vocab/normalize';
 export {
   paginate,
   toggleId,
@@ -107,29 +109,29 @@ export {
   sortVocabs,
   type Pagination,
   type VocabSort,
-} from './vocab-list-utils';
+} from './vocab/list-utils';
 export {
   classifyIncoming,
   linkVocabulary,
   type IncomingWord,
   type ClassifyResult,
   type ClassifyIncomingArgs,
-} from './vocab-branch-dedupe';
+} from './vocab/branch-dedupe';
 export {
   planWordRemoval,
   type WordRemovalCounts,
   type WordRemovalPlan,
-} from './vocab-word-removal';
+} from './vocab/word-removal';
 export {
   decideQuickAddAction,
   type QuickAddAction,
-} from './vocab-quick-add-action';
+} from './vocab/quick-add-action';
 export {
   collectDescendantFolderIds,
   selectWordsInScope,
   type ScopeFolder,
-} from './vocab-scope';
-export { markTombstoned } from './vocab-tombstone';
+} from './vocab/scope';
+export { markTombstoned } from './vocab/tombstone';
 export type {
   ColumnTarget,
   ParsedRow,
@@ -138,7 +140,7 @@ export type {
   DuplicateReason,
   PreviewRow,
   ImportSummary,
-} from './import-types';
+} from './vocab/import/types';
 export {
   stripBom,
   detectDelimiter,
@@ -146,7 +148,7 @@ export {
   parseDelimited,
   parseMarkdownTable,
   type DelimitedOptions,
-} from './import-parse';
+} from './vocab/import/parse';
 export {
   normalizeHeader,
   headerToTarget,
@@ -154,7 +156,7 @@ export {
   defaultMappingByPosition,
   mapRowsToRecords,
   TEMPLATE_ORDER,
-} from './import-columns';
+} from './vocab/import/columns';
 export {
   MAX_IMPORT_ROWS,
   MAX_IMPORT_BYTES,
@@ -164,14 +166,14 @@ export {
   normalizeJlpt,
   buildPreview,
   type PreviewContext,
-} from './import-validate';
+} from './vocab/import/validate';
 export {
   TEMPLATE_HEADERS,
   buildTemplateCsv,
   buildTemplateMarkdown,
-} from './import-template';
-export { assembleImportVocabularies, assembleImportWrites } from './import-assemble';
-export type { ImportWritePlan } from './import-assemble';
+} from './vocab/import/template';
+export { assembleImportVocabularies, assembleImportWrites } from './vocab/import/assemble';
+export type { ImportWritePlan } from './vocab/import/assemble';
 export {
   normalizeFolderName,
   isFolderNameTaken,
@@ -181,7 +183,7 @@ export {
   rootFolderId,
   folderOptions,
   type FolderOption,
-} from './folder-path';
+} from './folder/path';
 export {
   ORDER_STEP,
   livingById,
@@ -193,12 +195,12 @@ export {
   reorderBefore,
   type FolderTreeNode,
   type FolderMovePatch,
-} from './folder-tree';
+} from './folder/tree';
 export {
   planFolderCascade,
   type FolderCascadeCounts,
   type FolderCascadePlan,
-} from './folder-cascade';
+} from './folder/cascade';
 export {
   isNewer,
   selectDirty,
@@ -209,4 +211,4 @@ export {
   highWaterMarkAfter,
   pickIncomingWinners,
   type SyncRecord,
-} from './sync-engine';
+} from './sync/engine';

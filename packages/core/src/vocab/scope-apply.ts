@@ -1,4 +1,4 @@
-import type { VocabularyDto as LocalVocabulary } from './dto';
+import type { VocabularyDto as LocalVocabulary } from '../dto';
 
 /**
  * Kiểu lấy phạm vi con của bộ từ (dùng chung Flashcard & Quiz):

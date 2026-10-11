@@ -845,3 +845,7 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 ## Đa nền tảng — M1d: dời cụm vocab/folder/sync thuần sang core (xong M1) ✅
 - Core thêm vocab-*, import-*, folder-path/tree/cascade, sync-engine, ids, markTombstoned; 14 test dời theo. Web giữ tương thích qua barrel; hook/UI trỏ core. `page-size` (localStorage) và `tombstoneVocabularies` (IndexedDB) ở lại web.
 - Kiểm: core 24 file/182 ca · web 6 file/26 ca (tổng 208) · typecheck 0 · lint 0 (2 cảnh báo cũ) · build OK. M1 HOÀN TẤT.
+
+## Đa nền tảng — M1e: dựng lại cây domain trong core ✅
+- `core/src` chia lại `srs/ quiz/ flashcard/ vocab/(+import/) folder/ sync/` (+ `dto.ts`, `ids.ts` ở gốc), mirror cấu trúc web cũ; web/mobile chỉ dùng barrel gốc nên không đổi gì.
+- Kiểm: core 24 file/182 ca · web 6 file/26 ca (tổng 208) · typecheck 0 · lint 0 (2 cảnh báo cũ) · build OK.

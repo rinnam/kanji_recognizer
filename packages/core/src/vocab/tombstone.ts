@@ -1,4 +1,4 @@
-import type { VocabularyDto as LocalVocabulary } from './dto';
+import type { VocabularyDto as LocalVocabulary } from '../dto';
 
 /**
  * THUẦN (tất định, không đụng DB): trả về BẢN SAO của các từ có `id ∈ ids` và CÒN SỐNG,

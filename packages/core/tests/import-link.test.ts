@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { FolderDto as LocalFolder } from '../src/dto';
 import type { VocabularyDto as LocalVocabulary } from '../src/dto';
-import { assembleImportWrites } from '../src/import-assemble';
-import { buildPreview } from '../src/import-validate';
-import type { ParsedRow } from '../src/import-types';
-import { selectDirty } from '../src/sync-engine';
+import { assembleImportWrites } from '../src/vocab/import/assemble';
+import { buildPreview } from '../src/vocab/import/validate';
+import type { ParsedRow } from '../src/vocab/import/types';
+import { selectDirty } from '../src/sync/engine';
 
 const SINCE = '2026-05-01T00:00:00.000Z';
 const NOW = '2026-09-09T00:00:00.000Z';

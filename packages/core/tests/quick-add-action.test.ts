@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decideQuickAddAction } from '../src/vocab-quick-add-action';
+import { decideQuickAddAction } from '../src/vocab/quick-add-action';
 
 describe('vocabulary/quick-add-action decideQuickAddAction', () => {
   it("'new' → tạo mới (add)", () => {

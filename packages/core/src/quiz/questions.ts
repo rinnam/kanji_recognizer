@@ -1,5 +1,5 @@
-import type { VocabularyDto as LocalVocabulary } from './dto';
-import type { QuizQuestion } from './quiz-types';
+import type { VocabularyDto as LocalVocabulary } from '../dto';
+import type { QuizQuestion } from './types';
 
 /** 3 chế độ chọn loại câu: Ngẫu nhiên / Dạng 1 (cách đọc) / Dạng 2 (dịch Nhật). */
 export type QuizMode = 'random' | 'reading' | 'meaning';

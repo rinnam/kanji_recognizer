@@ -7,7 +7,7 @@ import {
   folderPath,
   isFolderNameTaken,
   normalizeFolderName,
-} from '../src/folder-path';
+} from '../src/folder/path';
 
 function folder(partial: Partial<LocalFolder> & { id: string }): LocalFolder {
   return {

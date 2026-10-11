@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { VocabularyDto as LocalVocabulary } from '../src/dto';
-import { selectFaceContent } from '../src/flashcard-face';
+import { selectFaceContent } from '../src/flashcard/face';
 
 function vocab(partial: Partial<LocalVocabulary>): LocalVocabulary {
   return {

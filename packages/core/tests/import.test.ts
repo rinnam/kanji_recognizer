@@ -5,16 +5,16 @@ import {
   clampRows,
   MAX_IMPORT_ROWS,
   normalizeJlpt,
-} from '../src/import-validate';
+} from '../src/vocab/import/validate';
 import {
   defaultMappingByPosition,
   detectHeaderMapping,
   mapRowsToRecords,
   type ColumnTarget,
   type ParsedRow,
-} from '../src/import-columns';
-import { parseCsv, parseDelimited, parseMarkdownTable } from '../src/import-parse';
-import { buildTemplateCsv, TEMPLATE_HEADERS } from '../src/import-template';
+} from '../src/vocab/import/columns';
+import { parseCsv, parseDelimited, parseMarkdownTable } from '../src/vocab/import/parse';
+import { buildTemplateCsv, TEMPLATE_HEADERS } from '../src/vocab/import/template';
 
 function parsedRow(partial: Partial<ParsedRow> & { line: number }): ParsedRow {
   return {

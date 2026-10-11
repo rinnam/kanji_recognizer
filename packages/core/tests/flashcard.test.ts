@@ -5,15 +5,15 @@ import {
   buildReviewAheadQueue,
   nextDueAt,
   summarize,
-} from '../src/flashcard-queue';
+} from '../src/flashcard/queue';
 import {
   applyReview,
   persistReview,
-} from '../src/flashcard-review';
+} from '../src/flashcard/review';
 import {
   resetSrsProgress,
   selectResetTargets,
-} from '../src/flashcard-reset';
+} from '../src/flashcard/reset';
 
 function vocab(partial: Partial<LocalVocabulary> & { id: string }): LocalVocabulary {
   return {

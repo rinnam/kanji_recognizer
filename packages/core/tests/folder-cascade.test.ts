@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { FolderDto as LocalFolder } from '../src/dto';
-import { markTombstoned } from '../src/vocab-tombstone';
+import { markTombstoned } from '../src/vocab/tombstone';
 import type { VocabularyDto as LocalVocabulary } from '../src/dto';
-import { planFolderCascade } from '../src/folder-cascade';
-import { selectDirty } from '../src/sync-engine';
+import { planFolderCascade } from '../src/folder/cascade';
+import { selectDirty } from '../src/sync/engine';
 
 const OLD = '2026-01-01T00:00:00.000Z';
 const NOW = '2026-03-01T00:00:00.000Z';

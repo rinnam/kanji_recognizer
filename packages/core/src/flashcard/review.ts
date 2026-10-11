@@ -1,5 +1,5 @@
-import { review as computeReview, type SrsRating } from './srs';
-import type { VocabularyDto as LocalVocabulary } from './dto';
+import { review as computeReview, type SrsRating } from '../srs/srs';
+import type { VocabularyDto as LocalVocabulary } from '../dto';
 
 /**
  * Áp một lần đánh giá SM-2 lên MỘT thẻ (THUẦN, tất định) → trả về bản ghi MỚI.

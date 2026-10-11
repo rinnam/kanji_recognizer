@@ -1,5 +1,5 @@
-import type { ColumnTarget, ParsedRow } from './import-types';
-export type { ColumnTarget, ParsedRow } from './import-types';
+import type { ColumnTarget, ParsedRow } from './types';
+export type { ColumnTarget, ParsedRow } from './types';
 
 /**
  * Ánh xạ cột khi nhập: dò theo bí danh tiêu đề (không phân biệt hoa/thường và dấu),

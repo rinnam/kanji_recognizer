@@ -1,8 +1,8 @@
-import { collectDescendantFolderIds } from './vocab-scope';
-import type { VocabularyDto as LocalVocabulary } from './dto';
-import { folderPath, rootFolderId } from './folder-path';
-import type { FolderDto as LocalFolder } from './dto';
-import { dedupeKey, findDuplicate } from './vocab-dedupe';
+import { collectDescendantFolderIds } from './scope';
+import type { VocabularyDto as LocalVocabulary } from '../dto';
+import { folderPath, rootFolderId } from '../folder/path';
+import type { FolderDto as LocalFolder } from '../dto';
+import { dedupeKey, findDuplicate } from './dedupe';
 
 /** Nhãn hiển thị khi từ đã có nhưng chưa thuộc thư mục nào. */
 const UNFILED_LABEL = 'Chưa gán thư mục';

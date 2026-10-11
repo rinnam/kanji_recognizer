@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { VocabularyDto as LocalVocabulary } from '../src/dto';
-import { dedupeKey, findDuplicate } from '../src/vocab-dedupe';
-import { filterVocabularies } from '../src/vocab-filter';
-import { normalizeQuickAdd, trimToNull } from '../src/vocab-normalize';
+import { dedupeKey, findDuplicate } from '../src/vocab/dedupe';
+import { filterVocabularies } from '../src/vocab/filter';
+import { normalizeQuickAdd, trimToNull } from '../src/vocab/normalize';
 
 function vocab(partial: Partial<LocalVocabulary> & { id: string }): LocalVocabulary {
   return {

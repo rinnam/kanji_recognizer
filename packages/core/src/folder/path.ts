@@ -1,4 +1,4 @@
-import type { FolderDto as LocalFolder } from './dto';
+import type { FolderDto as LocalFolder } from '../dto';
 
 /** Thư mục còn sống (chưa bị tombstone). */
 function isLiving(folder: LocalFolder): boolean {

@@ -6,7 +6,7 @@ import {
   setMany,
   sortVocabs,
   toggleId,
-} from '../src/vocab-list-utils';
+} from '../src/vocab/list-utils';
 import type { VocabularyDto as LocalVocabulary } from '../src/dto';
 
 function vocab(id: string, createdAt: string): LocalVocabulary {

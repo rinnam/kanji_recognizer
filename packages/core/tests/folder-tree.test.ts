@@ -6,7 +6,7 @@ import {
   isAncestor,
   reorderBefore,
   reparentAppend,
-} from '../src/folder-tree';
+} from '../src/folder/tree';
 
 function folder(partial: Partial<LocalFolder> & { id: string }): LocalFolder {
   return {

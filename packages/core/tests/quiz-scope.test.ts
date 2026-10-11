@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { VocabularyDto as LocalVocabulary } from '../src/dto';
-import type { ScopeSelection } from '../src/scope-apply';
-import { selectQuizPool } from '../src/quiz-pool';
+import type { ScopeSelection } from '../src/vocab/scope-apply';
+import { selectQuizPool } from '../src/quiz/pool';
 
 function word(id: string, createdAt: string): LocalVocabulary {
   return {

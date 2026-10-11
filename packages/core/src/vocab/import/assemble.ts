@@ -1,6 +1,6 @@
-import type { VocabularyDto as LocalVocabulary } from './dto';
-import { linkVocabulary } from './vocab-branch-dedupe';
-import type { NormalizedImport, PreviewRow } from './import-types';
+import type { VocabularyDto as LocalVocabulary } from '../../dto';
+import { linkVocabulary } from '../branch-dedupe';
+import type { NormalizedImport, PreviewRow } from './types';
 
 /**
  * Dựng danh sách `LocalVocabulary` sẵn sàng GHI từ các bản ghi đã chuẩn hóa (THUẦN, tất định).

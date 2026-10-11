@@ -6,8 +6,8 @@ import {
   MAX_ATTEMPTS,
   remainingAttempts,
   toOutcome,
-} from '../src/quiz-attempt';
-import { selectFeedbackContent, type FeedbackVocab } from '../src/quiz-feedback';
+} from '../src/quiz/attempt';
+import { selectFeedbackContent, type FeedbackVocab } from '../src/quiz/feedback';
 
 function vocab(partial: Partial<FeedbackVocab>): FeedbackVocab {
   return {

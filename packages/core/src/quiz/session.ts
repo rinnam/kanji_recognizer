@@ -1,5 +1,5 @@
-import { gradeAnswer } from './quiz-grade';
-import type { GradedQuizItem, QuizQuestion, QuizResult } from './quiz-types';
+import { gradeAnswer } from './grade';
+import type { GradedQuizItem, QuizQuestion, QuizResult } from './types';
 
 /** Một câu trong phiên quiz (khớp validators/quiz.ts của BE) — input POST /quiz/sessions. */
 export interface QuizAttemptInput {

@@ -1,4 +1,4 @@
-import type { QuizQuestion } from './quiz-types';
+import type { QuizQuestion } from './types';
 
 /** PRNG tất định mulberry32: từ seed số nguyên → hàm sinh số thực trong [0, 1). */
 function mulberry32(seed: number): () => number {

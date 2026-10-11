@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { assembleImportVocabularies } from '../src/import-assemble';
-import type { NormalizedImport } from '../src/import-types';
+import { assembleImportVocabularies } from '../src/vocab/import/assemble';
+import type { NormalizedImport } from '../src/vocab/import/types';
 import { newVocabId } from '../src/ids';
 
 function rec(word: string, meaning: string): NormalizedImport {
