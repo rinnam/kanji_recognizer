@@ -212,3 +212,5 @@ export {
   pickIncomingWinners,
   type SyncRecord,
 } from './sync/engine';
+export type { FolderStore, VocabStore, MetaStore, StoragePort } from './storage/port';
+export { createMemoryStoragePort, type MemorySeed } from './storage/memory';

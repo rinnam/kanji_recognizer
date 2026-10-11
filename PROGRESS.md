@@ -849,3 +849,8 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 ## Đa nền tảng — M1e: dựng lại cây domain trong core ✅
 - `core/src` chia lại `srs/ quiz/ flashcard/ vocab/(+import/) folder/ sync/` (+ `dto.ts`, `ids.ts` ở gốc), mirror cấu trúc web cũ; web/mobile chỉ dùng barrel gốc nên không đổi gì.
 - Kiểm: core 24 file/182 ca · web 6 file/26 ca (tổng 208) · typecheck 0 · lint 0 (2 cảnh báo cũ) · build OK.
+
+## Đa nền tảng — M2: port lưu trữ + adapter web/mobile ✅
+- Core `storage/port.ts` (Folder/Vocab/MetaStore, upsert theo id, xóa = tombstone) + `storage/memory.ts` (tham chiếu cho test) + test hợp đồng 5 ca (lái sync engine thật).
+- Adapter web `shared/storage` (bọc IndexedDB) và mobile `src/storage/sqlite-port.ts` (expo-sqlite, hàng JSON, `kanjismart.db`); mobile phụ thuộc core.
+- Kiểm: core 25 file/187 ca · web 6 file/26 ca (tổng 213) · typecheck 0 cả 3 workspace · lint 0 (2 cảnh báo cũ) · build OK. SQLite/adapters chưa chạy thật trên thiết bị.
