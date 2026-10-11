@@ -864,3 +864,8 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - `sync-client.ts` mirror runSync web (push lô 200 folder-trước-vocab + pull merge LWW qua port, nút "Đồng bộ ngay" ở trang chính); `ScopeProvider` + `ScopePicker` (chip thư mục/chế độ + ô N) dùng chung 3 màn.
 - Quiz: 3 dạng + xáo trộn, 3 lần thử + gợi ý, phản hồi chip, kết quả + lưu BE (lỗi mạng vẫn giữ kết quả). Tổng quan/Flashcard lọc theo phạm vi.
 - Kiểm: mobile typecheck 0 · export android OK · core 187 + web 26 (tổng 213) · web build OK. Chưa chạy thiết bị (cần BE + `EXPO_PUBLIC_API_URL`).
+
+## Đa nền tảng — M5: import file + đếm ngược + theme mobile ✅
+- Import: `expo-document-picker` + `expo-file-system` (File Blob `.text()`), dán văn bản, parse/ánh xạ tự động, xem trước Mới/Gắn/Trùng/Lỗi, ghi qua port (thư mục đích = phạm vi đang chọn).
+- Quiz: đếm ngược tự chuyển (mặc định 5s, chỉnh 1–10). Theme sáng/tối mirror token web, nhớ vào SQLite meta, áp toàn bộ màn hình.
+- Kiểm: mobile typecheck 0 · export android OK · core 187 + web 26 (tổng 213) · web build OK. Chưa chạy thiết bị — checklist: Expo Go + BE chạy + `EXPO_PUBLIC_API_URL` trỏ IP LAN.

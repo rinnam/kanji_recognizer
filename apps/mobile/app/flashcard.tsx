@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScopePicker } from '../src/components/ScopePicker';
 import { useStoragePort } from '../src/db/DbProvider';
 import { useScope } from '../src/scope/ScopeProvider';
+import { useTheme, type AppTheme } from '../src/theme/ThemeProvider';
 
 const MODES: { id: FlashcardMode; label: string }[] = [
   { id: 'normal', label: 'Bình thường' },
@@ -37,6 +38,8 @@ const RATINGS: { id: SrsRating; label: string }[] = [
  */
 export default function Flashcard(): ReactElement {
   const port = useStoragePort();
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { folderId, selection } = useScope();
   const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -130,7 +133,7 @@ export default function Flashcard(): ReactElement {
         </View>
       ) : current === null ? (
         <View style={styles.center}>
-          <Text>Chưa có thẻ — thêm từ ở tab Tổng quan.</Text>
+          <Text style={styles.centerText}>Chưa có thẻ — thêm từ ở tab Tổng quan.</Text>
         </View>
       ) : (
         <>
@@ -202,125 +205,140 @@ export default function Flashcard(): ReactElement {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    gap: 10,
-  },
-  modes: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  modeButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#8a7f6e',
-    alignItems: 'center',
-  },
-  modeActive: {
-    backgroundColor: '#b4532a',
-    borderColor: '#b4532a',
-  },
-  modeText: {
-    fontWeight: '600',
-  },
-  modeTextActive: {
-    color: '#ffffff',
-  },
-  summary: {
-    textAlign: 'right',
-    opacity: 0.7,
-  },
-  counter: {
-    fontWeight: '700',
-  },
-  card: {
-    height: 320,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#d8cfbe',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  cardWord: {
-    fontSize: 44,
-    fontWeight: '800',
-  },
-  cardBack: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  cardReading: {
-    fontSize: 20,
-    opacity: 0.7,
-  },
-  cardMeaning: {
-    fontSize: 32,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  flipHint: {
-    position: 'absolute',
-    top: 12,
-    left: 16,
-    fontSize: 11,
-    letterSpacing: 1,
-    opacity: 0.6,
-  },
-  nav: {
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'center',
-  },
-  navButton: {
-    minWidth: 140,
-    paddingVertical: 14,
-    borderRadius: 10,
-    backgroundColor: '#b4532a',
-    alignItems: 'center',
-  },
-  navText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  primaryButton: {
-    paddingVertical: 14,
-    borderRadius: 10,
-    backgroundColor: '#b4532a',
-    alignItems: 'center',
-  },
-  primaryText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  ratings: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  rateButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#b4532a',
-    alignItems: 'center',
-  },
-  rateText: {
-    fontWeight: '700',
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-});
+const makeStyles = (t: AppTheme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 16,
+      gap: 10,
+      backgroundColor: t.bg,
+    },
+    modes: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    modeButton: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: t.btnBorder,
+      backgroundColor: t.btnBg,
+      alignItems: 'center',
+    },
+    modeActive: {
+      backgroundColor: t.primary,
+      borderColor: t.primary,
+    },
+    modeText: {
+      fontWeight: '600',
+      color: t.btnFg,
+    },
+    modeTextActive: {
+      color: t.primaryContrast,
+    },
+    summary: {
+      textAlign: 'right',
+      opacity: 0.7,
+      color: t.text,
+    },
+    counter: {
+      fontWeight: '700',
+      color: t.text,
+    },
+    card: {
+      height: 320,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: t.border,
+      backgroundColor: t.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+    },
+    cardWord: {
+      fontSize: 44,
+      fontWeight: '800',
+      color: t.text,
+    },
+    cardBack: {
+      alignItems: 'center',
+      gap: 8,
+    },
+    cardReading: {
+      fontSize: 20,
+      opacity: 0.7,
+      color: t.text,
+    },
+    cardMeaning: {
+      fontSize: 32,
+      fontWeight: '700',
+      textAlign: 'center',
+      color: t.text,
+    },
+    flipHint: {
+      position: 'absolute',
+      top: 12,
+      left: 16,
+      fontSize: 11,
+      letterSpacing: 1,
+      opacity: 0.6,
+      color: t.text,
+    },
+    nav: {
+      flexDirection: 'row',
+      gap: 12,
+      justifyContent: 'center',
+    },
+    navButton: {
+      minWidth: 140,
+      paddingVertical: 14,
+      borderRadius: 10,
+      backgroundColor: t.primary,
+      alignItems: 'center',
+    },
+    navText: {
+      color: t.primaryContrast,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    primaryButton: {
+      paddingVertical: 14,
+      borderRadius: 10,
+      backgroundColor: t.primary,
+      alignItems: 'center',
+    },
+    primaryText: {
+      color: t.primaryContrast,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    ratings: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    rateButton: {
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: t.primary,
+      alignItems: 'center',
+    },
+    rateText: {
+      fontWeight: '700',
+      color: t.text,
+    },
+    disabled: {
+      opacity: 0.4,
+    },
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+    },
+    centerText: {
+      color: t.text,
+    },
+  });

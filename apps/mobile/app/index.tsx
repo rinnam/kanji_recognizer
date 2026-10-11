@@ -1,13 +1,16 @@
 import { Link, useFocusEffect } from 'expo-router';
-import { useCallback, useState, type ReactElement } from 'react';
+import { useCallback, useMemo, useState, type ReactElement } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStoragePort } from '../src/db/DbProvider';
 import { runSync, type SyncRunSummary } from '../src/sync/sync-client';
+import { useTheme, type AppTheme } from '../src/theme/ThemeProvider';
 
 /** Trang chính: số lượng local + điều hướng + đồng bộ tay với BE. */
 export default function Home(): ReactElement {
   const port = useStoragePort();
+  const { theme, name, toggle } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const [counts, setCounts] = useState({ folders: 0, vocabs: 0 });
   const [error, setError] = useState<string | null>(null);
   const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'done' | 'error'>('idle');
@@ -80,6 +83,11 @@ export default function Home(): ReactElement {
           <Text style={styles.buttonText}>Quiz</Text>
         </Pressable>
       </Link>
+      <Link href="/import" asChild>
+        <Pressable style={styles.button}>
+          <Text style={styles.buttonText}>Nhập từ file / dán</Text>
+        </Pressable>
+      </Link>
       <Pressable
         style={[styles.button, styles.syncButton]}
         onPress={() => void syncNow()}
@@ -94,51 +102,61 @@ export default function Home(): ReactElement {
           {syncState === 'error' ? `Lỗi đồng bộ: ${syncMessage}` : syncMessage}
         </Text>
       ) : null}
+      <Pressable style={styles.themeButton} onPress={toggle} accessibilityLabel="Đổi giao diện">
+        <Text style={styles.syncText}>Giao diện: {name === 'dark' ? 'tối' : 'sáng'}</Text>
+      </Pressable>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    padding: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  counts: {
-    fontSize: 16,
-    opacity: 0.7,
-  },
-  error: {
-    fontSize: 14,
-    color: '#a3301f',
-  },
-  button: {
-    minWidth: 220,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    backgroundColor: '#b4532a',
-    alignItems: 'center',
-  },
-  syncButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#b4532a',
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  syncText: {
-    color: '#b4532a',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-});
+const makeStyles = (t: AppTheme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      padding: 24,
+      backgroundColor: t.bg,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: t.text,
+    },
+    counts: {
+      fontSize: 16,
+      opacity: 0.7,
+      color: t.text,
+    },
+    error: {
+      fontSize: 14,
+      color: t.danger,
+    },
+    button: {
+      minWidth: 220,
+      paddingVertical: 14,
+      paddingHorizontal: 20,
+      borderRadius: 10,
+      backgroundColor: t.primary,
+      alignItems: 'center',
+    },
+    syncButton: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: t.primary,
+    },
+    buttonText: {
+      color: t.primaryContrast,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    syncText: {
+      color: t.primary,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    themeButton: {
+      marginTop: 8,
+    },
+  });

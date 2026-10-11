@@ -19,7 +19,7 @@ import {
   type VocabularyDto,
 } from '@kanji-nest/core';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -34,6 +34,7 @@ import { request } from '../src/api/http';
 import { ScopePicker } from '../src/components/ScopePicker';
 import { useStoragePort } from '../src/db/DbProvider';
 import { useScope } from '../src/scope/ScopeProvider';
+import { useTheme, type AppTheme } from '../src/theme/ThemeProvider';
 
 const MODES: { id: QuizMode; label: string }[] = [
   { id: 'random', label: 'Ngẫu nhiên' },
@@ -53,6 +54,8 @@ const TYPE_TITLE: Record<string, string> = {
  */
 export default function Quiz(): ReactElement {
   const port = useStoragePort();
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { folderId, selection } = useScope();
   const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +70,8 @@ export default function Quiz(): ReactElement {
   const [items, setItems] = useState<GradedQuizItem[]>([]);
   const [finished, setFinished] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [seconds, setSeconds] = useState(5);
+  const [remaining, setRemaining] = useState<number | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -117,6 +122,7 @@ export default function Quiz(): ReactElement {
     setItems([]);
     setFinished(false);
     setSaveMessage(null);
+    setRemaining(null);
   }, []);
 
   const chooseMode = (next: QuizMode): void => {
@@ -145,7 +151,10 @@ export default function Quiz(): ReactElement {
     if (current === null || resolved || input.trim() === '') return;
     const next = applyAnswer(attempt, gradeAnswer(input, current.acceptedAnswers), input);
     setAttempt(next);
-    if (next.status !== 'answering') pushItem(next);
+    if (next.status !== 'answering') {
+      pushItem(next);
+      setRemaining(seconds);
+    }
   };
 
   const hint = (): void => {
@@ -153,6 +162,7 @@ export default function Quiz(): ReactElement {
     const next = applyHint(attempt);
     setAttempt(next);
     pushItem(next);
+    setRemaining(seconds);
   };
 
   const saveResult = async (result: QuizResult): Promise<void> => {
@@ -170,6 +180,7 @@ export default function Quiz(): ReactElement {
   };
 
   const advance = (): void => {
+    setRemaining(null);
     if (index >= total - 1) {
       const result: QuizResult = {
         score: items.filter((i) => i.isCorrect).length,
@@ -188,6 +199,27 @@ export default function Quiz(): ReactElement {
   const result: QuizResult | null = finished
     ? { score: items.filter((i) => i.isCorrect).length, total: items.length, items }
     : null;
+
+  // Đếm ngược tự chuyển sau khi chốt câu (setState chỉ trong callback interval).
+  const advanceRef = useRef(advance);
+  useEffect(() => {
+    advanceRef.current = advance;
+  });
+  useEffect(() => {
+    if (!resolved || finished) return;
+    const id = setInterval(() => {
+      setRemaining((prev) => {
+        if (prev === null) return prev;
+        if (prev <= 1) {
+          clearInterval(id);
+          advanceRef.current();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [resolved, finished, index]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -230,12 +262,29 @@ export default function Quiz(): ReactElement {
         <Text style={styles.counter}>
           {total === 0 ? '0/0' : `${Math.min(index + 1, total)}/${total}`}
         </Text>
+        <View style={styles.timer}>
+          <Pressable
+            style={styles.timerButton}
+            onPress={() => setSeconds((s) => Math.max(1, s - 1))}
+            accessibilityLabel="Giảm giây tự chuyển"
+          >
+            <Text style={styles.timerText}>−</Text>
+          </Pressable>
+          <Text style={styles.timerText}>{seconds}s</Text>
+          <Pressable
+            style={styles.timerButton}
+            onPress={() => setSeconds((s) => Math.min(10, s + 1))}
+            accessibilityLabel="Tăng giây tự chuyển"
+          >
+            <Text style={styles.timerText}>+</Text>
+          </Pressable>
+        </View>
       </View>
       {status === 'loading' ? (
         <ActivityIndicator size="large" />
       ) : status === 'error' ? (
         <View style={styles.center}>
-          <Text>Lỗi: {error}</Text>
+          <Text style={styles.centerText}>Lỗi: {error}</Text>
           <Pressable style={styles.primaryButton} onPress={() => void reload()}>
             <Text style={styles.primaryText}>Thử lại</Text>
           </Pressable>
@@ -245,15 +294,15 @@ export default function Quiz(): ReactElement {
           <Text style={styles.score}>
             Điểm: {result.score} / {result.total}
           </Text>
-          {saveMessage !== null ? <Text>{saveMessage}</Text> : null}
+          {saveMessage !== null ? <Text style={styles.bodyText}>{saveMessage}</Text> : null}
           {result.items.map((item, i) => (
             <View key={`${item.vocabularyId}-${i}`} style={styles.reviewRow}>
               <Text style={styles.reviewPrompt}>{item.prompt}</Text>
-              <Text>
+              <Text style={styles.bodyText}>
                 Bạn gõ: {item.userAnswer ?? '—'} {item.isCorrect ? '✓' : '✗'}
               </Text>
               {!item.isCorrect ? (
-                <Text>Đáp án: {item.acceptedAnswers.join(' / ')}</Text>
+                <Text style={styles.bodyText}>Đáp án: {item.acceptedAnswers.join(' / ')}</Text>
               ) : null}
             </View>
           ))}
@@ -269,7 +318,7 @@ export default function Quiz(): ReactElement {
         </ScrollView>
       ) : current === null ? (
         <View style={styles.center}>
-          <Text>Chưa có câu hỏi — thêm từ ở tab Tổng quan.</Text>
+          <Text style={styles.centerText}>Chưa có câu hỏi — thêm từ ở tab Tổng quan.</Text>
         </View>
       ) : (
         <View style={styles.card}>
@@ -282,11 +331,13 @@ export default function Quiz(): ReactElement {
               </Text>
               <Text style={styles.meaning}>{feedback.meaning}</Text>
               {feedback.chips.map((chip) => (
-                <Text key={chip.label}>
+                <Text key={chip.label} style={styles.bodyText}>
                   {chip.label}: {chip.value}
                 </Text>
               ))}
-              {feedback.example !== null ? <Text>{feedback.example}</Text> : null}
+              {feedback.example !== null ? (
+                <Text style={styles.bodyText}>{feedback.example}</Text>
+              ) : null}
             </View>
           ) : null}
           <TextInput
@@ -295,6 +346,7 @@ export default function Quiz(): ReactElement {
             onChangeText={setInput}
             editable={!resolved}
             placeholder="Nhập câu trả lời…"
+            placeholderTextColor={theme.muted}
             aria-label="Câu trả lời"
             onSubmitEditing={submit}
           />
@@ -317,7 +369,7 @@ export default function Quiz(): ReactElement {
           ) : (
             <Pressable style={styles.primaryButton} onPress={advance}>
               <Text style={styles.primaryText}>
-                {index >= total - 1 ? 'Nộp bài' : 'Tiếp'}
+                {index >= total - 1 ? 'Nộp bài' : `Tiếp (${remaining ?? seconds}s)`}
               </Text>
             </Pressable>
           )}
@@ -327,149 +379,189 @@ export default function Quiz(): ReactElement {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    gap: 10,
-  },
-  modes: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  modeButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#8a7f6e',
-    alignItems: 'center',
-  },
-  modeActive: {
-    backgroundColor: '#b4532a',
-    borderColor: '#b4532a',
-  },
-  modeText: {
-    fontWeight: '600',
-  },
-  modeTextActive: {
-    color: '#ffffff',
-  },
-  tools: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  toolButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#8a7f6e',
-  },
-  counter: {
-    marginLeft: 'auto',
-    fontWeight: '700',
-  },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#d8cfbe',
-    padding: 16,
-    gap: 10,
-  },
-  cardTitle: {
-    fontSize: 12,
-    letterSpacing: 1,
-    opacity: 0.6,
-    textAlign: 'center',
-  },
-  question: {
-    fontSize: 34,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  feedback: {
-    gap: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#d8cfbe',
-    paddingTop: 8,
-  },
-  ok: {
-    fontWeight: '700',
-    color: '#b4532a',
-  },
-  no: {
-    fontWeight: '700',
-    color: '#a3301f',
-  },
-  meaning: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  input: {
-    borderWidth: 2,
-    borderColor: '#b4532a',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 18,
-    textAlign: 'center',
-  },
-  retry: {
-    color: '#a3301f',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 8,
-    justifyContent: 'center',
-  },
-  actionButton: {
-    minWidth: 140,
-    paddingVertical: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#8a7f6e',
-    alignItems: 'center',
-  },
-  primaryButtonInline: {
-    backgroundColor: '#b4532a',
-    borderColor: '#b4532a',
-  },
-  primaryButton: {
-    paddingVertical: 14,
-    borderRadius: 10,
-    backgroundColor: '#b4532a',
-    alignItems: 'center',
-  },
-  primaryText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  result: {
-    flex: 1,
-  },
-  score: {
-    fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-  reviewRow: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#d8cfbe',
-    gap: 2,
-  },
-  reviewPrompt: {
-    fontWeight: '700',
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-});
+const makeStyles = (t: AppTheme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 16,
+      gap: 10,
+      backgroundColor: t.bg,
+    },
+    modes: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    modeButton: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: t.btnBorder,
+      backgroundColor: t.btnBg,
+      alignItems: 'center',
+    },
+    modeActive: {
+      backgroundColor: t.primary,
+      borderColor: t.primary,
+    },
+    modeText: {
+      fontWeight: '600',
+      color: t.btnFg,
+    },
+    modeTextActive: {
+      color: t.primaryContrast,
+    },
+    tools: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    toolButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: t.btnBorder,
+      backgroundColor: t.btnBg,
+    },
+    counter: {
+      marginLeft: 'auto',
+      fontWeight: '700',
+      color: t.text,
+    },
+    timer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    timerButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: t.btnBorder,
+      backgroundColor: t.btnBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    timerText: {
+      color: t.text,
+      fontWeight: '700',
+    },
+    card: {
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: t.border,
+      backgroundColor: t.surface,
+      padding: 16,
+      gap: 10,
+    },
+    cardTitle: {
+      fontSize: 12,
+      letterSpacing: 1,
+      opacity: 0.6,
+      textAlign: 'center',
+      color: t.text,
+    },
+    question: {
+      fontSize: 34,
+      fontWeight: '800',
+      textAlign: 'center',
+      color: t.text,
+    },
+    feedback: {
+      gap: 4,
+      borderTopWidth: 1,
+      borderTopColor: t.border,
+      paddingTop: 8,
+    },
+    ok: {
+      fontWeight: '700',
+      color: t.primary,
+    },
+    no: {
+      fontWeight: '700',
+      color: t.danger,
+    },
+    meaning: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: t.text,
+    },
+    bodyText: {
+      color: t.text,
+    },
+    input: {
+      borderWidth: 2,
+      borderColor: t.primary,
+      backgroundColor: t.btnBg,
+      color: t.text,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+      fontSize: 18,
+      textAlign: 'center',
+    },
+    retry: {
+      color: t.danger,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    actions: {
+      flexDirection: 'row',
+      gap: 8,
+      justifyContent: 'center',
+    },
+    actionButton: {
+      minWidth: 140,
+      paddingVertical: 14,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: t.btnBorder,
+      backgroundColor: t.btnBg,
+      alignItems: 'center',
+    },
+    primaryButtonInline: {
+      backgroundColor: t.primary,
+      borderColor: t.primary,
+    },
+    primaryButton: {
+      paddingVertical: 14,
+      borderRadius: 10,
+      backgroundColor: t.primary,
+      alignItems: 'center',
+    },
+    primaryText: {
+      color: t.primaryContrast,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    result: {
+      flex: 1,
+    },
+    score: {
+      fontSize: 20,
+      fontWeight: '800',
+      marginBottom: 8,
+      color: t.text,
+    },
+    reviewRow: {
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: t.border,
+      gap: 2,
+    },
+    reviewPrompt: {
+      fontWeight: '700',
+      color: t.text,
+    },
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+    },
+    centerText: {
+      color: t.text,
+    },
+  });

@@ -1,7 +1,6 @@
 import { newVocabId, findDuplicate, selectWordsInScope, applyScope, type FolderDto, type VocabularyDto } from '@kanji-nest/core';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState, type ReactElement } from 'react';
-import {
+import { useCallback, useMemo, useState, type ReactElement } from 'react';import {
   ActivityIndicator,
   FlatList,
   Pressable,
@@ -15,6 +14,7 @@ import { useStoragePort } from '../src/db/DbProvider';
 import { nowIso } from '../src/lib/time';
 import { ScopePicker } from '../src/components/ScopePicker';
 import { useScope } from '../src/scope/ScopeProvider';
+import { useTheme, type AppTheme } from '../src/theme/ThemeProvider';
 
 function newLocalVocab(word: string, meaning: string, now: string): VocabularyDto {
   return {
@@ -45,6 +45,8 @@ function newLocalVocab(word: string, meaning: string, now: string): VocabularyDt
  */
 export default function Overview(): ReactElement {
   const port = useStoragePort();
+  const { theme } = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const { folderId, selection } = useScope();
   const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
   const [error, setError] = useState<string | null>(null);
@@ -120,12 +122,14 @@ export default function Overview(): ReactElement {
         <TextInput
           style={styles.input}
           placeholder="Từ vựng"
+          placeholderTextColor={theme.muted}
           value={word}
           onChangeText={setWord}
         />
         <TextInput
           style={styles.input}
           placeholder="Nghĩa"
+          placeholderTextColor={theme.muted}
           value={meaning}
           onChangeText={setMeaning}
         />
@@ -145,7 +149,7 @@ export default function Overview(): ReactElement {
         </View>
       ) : visible.length === 0 ? (
         <View style={styles.center}>
-          <Text>Chưa có từ nào — thêm từ đầu tiên ở trên.</Text>
+          <Text style={styles.centerText}>Chưa có từ nào — thêm từ đầu tiên ở trên.</Text>
         </View>
       ) : (
         <FlatList
@@ -173,74 +177,83 @@ export default function Overview(): ReactElement {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    gap: 12,
-  },
-  form: {
-    gap: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#8a7f6e',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-  },
-  addButton: {
-    backgroundColor: '#b4532a',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  addText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  error: {
-    color: '#a3301f',
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  list: {
-    flex: 1,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#d8cfbe',
-    gap: 8,
-  },
-  rowText: {
-    flex: 1,
-  },
-  rowWord: {
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  rowMeaning: {
-    fontSize: 14,
-    opacity: 0.7,
-  },
-  deleteButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#a3301f',
-  },
-  deleteText: {
-    color: '#a3301f',
-    fontWeight: '600',
-  },
-});
+const makeStyles = (t: AppTheme) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 16,
+      gap: 12,
+      backgroundColor: t.bg,
+    },
+    form: {
+      gap: 8,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: t.btnBorder,
+      backgroundColor: t.btnBg,
+      color: t.text,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 16,
+    },
+    addButton: {
+      backgroundColor: t.primary,
+      borderRadius: 8,
+      paddingVertical: 12,
+      alignItems: 'center',
+    },
+    addText: {
+      color: t.primaryContrast,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    error: {
+      color: t.danger,
+    },
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+    },
+    centerText: {
+      color: t.text,
+    },
+    list: {
+      flex: 1,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: t.border,
+      gap: 8,
+    },
+    rowText: {
+      flex: 1,
+    },
+    rowWord: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: t.text,
+    },
+    rowMeaning: {
+      fontSize: 14,
+      opacity: 0.7,
+      color: t.text,
+    },
+    deleteButton: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: t.danger,
+    },
+    deleteText: {
+      color: t.danger,
+      fontWeight: '600',
+    },
+  });

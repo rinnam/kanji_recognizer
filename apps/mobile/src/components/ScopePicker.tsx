@@ -1,9 +1,10 @@
 import type { FolderDto } from '@kanji-nest/core';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useState, type ReactElement } from 'react';
+import { useCallback, useMemo, useState, type ReactElement } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useStoragePort } from '../db/DbProvider';
 import { useScope } from '../scope/ScopeProvider';
+import { useTheme, type AppTheme } from '../theme/ThemeProvider';
 
 const SCOPE_MODES = [
   { id: 'all', label: 'Tất cả' },
@@ -19,8 +20,10 @@ type ScopeMode = (typeof SCOPE_MODES)[number]['id'];
  */
 export function ScopePicker(): ReactElement {
   const port = useStoragePort();
+  const { theme } = useTheme();
   const { folderId, selectFolder, selection, setSelection } = useScope();
   const [folders, setFolders] = useState<FolderDto[]>([]);
+  const styles = useMemo(() => makeStyles(theme), [theme]);
 
   useFocusEffect(
     useCallback(() => {
@@ -95,39 +98,44 @@ export function ScopePicker(): ReactElement {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 8,
-  },
-  row: {
-    flexDirection: 'row',
-  },
-  chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#8a7f6e',
-    marginRight: 8,
-  },
-  chipActive: {
-    backgroundColor: '#b4532a',
-    borderColor: '#b4532a',
-  },
-  chipText: {
-    fontWeight: '600',
-  },
-  chipTextActive: {
-    color: '#ffffff',
-  },
-  nInput: {
-    width: 64,
-    borderWidth: 1,
-    borderColor: '#8a7f6e',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    textAlign: 'center',
-    fontWeight: '700',
-  },
-});
+const makeStyles = (t: AppTheme) =>
+  StyleSheet.create({
+    container: {
+      gap: 8,
+    },
+    row: {
+      flexDirection: 'row',
+    },
+    chip: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: t.btnBorder,
+      marginRight: 8,
+      backgroundColor: t.btnBg,
+    },
+    chipActive: {
+      backgroundColor: t.primary,
+      borderColor: t.primary,
+    },
+    chipText: {
+      fontWeight: '600',
+      color: t.btnFg,
+    },
+    chipTextActive: {
+      color: t.primaryContrast,
+    },
+    nInput: {
+      width: 64,
+      borderWidth: 1,
+      borderColor: t.btnBorder,
+      backgroundColor: t.btnBg,
+      color: t.text,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      textAlign: 'center',
+      fontWeight: '700',
+    },
+  });
