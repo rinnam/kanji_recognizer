@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
 import type { SrsRating } from '../../../entities/card';
-import { decideFlashcardAction } from './keymap';
-import type { FlashcardMode } from './types';
+import {
+  decideFlashcardAction,
+  type FlashcardMode,
+} from '@kanji-nest/core';
 
 export interface FlashcardKeyHandlers {
   mode: FlashcardMode;

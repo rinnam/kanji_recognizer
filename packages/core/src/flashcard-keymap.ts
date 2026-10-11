@@ -1,5 +1,5 @@
-import type { SrsRating } from '../../../entities/card';
-import type { FlashcardMode } from './types';
+import type { SrsRating } from './srs';
+import type { FlashcardMode } from './flashcard-types';
 
 /** Hành động suy ra từ một phím (THUẦN — để component thực thi). */
 export type FlashcardAction =

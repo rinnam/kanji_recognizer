@@ -837,3 +837,7 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 ## Đa nền tảng — M1b: dời cụm quiz thuần + scope sang core ✅
 - Core thêm `quiz-types/grade/attempt/feedback/questions/session/order/pool`, `scope-apply` (+ input POST quiz); 5 test dời theo. Web giữ tương thích: barrel re-export scope/input, `useQuiz`/QuizRunner/QuizResult trỏ core.
 - Kiểm: core 6 file/36 ca · web 24 file/172 ca (tổng 208) · typecheck 0 · lint 0 (2 cảnh báo cũ) · build OK.
+
+## Đa nền tảng — M1c: dời SM-2 + cụm flashcard sang core ✅
+- Core thêm `srs`, `flashcard-types/queue/review/keymap/face/reset`; 4 test dời theo. Barrel `entities/card` re-export từ core; UI/hook flashcard trỏ core.
+- Kiểm: core 10 file/63 ca · web 20 file/145 ca (tổng 208) · typecheck 0 · lint 0 (2 cảnh báo cũ) · build OK.

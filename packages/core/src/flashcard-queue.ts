@@ -1,6 +1,6 @@
-import { isDue } from '../../../entities/card';
-import type { LocalVocabulary } from '../../../entities/vocabulary';
-import type { FlashcardMode, FlashcardSummary } from './types';
+import { isDue } from './srs';
+import type { VocabularyDto as LocalVocabulary } from './dto';
+import type { FlashcardMode, FlashcardSummary } from './flashcard-types';
 
 /**
  * Dựng hàng đợi ôn + thống kê bộ thẻ — THUẦN (không DOM/DB), tất định để unit test.

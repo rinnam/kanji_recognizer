@@ -1,5 +1,6 @@
-export type { SrsRating } from '../../shared/api';
-export type { SrsState, SrsReviewResult } from './model';
+/** Re-export SM-2 từ @kanji-nest/core (nguồn sự thật duy nhất phía client). */
+export type { SrsRating } from '@kanji-nest/core';
+export type { SrsState, SrsReviewResult } from '@kanji-nest/core';
 export {
   DEFAULT_EASE_FACTOR,
   MIN_EASE_FACTOR,
@@ -7,4 +8,4 @@ export {
   nextEaseFactor,
   isDue,
   review,
-} from './model';
+} from '@kanji-nest/core';

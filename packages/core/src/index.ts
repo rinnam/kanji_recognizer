@@ -49,3 +49,43 @@ export { gradeSession, toCreateSessionInput } from './quiz-session';
 export type { QuizAttemptInput, CreateQuizSessionInput } from './quiz-session';
 export { orderQuestions } from './quiz-order';
 export { selectQuizPool } from './quiz-pool';
+export {
+  DEFAULT_EASE_FACTOR,
+  MIN_EASE_FACTOR,
+  ratingToQuality,
+  nextEaseFactor,
+  isDue,
+  review,
+  type SrsState,
+  type SrsReviewResult,
+} from './srs';
+export type { FlashcardMode, FlashcardSummary } from './flashcard-types';
+export {
+  buildQueue,
+  buildReviewAheadQueue,
+  nextDueAt,
+  summarize,
+} from './flashcard-queue';
+export {
+  applyReview,
+  persistReview,
+  type ReviewPersistDeps,
+} from './flashcard-review';
+export {
+  decideFlashcardAction,
+  type FlashcardAction,
+  type FlashcardKeyContext,
+} from './flashcard-keymap';
+export {
+  selectFaceContent,
+  type CardFace,
+  type FrontFace,
+  type BackFace,
+} from './flashcard-face';
+export {
+  hasSrsProgress,
+  selectResetTargets,
+  resetSrsProgress,
+  persistResetSrs,
+  type ResetPersistDeps,
+} from './flashcard-reset';

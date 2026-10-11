@@ -8,8 +8,7 @@ import {
 } from '../../../entities/vocabulary';
 import { useDb } from '../../../shared/db';
 import { emitDataChanged } from '../../../shared/lib';
-import { persistReview } from './review';
-import { persistResetSrs, selectResetTargets } from './reset';
+import { persistResetSrs, persistReview, selectResetTargets } from '@kanji-nest/core';
 
 type Status = 'loading' | 'error' | 'ready';
 

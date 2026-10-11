@@ -1,4 +1,4 @@
-import type { LocalVocabulary } from '../../../entities/vocabulary';
+import type { VocabularyDto as LocalVocabulary } from './dto';
 
 /**
  * "Đặt lại tiến độ SRS" — các hàm THUẦN (không DOM/DB) để unit test.

@@ -1,7 +1,7 @@
 import { type ReactElement } from 'react';
 import type { LocalVocabulary } from '../../../entities/vocabulary';
 import { IconFlip } from '../../../shared/ui';
-import { selectFaceContent } from '../model/face';
+import { selectFaceContent } from '@kanji-nest/core';
 
 interface FlashcardCardProps {
   vocab: LocalVocabulary;

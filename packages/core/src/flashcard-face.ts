@@ -1,4 +1,4 @@
-import type { LocalVocabulary } from '../../../entities/vocabulary';
+import type { VocabularyDto as LocalVocabulary } from './dto';
 
 /** Hai mặt thẻ. */
 export type CardFace = 'front' | 'back';

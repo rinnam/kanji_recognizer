@@ -1,19 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { LocalVocabulary } from '../../src/entities/vocabulary';
+import type { VocabularyDto as LocalVocabulary } from '../src/dto';
 import {
   buildQueue,
   buildReviewAheadQueue,
   nextDueAt,
   summarize,
-} from '../../src/features/flashcard/model/queue';
+} from '../src/flashcard-queue';
 import {
   applyReview,
   persistReview,
-} from '../../src/features/flashcard/model/review';
+} from '../src/flashcard-review';
 import {
   resetSrsProgress,
   selectResetTargets,
-} from '../../src/features/flashcard/model/reset';
+} from '../src/flashcard-reset';
 
 function vocab(partial: Partial<LocalVocabulary> & { id: string }): LocalVocabulary {
   return {

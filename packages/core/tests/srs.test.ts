@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isDue, nextEaseFactor, review, type SrsState } from '../../src/entities/card';
+import { isDue, nextEaseFactor, review, type SrsState } from '../src/srs';
 
 /**
  * SM-2 phía client phải KHỚP backend/src/services/srs.service.ts.

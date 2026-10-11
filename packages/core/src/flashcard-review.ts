@@ -1,5 +1,5 @@
-import { review as computeReview, type SrsRating } from '../../../entities/card';
-import type { LocalVocabulary } from '../../../entities/vocabulary';
+import { review as computeReview, type SrsRating } from './srs';
+import type { VocabularyDto as LocalVocabulary } from './dto';
 
 /**
  * Áp một lần đánh giá SM-2 lên MỘT thẻ (THUẦN, tất định) → trả về bản ghi MỚI.
@@ -8,7 +8,7 @@ import type { LocalVocabulary } from '../../../entities/vocabulary';
  *   (1) cập nhật srsInterval/srsRepetition/srsEaseFactor/srsNextReview theo SM-2, VÀ
  *   (2) cập nhật `updatedAt` = now.
  * Thiếu (2), sync sẽ KHÔNG coi thẻ là "bẩn" → tiến độ học không được đẩy lên server.
- * Công thức SM-2 KHÔNG viết lại ở đây — dùng lại `entities/card` (mirror BE srs.service).
+ * Công thức SM-2 KHÔNG viết lại ở đây — dùng lại `./srs` (mirror BE srs.service).
  * Xem test tại tests/unit/flashcard.test.ts.
  */
 export function applyReview(

@@ -1,4 +1,5 @@
-import type { SrsRating } from '../../../shared/api';
+import type { SrsRating } from './dto';
+export type { SrsRating } from './dto';
 
 /**
  * SRS (Anki SM-2) phía client — MIRROR nguyên văn backend/src/services/srs.service.ts
