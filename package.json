@@ -1,0 +1,23 @@
+{
+  "name": "kanji-nest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24.14.1 <25",
+    "npm": ">=11"
+  },
+  "scripts": {
+    "typecheck:web": "npm run typecheck --workspace apps/web",
+    "test:web": "npm test --workspace apps/web",
+    "lint:web": "npm run lint --workspace apps/web",
+    "build:web": "npm run build --workspace apps/web",
+    "dev:web": "npm run dev --workspace apps/web",
+    "typecheck:mobile": "npm exec --workspace apps/mobile -- tsc --noEmit -p tsconfig.json",
+    "start:mobile": "npm start --workspace apps/mobile"
+  }
+}

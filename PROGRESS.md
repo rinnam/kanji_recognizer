@@ -823,3 +823,8 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - Ô nhập cao 3.5rem; hàng nút 2 ô cố định (Gợi ý ≥10rem luôn hiện + disabled khi chốt / Kiểm tra-Tiếp ≥12rem, cao 48px); dòng "Còn k lần" giữ chỗ; nav Flashcard cao 48px.
 - `selectFeedbackContent` lọc chip rỗng/gạch ngang + test mới; rỗng/kết quả vẫn giữ khối điều khiển + tiến độ.
 - Kiểm: typecheck 0 · test 208/208 · lint 0 (2 cảnh báo cũ) · build OK (154 modules). XEM MẮT: ô nhập/nút không xê dịch; lật thẻ không đổi cao.
+
+## Đa nền tảng — M0: monorepo + khung Expo (kanjismart) ✅
+- Nhánh `feat/expo-multiplatform` từ `develop`; root `package.json` workspaces (`apps/*`, `packages/*`); `frontend/` → `apps/web` (git mv, không đổi code).
+- `apps/mobile` = Expo SDK 57 blank-TS + expo-router + expo-sqlite (+safe-area/screens/linking/constants); tên/slug/scheme `kanjismart`; màn hình chờ ở `app/`.
+- Kiểm: web typecheck 0 · test 208/208 · build OK ở vị trí mới; mobile `tsc --noEmit` sạch + `expo config` hợp lệ. Chưa chạy trên thiết bị.
