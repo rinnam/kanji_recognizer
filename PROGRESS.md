@@ -854,3 +854,8 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - Core `storage/port.ts` (Folder/Vocab/MetaStore, upsert theo id, xóa = tombstone) + `storage/memory.ts` (tham chiếu cho test) + test hợp đồng 5 ca (lái sync engine thật).
 - Adapter web `shared/storage` (bọc IndexedDB) và mobile `src/storage/sqlite-port.ts` (expo-sqlite, hàng JSON, `kanjismart.db`); mobile phụ thuộc core.
 - Kiểm: core 25 file/187 ca · web 6 file/26 ca (tổng 213) · typecheck 0 cả 3 workspace · lint 0 (2 cảnh báo cũ) · build OK. SQLite/adapters chưa chạy thật trên thiết bị.
+
+## Đa nền tảng — M3: màn mobile Tổng quan + Flashcard (port SQLite) ✅
+- Mobile `src/api/http.ts` (base `EXPO_PUBLIC_API_URL`), `src/db/DbProvider.tsx` (mở DB 1 lần + port), 3 màn Stack: chính (số lượng) / Tổng quan (liệt kê + thêm nhanh chống trùng + xóa mềm) / Flashcard (3 chế độ core, chạm lật, Anki chấm + putMany).
+- React dùng chung: mobile dùng react 19.3.0 ở root (tránh 2 bản hooks trong 1 bundle); expo-doctor còn 1 cảnh báo nhẹ sai minor kỳ vọng (19.2.3). Chưa có phạm vi thư mục/sync BE (M4/M5).
+- Kiểm: mobile typecheck 0 · `expo export` android bundle OK (2.9MB) · core 187 + web 26 (tổng 213). Chưa chạy trên thiết bị thật.
