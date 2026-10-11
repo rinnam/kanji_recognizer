@@ -1,4 +1,4 @@
-import type { ClassifyResult } from './branch-dedupe';
+import type { ClassifyResult } from './vocab-branch-dedupe';
 
 /**
  * Hành động Quick Add nên làm, suy ra từ kết quả {@link ClassifyResult} (Phần 7E):

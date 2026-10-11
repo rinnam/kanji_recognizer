@@ -841,3 +841,7 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 ## Đa nền tảng — M1c: dời SM-2 + cụm flashcard sang core ✅
 - Core thêm `srs`, `flashcard-types/queue/review/keymap/face/reset`; 4 test dời theo. Barrel `entities/card` re-export từ core; UI/hook flashcard trỏ core.
 - Kiểm: core 10 file/63 ca · web 20 file/145 ca (tổng 208) · typecheck 0 · lint 0 (2 cảnh báo cũ) · build OK.
+
+## Đa nền tảng — M1d: dời cụm vocab/folder/sync thuần sang core (xong M1) ✅
+- Core thêm vocab-*, import-*, folder-path/tree/cascade, sync-engine, ids, markTombstoned; 14 test dời theo. Web giữ tương thích qua barrel; hook/UI trỏ core. `page-size` (localStorage) và `tombstoneVocabularies` (IndexedDB) ở lại web.
+- Kiểm: core 24 file/182 ca · web 6 file/26 ca (tổng 208) · typecheck 0 · lint 0 (2 cảnh báo cũ) · build OK. M1 HOÀN TẤT.

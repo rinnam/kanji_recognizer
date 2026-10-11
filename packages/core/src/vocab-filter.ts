@@ -1,5 +1,5 @@
-import type { LocalVocabulary } from '../../../entities/vocabulary';
-import type { JlptLevel } from '../../../shared/api';
+import type { VocabularyDto as LocalVocabulary } from './dto';
+import type { JlptLevel } from './dto';
 
 export interface VocabularyFilter {
   folderId: string | null;

@@ -1,5 +1,6 @@
-import type { LocalFolder } from '../../../entities/folder';
-import { collectDescendantFolderIds, type LocalVocabulary } from '../../../entities/vocabulary';
+import type { FolderDto as LocalFolder } from './dto';
+import { collectDescendantFolderIds } from './vocab-scope';
+import type { VocabularyDto as LocalVocabulary } from './dto';
 
 /** Số liệu dry-run cho hộp xác nhận xóa thư mục. */
 export interface FolderCascadeCounts {

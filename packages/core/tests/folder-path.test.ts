@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { LocalFolder } from '../../src/entities/folder';
+import type { FolderDto as LocalFolder } from '../src/dto';
 import {
   compareFolders,
   findDuplicateSiblingIds,
@@ -7,7 +7,7 @@ import {
   folderPath,
   isFolderNameTaken,
   normalizeFolderName,
-} from '../../src/entities/folder/model/path';
+} from '../src/folder-path';
 
 function folder(partial: Partial<LocalFolder> & { id: string }): LocalFolder {
   return {

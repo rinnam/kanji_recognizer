@@ -1,5 +1,5 @@
-import type { LocalFolder } from '../../../entities/folder';
-import { compareFolders } from '../../../entities/folder/model/path';
+import type { FolderDto as LocalFolder } from './dto';
+import { compareFolders } from './folder-path';
 
 /** Khoảng cách giữa các giá trị order (chừa chỗ chèn giữa mà không phải đánh lại số). */
 export const ORDER_STEP = 1000;

@@ -1,4 +1,4 @@
-import type { LocalVocabulary } from '../../../entities/vocabulary';
+import type { VocabularyDto as LocalVocabulary } from './dto';
 
 /**
  * Khóa chống trùng Quick Add — KHỚP backend: cùng (word, reading) với reading null

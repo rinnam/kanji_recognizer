@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { orderFoldersParentsFirst } from '../../src/features/sync/model/engine';
+import { orderFoldersParentsFirst } from '../src/sync-engine';
 
 interface Rec {
   id: string;

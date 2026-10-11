@@ -11,16 +11,17 @@ import { getAllVocabulariesLocal } from '../../../entities/vocabulary';
 import { useDb } from '../../../shared/db';
 import { STORE } from '../../../shared/config';
 import { emitDataChanged, idbBulkPutMany, newFolderId, nowIso } from '../../../shared/lib';
-import { planFolderCascade, type FolderCascadeCounts } from './cascade';
 import {
   ORDER_STEP,
   buildTree,
+  planFolderCascade,
   reorderBefore,
   reparentAppend,
   siblingsOf,
+  type FolderCascadeCounts,
   type FolderMovePatch,
   type FolderTreeNode,
-} from './tree';
+} from '@kanji-nest/core';
 
 type Status = 'loading' | 'error' | 'ready';
 

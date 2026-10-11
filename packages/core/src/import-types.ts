@@ -1,4 +1,4 @@
-import type { JlptLevel } from '../../../../shared/api';
+import type { JlptLevel } from './dto';
 
 /** Đích ánh xạ cho một cột khi nhập (hoặc bỏ qua). */
 export type ColumnTarget =

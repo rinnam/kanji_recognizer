@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { LocalFolder } from '../../src/entities/folder';
+import type { FolderDto as LocalFolder } from '../src/dto';
 import {
   ORDER_STEP,
   buildTree,
   isAncestor,
   reorderBefore,
   reparentAppend,
-} from '../../src/features/folder-tree/model/tree';
+} from '../src/folder-tree';
 
 function folder(partial: Partial<LocalFolder> & { id: string }): LocalFolder {
   return {

@@ -10,11 +10,14 @@ import {
 import { useDb } from '../../../shared/db';
 import { emitDataChanged, newVocabId, nowIso } from '../../../shared/lib';
 import type { JlptLevel } from '../../../shared/api';
-import { findDuplicate } from './dedupe';
-import { assembleImportWrites } from './import';
-import type { PreviewRow } from './import';
-import { planWordRemoval, type WordRemovalCounts } from './word-removal';
-import { linkVocabulary } from './branch-dedupe';
+import {
+  assembleImportWrites,
+  findDuplicate,
+  linkVocabulary,
+  planWordRemoval,
+  type PreviewRow,
+  type WordRemovalCounts,
+} from '@kanji-nest/core';
 
 type Status = 'loading' | 'error' | 'ready';
 

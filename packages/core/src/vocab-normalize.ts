@@ -1,4 +1,4 @@
-import type { JlptLevel } from '../../../shared/api';
+import type { JlptLevel } from './dto';
 
 /** Trim 2 đầu; chuỗi rỗng -> null (dùng cho các trường tùy chọn). THUẦN. */
 export function trimToNull(value: string | null | undefined): string | null {

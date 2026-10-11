@@ -9,7 +9,7 @@ import {
   orderFoldersParentsFirst,
   pickIncomingWinners,
   selectDirty,
-} from './engine';
+} from '@kanji-nest/core';
 
 export interface SyncRunSummary {
   pushed: { folders: SyncCounts; vocabularies: SyncCounts };

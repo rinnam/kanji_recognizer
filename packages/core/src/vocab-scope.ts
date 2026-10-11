@@ -1,4 +1,4 @@
-import type { LocalVocabulary } from './types';
+import type { VocabularyDto as LocalVocabulary } from './dto';
 
 /**
  * Thông tin tối thiểu của thư mục cần cho việc tính phạm vi. `LocalFolder` map được

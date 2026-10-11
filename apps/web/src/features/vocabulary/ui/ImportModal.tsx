@@ -18,7 +18,7 @@ import {
   parseMarkdownTable,
   type ColumnTarget,
   type PreviewRow,
-} from '../model/import';
+} from '@kanji-nest/core';
 import './import.css';
 
 interface ImportModalProps {

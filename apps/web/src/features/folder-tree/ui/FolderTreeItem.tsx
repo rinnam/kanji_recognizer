@@ -1,8 +1,7 @@
 import { useState, type ReactElement } from 'react';
 import { Button, IconWarning, Input, Modal } from '../../../shared/ui';
 import type { FolderTreeApi } from '../model/useFolderTree';
-import type { FolderCascadeCounts } from '../model/cascade';
-import type { FolderTreeNode } from '../model/tree';
+import type { FolderCascadeCounts, FolderTreeNode } from '@kanji-nest/core';
 import { FOLDER_DRAG_MIME } from './FolderTree';
 
 const DUPLICATE_HINT = 'Trùng tên với thư mục cùng cấp, hãy đổi tên';

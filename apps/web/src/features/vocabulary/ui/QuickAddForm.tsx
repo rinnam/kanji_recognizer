@@ -3,9 +3,11 @@ import { folderPath, type LocalFolder } from '../../../entities/folder';
 import type { LocalVocabulary } from '../../../entities/vocabulary';
 import { Button, Field, Input } from '../../../shared/ui';
 import type { JlptLevel } from '../../../shared/api';
-import { classifyIncoming } from '../model/branch-dedupe';
-import { normalizeQuickAdd } from '../model/normalize';
-import { decideQuickAddAction } from '../model/quick-add-action';
+import {
+  classifyIncoming,
+  decideQuickAddAction,
+  normalizeQuickAdd,
+} from '@kanji-nest/core';
 import type { QuickAddInput, QuickAddResult } from '../model/useVocabulary';
 
 const JLPT_LEVELS: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1'];

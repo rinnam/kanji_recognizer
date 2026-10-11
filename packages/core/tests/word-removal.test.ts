@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { LocalVocabulary } from '../../src/entities/vocabulary';
-import { planWordRemoval } from '../../src/features/vocabulary/model/word-removal';
+import type { VocabularyDto as LocalVocabulary } from '../src/dto';
+import { planWordRemoval } from '../src/vocab-word-removal';
 
 const OLD = '2026-01-01T00:00:00.000Z';
 const NOW = '2026-03-01T00:00:00.000Z';

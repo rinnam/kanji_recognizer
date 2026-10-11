@@ -1,10 +1,10 @@
-import type { JlptLevel } from '../../../../shared/api';
-import type { LocalFolder } from '../../../../entities/folder';
-import type { LocalVocabulary } from '../../../../entities/vocabulary';
-import { classifyIncoming } from '../branch-dedupe';
-import { dedupeKey } from '../dedupe';
-import { trimToNull } from '../normalize';
-import type { ImportSummary, NormalizedImport, ParsedRow, PreviewRow } from './types';
+import type { JlptLevel } from './dto';
+import type { FolderDto as LocalFolder } from './dto';
+import type { VocabularyDto as LocalVocabulary } from './dto';
+import { classifyIncoming } from './vocab-branch-dedupe';
+import { dedupeKey } from './vocab-dedupe';
+import { trimToNull } from './vocab-normalize';
+import type { ImportSummary, NormalizedImport, ParsedRow, PreviewRow } from './import-types';
 
 /** Giới hạn an toàn khi nhập. */
 export const MAX_IMPORT_ROWS = 5000;

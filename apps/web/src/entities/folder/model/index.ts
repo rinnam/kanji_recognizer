@@ -15,5 +15,5 @@ export {
   folderPath,
   rootFolderId,
   folderOptions,
-} from './path';
-export type { FolderOption } from './path';
+} from '@kanji-nest/core';
+export type { FolderOption } from '@kanji-nest/core';

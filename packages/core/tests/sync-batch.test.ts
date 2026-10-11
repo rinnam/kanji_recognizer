@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chunk, highWaterMarkAfter, type SyncRecord } from '../../src/features/sync/model/engine';
+import { chunk, highWaterMarkAfter, type SyncRecord } from '../src/sync-engine';
 
 function rec(id: string, updatedAt: string): SyncRecord {
   return { id, updatedAt, deletedAt: null };

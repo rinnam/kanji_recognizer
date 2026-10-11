@@ -1,21 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import type { LocalVocabulary } from '../../src/entities/vocabulary';
+import type { VocabularyDto as LocalVocabulary } from '../src/dto';
 import {
   buildPreview,
-  buildTemplateCsv,
   clampRows,
+  MAX_IMPORT_ROWS,
+  normalizeJlpt,
+} from '../src/import-validate';
+import {
   defaultMappingByPosition,
   detectHeaderMapping,
   mapRowsToRecords,
-  MAX_IMPORT_ROWS,
-  normalizeJlpt,
-  parseCsv,
-  parseDelimited,
-  parseMarkdownTable,
-  TEMPLATE_HEADERS,
   type ColumnTarget,
   type ParsedRow,
-} from '../../src/features/vocabulary/model/import';
+} from '../src/import-columns';
+import { parseCsv, parseDelimited, parseMarkdownTable } from '../src/import-parse';
+import { buildTemplateCsv, TEMPLATE_HEADERS } from '../src/import-template';
 
 function parsedRow(partial: Partial<ParsedRow> & { line: number }): ParsedRow {
   return {

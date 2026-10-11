@@ -1,4 +1,4 @@
-import type { LocalVocabulary } from '../../../entities/vocabulary';
+import type { VocabularyDto as LocalVocabulary } from './dto';
 
 /** Số liệu dry-run cho hộp xác nhận gỡ/xóa từ (Phần 7D). */
 export interface WordRemovalCounts {

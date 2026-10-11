@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { LocalFolder } from '../../src/entities/folder';
-import type { LocalVocabulary } from '../../src/entities/vocabulary';
-import { classifyIncoming, linkVocabulary } from '../../src/features/vocabulary/model/branch-dedupe';
-import { dedupeKey } from '../../src/features/vocabulary/model/dedupe';
+import type { FolderDto as LocalFolder } from '../src/dto';
+import type { VocabularyDto as LocalVocabulary } from '../src/dto';
+import { classifyIncoming, linkVocabulary } from '../src/vocab-branch-dedupe';
+import { dedupeKey } from '../src/vocab-dedupe';
 
 function folder(id: string, parentId: string | null, deleted = false): LocalFolder {
   return {

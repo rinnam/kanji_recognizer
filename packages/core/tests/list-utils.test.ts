@@ -6,8 +6,8 @@ import {
   setMany,
   sortVocabs,
   toggleId,
-} from '../../src/features/vocabulary/model/list-utils';
-import type { LocalVocabulary } from '../../src/entities/vocabulary';
+} from '../src/vocab-list-utils';
+import type { VocabularyDto as LocalVocabulary } from '../src/dto';
 
 function vocab(id: string, createdAt: string): LocalVocabulary {
   return {

@@ -18,16 +18,18 @@ import type { JlptLevel } from '../../../shared/api';
 import { useDb } from '../../../shared/db';
 import { subscribeDataChanged } from '../../../shared/lib';
 import { Button, ErrorState, LoadingState, Modal, ToolbarSlot } from '../../../shared/ui';
-import { filterVocabularies } from '../model/filter';
 import {
+  filterVocabularies,
   pageState,
   paginate,
+  planWordRemoval,
   selectRange,
   setMany,
   sortVocabs,
   toggleId,
   type VocabSort,
-} from '../model/list-utils';
+  type WordRemovalCounts,
+} from '@kanji-nest/core';
 import {
   loadPageSize,
   PAGE_SIZES,
@@ -37,7 +39,6 @@ import {
 } from '../model/page-size';
 import { useDebouncedValue } from '../model/useDebouncedValue';
 import { useVocabulary } from '../model/useVocabulary';
-import { planWordRemoval, type WordRemovalCounts } from '../model/word-removal';
 import { ImportModal } from './ImportModal';
 import { QuickAddForm } from './QuickAddForm';
 import { VocabularyList } from './VocabularyList';

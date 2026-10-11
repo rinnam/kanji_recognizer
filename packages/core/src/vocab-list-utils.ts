@@ -1,4 +1,4 @@
-import type { LocalVocabulary } from '../../../entities/vocabulary';
+import type { VocabularyDto as LocalVocabulary } from './dto';
 
 /** Kết quả cắt trang: lát hiện tại + siêu dữ liệu để hiển thị "x–y / tổng". */
 export interface Pagination<T> {

@@ -1,5 +1,5 @@
 export { nowIso } from './time';
-export { newVocabId, newFolderId } from './id';
+export { newVocabId, newFolderId } from '@kanji-nest/core';
 export { debounce } from './debounce';
 export { emitDataChanged, subscribeDataChanged } from './change-bus';
 export type { Debounced } from './debounce';

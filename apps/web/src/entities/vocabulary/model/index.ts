@@ -13,8 +13,8 @@ export {
   deleteVocabularyLocal,
   countVocabularies,
 } from './vocab.local';
-export { collectDescendantFolderIds, selectWordsInScope } from './scope';
-export type { ScopeFolder } from './scope';
+export { collectDescendantFolderIds, selectWordsInScope } from '@kanji-nest/core';
+export type { ScopeFolder } from '@kanji-nest/core';
 export { applyScope } from '@kanji-nest/core';
 export type { ScopeSelection } from '@kanji-nest/core';
 export { markTombstoned, tombstoneVocabularies } from './tombstone';

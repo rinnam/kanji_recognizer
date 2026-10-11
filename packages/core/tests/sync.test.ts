@@ -6,7 +6,7 @@ import {
   pickIncomingWinners,
   selectDirty,
   type SyncRecord,
-} from '../../src/features/sync/model/engine';
+} from '../src/sync-engine';
 
 function rec(id: string, updatedAt: string, deletedAt: string | null = null): SyncRecord {
   return { id, updatedAt, deletedAt };
