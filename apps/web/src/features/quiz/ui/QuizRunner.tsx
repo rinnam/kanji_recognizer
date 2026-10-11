@@ -15,7 +15,7 @@ import {
 import type { ScopeSelection } from '../../../entities/vocabulary';
 import { remainingAttempts, toOutcome } from '../model/attempt';
 import { selectFeedbackContent } from '../model/feedback';
-import { decideQuizKey } from '../model/keymap';
+import { decideQuizKey } from '@kanji-nest/core';
 import type { QuizMode } from '../model/questions';
 import type { QuizType } from '../model/types';
 import { useQuiz } from '../model/useQuiz';

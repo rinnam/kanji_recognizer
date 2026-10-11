@@ -828,3 +828,8 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - Nhánh `feat/expo-multiplatform` từ `develop`; root `package.json` workspaces (`apps/*`, `packages/*`); `frontend/` → `apps/web` (git mv, không đổi code).
 - `apps/mobile` = Expo SDK 57 blank-TS + expo-router + expo-sqlite (+safe-area/screens/linking/constants); tên/slug/scheme `kanjismart`; màn hình chờ ở `app/`.
 - Kiểm: web typecheck 0 · test 208/208 · build OK ở vị trí mới; mobile `tsc --noEmit` sạch + `expo config` hợp lệ. Chưa chạy trên thiết bị.
+
+## Đa nền tảng — M1a: `@kanji-nest/core` + dời DTO & quiz keymap ✅
+- `packages/core` (tsconfig strict + vitest node, cấm React/DOM/DB): `src/dto.ts` (dời từ `shared/api/dto.ts`), `src/quiz-keymap.ts` + test 4 ca; web giữ tương thích qua re-export (`shared/api`) và import `@kanji-nest/core` (QuizRunner).
+- Sự cố: `npm install` ở root hoist vitest lên root làm worker mất `jsdom` (lồng trong web) → sửa bằng `jsdom` ở root devDeps; tổng vẫn 208 ca (204 web + 4 core).
+- Kiểm: core typecheck 0 · test 4/4; web typecheck 0 · test 204/204 · lint 0 (2 cảnh báo cũ) · build OK; mobile typecheck 0.

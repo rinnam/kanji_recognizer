@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decideQuizKey, type QuizKeyContext } from '../../src/features/quiz/model/keymap';
+import { decideQuizKey, type QuizKeyContext } from '../src/quiz-keymap';
 
 function ctx(partial: Partial<QuizKeyContext>): QuizKeyContext {
   return {
