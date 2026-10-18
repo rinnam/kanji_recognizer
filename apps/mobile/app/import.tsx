@@ -38,10 +38,10 @@ import { useTheme, type AppTheme } from '../src/theme/ThemeProvider';
 
 const PREVIEW_LIMIT = 30;
 
-function statusColor(status: PreviewRow['status']): string {
-  if (status === 'error') return '#a3301f';
-  if (status === 'new') return '#b4532a';
-  return '#8a7f6e';
+function statusColor(status: PreviewRow['status'], theme: AppTheme): string {
+  if (status === 'error') return theme.danger;
+  if (status === 'new') return theme.primary;
+  return theme.muted;
 }
 
 function parseTextContent(text: string): string[][] {
@@ -172,29 +172,37 @@ export default function Import(): ReactElement {
       : (folders.find((f) => f.id === folderId)?.name ?? 'Thư mục đã chọn');
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.heading}>1. Nguồn</Text>
-        <Pressable style={styles.primaryButton} onPress={() => void pickFile()}>
-          <Text style={styles.primaryText}>Chọn file văn bản</Text>
-        </Pressable>
-        {fileName !== null ? <Text style={styles.bodyText}>File: {fileName}</Text> : null}
-        <TextInput
-          style={styles.paste}
-          placeholder={'Hoặc dán nội dung (Từ + Nghĩa, cách nhau bằng Tab/phẩy)…'}
-          placeholderTextColor={theme.muted}
-          value={pasted}
-          onChangeText={setPasted}
-          multiline
-          textAlignVertical="top"
-        />
-        <Pressable
-          style={styles.secondaryButton}
-          onPress={() => analyze(pasted)}
-          disabled={pasted.trim() === ''}
-        >
-          <Text style={styles.secondaryText}>Dùng văn bản đã dán</Text>
-        </Pressable>
+        <View style={styles.sourceCard}>
+          <Text style={styles.heading}>1. Chọn nguồn</Text>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
+            onPress={() => void pickFile()}
+          >
+            <Text style={styles.primaryText}>Chọn file văn bản</Text>
+          </Pressable>
+          {fileName !== null ? <Text style={styles.bodyText}>File: {fileName}</Text> : null}
+          <TextInput
+            style={styles.paste}
+            placeholder={'Hoặc dán nội dung (Từ + Nghĩa, cách nhau bằng Tab/phẩy)…'}
+            placeholderTextColor={theme.muted}
+            value={pasted}
+            onChangeText={setPasted}
+            multiline
+            textAlignVertical="top"
+            accessibilityLabel="Nội dung danh sách từ vựng"
+          />
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
+            onPress={() => analyze(pasted)}
+            disabled={pasted.trim() === ''}
+          >
+            <Text style={styles.secondaryText}>Dùng văn bản đã dán</Text>
+          </Pressable>
+        </View>
         {working ? <ActivityIndicator /> : null}
         {error !== null ? <Text style={styles.error}>{error}</Text> : null}
         {warnings.map((w) => (
@@ -205,12 +213,14 @@ export default function Import(): ReactElement {
         {doneMessage !== null ? <Text style={styles.done}>{doneMessage}</Text> : null}
         {summary !== null ? (
           <>
-            <Text style={styles.heading}>2. Xem trước</Text>
-            <Text style={styles.bodyText}>
-              {summary.total} dòng: {summary.new} mới · {summary.link} gắn ·{' '}
-              {summary.duplicate} trùng · {summary.error} lỗi
-            </Text>
-            <Text style={styles.bodyText}>Thư mục đích: {targetName}</Text>
+            <View style={styles.previewHeader}>
+              <Text style={styles.heading}>2. Xem trước</Text>
+              <Text style={styles.bodyText}>
+                {summary.total} dòng · {summary.new} mới · {summary.link} gắn ·{' '}
+                {summary.duplicate} trùng · {summary.error} lỗi
+              </Text>
+              <Text style={styles.bodyText}>Thư mục đích: {targetName}</Text>
+            </View>
             {previews?.slice(0, PREVIEW_LIMIT).map((row) => (
               <View key={row.line} style={styles.previewRow}>
                 <Text style={styles.previewLine}>#{row.line}</Text>
@@ -218,7 +228,7 @@ export default function Import(): ReactElement {
                   <Text style={styles.previewWord}>
                     {row.record.word} — {row.record.meaning}
                   </Text>
-                  <Text style={{ color: statusColor(row.status) }}>
+                  <Text style={{ color: statusColor(row.status, theme) }}>
                     {row.status === 'new'
                       ? 'Mới'
                       : row.status === 'link'
@@ -231,7 +241,8 @@ export default function Import(): ReactElement {
               </View>
             ))}
             <Pressable
-              style={styles.primaryButton}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
               onPress={() => void doImport()}
               disabled={summary.new + summary.link === 0}
             >
@@ -253,21 +264,38 @@ const makeStyles = (t: AppTheme) =>
       backgroundColor: t.bg,
     },
     scroll: {
-      padding: 16,
+      padding: 18,
+      paddingTop: 4,
+      paddingBottom: 32,
+      gap: 14,
+    },
+    sourceCard: {
       gap: 10,
+      padding: 15,
+      borderWidth: 1,
+      borderColor: t.border,
+      borderRadius: 20,
+      backgroundColor: t.surface,
+    },
+    previewHeader: {
+      gap: 5,
     },
     heading: {
-      fontSize: 17,
+      fontSize: 18,
       fontWeight: '800',
       color: t.text,
     },
     bodyText: {
       color: t.text,
+      fontSize: 14,
+      lineHeight: 20,
     },
     primaryButton: {
+      minHeight: 48,
+      justifyContent: 'center',
       backgroundColor: t.primary,
-      borderRadius: 8,
-      paddingVertical: 12,
+      borderRadius: 14,
+      paddingHorizontal: 16,
       alignItems: 'center',
     },
     primaryText: {
@@ -276,11 +304,13 @@ const makeStyles = (t: AppTheme) =>
       fontSize: 16,
     },
     secondaryButton: {
+      minHeight: 48,
+      justifyContent: 'center',
       borderWidth: 1,
       borderColor: t.btnBorder,
       backgroundColor: t.btnBg,
-      borderRadius: 8,
-      paddingVertical: 12,
+      borderRadius: 14,
+      paddingHorizontal: 16,
       alignItems: 'center',
     },
     secondaryText: {
@@ -288,14 +318,17 @@ const makeStyles = (t: AppTheme) =>
       fontWeight: '600',
     },
     paste: {
-      minHeight: 120,
+      minHeight: 140,
       borderWidth: 1,
-      borderColor: t.btnBorder,
+      borderColor: t.border,
       backgroundColor: t.btnBg,
       color: t.text,
-      borderRadius: 8,
-      padding: 10,
+      borderRadius: 14,
+      padding: 14,
       fontSize: 15,
+    },
+    pressed: {
+      opacity: 0.72,
     },
     error: {
       color: t.danger,
@@ -310,9 +343,11 @@ const makeStyles = (t: AppTheme) =>
     previewRow: {
       flexDirection: 'row',
       gap: 8,
-      paddingVertical: 6,
-      borderBottomWidth: 1,
-      borderBottomColor: t.border,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: t.border,
+      borderRadius: 14,
+      backgroundColor: t.surface,
     },
     previewLine: {
       width: 44,

@@ -50,7 +50,13 @@ export function ScopePicker(): ReactElement {
     <View style={styles.container}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.row}>
         <Pressable
-          style={[styles.chip, folderId === null && styles.chipActive]}
+          accessibilityRole="button"
+          accessibilityState={{ selected: folderId === null }}
+          style={({ pressed }) => [
+            styles.chip,
+            folderId === null && styles.chipActive,
+            pressed && styles.chipPressed,
+          ]}
           onPress={() => selectFolder(null)}
         >
           <Text style={[styles.chipText, folderId === null && styles.chipTextActive]}>
@@ -60,7 +66,13 @@ export function ScopePicker(): ReactElement {
         {folders.map((folder) => (
           <Pressable
             key={folder.id}
-            style={[styles.chip, folder.id === folderId && styles.chipActive]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: folder.id === folderId }}
+            style={({ pressed }) => [
+              styles.chip,
+              folder.id === folderId && styles.chipActive,
+              pressed && styles.chipPressed,
+            ]}
             onPress={() => selectFolder(folder.id)}
           >
             <Text style={[styles.chipText, folder.id === folderId && styles.chipTextActive]}>
@@ -73,7 +85,13 @@ export function ScopePicker(): ReactElement {
         {SCOPE_MODES.map((item) => (
           <Pressable
             key={item.id}
-            style={[styles.chip, selection.mode === item.id && styles.chipActive]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selection.mode === item.id }}
+            style={({ pressed }) => [
+              styles.chip,
+              selection.mode === item.id && styles.chipActive,
+              pressed && styles.chipPressed,
+            ]}
             onPress={() => chooseMode(item.id)}
           >
             <Text style={[styles.chipText, selection.mode === item.id && styles.chipTextActive]}>
@@ -107,6 +125,9 @@ const makeStyles = (t: AppTheme) =>
       flexDirection: 'row',
     },
     chip: {
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
       paddingVertical: 8,
       paddingHorizontal: 14,
       borderRadius: 999,
@@ -114,6 +135,9 @@ const makeStyles = (t: AppTheme) =>
       borderColor: t.btnBorder,
       marginRight: 8,
       backgroundColor: t.btnBg,
+    },
+    chipPressed: {
+      opacity: 0.75,
     },
     chipActive: {
       backgroundColor: t.primary,
@@ -128,6 +152,7 @@ const makeStyles = (t: AppTheme) =>
     },
     nInput: {
       width: 64,
+      minHeight: 44,
       borderWidth: 1,
       borderColor: t.btnBorder,
       backgroundColor: t.btnBg,

@@ -47,6 +47,11 @@ const TYPE_TITLE: Record<string, string> = {
   meaning: 'DẠNG 2: NHÌN NGHĨA, DỊCH SANG TIẾNG NHẬT',
 };
 
+const TYPE_HINT: Record<string, string> = {
+  reading: 'Nhập cách đọc bằng Hiragana',
+  meaning: 'Nhập Hiragana hoặc Kanji tương ứng',
+};
+
 /**
  * Quiz mobile (M4): chọn bộ theo phạm vi → sinh câu (core) → trả lời tối đa
  * 3 lần + gợi ý → phản hồi → kết quả + lưu BE (POST /quiz/sessions, lỗi mạng
@@ -107,6 +112,8 @@ export default function Quiz(): ReactElement {
 
   const total = questions.length;
   const current = total === 0 ? null : questions[Math.min(index, total - 1)];
+  const progressPct =
+    total === 0 ? 0 : Math.round((Math.min(index + 1, total) / total) * 100);
   const resolved = attempt.status !== 'answering';
   const currentVocab =
     current === null ? null : (pool.find((v) => v.id === current.vocabularyId) ?? null);
@@ -222,13 +229,19 @@ export default function Quiz(): ReactElement {
   }, [resolved, finished, index]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <ScopePicker />
       <View style={styles.modes}>
         {MODES.map((item) => (
           <Pressable
             key={item.id}
-            style={[styles.modeButton, item.id === mode && styles.modeActive]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: item.id === mode }}
+            style={({ pressed }) => [
+              styles.modeButton,
+              item.id === mode && styles.modeActive,
+              pressed && styles.pressed,
+            ]}
             onPress={() => chooseMode(item.id)}
           >
             <Text style={[styles.modeText, item.id === mode && styles.modeTextActive]}>
@@ -239,7 +252,13 @@ export default function Quiz(): ReactElement {
       </View>
       <View style={styles.tools}>
         <Pressable
-          style={[styles.toolButton, shuffled && styles.modeActive]}
+          accessibilityRole="button"
+          accessibilityState={{ selected: shuffled }}
+          style={({ pressed }) => [
+            styles.iconButton,
+            shuffled && styles.iconButtonActive,
+            pressed && styles.pressed,
+          ]}
           onPress={() => {
             setShuffled((v) => !v);
             setSeed(Date.now());
@@ -247,32 +266,36 @@ export default function Quiz(): ReactElement {
           }}
           accessibilityLabel="Xáo trộn câu"
         >
-          <Text style={[styles.modeText, shuffled && styles.modeTextActive]}>Xáo trộn</Text>
+          <Text style={[styles.iconGlyph, shuffled && styles.iconGlyphActive]} accessible={false}>
+            ⤨
+          </Text>
         </Pressable>
         <Pressable
-          style={styles.toolButton}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
           onPress={() => {
             setSeed(Date.now());
             resetRound();
           }}
           accessibilityLabel="Làm lại từ câu đầu"
         >
-          <Text style={styles.modeText}>Làm lại</Text>
+          <Text style={styles.iconGlyph} accessible={false}>↺</Text>
         </Pressable>
-        <Text style={styles.counter}>
-          {total === 0 ? '0/0' : `${Math.min(index + 1, total)}/${total}`}
-        </Text>
         <View style={styles.timer}>
           <Pressable
-            style={styles.timerButton}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.timerButton, pressed && styles.pressed]}
             onPress={() => setSeconds((s) => Math.max(1, s - 1))}
             accessibilityLabel="Giảm giây tự chuyển"
           >
             <Text style={styles.timerText}>−</Text>
           </Pressable>
-          <Text style={styles.timerText}>{seconds}s</Text>
+          <Text style={styles.timerText} accessibilityLabel={`Tự chuyển sau ${seconds} giây`}>
+            {seconds}s
+          </Text>
           <Pressable
-            style={styles.timerButton}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.timerButton, pressed && styles.pressed]}
             onPress={() => setSeconds((s) => Math.min(10, s + 1))}
             accessibilityLabel="Tăng giây tự chuyển"
           >
@@ -280,12 +303,32 @@ export default function Quiz(): ReactElement {
           </Pressable>
         </View>
       </View>
-      {status === 'loading' ? (
+      <View style={styles.progressPanel}>
+        <View style={styles.progressHeading}>
+          <Text style={styles.progressLabel}>TIẾN ĐỘ KIỂM TRA</Text>
+          <Text style={styles.counter}>
+            {total === 0 ? '0/0' : `${Math.min(index + 1, total)}/${total}`}
+          </Text>
+        </View>
+        <View
+          accessibilityRole="progressbar"
+          accessibilityLabel="Tiến độ kiểm tra"
+          accessibilityValue={{ min: 0, max: 100, now: progressPct }}
+          style={styles.progressTrack}
+        >
+          <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
+        </View>
+      </View>
+        {status === 'loading' ? (
         <ActivityIndicator size="large" />
       ) : status === 'error' ? (
         <View style={styles.center}>
           <Text style={styles.centerText}>Lỗi: {error}</Text>
-          <Pressable style={styles.primaryButton} onPress={() => void reload()}>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
+            onPress={() => void reload()}
+          >
             <Text style={styles.primaryText}>Thử lại</Text>
           </Pressable>
         </View>
@@ -307,7 +350,8 @@ export default function Quiz(): ReactElement {
             </View>
           ))}
           <Pressable
-            style={styles.primaryButton}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
             onPress={() => {
               setSeed(Date.now());
               resetRound();
@@ -322,8 +366,16 @@ export default function Quiz(): ReactElement {
         </View>
       ) : (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>{TYPE_TITLE[current.type]}</Text>
-          <Text style={styles.question}>{current.prompt}</Text>
+          <View style={styles.questionHeader}>
+            <View style={styles.questionIcon} accessible={false}>
+              <Text style={styles.questionIconText}>?</Text>
+            </View>
+            <Text style={styles.cardTitle}>{TYPE_TITLE[current.type]}</Text>
+          </View>
+          <View style={styles.questionZone}>
+            <Text style={styles.question}>{current.prompt}</Text>
+            <Text style={styles.questionHint}>{TYPE_HINT[current.type]}</Text>
+          </View>
           {resolved && feedback !== null ? (
             <View style={styles.feedback}>
               <Text style={feedback.isCorrect ? styles.ok : styles.no}>
@@ -355,11 +407,20 @@ export default function Quiz(): ReactElement {
           ) : null}
           {!resolved ? (
             <View style={styles.actions}>
-              <Pressable style={styles.actionButton} onPress={hint}>
+              <Pressable
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
+                onPress={hint}
+              >
                 <Text style={styles.modeText}>Gợi ý</Text>
               </Pressable>
               <Pressable
-                style={[styles.actionButton, styles.primaryButtonInline]}
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  styles.primaryButtonInline,
+                  pressed && styles.pressed,
+                ]}
                 onPress={submit}
                 disabled={input.trim() === ''}
               >
@@ -367,7 +428,11 @@ export default function Quiz(): ReactElement {
               </Pressable>
             </View>
           ) : (
-            <Pressable style={styles.primaryButton} onPress={advance}>
+            <Pressable
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
+              onPress={advance}
+            >
               <Text style={styles.primaryText}>
                 {index >= total - 1 ? 'Nộp bài' : `Tiếp (${remaining ?? seconds}s)`}
               </Text>
@@ -383,7 +448,9 @@ const makeStyles = (t: AppTheme) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      padding: 16,
+      paddingHorizontal: 16,
+      paddingTop: 4,
+      paddingBottom: 12,
       gap: 10,
       backgroundColor: t.bg,
     },
@@ -392,9 +459,12 @@ const makeStyles = (t: AppTheme) =>
       gap: 8,
     },
     modeButton: {
+      minHeight: 44,
+      justifyContent: 'center',
       flex: 1,
-      paddingVertical: 10,
-      borderRadius: 8,
+      paddingHorizontal: 3,
+      paddingVertical: 8,
+      borderRadius: 13,
       borderWidth: 1,
       borderColor: t.btnBorder,
       backgroundColor: t.btnBg,
@@ -405,6 +475,7 @@ const makeStyles = (t: AppTheme) =>
       borderColor: t.primary,
     },
     modeText: {
+      fontSize: 13,
       fontWeight: '600',
       color: t.btnFg,
     },
@@ -416,13 +487,27 @@ const makeStyles = (t: AppTheme) =>
       alignItems: 'center',
       gap: 8,
     },
-    toolButton: {
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      borderRadius: 8,
+    iconButton: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
       borderWidth: 1,
       borderColor: t.btnBorder,
+      borderRadius: 13,
       backgroundColor: t.btnBg,
+    },
+    iconButtonActive: {
+      borderColor: t.primary,
+      backgroundColor: t.primary,
+    },
+    iconGlyph: {
+      color: t.btnFg,
+      fontSize: 24,
+      fontWeight: '700',
+    },
+    iconGlyphActive: {
+      color: t.primaryContrast,
     },
     counter: {
       marginLeft: 'auto',
@@ -435,9 +520,9 @@ const makeStyles = (t: AppTheme) =>
       gap: 6,
     },
     timerButton: {
-      width: 32,
-      height: 32,
-      borderRadius: 8,
+      minWidth: 44,
+      minHeight: 44,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: t.btnBorder,
       backgroundColor: t.btnBg,
@@ -448,26 +533,88 @@ const makeStyles = (t: AppTheme) =>
       color: t.text,
       fontWeight: '700',
     },
-    card: {
+    progressPanel: {
+      gap: 8,
+      padding: 12,
       borderRadius: 16,
       borderWidth: 1,
       borderColor: t.border,
       backgroundColor: t.surface,
-      padding: 16,
+    },
+    progressHeading: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    progressLabel: {
+      color: t.text,
+      fontSize: 12,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+    },
+    progressTrack: {
+      height: 7,
+      overflow: 'hidden',
+      borderRadius: 99,
+      backgroundColor: t.btnBg,
+    },
+    progressFill: {
+      height: '100%',
+      borderRadius: 99,
+      backgroundColor: t.primary,
+    },
+    card: {
+      flex: 1,
+      minHeight: 240,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: t.border,
+      backgroundColor: t.surface,
+      padding: 18,
+      gap: 14,
+    },
+    questionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
       gap: 10,
     },
+    questionIcon: {
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 12,
+      backgroundColor: t.btnBg,
+    },
+    questionIconText: {
+      color: t.primary,
+      fontSize: 18,
+      fontWeight: '800',
+    },
     cardTitle: {
+      flex: 1,
       fontSize: 12,
-      letterSpacing: 1,
-      opacity: 0.6,
-      textAlign: 'center',
+      lineHeight: 15,
+      letterSpacing: 0.6,
+      fontWeight: '800',
       color: t.text,
     },
+    questionZone: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 8,
+    },
     question: {
-      fontSize: 34,
+      fontSize: 36,
       fontWeight: '800',
       textAlign: 'center',
       color: t.text,
+    },
+    questionHint: {
+      color: t.muted,
+      fontSize: 13,
+      textAlign: 'center',
     },
     feedback: {
       gap: 4,
@@ -492,12 +639,13 @@ const makeStyles = (t: AppTheme) =>
       color: t.text,
     },
     input: {
+      minHeight: 52,
       borderWidth: 2,
       borderColor: t.primary,
       backgroundColor: t.btnBg,
       color: t.text,
-      borderRadius: 10,
-      paddingHorizontal: 12,
+      borderRadius: 14,
+      paddingHorizontal: 14,
       paddingVertical: 12,
       fontSize: 18,
       textAlign: 'center',
@@ -513,9 +661,11 @@ const makeStyles = (t: AppTheme) =>
       justifyContent: 'center',
     },
     actionButton: {
-      minWidth: 140,
-      paddingVertical: 14,
-      borderRadius: 10,
+      minHeight: 48,
+      justifyContent: 'center',
+      flex: 1,
+      paddingHorizontal: 12,
+      borderRadius: 14,
       borderWidth: 1,
       borderColor: t.btnBorder,
       backgroundColor: t.btnBg,
@@ -526,8 +676,10 @@ const makeStyles = (t: AppTheme) =>
       borderColor: t.primary,
     },
     primaryButton: {
-      paddingVertical: 14,
-      borderRadius: 10,
+      minHeight: 48,
+      justifyContent: 'center',
+      paddingHorizontal: 18,
+      borderRadius: 14,
       backgroundColor: t.primary,
       alignItems: 'center',
     },
@@ -560,6 +712,9 @@ const makeStyles = (t: AppTheme) =>
       alignItems: 'center',
       justifyContent: 'center',
       gap: 12,
+    },
+    pressed: {
+      opacity: 0.72,
     },
     centerText: {
       color: t.text,

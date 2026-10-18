@@ -16,10 +16,33 @@ export default function RootLayout(): ReactElement {
     <DbProvider>
       <ThemeProvider>
         <ScopeProvider>
-          <Stack screenOptions={{ headerShown: true }} />
+          <ThemedStack />
           <ThemedStatusBar />
         </ScopeProvider>
       </ThemeProvider>
     </DbProvider>
+  );
+}
+
+function ThemedStack(): ReactElement {
+  const { theme } = useTheme();
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: true,
+        headerStyle: { backgroundColor: theme.bg },
+        headerTintColor: theme.primary,
+        headerTitleStyle: { color: theme.text, fontWeight: '700' },
+        headerShadowVisible: false,
+        contentStyle: { backgroundColor: theme.bg },
+      }}
+    >
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="overview" options={{ title: 'Từ vựng' }} />
+      <Stack.Screen name="flashcard" options={{ title: 'Flashcard' }} />
+      <Stack.Screen name="quiz" options={{ title: 'Luyện tập' }} />
+      <Stack.Screen name="import" options={{ title: 'Thêm từ mới' }} />
+    </Stack>
   );
 }

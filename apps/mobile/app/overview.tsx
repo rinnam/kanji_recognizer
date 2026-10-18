@@ -1,6 +1,7 @@
-import { newVocabId, findDuplicate, selectWordsInScope, applyScope, type FolderDto, type VocabularyDto } from '@kanji-nest/core';
+import { newVocabId, findDuplicate, type VocabularyDto } from '@kanji-nest/core';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState, type ReactElement } from 'react';import {
+import { useCallback, useMemo, useState, type ReactElement } from 'react';
+import {
   ActivityIndicator,
   FlatList,
   Pressable,
@@ -12,8 +13,6 @@ import { useCallback, useMemo, useState, type ReactElement } from 'react';import
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStoragePort } from '../src/db/DbProvider';
 import { nowIso } from '../src/lib/time';
-import { ScopePicker } from '../src/components/ScopePicker';
-import { useScope } from '../src/scope/ScopeProvider';
 import { useTheme, type AppTheme } from '../src/theme/ThemeProvider';
 
 function newLocalVocab(word: string, meaning: string, now: string): VocabularyDto {
@@ -47,23 +46,17 @@ export default function Overview(): ReactElement {
   const port = useStoragePort();
   const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const { folderId, selection } = useScope();
   const [status, setStatus] = useState<'loading' | 'error' | 'ready'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [vocabs, setVocabs] = useState<VocabularyDto[]>([]);
-  const [folders, setFolders] = useState<FolderDto[]>([]);
   const [word, setWord] = useState('');
   const [meaning, setMeaning] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
-      const [allVocabs, allFolders] = await Promise.all([
-        port.vocabs.all(),
-        port.folders.all(),
-      ]);
+      const allVocabs = await port.vocabs.all();
       setVocabs(allVocabs.filter((v) => v.deletedAt === null));
-      setFolders(allFolders.filter((f) => f.deletedAt === null));
       setStatus('ready');
       setError(null);
     } catch (err) {
@@ -71,11 +64,6 @@ export default function Overview(): ReactElement {
       setStatus('error');
     }
   }, [port]);
-
-  const visible = useMemo(() => {
-    const base = selectWordsInScope(vocabs, folders, folderId);
-    return selection.mode === 'all' ? base : applyScope(base, selection);
-  }, [vocabs, folders, folderId, selection]);
 
   useFocusEffect(
     useCallback(() => {
@@ -116,15 +104,16 @@ export default function Overview(): ReactElement {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScopePicker />
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <View style={styles.form}>
+        <Text style={styles.formTitle}>Thêm nhanh một từ</Text>
         <TextInput
           style={styles.input}
           placeholder="Từ vựng"
           placeholderTextColor={theme.muted}
           value={word}
           onChangeText={setWord}
+          accessibilityLabel="Từ vựng tiếng Nhật"
         />
         <TextInput
           style={styles.input}
@@ -132,38 +121,60 @@ export default function Overview(): ReactElement {
           placeholderTextColor={theme.muted}
           value={meaning}
           onChangeText={setMeaning}
+          accessibilityLabel="Nghĩa tiếng Việt"
         />
-        <Pressable style={styles.addButton} onPress={() => void quickAdd()}>
+        <Pressable
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+          onPress={() => void quickAdd()}
+        >
           <Text style={styles.addText}>Thêm từ</Text>
         </Pressable>
-        {formError !== null ? <Text style={styles.error}>{formError}</Text> : null}
+        {formError !== null ? (
+          <Text accessibilityRole="alert" style={styles.error}>
+            {formError}
+          </Text>
+        ) : null}
       </View>
       {status === 'loading' ? (
         <ActivityIndicator size="large" />
       ) : status === 'error' ? (
         <View style={styles.center}>
           <Text style={styles.error}>Lỗi: {error}</Text>
-          <Pressable style={styles.addButton} onPress={() => void reload()}>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+            onPress={() => void reload()}
+          >
             <Text style={styles.addText}>Thử lại</Text>
           </Pressable>
         </View>
-      ) : visible.length === 0 ? (
+      ) : vocabs.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.centerText}>Chưa có từ nào — thêm từ đầu tiên ở trên.</Text>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyGlyph} accessible={false}>語</Text>
+            <Text style={styles.emptyTitle}>Bắt đầu bộ từ của bạn</Text>
+            <Text style={styles.centerText}>Thêm từ đầu tiên bằng biểu mẫu phía trên.</Text>
+          </View>
         </View>
       ) : (
         <FlatList
           style={styles.list}
-          data={visible}
+          contentContainerStyle={styles.listContent}
+          data={vocabs}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View style={styles.row}>
+              <View style={styles.wordBadge} accessible={false}>
+                <Text style={styles.wordBadgeText}>{item.word.slice(0, 1)}</Text>
+              </View>
               <View style={styles.rowText}>
                 <Text style={styles.rowWord}>{item.word}</Text>
                 <Text style={styles.rowMeaning}>{item.meaning}</Text>
               </View>
               <Pressable
-                style={styles.deleteButton}
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]}
                 onPress={() => void remove(item.id)}
                 accessibilityLabel={`Xóa ${item.word}`}
               >
@@ -181,27 +192,41 @@ const makeStyles = (t: AppTheme) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      padding: 16,
+      paddingHorizontal: 18,
+      paddingBottom: 12,
       gap: 12,
       backgroundColor: t.bg,
     },
     form: {
-      gap: 8,
+      gap: 10,
+      padding: 14,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: t.border,
+      backgroundColor: t.surface,
+    },
+    formTitle: {
+      color: t.text,
+      fontSize: 15,
+      fontWeight: '800',
     },
     input: {
+      minHeight: 48,
       borderWidth: 1,
-      borderColor: t.btnBorder,
+      borderColor: t.border,
       backgroundColor: t.btnBg,
       color: t.text,
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      borderRadius: 13,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
       fontSize: 16,
     },
     addButton: {
+      minHeight: 48,
+      justifyContent: 'center',
       backgroundColor: t.primary,
-      borderRadius: 8,
-      paddingVertical: 12,
+      borderRadius: 14,
+      paddingHorizontal: 16,
       alignItems: 'center',
     },
     addText: {
@@ -211,44 +236,94 @@ const makeStyles = (t: AppTheme) =>
     },
     error: {
       color: t.danger,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    pressed: {
+      opacity: 0.72,
     },
     center: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 12,
+      gap: 14,
     },
     centerText: {
       color: t.text,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    emptyCard: {
+      alignItems: 'center',
+      gap: 8,
+      padding: 22,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: t.border,
+      backgroundColor: t.surface,
+    },
+    emptyGlyph: {
+      color: t.primary,
+      fontSize: 34,
+      fontWeight: '700',
+    },
+    emptyTitle: {
+      color: t.text,
+      fontSize: 17,
+      fontWeight: '800',
     },
     list: {
       flex: 1,
     },
+    listContent: {
+      gap: 9,
+      paddingBottom: 12,
+    },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
+      minHeight: 72,
       paddingVertical: 10,
-      borderBottomWidth: 1,
-      borderBottomColor: t.border,
-      gap: 8,
+      paddingHorizontal: 12,
+      borderRadius: 17,
+      borderWidth: 1,
+      borderColor: t.border,
+      backgroundColor: t.surface,
+      gap: 12,
+    },
+    wordBadge: {
+      width: 42,
+      height: 42,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 14,
+      backgroundColor: t.btnBg,
+    },
+    wordBadgeText: {
+      color: t.primary,
+      fontSize: 20,
+      fontWeight: '800',
     },
     rowText: {
       flex: 1,
+      gap: 3,
     },
     rowWord: {
-      fontSize: 17,
-      fontWeight: '700',
+      fontSize: 18,
+      fontWeight: '800',
       color: t.text,
     },
     rowMeaning: {
       fontSize: 14,
-      opacity: 0.7,
-      color: t.text,
+      color: t.muted,
     },
     deleteButton: {
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderRadius: 8,
+      minHeight: 44,
+      minWidth: 54,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: t.danger,
     },
