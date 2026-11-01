@@ -1,11 +1,13 @@
 import { type ReactElement } from 'react';
 import type { LocalVocabulary } from '../../../entities/vocabulary';
-import { IconFlip } from '../../../shared/ui';
+import { IconEdit, IconFlip } from '../../../shared/ui';
 import { selectFaceContent } from '../model/face';
+import { CatCardFrame } from './CatCardFrame';
 
 interface FlashcardCardProps {
   vocab: LocalVocabulary;
   revealed: boolean;
+  onEdit?: () => void;
 }
 
 /**
@@ -14,17 +16,35 @@ interface FlashcardCardProps {
  * - MẶT SAU: Cách đọc (trên) · Nghĩa (to, đậm) · khung "VÍ DỤ" (câu ví dụ + dịch nghiêng).
  * Góc trên trái luôn có nhãn "BẤM ĐỂ LẬT". Hiển thị thuần — KHÔNG đổi logic SM-2.
  */
-export function FlashcardCard({ vocab, revealed }: FlashcardCardProps): ReactElement {
+export function FlashcardCard({ vocab, revealed, onEdit }: FlashcardCardProps): ReactElement {
   const content = selectFaceContent(vocab, revealed ? 'back' : 'front');
   return (
     <article
       className={revealed ? 'kn-fc-card kn-fc-card--back' : 'kn-fc-card'}
       aria-live="polite"
     >
+      <CatCardFrame />
+
       <span className="kn-fc-card__flip-hint" aria-hidden="true">
         <IconFlip className="kn-fc-card__flip-icon" />
         BẤM ĐỂ LẬT
       </span>
+
+      {onEdit !== undefined ? (
+        <button
+          type="button"
+          className="kn-fc-card__edit-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+          title="Sửa từ vựng này"
+          aria-label="Sửa từ vựng"
+        >
+          <IconEdit className="kn-fc-card__edit-icon" />
+          <span>Sửa thẻ</span>
+        </button>
+      ) : null}
 
       <div className="kn-fc-card__inner" key={content.face}>
         {content.face === 'front' ? (

@@ -63,21 +63,17 @@ describe('features/vocabulary/branch-dedupe · classifyIncoming', () => {
     });
   });
 
-  it('từ đã có ở NHÁNH KHÁC → link (kèm đường dẫn hiện tại)', () => {
+  it('từ đã có ở THƯ MỤC KHÁC → new (thẻ độc lập giữa các thư mục)', () => {
     const vocabs = [word('v1', '猫', ['Bai3'])];
     expect(classifyIncoming({ incoming: { word: '猫', reading: null }, targetFolderId: 'Bai1', vocabs, folders })).toEqual({
-      kind: 'link',
-      existingId: 'v1',
-      existingPath: 'N4 › Bai3',
+      kind: 'new',
     });
   });
 
-  it('từ đã có nhưng CHƯA gán thư mục → link', () => {
+  it('từ đã có nhưng CHƯA gán thư mục → new khi tạo trong thư mục đích', () => {
     const vocabs = [word('v1', '猫', [])];
     expect(classifyIncoming({ incoming: { word: '猫', reading: null }, targetFolderId: 'Bai1', vocabs, folders })).toEqual({
-      kind: 'link',
-      existingId: 'v1',
-      existingPath: 'Chưa gán thư mục',
+      kind: 'new',
     });
   });
 
@@ -90,21 +86,10 @@ describe('features/vocabulary/branch-dedupe · classifyIncoming', () => {
     });
   });
 
-  it('từ ở thư mục anh em cùng cha (cùng nhánh) → skip in-branch', () => {
+  it('từ ở thư mục khác cùng cha → new (độc lập giữa các thư mục)', () => {
     const vocabs = [word('v1', '猫', ['Bai2'])];
     expect(classifyIncoming({ incoming: { word: '猫', reading: null }, targetFolderId: 'Bai1', vocabs, folders })).toEqual({
-      kind: 'skip',
-      reason: 'in-branch',
-      existingPath: 'N3 › Bai2',
-    });
-  });
-
-  it('thư mục đích lồng sâu vẫn tìm đúng gốc → skip in-branch', () => {
-    const vocabs = [word('v1', '猫', ['Bai2'])];
-    expect(classifyIncoming({ incoming: { word: '猫', reading: null }, targetFolderId: 'Bai1a', vocabs, folders })).toEqual({
-      kind: 'skip',
-      reason: 'in-branch',
-      existingPath: 'N3 › Bai2',
+      kind: 'new',
     });
   });
 

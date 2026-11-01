@@ -1,6 +1,6 @@
 import { pull, push, type FolderDto, type SyncCounts, type VocabularyDto } from '../../../shared/api';
 import { STORE } from '../../../shared/config';
-import { idbBulkPut, idbGetAll } from '../../../shared/lib';
+import { emitDataChanged, idbBulkPut, idbClear, idbGetAll } from '../../../shared/lib';
 import { readSyncCursor, writeLastPulledAt, writeLastPushedAt } from './cursor';
 import {
   chunk,
@@ -104,9 +104,34 @@ export async function runSync(db: IDBDatabase): Promise<SyncRunSummary> {
   await idbBulkPut(db, STORE.vocabularies, vocabularyWinners);
   await writeLastPulledAt(db, pullResult.serverTime);
 
+  if (folderWinners.length > 0 || vocabularyWinners.length > 0) {
+    emitDataChanged();
+  }
+
   return {
     pushed,
     merged: { folders: folderWinners.length, vocabularies: vocabularyWinners.length },
+    serverTime: pullResult.serverTime,
+  };
+}
+
+/** Tải lại toàn bộ dữ liệu từ server: xóa cache vocabularies local và nạp lại sạch sẽ. */
+export async function resetAndPullFromServer(db: IDBDatabase): Promise<SyncRunSummary> {
+  const pullResult = await pull();
+  await idbClear(db, STORE.vocabularies);
+  await idbBulkPut(db, STORE.vocabularies, pullResult.vocabularies);
+
+  const localFolders = await idbGetAll<FolderDto>(db, STORE.folders);
+  const folderWinners = pickIncomingWinners(localFolders, pullResult.folders);
+  await idbBulkPut(db, STORE.folders, folderWinners);
+
+  await writeLastPulledAt(db, pullResult.serverTime);
+  await writeLastPushedAt(db, pullResult.serverTime);
+  emitDataChanged();
+
+  return {
+    pushed: { folders: EMPTY_COUNTS, vocabularies: EMPTY_COUNTS },
+    merged: { folders: folderWinners.length, vocabularies: pullResult.vocabularies.length },
     serverTime: pullResult.serverTime,
   };
 }

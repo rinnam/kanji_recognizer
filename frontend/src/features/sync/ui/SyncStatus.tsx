@@ -18,7 +18,7 @@ function formatClock(iso: string | null): string {
 
 /** Chỉ báo trạng thái đồng bộ + nút "Đồng bộ ngay" trên header (4 trạng thái). */
 export function SyncStatus(): ReactElement {
-  const { state, isOnline, lastError, lastSummary, lastSyncedAt, syncNow } = useSync();
+  const { state, isOnline, lastError, lastSummary, lastSyncedAt, syncNow, resetAndPull } = useSync();
 
   const detail =
     state === 'error' && lastError !== null
@@ -40,6 +40,15 @@ export function SyncStatus(): ReactElement {
         aria-label="Đồng bộ ngay"
       >
         Đồng bộ ngay
+      </Button>
+      <Button
+        variant="secondary"
+        onClick={resetAndPull}
+        disabled={state === 'syncing' || !isOnline}
+        title="Tải lại toàn bộ dữ liệu từ máy chủ (xóa sạch bộ nhớ tạm local)"
+        aria-label="Làm mới từ server"
+      >
+        Làm mới từ server
       </Button>
     </div>
   );

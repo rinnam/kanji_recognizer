@@ -1,10 +1,11 @@
 import { Fragment, useState, type PointerEvent as ReactPointerEvent, type ReactElement } from 'react';
 import type { LocalVocabulary } from '../../../entities/vocabulary';
-import { EmptyState, IconChevron, IconTrash } from '../../../shared/ui';
+import { EmptyState, IconChevron, IconEdit, IconTrash } from '../../../shared/ui';
 
 interface VocabularyListProps {
   items: LocalVocabulary[];
   onDelete: (item: LocalVocabulary) => void;
+  onEdit?: (item: LocalVocabulary) => void;
   /** Tập id đang chọn (theo id, giữ qua các trang). */
   selectedIds: ReadonlySet<string>;
   /** Trạng thái chọn của riêng TRANG hiện tại — lái checkbox tiêu đề (indeterminate). */
@@ -43,6 +44,7 @@ function detailRows(item: LocalVocabulary): DetailRow[] {
 export function VocabularyList({
   items,
   onDelete,
+  onEdit,
   selectedIds,
   pageSelectState,
   dragging,
@@ -133,6 +135,17 @@ export function VocabularyList({
                   <td title={item.meaning}>{item.meaning}</td>
                   <td className="kn-vtable__jlpt">{item.jlptLevel ?? '—'}</td>
                   <td className="kn-vtable__actions">
+                    {onEdit ? (
+                      <button
+                        type="button"
+                        className="kn-vtable__trash"
+                        aria-label={`Sửa ${item.word}`}
+                        title="Sửa thẻ"
+                        onClick={() => onEdit(item)}
+                      >
+                        <IconEdit />
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       className="kn-vtable__trash"

@@ -86,9 +86,10 @@ CREATE TABLE IF NOT EXISTS vocabularies (
 CREATE INDEX IF NOT EXISTS idx_vocab_owner_updated ON vocabularies(owner_id, updated_at);
 CREATE INDEX IF NOT EXISTS idx_vocab_next_review   ON vocabularies(owner_id, srs_next_review);
 CREATE INDEX IF NOT EXISTS idx_vocab_tags          ON vocabularies USING gin(tags);
--- Quick Add chống trùng: không cho 2 từ sống trùng (word, reading) trong cùng owner.
-CREATE UNIQUE INDEX IF NOT EXISTS uq_vocab_owner_word_reading
-  ON vocabularies(owner_id, word, coalesce(reading, ''))
+-- Thẻ từ vựng độc lập theo từng thư mục (có thể trùng từ giữa các thư mục khác nhau).
+-- Chống trùng chỉ áp dụng trong phạm vi từng thư mục ở tầng application.
+CREATE INDEX IF NOT EXISTS idx_vocab_owner_word
+  ON vocabularies(owner_id, word)
   WHERE deleted_at IS NULL;
 
 -- ---------------------------------------------------------------------

@@ -10,7 +10,7 @@ import {
 import { useDb } from '../../../shared/db';
 import { emitDataChanged, newVocabId, nowIso } from '../../../shared/lib';
 import type { JlptLevel } from '../../../shared/api';
-import { findDuplicate } from './dedupe';
+import { dedupeKey, findDuplicate } from './dedupe';
 import { assembleImportWrites } from './import';
 import type { PreviewRow } from './import';
 import { planWordRemoval, type WordRemovalCounts } from './word-removal';
@@ -52,6 +52,7 @@ export interface VocabularyApi {
     ids: readonly string[],
     scopeFolderIds: ReadonlySet<string> | null,
   ) => Promise<WordRemovalCounts>;
+  update: (vocabulary: LocalVocabulary) => Promise<void>;
   linkExisting: (existingId: string, folderId: string) => Promise<void>;
   importNew: (previews: PreviewRow[], folderId: string | null) => Promise<ImportWriteResult>;
 }
@@ -117,36 +118,68 @@ export function useVocabulary(): VocabularyApi {
         return { ok: false, reason: 'invalid', message: 'Cần nhập ít nhất Từ và Nghĩa.' };
       }
       const reading = cleanOptional(input.reading);
-      const duplicate = findDuplicate(all, word, reading);
+      const duplicate = findDuplicate(all, word, reading, input.folderId);
       if (duplicate !== undefined) {
         return {
           ok: false,
           reason: 'duplicate',
-          message: `Đã có từ trùng (word + reading): "${duplicate.word}".`,
+          message:
+            input.folderId !== null
+              ? `Đã có từ trùng (word + reading) trong thư mục này: "${duplicate.word}".`
+              : `Đã có từ trùng (word + reading) trong danh sách chưa phân loại: "${duplicate.word}".`,
         };
       }
 
       const now = nowIso();
-      const vocabulary: LocalVocabulary = {
-        id: newVocabId(),
-        word,
-        meaning,
-        reading,
-        sinoVietnamese: cleanOptional(input.sinoVietnamese),
-        example: cleanOptional(input.example),
-        exampleMeaning: cleanOptional(input.exampleMeaning),
-        note: cleanOptional(input.note),
-        tags: [],
-        jlptLevel: input.jlptLevel,
-        srsInterval: null,
-        srsRepetition: null,
-        srsEaseFactor: null,
-        srsNextReview: null,
-        folderIds: input.folderId !== null ? [input.folderId] : [],
-        createdAt: now,
-        updatedAt: now,
-        deletedAt: null,
-      };
+
+      // Nếu có bản ghi trước đây đã bị xóa (tombstone): hồi sinh lại bản ghi đó thay vì tạo mới/ghi đè.
+      const allLocal = await getAllVocabulariesLocal(db);
+      const tombstone = allLocal.find(
+        (item) =>
+          item.deletedAt !== null &&
+          dedupeKey(item.word, item.reading) === dedupeKey(word, reading),
+      );
+
+      const targetFolders = input.folderId !== null ? [input.folderId] : [];
+      let vocabulary: LocalVocabulary;
+
+      if (tombstone !== undefined) {
+        vocabulary = {
+          ...tombstone,
+          word,
+          meaning,
+          reading,
+          sinoVietnamese: cleanOptional(input.sinoVietnamese),
+          example: cleanOptional(input.example),
+          exampleMeaning: cleanOptional(input.exampleMeaning),
+          note: cleanOptional(input.note),
+          jlptLevel: input.jlptLevel,
+          folderIds: targetFolders,
+          deletedAt: null,
+          updatedAt: now,
+        };
+      } else {
+        vocabulary = {
+          id: newVocabId(),
+          word,
+          meaning,
+          reading,
+          sinoVietnamese: cleanOptional(input.sinoVietnamese),
+          example: cleanOptional(input.example),
+          exampleMeaning: cleanOptional(input.exampleMeaning),
+          note: cleanOptional(input.note),
+          tags: [],
+          jlptLevel: input.jlptLevel,
+          srsInterval: null,
+          srsRepetition: null,
+          srsEaseFactor: null,
+          srsNextReview: null,
+          folderIds: targetFolders,
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+        };
+      }
       await putVocabularyLocal(db, vocabulary);
       emitDataChanged();
       await reload();
@@ -229,12 +262,26 @@ export function useVocabulary(): VocabularyApi {
     [all, db, reload],
   );
 
+  // Cập nhật từ vựng: ghi đè thông tin mới + updatedAt=now, phát change-bus và reload.
+  const update = useCallback(
+    async (vocabulary: LocalVocabulary): Promise<void> => {
+      await putVocabularyLocal(db, {
+        ...vocabulary,
+        updatedAt: nowIso(),
+      });
+      emitDataChanged();
+      await reload();
+    },
+    [db, reload],
+  );
+
   return {
     all,
     status,
     error,
     reload,
     quickAdd,
+    update,
     remove,
     removeMany,
     removeInScope,

@@ -111,6 +111,10 @@ export async function idbDelete(
   await toPromise(store(db, name, 'readwrite').delete(key));
 }
 
+export async function idbClear(db: IDBDatabase, name: string): Promise<void> {
+  await toPromise(store(db, name, 'readwrite').clear());
+}
+
 /** Một lệnh ghi hàng loạt vào một store (dùng cho `idbBulkPutMany`). */
 export interface IdbStoreWrite {
   store: string;

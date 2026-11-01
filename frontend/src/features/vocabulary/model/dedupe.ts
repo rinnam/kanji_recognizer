@@ -9,14 +9,24 @@ export function dedupeKey(word: string, reading: string | null | undefined): str
   return `${word.trim()}\u0000${(reading ?? '').trim()}`;
 }
 
-/** Tìm từ CÒN SỐNG trùng (word, reading). Trả về bản trùng đầu tiên hoặc undefined. */
+/**
+ * Tìm từ CÒN SỐNG trùng (word, reading) trong phạm vi thư mục (nếu chỉ định).
+ * - `folderId === undefined`: tìm trên toàn bộ danh sách.
+ * - `folderId === null`: chỉ tìm trong nhóm chưa gán thư mục (folderIds rỗng).
+ * - `typeof folderId === 'string'`: chỉ tìm trong thư mục có id đó.
+ */
 export function findDuplicate(
   vocabularies: LocalVocabulary[],
   word: string,
   reading: string | null | undefined,
+  folderId?: string | null,
 ): LocalVocabulary | undefined {
   const key = dedupeKey(word, reading);
-  return vocabularies.find(
-    (item) => item.deletedAt === null && dedupeKey(item.word, item.reading) === key,
-  );
+  return vocabularies.find((item) => {
+    if (item.deletedAt !== null) return false;
+    if (dedupeKey(item.word, item.reading) !== key) return false;
+    if (folderId === undefined) return true;
+    if (folderId === null) return item.folderIds.length === 0;
+    return item.folderIds.includes(folderId);
+  });
 }

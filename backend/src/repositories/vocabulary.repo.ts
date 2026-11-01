@@ -57,8 +57,42 @@ export async function selectExistingIds(
   return rows.map((row) => row.id);
 }
 
-/** Tìm bản ghi sống trùng (owner, word, reading) để chống trùng Quick Add. */
+/** Tìm bản ghi sống trùng (owner, word, reading) trong phạm vi thư mục (nếu có). */
 export async function findDuplicate(
+  ownerId: string,
+  word: string,
+  reading: string | null,
+  folderIds?: string[],
+  trx?: Executor,
+): Promise<VocabularyRow | undefined> {
+  let query = exec(trx)
+    .selectFrom('vocabularies')
+    .selectAll('vocabularies')
+    .where('vocabularies.owner_id', '=', ownerId)
+    .where('vocabularies.word', '=', word)
+    .where('vocabularies.deleted_at', 'is', null);
+
+  query = reading === null
+    ? query.where('vocabularies.reading', 'is', null)
+    : query.where('vocabularies.reading', '=', reading);
+
+  if (folderIds !== undefined) {
+    if (folderIds.length > 0) {
+      query = query
+        .innerJoin('vocabulary_folders', 'vocabulary_folders.vocabulary_id', 'vocabularies.id')
+        .where('vocabulary_folders.folder_id', 'in', folderIds);
+    } else {
+      query = query
+        .leftJoin('vocabulary_folders', 'vocabulary_folders.vocabulary_id', 'vocabularies.id')
+        .where('vocabulary_folders.folder_id', 'is', null);
+    }
+  }
+
+  return query.executeTakeFirst();
+}
+
+/** Tìm bản ghi ĐÃ XÓA (tombstone) trùng (owner, word, reading) để khôi phục thay vì ghi đè/tạo mới. */
+export async function findTombstone(
   ownerId: string,
   word: string,
   reading: string | null,
@@ -66,14 +100,14 @@ export async function findDuplicate(
 ): Promise<VocabularyRow | undefined> {
   let query = exec(trx)
     .selectFrom('vocabularies')
-    .selectAll()
-    .where('owner_id', '=', ownerId)
-    .where('word', '=', word)
-    .where('deleted_at', 'is', null);
+    .selectAll('vocabularies')
+    .where('vocabularies.owner_id', '=', ownerId)
+    .where('vocabularies.word', '=', word)
+    .where('vocabularies.deleted_at', 'is not', null);
 
   query = reading === null
-    ? query.where('reading', 'is', null)
-    : query.where('reading', '=', reading);
+    ? query.where('vocabularies.reading', 'is', null)
+    : query.where('vocabularies.reading', '=', reading);
 
   return query.executeTakeFirst();
 }
@@ -184,6 +218,35 @@ export async function update(
     .where('id', '=', id)
     .where('owner_id', '=', ownerId)
     .where('deleted_at', 'is', null)
+    .returningAll()
+    .executeTakeFirst();
+}
+
+export async function restoreTombstone(
+  ownerId: string,
+  id: string,
+  patch: {
+    word?: string;
+    meaning?: string;
+    reading?: string | null;
+    sino_vietnamese?: string | null;
+    example?: string | null;
+    example_meaning?: string | null;
+    note?: string | null;
+    tags?: string[];
+    jlpt_level?: JlptLevel | null;
+  },
+  trx?: Executor,
+): Promise<VocabularyRow | undefined> {
+  return exec(trx)
+    .updateTable('vocabularies')
+    .set({
+      ...patch,
+      deleted_at: null,
+      updated_at: sql`now()`,
+    })
+    .where('id', '=', id)
+    .where('owner_id', '=', ownerId)
     .returningAll()
     .executeTakeFirst();
 }

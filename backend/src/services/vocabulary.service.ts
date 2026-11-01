@@ -27,13 +27,42 @@ export async function createVocabulary(
   input: CreateVocabularyInput,
 ): Promise<VocabularyDto> {
   const reading = input.reading ?? null;
+  const folderIds = input.folderIds ?? [];
 
-  // Quick Add chống trùng: cùng owner + word + reading còn sống → 409.
-  const dup = await vocabRepo.findDuplicate(ownerId(), input.word, reading);
+  // Chống trùng theo phạm vi thư mục: cùng owner + word + reading trong cùng thư mục → 409.
+  const dup = await vocabRepo.findDuplicate(ownerId(), input.word, reading, folderIds);
   if (dup) {
     throw new DuplicateError(
-      `A vocabulary with the same word and reading already exists (id: ${dup.id})`,
+      `A vocabulary with the same word and reading already exists in the target folder (id: ${dup.id})`,
     );
+  }
+
+  // Nếu có bản ghi trước đây đã bị xóa (tombstone) trùng word + reading: khôi phục lại thay vì tạo mới/ghi đè.
+  const tomb = await vocabRepo.findTombstone(ownerId(), input.word, reading);
+  if (tomb) {
+    const now = new Date();
+    const dto = await db.transaction().execute(async (trx) => {
+      const updated = await vocabRepo.restoreTombstone(
+        ownerId(),
+        tomb.id,
+        {
+          word: input.word,
+          meaning: input.meaning,
+          reading,
+          sino_vietnamese: input.sinoVietnamese ?? null,
+          example: input.example ?? null,
+          example_meaning: input.exampleMeaning ?? null,
+          note: input.note ?? null,
+          tags: input.tags ?? [],
+          jlpt_level: input.jlptLevel ?? null,
+        },
+        trx,
+      );
+      await vocabFoldersRepo.replaceLinks(tomb.id, folderIds, trx);
+      const linked = await vocabFoldersRepo.listFolderIds(tomb.id, trx);
+      return vocabularyRowToDto(updated!, linked);
+    });
+    return dto;
   }
 
   const id = input.id ?? newVocabId();
@@ -58,8 +87,6 @@ export async function createVocabulary(
     created_at: input.createdAt ?? now,
     updated_at: input.updatedAt ?? now,
   };
-
-  const folderIds = input.folderIds ?? [];
 
   try {
     const dto = await db.transaction().execute(async (trx) => {
@@ -130,6 +157,21 @@ export async function updateVocabulary(
     patch.srs_ease_factor = easeToColumn(input.srsEaseFactor) ?? null;
   }
   if (input.srsNextReview !== undefined) patch.srs_next_review = input.srsNextReview;
+
+  if (input.word !== undefined || input.reading !== undefined || input.folderIds !== undefined) {
+    const word = input.word ?? existing.word;
+    const reading = input.reading !== undefined ? input.reading : existing.reading;
+    const folderIds = input.folderIds !== undefined
+      ? input.folderIds
+      : await vocabFoldersRepo.listFolderIds(id);
+
+    const dup = await vocabRepo.findDuplicate(ownerId(), word, reading, folderIds);
+    if (dup && dup.id !== id) {
+      throw new DuplicateError(
+        `A vocabulary with the same word and reading already exists in the target folder (id: ${dup.id})`,
+      );
+    }
+  }
 
   try {
     const dto = await db.transaction().execute(async (trx) => {

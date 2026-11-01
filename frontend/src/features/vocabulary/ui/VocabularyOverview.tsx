@@ -38,6 +38,7 @@ import {
 import { useDebouncedValue } from '../model/useDebouncedValue';
 import { useVocabulary } from '../model/useVocabulary';
 import { planWordRemoval, type WordRemovalCounts } from '../model/word-removal';
+import { EditVocabularyModal } from './EditVocabularyModal';
 import { ImportModal } from './ImportModal';
 import { QuickAddForm } from './QuickAddForm';
 import { VocabularyList } from './VocabularyList';
@@ -101,6 +102,7 @@ export function VocabularyOverview({
   const api = useVocabulary();
   const db = useDb();
   const [pendingDelete, setPendingDelete] = useState<LocalVocabulary | null>(null);
+  const [editingVocab, setEditingVocab] = useState<LocalVocabulary | null>(null);
   const [folders, setFolders] = useState<LocalFolder[]>([]);
   const [importOpen, setImportOpen] = useState(false);
   // Quick Add: đóng/mở theo phạm vi (khối quyết định nằm dưới, sau khi tính `scoped`).
@@ -367,6 +369,7 @@ export function VocabularyOverview({
             <VocabularyList
               items={pageInfo.items}
               onDelete={setPendingDelete}
+              onEdit={setEditingVocab}
               selectedIds={selected}
               pageSelectState={pageSel}
               dragging={dragging}
@@ -510,6 +513,13 @@ export function VocabularyOverview({
           onImport={api.importNew}
         />
       ) : null}
+
+      <EditVocabularyModal
+        open={editingVocab !== null}
+        vocabulary={editingVocab}
+        onClose={() => setEditingVocab(null)}
+        onSave={(updated) => void api.update(updated)}
+      />
     </div>
   );
 }

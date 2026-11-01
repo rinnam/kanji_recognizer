@@ -13,6 +13,8 @@ export interface SyncContextValue {
   lastSyncedAt: string | null;
   /** Đồng bộ ngay (bỏ qua debounce). */
   syncNow: () => void;
+  /** Tải lại toàn bộ dữ liệu từ server (xóa cache vocabularies local). */
+  resetAndPull: () => void;
   /** Lên lịch đồng bộ sau debounce 3.5s (gộp nhiều thay đổi liên tiếp). */
   scheduleSync: () => void;
 }

@@ -212,9 +212,81 @@
 .kn-quiz__sino {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
   justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+.kn-quiz__sino-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--kn-text-muted);
+  background: var(--kn-surface);
+  border: 1px dashed var(--kn-border);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.kn-quiz__sino-btn:hover {
+  color: var(--kn-primary);
+  border-color: var(--kn-primary);
+  background: color-mix(in srgb, var(--kn-primary) 8%, var(--kn-surface));
+  transform: translateY(-1px);
+}
+.kn-quiz__sino-btn.is-active {
+  color: var(--kn-primary);
+  border-style: solid;
+  border-color: var(--kn-primary);
+  background: color-mix(in srgb, var(--kn-primary) 12%, var(--kn-surface));
+  font-weight: 600;
+}
+.kn-quiz__sino-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-family: inherit;
+  font-weight: 700;
+  padding: 0.12rem 0.38rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--kn-border) 40%, transparent);
+  border: 1px solid var(--kn-border);
+  color: var(--kn-text-muted);
+  line-height: 1;
+}
+.kn-quiz__sino-btn.is-active .kn-quiz__sino-kbd {
+  border-color: color-mix(in srgb, var(--kn-primary) 40%, transparent);
+  color: var(--kn-primary);
+}
+.kn-quiz__sino-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--kn-primary) 15%, var(--kn-surface));
+  border: 1px solid var(--kn-primary);
+  color: var(--kn-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  animation: kn-sino-pop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes kn-sino-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Vùng phản hồi LUÔN giữ chỗ (~40% thẻ); chưa chốt thì ẩn bằng visibility */

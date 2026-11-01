@@ -82,14 +82,12 @@ const parsed: ParsedRow[] = [
   parsedRow(6, '猫', 'ねこ'),
 ];
 
-describe('import 7C · buildPreview + assembleImportWrites (có thư mục đích)', () => {
-  it('xem trước phân loại đúng new/link/skip theo nhánh của thư mục đích', () => {
+describe('import · buildPreview + assembleImportWrites (thẻ độc lập giữa các thư mục)', () => {
+  it('xem trước phân loại: từ ở thư mục khác được coi là mới (new), từ cùng thư mục đích bị skip in-branch', () => {
     const { rows, summary } = buildPreview(parsed, { vocabs, folders, targetFolderId: 'Bai1' });
-    expect(summary).toEqual({ total: 5, new: 1, link: 1, duplicate: 2, error: 1 });
+    expect(summary).toEqual({ total: 5, new: 2, link: 0, duplicate: 2, error: 1 });
     const byLine = Object.fromEntries(rows.map((r) => [r.line, r]));
-    expect(byLine[2].status).toBe('link');
-    expect(byLine[2].existingId).toBe('v-neko');
-    expect(byLine[2].existingPath).toBe('N4 › Bai3');
+    expect(byLine[2].status).toBe('new');
     expect(byLine[3].status).toBe('duplicate');
     expect(byLine[3].dupReason).toBe('in-branch');
     expect(byLine[4].status).toBe('new');
@@ -98,35 +96,46 @@ describe('import 7C · buildPreview + assembleImportWrites (có thư mục đíc
     expect(byLine[6].dupReason).toBe('in-file');
   });
 
-  it('dựng danh sách ghi hỗn hợp: 1 mới + 1 gắn; folderIds hợp không trùng; không đụng SRS', () => {
+  it('dựng danh sách ghi: tạo 2 thẻ mới độc lập cho thư mục đích, không sửa từ thư mục khác', () => {
     const { rows: previews } = buildPreview(parsed, { vocabs, folders, targetFolderId: 'Bai1' });
     let n = 0;
     const plan = assembleImportWrites(previews, vocabs, 'Bai1', NOW, () => `new-${(n += 1)}`);
 
-    expect(plan.added).toBe(1);
-    expect(plan.linked).toBe(1);
+    expect(plan.added).toBe(2);
+    expect(plan.linked).toBe(0);
     expect(plan.rows).toHaveLength(2);
 
-    const fresh = plan.rows.find((r) => r.word === '鳥');
-    expect(fresh?.folderIds).toEqual(['Bai1']);
-    expect(fresh?.srsInterval).toBeNull();
+    const freshTori = plan.rows.find((r) => r.word === '鳥');
+    expect(freshTori?.folderIds).toEqual(['Bai1']);
+    expect(freshTori?.srsInterval).toBeNull();
 
-    const linked = plan.rows.find((r) => r.id === 'v-neko');
-    expect(linked?.folderIds).toEqual(['Bai3', 'Bai1']); // hợp, KHÔNG trùng
-    expect(linked?.updatedAt).toBe(NOW);
-    // Giữ nguyên SRS + không sửa đối tượng gốc trong `vocabs`.
-    expect(linked?.srsInterval).toBe(4);
-    expect(linked?.srsNextReview).toBe('2026-06-01T00:00:00.000Z');
+    const freshNeko = plan.rows.find((r) => r.word === '猫');
+    expect(freshNeko?.id).toBe('new-1');
+    expect(freshNeko?.folderIds).toEqual(['Bai1']);
+    expect(freshNeko?.srsInterval).toBeNull();
+
+    // Bản gốc v-neko ở Bai3 không bị ảnh hưởng
     expect(vocabs[0].folderIds).toEqual(['Bai3']);
     expect(vocabs[0].updatedAt).toBe('2026-01-01T00:00:00.000Z');
   });
 
-  it('selectDirty chọn được từ gắn (updatedAt = now > con trỏ đẩy)', () => {
-    const { rows: previews } = buildPreview(parsed, { vocabs, folders, targetFolderId: 'Bai1' });
-    const plan = assembleImportWrites(previews, vocabs, 'Bai1', NOW, () => 'new-1');
+  it('assembleImportWrites vẫn hỗ trợ hàng có status link nếu có', () => {
+    const customPreviews = [
+      {
+        line: 2,
+        status: 'link' as const,
+        warnings: [],
+        record: { word: '猫', reading: 'ねこ', meaning: 'mèo', sinoVietnamese: null, example: null, exampleMeaning: null, jlptLevel: null, note: null },
+        existingId: 'v-neko',
+        existingPath: 'N4 › Bai3',
+      },
+    ];
+    const plan = assembleImportWrites(customPreviews, vocabs, 'Bai1', NOW, () => 'new-1');
+    expect(plan.linked).toBe(1);
+    expect(plan.added).toBe(0);
+    expect(plan.rows[0].folderIds).toEqual(['Bai3', 'Bai1']);
     const dirtyIds = selectDirty(plan.rows, SINCE).map((r) => r.id);
     expect(dirtyIds).toContain('v-neko');
-    expect(dirtyIds).toHaveLength(2); // cả từ mới lẫn từ gắn đều "bẩn"
   });
 });
 

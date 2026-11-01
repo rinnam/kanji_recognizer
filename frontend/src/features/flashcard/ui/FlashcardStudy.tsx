@@ -3,12 +3,13 @@ import type { SrsRating } from '../../../entities/card';
 import { getAllFoldersLocal, type LocalFolder } from '../../../entities/folder';
 import {
   applyScope,
+  putVocabularyLocal,
   selectWordsInScope,
   type LocalVocabulary,
   type ScopeSelection,
 } from '../../../entities/vocabulary';
 import { useDb } from '../../../shared/db';
-import { subscribeDataChanged } from '../../../shared/lib';
+import { emitDataChanged, subscribeDataChanged } from '../../../shared/lib';
 import {
   Button,
   EmptyState,
@@ -23,6 +24,7 @@ import {
   ToggleIconButton,
   type ScopeKind,
 } from '../../../shared/ui';
+import { EditVocabularyModal } from '../../vocabulary';
 import { buildQueue, buildReviewAheadQueue, nextDueAt, summarize } from '../model/queue';
 import { selectResetTargets } from '../model/reset';
 import type { FlashcardMode } from '../model/types';
@@ -106,6 +108,8 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
   // Modal "Đặt lại tiến độ SRS".
   const [resetOpen, setResetOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
+  // Modal chỉnh sửa thẻ trực tiếp khi học
+  const [editOpen, setEditOpen] = useState(false);
 
   // Nạp thư mục còn sống để tính phạm vi (gồm thư mục con) — nghe thay đổi dữ liệu.
   useEffect(() => {
@@ -410,7 +414,11 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
             aria-label="Lật thẻ"
             onClick={flip}
           >
-            <FlashcardCard vocab={current} revealed={revealed} />
+            <FlashcardCard
+              vocab={current}
+              revealed={revealed}
+              onEdit={() => setEditOpen(true)}
+            />
           </div>
 
           {mode === 'anki' ? (
@@ -485,6 +493,16 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
         </p>
         <p>Thay đổi sẽ được đồng bộ lên máy chủ và không thể hoàn tác.</p>
       </Modal>
+
+      <EditVocabularyModal
+        open={editOpen}
+        vocabulary={current}
+        onClose={() => setEditOpen(false)}
+        onSave={async (updated) => {
+          await putVocabularyLocal(db, updated);
+          emitDataChanged();
+        }}
+      />
     </section>
   );
 }

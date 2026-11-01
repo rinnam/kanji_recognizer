@@ -34,12 +34,23 @@ describe('vocabulary/dedupe', () => {
 
   it('findDuplicate khớp (word, reading) và bỏ qua tombstone', () => {
     const list = [
-      vocab({ id: 'a', word: '水', reading: 'みず' }),
-      vocab({ id: 'b', word: '火', reading: 'ひ', deletedAt: '2026-02-01T00:00:00.000Z' }),
+      vocab({ id: 'a', word: '水', reading: 'みず', folderIds: ['f1'] }),
+      vocab({ id: 'b', word: '火', reading: 'ひ', deletedAt: '2026-02-01T00:00:00.000Z', folderIds: ['f1'] }),
+      vocab({ id: 'c', word: '水', reading: 'みず', folderIds: ['f2'] }),
+      vocab({ id: 'd', word: '木', reading: 'き', folderIds: [] }),
     ];
     expect(findDuplicate(list, '水', 'みず')?.id).toBe('a');
     expect(findDuplicate(list, '水', 'べつ')).toBeUndefined();
     expect(findDuplicate(list, '火', 'ひ')).toBeUndefined();
+
+    // Kiểm tra theo folderId
+    expect(findDuplicate(list, '水', 'みず', 'f1')?.id).toBe('a');
+    expect(findDuplicate(list, '水', 'みず', 'f2')?.id).toBe('c');
+    expect(findDuplicate(list, '水', 'みず', 'f3')).toBeUndefined();
+
+    // Kiểm tra unfiled (folderId === null)
+    expect(findDuplicate(list, '木', 'き', null)?.id).toBe('d');
+    expect(findDuplicate(list, '水', 'みず', null)).toBeUndefined();
   });
 });
 

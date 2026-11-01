@@ -1,5 +1,5 @@
-import { collectDescendantFolderIds, type LocalVocabulary } from '../../../entities/vocabulary';
-import { folderPath, rootFolderId, type LocalFolder } from '../../../entities/folder';
+import type { LocalVocabulary } from '../../../entities/vocabulary';
+import { folderPath, type LocalFolder } from '../../../entities/folder';
 import { dedupeKey, findDuplicate } from './dedupe';
 
 /** Nhãn hiển thị khi từ đã có nhưng chưa thuộc thư mục nào. */
@@ -43,9 +43,10 @@ function firstFolderPath(vocab: LocalVocabulary, folders: LocalFolder[]): string
 }
 
 /**
- * Phân loại một từ nhập vào theo quy tắc "trùng theo nhánh" (THUẦN, không đụng UI/SRS).
- * Nhánh của thư mục đích = cây dưới thư mục gốc cao nhất ({@link rootFolderId}). Chỉ xét từ còn sống.
- * Nơi gọi tự thêm khóa đã xử lý vào `seenKeys` sau mỗi dòng để bắt trùng trong cùng file.
+ * Phân loại một từ nhập vào theo quy tắc thẻ độc lập từng thư mục:
+ * - Trùng trong cùng file: skip 'in-file'
+ * - Trùng trong chính thư mục đích (hoặc trùng chưa gán thư mục khi targetFolderId === null): skip
+ * - Từ đã có ở thư mục khác: tạo thẻ mới độc lập ('new').
  */
 export function classifyIncoming({
   incoming,
@@ -56,30 +57,35 @@ export function classifyIncoming({
 }: ClassifyIncomingArgs): ClassifyResult {
   const key = dedupeKey(incoming.word, incoming.reading);
 
-  // (4) Trùng với một dòng đã xử lý trước đó trong cùng lần import.
+  // (1) Trùng với một dòng đã xử lý trước đó trong cùng lần import.
   if (seenKeys !== undefined && seenKeys.has(key)) {
     return { kind: 'skip', reason: 'in-file' };
   }
 
-  const existing = findDuplicate(vocabs, incoming.word, incoming.reading);
-  if (existing === undefined) return { kind: 'new' };
-
-  const existingPath = firstFolderPath(existing, folders);
-
-  // Chưa chọn thư mục đích: từ đã tồn tại → bỏ qua.
+  // (2) Chưa chọn thư mục đích: từ đã tồn tại trong hệ thống → bỏ qua (exists).
   if (targetFolderId === null) {
-    return { kind: 'skip', reason: 'exists', existingPath };
+    const existing = findDuplicate(vocabs, incoming.word, incoming.reading);
+    if (existing !== undefined) {
+      const existingPath = firstFolderPath(existing, folders);
+      return { kind: 'skip', reason: 'exists', existingPath };
+    }
+    return { kind: 'new' };
   }
 
-  // Nhánh (cây dưới gốc cao nhất) của thư mục đích.
-  const branch = collectDescendantFolderIds(folders, rootFolderId(folders, targetFolderId));
-  const inBranch = existing.folderIds.some((folderId) => branch.has(folderId));
-  if (inBranch) {
+  // (3) Đã chọn thư mục đích: chỉ kiểm tra trùng trong chính thư mục đích.
+  const existingInFolder = vocabs.find(
+    (item) =>
+      item.deletedAt === null &&
+      item.folderIds.includes(targetFolderId) &&
+      dedupeKey(item.word, item.reading) === key,
+  );
+  if (existingInFolder !== undefined) {
+    const existingPath = folderPath(folders, targetFolderId) || UNFILED_LABEL;
     return { kind: 'skip', reason: 'in-branch', existingPath };
   }
 
-  // Từ có sẵn ở nhánh khác (hoặc chưa gán thư mục) → gắn vào thư mục đích.
-  return { kind: 'link', existingId: existing.id, existingPath };
+  // Khác thư mục: tạo thẻ độc lập bình thường.
+  return { kind: 'new' };
 }
 
 /**

@@ -79,9 +79,7 @@
 
 - `idx_folders_owner_updated`, `idx_vocab_owner_updated` → tăng tốc **pull theo delta** `(owner_id, updated_at)`.
 - `idx_vocab_next_review (owner_id, srs_next_review)` → lấy hàng đợi ôn tập SRS trong ngày.
-- `idx_vocab_tags` (GIN) → lọc theo tag.
-- `uq_vocab_owner_word_reading` **UNIQUE một phần** (`WHERE deleted_at IS NULL`) → **Quick Add chống trùng** (không trùng `word`+`reading` còn sống trong cùng người dùng).
-- `chk_ease_factor_min` → đảm bảo EF ≥ 1.3 (bất biến SM-2).
+- `idx_vocab_owner_word (owner_id, word WHERE deleted_at IS NULL)` → tăng tốc tìm kiếm từ vựng theo chủ sở hữu (thẻ từ vựng độc lập giữa các thư mục, chống trùng được quản lý theo phạm vi thư mục ở tầng application).
 
 ## 5. Bảo mật (repo public)
 

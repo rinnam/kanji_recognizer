@@ -35,4 +35,5 @@ export {
   IconTrash,
   IconBulb,
   IconWarning,
+  IconEdit,
 } from './icons';

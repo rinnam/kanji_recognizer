@@ -99,6 +99,11 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
   const hasWrong = !resolved && attempt.attempts > 0;
   const triesLeft = remainingAttempts(attempt);
 
+  // Đổi câu hỏi: tự động ẩn gợi ý Âm Hán Việt để không làm lộ đáp án câu mới
+  useEffect(() => {
+    setShowSino(false);
+  }, [index]);
+
   // Tự focus ô nhập khi sang câu mới (chưa chốt). CHỈ focus — không setState trong thân effect.
   useEffect(() => {
     if (phase === 'active' && !resolved) {
@@ -138,6 +143,67 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
       clearInterval(id);
     };
   }, [phase, resolved, index, seconds, advance]);
+
+  const canSubmit = input.trim() !== '';
+
+  const doSubmit = (): void => {
+    submit(input);
+  };
+  const doHint = (): void => {
+    hint();
+  };
+  const doAdvance = (): void => {
+    advance();
+    setInput('');
+    setRemaining(null);
+  };
+
+  // Phím tắt toàn cục: bắt cả khi focus vô tình bị nhảy ra ngoài ô nhập (LUÔN GỌI Ở TOP LEVEL)
+  useEffect(() => {
+    if (phase !== 'active') return;
+
+    const handleGlobalKey = (e: KeyboardEvent): void => {
+      // Nếu đang gõ trực tiếp trong ô nhập, onKeyDown của input đã xử lý riêng
+      if (e.target === inputRef.current) return;
+
+      const composing = e.isComposing || e.keyCode === 229;
+      if (composing) return;
+
+      // Phím Shift: bật/tắt gợi ý Âm Hán Việt và lấy lại focus vào ô nhập
+      if (e.key === 'Shift' || e.key === 'F2') {
+        if (hasText(currentVocab?.sinoVietnamese ?? null)) {
+          e.preventDefault();
+          setShowSino((value) => !value);
+          inputRef.current?.focus();
+        }
+        return;
+      }
+
+      // Phím Tab: gợi ý chữ cái đầu và lấy lại focus vào ô nhập
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        if (!resolved) {
+          doHint();
+        }
+        inputRef.current?.focus();
+        return;
+      }
+
+      // Phím Enter: nộp bài hoặc sang câu tiếp theo
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (resolved) {
+          doAdvance();
+        } else if (canSubmit) {
+          doSubmit();
+        }
+        inputRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKey);
+    return () => window.removeEventListener('keydown', handleGlobalKey);
+  }, [phase, currentVocab, resolved, canSubmit, input]);
 
   if (loadStatus === 'loading') {
     return <LoadingState label="Đang tải từ vựng…" />;
@@ -286,7 +352,6 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
 
   const meta = current !== null ? TYPE_META[current.type] : null;
   const progressPct = total === 0 ? 0 : Math.round(((index + 1) / total) * 100);
-  const canSubmit = input.trim() !== '';
   const attemptNo = attempt.attempts;
   // Nội dung phản hồi (6A selectFeedbackContent) — chỉ dựng khi đã chốt câu. showSino: nếu đang
   // bật gợi ý Hán Việt thì KHÔNG lặp chip Hán Việt trong phản hồi.
@@ -295,20 +360,19 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
       ? selectFeedbackContent(currentVocab, current.type, toOutcome(attempt), showSino)
       : null;
 
-  const doSubmit = (): void => {
-    submit(input);
-  };
-  const doHint = (): void => {
-    hint();
-  };
-  const doAdvance = (): void => {
-    advance();
-    setInput('');
-    setRemaining(null);
-  };
-
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
     const composing = event.nativeEvent.isComposing || event.keyCode === 229;
+
+    // Phím tắt Shift (hoặc F2): bật/tắt gợi ý Âm Hán Việt ngay trong ô nhập
+    if (event.key === 'Shift' || event.key === 'F2') {
+      if (hasText(currentVocab?.sinoVietnamese ?? null)) {
+        event.preventDefault();
+        event.stopPropagation(); // Ngăn sự kiện nổi bọt lên window gây toggle 2 lần
+        setShowSino((value) => !value);
+        return;
+      }
+    }
+
     const action = decideQuizKey({ key: event.key, composing, submitted: resolved, canSubmit });
     if (action === 'none') {
       // Chặn Tab rời ô nhập (trừ khi đang gõ IME) — Tab để gợi ý.
@@ -316,6 +380,7 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
       return;
     }
     event.preventDefault();
+    event.stopPropagation();
     if (action === 'submit') doSubmit();
     else if (action === 'advance') doAdvance();
     else doHint();
@@ -424,11 +489,19 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
 
               {hasText(currentVocab?.sinoVietnamese ?? null) ? (
                 <div className="kn-quiz__sino">
-                  <Button onClick={() => setShowSino((value) => !value)}>
-                    {showSino ? 'Ẩn' : 'Hiển thị'} gợi ý Âm Hán Việt
-                  </Button>
+                  <button
+                    type="button"
+                    className={`kn-quiz__sino-btn${showSino ? ' is-active' : ''}`}
+                    onClick={() => setShowSino((value) => !value)}
+                    title="Bấm hoặc nhấn Shift để bật/tắt gợi ý Âm Hán Việt"
+                  >
+                    <span>{showSino ? 'Ẩn Hán Việt' : 'Gợi ý Âm Hán Việt'}</span>
+                    <kbd className="kn-quiz__sino-kbd">Shift</kbd>
+                  </button>
                   {showSino ? (
-                    <span className="kn-quiz__chip">{currentVocab?.sinoVietnamese}</span>
+                    <span className="kn-quiz__sino-chip">
+                      {currentVocab?.sinoVietnamese}
+                    </span>
                   ) : null}
                 </div>
               ) : null}
@@ -535,7 +608,7 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
                 </Button>
               )}
             </div>
-            <p className="kn-quiz__hint-keys">Enter: nộp / tiếp · Tab: gợi ý</p>
+            <p className="kn-quiz__hint-keys">Enter: nộp / tiếp · Tab: gợi ý chữ · Shift: gợi ý Hán Việt</p>
           </div>
         </>
       )}
