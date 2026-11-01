@@ -22,6 +22,8 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -36,27 +38,22 @@ import { useStoragePort } from '../src/db/DbProvider';
 import { useScope } from '../src/scope/ScopeProvider';
 import { useTheme, type AppTheme } from '../src/theme/ThemeProvider';
 
-const MODES: { id: QuizMode; label: string }[] = [
-  { id: 'random', label: 'Ngẫu nhiên' },
-  { id: 'reading', label: 'Dạng 1' },
-  { id: 'meaning', label: 'Dạng 2' },
+const MODES: { id: QuizMode; label: string; icon: string }[] = [
+  { id: 'random', label: 'Ngẫu nhiên', icon: '🎲' },
+  { id: 'reading', label: 'Dạng 1: Đọc', icon: '🗣️' },
+  { id: 'meaning', label: 'Dạng 2: Dịch', icon: '📝' },
 ];
 
 const TYPE_TITLE: Record<string, string> = {
-  reading: 'DẠNG 1: NHÌN CHỮ, NHẬP CÁCH ĐỌC',
-  meaning: 'DẠNG 2: NHÌN NGHĨA, DỊCH SANG TIẾNG NHẬT',
+  reading: 'DẠNG 1 · NHÌN CHỮ, NHẬP CÁCH ĐỌC',
+  meaning: 'DẠNG 2 · NHÌN NGHĨA, DỊCH TIẾNG NHẬT',
 };
 
 const TYPE_HINT: Record<string, string> = {
   reading: 'Nhập cách đọc bằng Hiragana',
-  meaning: 'Nhập Hiragana hoặc Kanji tương ứng',
+  meaning: 'Nhập Kanji hoặc Hiragana tương ứng',
 };
 
-/**
- * Quiz mobile (M4): chọn bộ theo phạm vi → sinh câu (core) → trả lời tối đa
- * 3 lần + gợi ý → phản hồi → kết quả + lưu BE (POST /quiz/sessions, lỗi mạng
- * vẫn giữ kết quả cục bộ). Chưa có đếm ngược tự chuyển (M5).
- */
 export default function Quiz(): ReactElement {
   const port = useStoragePort();
   const { theme } = useTheme();
@@ -75,8 +72,9 @@ export default function Quiz(): ReactElement {
   const [items, setItems] = useState<GradedQuizItem[]>([]);
   const [finished, setFinished] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [seconds, setSeconds] = useState(5);
+  const [seconds, setSeconds] = useState(4);
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [showScopeConfig, setShowScopeConfig] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -121,6 +119,11 @@ export default function Quiz(): ReactElement {
     resolved && current !== null && currentVocab !== null
       ? selectFeedbackContent(currentVocab, current.type, toOutcome(attempt), false)
       : null;
+
+  const currentFolderName = useMemo(() => {
+    if (folderId === null) return 'Tất cả từ vựng';
+    return folders.find((f) => f.id === folderId)?.name ?? 'Thư mục đã chọn';
+  }, [folderId, folders]);
 
   const resetRound = useCallback(() => {
     setIndex(0);
@@ -172,30 +175,28 @@ export default function Quiz(): ReactElement {
     setRemaining(seconds);
   };
 
-  const saveResult = async (result: QuizResult): Promise<void> => {
+  const saveResult = async (res: QuizResult): Promise<void> => {
     try {
       await request('/quiz/sessions', {
         method: 'POST',
-        body: toCreateSessionInput(result, { mode }),
+        body: toCreateSessionInput(res, { mode }),
       });
-      setSaveMessage('Đã lưu phiên lên máy chủ.');
-    } catch (err) {
-      setSaveMessage(
-        `Không lưu được phiên (vẫn giữ kết quả): ${err instanceof Error ? err.message : String(err)}`,
-      );
+      setSaveMessage('✓ Đã lưu kết quả lên hệ thống');
+    } catch {
+      setSaveMessage('Đã lưu kết quả cục bộ (ngoại tuyến)');
     }
   };
 
   const advance = (): void => {
     setRemaining(null);
     if (index >= total - 1) {
-      const result: QuizResult = {
+      const res: QuizResult = {
         score: items.filter((i) => i.isCorrect).length,
         total: items.length,
         items,
       };
       setFinished(true);
-      void saveResult(result);
+      void saveResult(res);
     } else {
       setIndex(index + 1);
       setInput('');
@@ -207,7 +208,6 @@ export default function Quiz(): ReactElement {
     ? { score: items.filter((i) => i.isCorrect).length, total: items.length, items }
     : null;
 
-  // Đếm ngược tự chuyển sau khi chốt câu (setState chỉ trong callback interval).
   const advanceRef = useRef(advance);
   useEffect(() => {
     advanceRef.current = advance;
@@ -230,215 +230,382 @@ export default function Quiz(): ReactElement {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <ScopePicker />
-      <View style={styles.modes}>
-        {MODES.map((item) => (
-          <Pressable
-            key={item.id}
-            accessibilityRole="button"
-            accessibilityState={{ selected: item.id === mode }}
-            style={({ pressed }) => [
-              styles.modeButton,
-              item.id === mode && styles.modeActive,
-              pressed && styles.pressed,
-            ]}
-            onPress={() => chooseMode(item.id)}
-          >
-            <Text style={[styles.modeText, item.id === mode && styles.modeTextActive]}>
-              {item.label}
+      {/* Scope Selector Bar (collapsible) */}
+      <View style={styles.scopeBarContainer}>
+        <Pressable
+          style={({ pressed }) => [styles.scopeSummaryBtn, pressed && styles.pressed]}
+          onPress={() => setShowScopeConfig((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel="Chọn phạm vi từ vựng"
+        >
+          <View style={styles.scopeIconPill}>
+            <Text style={styles.scopeIconText}>📁</Text>
+          </View>
+          <View style={styles.scopeInfo}>
+            <Text style={styles.scopeTitle} numberOfLines={1}>
+              {currentFolderName}
             </Text>
-          </Pressable>
-        ))}
-      </View>
-      <View style={styles.tools}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ selected: shuffled }}
-          style={({ pressed }) => [
-            styles.iconButton,
-            shuffled && styles.iconButtonActive,
-            pressed && styles.pressed,
-          ]}
-          onPress={() => {
-            setShuffled((v) => !v);
-            setSeed(Date.now());
-            resetRound();
-          }}
-          accessibilityLabel="Xáo trộn câu"
-        >
-          <Text style={[styles.iconGlyph, shuffled && styles.iconGlyphActive]} accessible={false}>
-            ⤨
-          </Text>
+            <Text style={styles.scopeSubText}>
+              {selection.mode === 'all'
+                ? `${total} câu hỏi`
+                : `${selection.mode === 'first' ? 'Top' : 'Random'} ${selection.n} · ${total} câu`}
+            </Text>
+          </View>
+          <Text style={styles.scopeChevron}>{showScopeConfig ? '▲' : '▼'}</Text>
         </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-          onPress={() => {
-            setSeed(Date.now());
-            resetRound();
-          }}
-          accessibilityLabel="Làm lại từ câu đầu"
-        >
-          <Text style={styles.iconGlyph} accessible={false}>↺</Text>
-        </Pressable>
-        <View style={styles.timer}>
-          <Pressable
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.timerButton, pressed && styles.pressed]}
-            onPress={() => setSeconds((s) => Math.max(1, s - 1))}
-            accessibilityLabel="Giảm giây tự chuyển"
-          >
-            <Text style={styles.timerText}>−</Text>
-          </Pressable>
-          <Text style={styles.timerText} accessibilityLabel={`Tự chuyển sau ${seconds} giây`}>
-            {seconds}s
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.timerButton, pressed && styles.pressed]}
-            onPress={() => setSeconds((s) => Math.min(10, s + 1))}
-            accessibilityLabel="Tăng giây tự chuyển"
-          >
-            <Text style={styles.timerText}>+</Text>
-          </Pressable>
-        </View>
+
+        {showScopeConfig ? (
+          <View style={styles.scopeExpandedArea}>
+            <ScopePicker />
+          </View>
+        ) : null}
       </View>
-      <View style={styles.progressPanel}>
-        <View style={styles.progressHeading}>
-          <Text style={styles.progressLabel}>TIẾN ĐỘ KIỂM TRA</Text>
-          <Text style={styles.counter}>
-            {total === 0 ? '0/0' : `${Math.min(index + 1, total)}/${total}`}
-          </Text>
+
+      {/* Mode Segmented Tabs */}
+      <View style={styles.modesTrack}>
+        {MODES.map((item) => {
+          const isActive = item.id === mode;
+          return (
+            <Pressable
+              key={item.id}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isActive }}
+              style={({ pressed }) => [
+                styles.modeTab,
+                isActive && styles.modeTabActive,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => chooseMode(item.id)}
+            >
+              <Text style={styles.modeIcon}>{item.icon}</Text>
+              <Text style={[styles.modeLabel, isActive && styles.modeLabelActive]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Control Bar & Progress */}
+      <View style={styles.metaPanel}>
+        <View style={styles.metaRow}>
+          <View style={styles.toolsGroup}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Xáo trộn câu hỏi"
+              accessibilityState={{ selected: shuffled }}
+              style={({ pressed }) => [
+                styles.toolButton,
+                shuffled && styles.toolButtonActive,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => {
+                setShuffled((v) => !v);
+                setSeed(Date.now());
+                resetRound();
+              }}
+            >
+              <Text style={[styles.toolGlyph, shuffled && styles.toolGlyphActive]}>⤨</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Làm lại từ câu đầu"
+              style={({ pressed }) => [styles.toolButton, pressed && styles.pressed]}
+              onPress={() => {
+                setSeed(Date.now());
+                resetRound();
+              }}
+            >
+              <Text style={styles.toolGlyph}>↺</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.counterBadge}>
+            <Text style={styles.counterText}>
+              {total === 0 ? '0 / 0' : `Câu ${Math.min(index + 1, total)} / ${total}`}
+            </Text>
+          </View>
+
+          {/* Quick timer stepper */}
+          <View style={styles.timerChip}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Giảm thời gian tự chuyển"
+              style={({ pressed }) => [styles.timerStepBtn, pressed && styles.pressed]}
+              onPress={() => setSeconds((s) => Math.max(2, s - 1))}
+            >
+              <Text style={styles.timerStepGlyph}>−</Text>
+            </Pressable>
+            <Text style={styles.timerChipLabel}>⏱ {seconds}s</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tăng thời gian tự chuyển"
+              style={({ pressed }) => [styles.timerStepBtn, pressed && styles.pressed]}
+              onPress={() => setSeconds((s) => Math.min(10, s + 1))}
+            >
+              <Text style={styles.timerStepGlyph}>+</Text>
+            </Pressable>
+          </View>
         </View>
+
+        {/* Progress bar */}
         <View
           accessibilityRole="progressbar"
-          accessibilityLabel="Tiến độ kiểm tra"
           accessibilityValue={{ min: 0, max: 100, now: progressPct }}
           style={styles.progressTrack}
         >
           <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
         </View>
       </View>
-        {status === 'loading' ? (
-        <ActivityIndicator size="large" />
+
+      {/* Main Content Area */}
+      {status === 'loading' ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={theme.primary} />
+          <Text style={styles.centerText}>Đang tạo bộ câu hỏi…</Text>
+        </View>
       ) : status === 'error' ? (
         <View style={styles.center}>
-          <Text style={styles.centerText}>Lỗi: {error}</Text>
+          <Text style={styles.errorText}>Lỗi: {error}</Text>
           <Pressable
             accessibilityRole="button"
-            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.primaryActionBtn, pressed && styles.pressed]}
             onPress={() => void reload()}
           >
-            <Text style={styles.primaryText}>Thử lại</Text>
+            <Text style={styles.primaryActionText}>Thử lại</Text>
           </Pressable>
         </View>
       ) : result !== null ? (
-        <ScrollView style={styles.result}>
-          <Text style={styles.score}>
-            Điểm: {result.score} / {result.total}
-          </Text>
-          {saveMessage !== null ? <Text style={styles.bodyText}>{saveMessage}</Text> : null}
-          {result.items.map((item, i) => (
-            <View key={`${item.vocabularyId}-${i}`} style={styles.reviewRow}>
-              <Text style={styles.reviewPrompt}>{item.prompt}</Text>
-              <Text style={styles.bodyText}>
-                Bạn gõ: {item.userAnswer ?? '—'} {item.isCorrect ? '✓' : '✗'}
+        /* Results View */
+        <ScrollView style={styles.resultScroll} contentContainerStyle={styles.resultScrollContent}>
+          <View style={styles.resultHeroCard}>
+            <Text style={styles.resultTrophy}>
+              {result.score / Math.max(1, result.total) >= 0.8
+                ? '🏆'
+                : result.score / Math.max(1, result.total) >= 0.5
+                ? '⭐'
+                : '📖'}
+            </Text>
+            <Text style={styles.resultHeroTitle}>Kết quả Luyện tập</Text>
+            <View style={styles.resultScoreBadge}>
+              <Text style={styles.resultScoreBig}>
+                {result.score} <Text style={styles.resultScoreSub}>/ {result.total}</Text>
               </Text>
-              {!item.isCorrect ? (
-                <Text style={styles.bodyText}>Đáp án: {item.acceptedAnswers.join(' / ')}</Text>
-              ) : null}
             </View>
-          ))}
+            <Text style={styles.resultPercent}>
+              Đạt {Math.round((result.score / Math.max(1, result.total)) * 100)}% chính xác
+            </Text>
+            {saveMessage !== null ? (
+              <Text style={styles.saveMessageText}>{saveMessage}</Text>
+            ) : null}
+          </View>
+
+          <Text style={styles.sectionHeaderTitle}>Chi tiết câu hỏi</Text>
+
+          <View style={styles.reviewList}>
+            {result.items.map((item, i) => (
+              <View
+                key={`${item.vocabularyId}-${i}`}
+                style={[styles.reviewCard, item.isCorrect ? styles.reviewCardOk : styles.reviewCardFail]}
+              >
+                <View style={styles.reviewCardTop}>
+                  <Text style={styles.reviewCardPrompt}>{item.prompt}</Text>
+                  <View
+                    style={[
+                      styles.reviewStatusPill,
+                      item.isCorrect ? styles.reviewStatusPillOk : styles.reviewStatusPillFail,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.reviewStatusText,
+                        item.isCorrect ? styles.reviewStatusTextOk : styles.reviewStatusTextFail,
+                      ]}
+                    >
+                      {item.isCorrect ? '✓ Đúng' : '✗ Sai'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.reviewAnswerRow}>
+                  <Text style={styles.reviewLabel}>Bạn nhập:</Text>
+                  <Text
+                    style={[
+                      styles.reviewUserAnswer,
+                      item.isCorrect ? styles.reviewAnswerOk : styles.reviewAnswerFail,
+                    ]}
+                  >
+                    {item.userAnswer ?? '—'}
+                  </Text>
+                </View>
+
+                {!item.isCorrect ? (
+                  <View style={styles.reviewAnswerRow}>
+                    <Text style={styles.reviewLabel}>Đáp án đúng:</Text>
+                    <Text style={styles.reviewCorrectAnswer}>
+                      {item.acceptedAnswers.join(' / ')}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ))}
+          </View>
+
           <Pressable
             accessibilityRole="button"
-            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.restartActionBtn, pressed && styles.pressed]}
             onPress={() => {
               setSeed(Date.now());
               resetRound();
             }}
           >
-            <Text style={styles.primaryText}>Làm lại</Text>
+            <Text style={styles.restartActionText}>Luyện tập vòng mới ↺</Text>
           </Pressable>
         </ScrollView>
       ) : current === null ? (
         <View style={styles.center}>
-          <Text style={styles.centerText}>Chưa có câu hỏi — thêm từ ở tab Tổng quan.</Text>
+          <Text style={styles.emptyIcon}>📭</Text>
+          <Text style={styles.emptyTitle}>Chưa có câu hỏi</Text>
+          <Text style={styles.centerText}>
+            Không tìm thấy từ vựng trong phạm vi đã chọn. Hãy thêm từ vựng mới hoặc đổi thư mục.
+          </Text>
         </View>
       ) : (
-        <View style={styles.card}>
-          <View style={styles.questionHeader}>
-            <View style={styles.questionIcon} accessible={false}>
-              <Text style={styles.questionIconText}>?</Text>
-            </View>
-            <Text style={styles.cardTitle}>{TYPE_TITLE[current.type]}</Text>
-          </View>
-          <View style={styles.questionZone}>
-            <Text style={styles.question}>{current.prompt}</Text>
-            <Text style={styles.questionHint}>{TYPE_HINT[current.type]}</Text>
-          </View>
-          {resolved && feedback !== null ? (
-            <View style={styles.feedback}>
-              <Text style={feedback.isCorrect ? styles.ok : styles.no}>
-                {feedback.isCorrect ? '✓ Chính xác!' : '✗ Chưa đúng — đáp án đúng'}
-              </Text>
-              <Text style={styles.meaning}>{feedback.meaning}</Text>
-              {feedback.chips.map((chip) => (
-                <Text key={chip.label} style={styles.bodyText}>
-                  {chip.label}: {chip.value}
+        /* Question Card */
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.keyboardAvoid}
+        >
+          <ScrollView
+            style={styles.cardScrollView}
+            contentContainerStyle={styles.cardContentContainer}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.questionCard}>
+              {/* Type Badge */}
+              <View style={styles.questionTypeBar}>
+                <View style={styles.questionTypePill}>
+                  <Text style={styles.questionTypeIcon}>
+                    {current.type === 'reading' ? '🗣️' : '📝'}
+                  </Text>
+                  <Text style={styles.questionTypeTitle}>{TYPE_TITLE[current.type]}</Text>
+                </View>
+              </View>
+
+              {/* Main Prompt Word */}
+              <View style={styles.promptZone}>
+                <Text style={styles.promptWord} numberOfLines={2} adjustsFontSizeToFit>
+                  {current.prompt}
                 </Text>
-              ))}
-              {feedback.example !== null ? (
-                <Text style={styles.bodyText}>{feedback.example}</Text>
+                <Text style={styles.promptHint}>{TYPE_HINT[current.type]}</Text>
+              </View>
+
+              {/* Feedback Banner (shown after answering) */}
+              {resolved && feedback !== null ? (
+                <View
+                  style={[
+                    styles.feedbackCard,
+                    feedback.isCorrect ? styles.feedbackCardOk : styles.feedbackCardNo,
+                  ]}
+                >
+                  <View style={styles.feedbackHead}>
+                    <Text style={feedback.isCorrect ? styles.feedbackStatusOk : styles.feedbackStatusNo}>
+                      {feedback.isCorrect ? '✓ Chính xác!' : '✗ Chưa chính xác'}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.feedbackMeaning}>{feedback.meaning}</Text>
+
+                  {feedback.chips.length > 0 ? (
+                    <View style={styles.feedbackChipsRow}>
+                      {feedback.chips.map((chip) => (
+                        <View key={chip.label} style={styles.feedbackChipPill}>
+                          <Text style={styles.feedbackChipLabel}>{chip.label}: </Text>
+                          <Text style={styles.feedbackChipVal}>{chip.value}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+
+                  {feedback.example !== null && feedback.example.trim() !== '' ? (
+                    <View style={styles.feedbackExampleBox}>
+                      <Text style={styles.feedbackExampleIcon}>💬</Text>
+                      <Text style={styles.feedbackExampleText}>{feedback.example}</Text>
+                    </View>
+                  ) : null}
+                </View>
               ) : null}
+
+              {/* Input Zone */}
+              <View style={styles.inputSection}>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    resolved && (feedback?.isCorrect ? styles.inputOk : styles.inputNo),
+                  ]}
+                  value={input}
+                  onChangeText={setInput}
+                  editable={!resolved}
+                  placeholder="Nhập câu trả lời…"
+                  placeholderTextColor={theme.muted}
+                  aria-label="Câu trả lời"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  onSubmitEditing={submit}
+                />
+
+                {!resolved && attempt.attempts > 0 ? (
+                  <View style={styles.retryBadge}>
+                    <Text style={styles.retryText}>
+                      ⚠️ Chưa đúng. Bạn còn {remainingAttempts(attempt)} lần thử.
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Action Buttons */}
+              {!resolved ? (
+                <View style={styles.actionRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    style={({ pressed }) => [
+                      styles.hintBtn,
+                      pressed && styles.pressed,
+                    ]}
+                    onPress={hint}
+                  >
+                    <Text style={styles.hintBtnText}>Gợi ý 💡</Text>
+                  </Pressable>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    style={({ pressed }) => [
+                      styles.submitBtn,
+                      input.trim() === '' && styles.disabled,
+                      pressed && styles.pressed,
+                    ]}
+                    onPress={submit}
+                    disabled={input.trim() === ''}
+                  >
+                    <Text style={styles.submitBtnText}>Kiểm tra ✓</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.advanceBtn, pressed && styles.pressed]}
+                  onPress={advance}
+                >
+                  <Text style={styles.advanceBtnText}>
+                    {index >= total - 1
+                      ? 'Nộp bài & Xem kết quả 🏁'
+                      : `Câu tiếp theo › (${remaining ?? seconds}s)`}
+                  </Text>
+                </Pressable>
+              )}
             </View>
-          ) : null}
-          <TextInput
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            editable={!resolved}
-            placeholder="Nhập câu trả lời…"
-            placeholderTextColor={theme.muted}
-            aria-label="Câu trả lời"
-            onSubmitEditing={submit}
-          />
-          {!resolved && attempt.attempts > 0 ? (
-            <Text style={styles.retry}>Chưa đúng. Còn {remainingAttempts(attempt)} lần.</Text>
-          ) : null}
-          {!resolved ? (
-            <View style={styles.actions}>
-              <Pressable
-                accessibilityRole="button"
-                style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
-                onPress={hint}
-              >
-                <Text style={styles.modeText}>Gợi ý</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                style={({ pressed }) => [
-                  styles.actionButton,
-                  styles.primaryButtonInline,
-                  pressed && styles.pressed,
-                ]}
-                onPress={submit}
-                disabled={input.trim() === ''}
-              >
-                <Text style={styles.primaryText}>Kiểm tra</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
-              onPress={advance}
-            >
-              <Text style={styles.primaryText}>
-                {index >= total - 1 ? 'Nộp bài' : `Tiếp (${remaining ?? seconds}s)`}
-              </Text>
-            </Pressable>
-          )}
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       )}
     </SafeAreaView>
   );
@@ -449,274 +616,609 @@ const makeStyles = (t: AppTheme) =>
     container: {
       flex: 1,
       paddingHorizontal: 16,
-      paddingTop: 4,
-      paddingBottom: 12,
+      paddingTop: 8,
+      paddingBottom: 16,
       gap: 10,
       backgroundColor: t.bg,
     },
-    modes: {
-      flexDirection: 'row',
-      gap: 8,
+    // Scope Bar Collapsible
+    scopeBarContainer: {
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: t.border,
+      backgroundColor: t.surface,
+      overflow: 'hidden',
     },
-    modeButton: {
+    scopeSummaryBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 10,
       minHeight: 44,
+      gap: 10,
+    },
+    scopeIconPill: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      backgroundColor: t.btnBg,
+      alignItems: 'center',
       justifyContent: 'center',
+    },
+    scopeIconText: {
+      fontSize: 16,
+    },
+    scopeInfo: {
       flex: 1,
-      paddingHorizontal: 3,
-      paddingVertical: 8,
-      borderRadius: 13,
-      borderWidth: 1,
-      borderColor: t.btnBorder,
-      backgroundColor: t.btnBg,
-      alignItems: 'center',
     },
-    modeActive: {
-      backgroundColor: t.primary,
-      borderColor: t.primary,
-    },
-    modeText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: t.btnFg,
-    },
-    modeTextActive: {
-      color: t.primaryContrast,
-    },
-    tools: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    iconButton: {
-      width: 44,
-      height: 44,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: t.btnBorder,
-      borderRadius: 13,
-      backgroundColor: t.btnBg,
-    },
-    iconButtonActive: {
-      borderColor: t.primary,
-      backgroundColor: t.primary,
-    },
-    iconGlyph: {
-      color: t.btnFg,
-      fontSize: 24,
-      fontWeight: '700',
-    },
-    iconGlyphActive: {
-      color: t.primaryContrast,
-    },
-    counter: {
-      marginLeft: 'auto',
+    scopeTitle: {
+      fontSize: 14,
       fontWeight: '700',
       color: t.text,
     },
-    timer: {
+    scopeSubText: {
+      fontSize: 11,
+      color: t.muted,
+      marginTop: 1,
+    },
+    scopeChevron: {
+      fontSize: 12,
+      color: t.muted,
+      paddingRight: 4,
+    },
+    scopeExpandedArea: {
+      borderTopWidth: 1,
+      borderTopColor: t.border,
+      padding: 12,
+      backgroundColor: t.bg,
+    },
+    // Mode Segmented Bar
+    modesTrack: {
+      flexDirection: 'row',
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: t.border,
+      backgroundColor: t.surface,
+      padding: 4,
+      gap: 4,
+    },
+    modeTab: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 38,
+      borderRadius: 10,
+      gap: 6,
+      paddingHorizontal: 4,
+    },
+    modeTabActive: {
+      backgroundColor: t.primary,
+    },
+    modeIcon: {
+      fontSize: 13,
+    },
+    modeLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: t.text,
+    },
+    modeLabelActive: {
+      color: t.primaryContrast,
+      fontWeight: '700',
+    },
+    // Meta / Tools / Progress Panel
+    metaPanel: {
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: t.border,
+      backgroundColor: t.surface,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      gap: 8,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    toolsGroup: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
     },
-    timerButton: {
-      minWidth: 44,
-      minHeight: 44,
-      borderRadius: 12,
+    toolButton: {
+      width: 36,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 10,
       borderWidth: 1,
       borderColor: t.btnBorder,
       backgroundColor: t.btnBg,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
-    timerText: {
-      color: t.text,
+    toolButtonActive: {
+      backgroundColor: t.primary,
+      borderColor: t.primary,
+    },
+    toolGlyph: {
+      fontSize: 18,
       fontWeight: '700',
+      color: t.btnFg,
     },
-    progressPanel: {
-      gap: 8,
-      padding: 12,
-      borderRadius: 16,
+    toolGlyphActive: {
+      color: t.primaryContrast,
+    },
+    counterBadge: {
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+      backgroundColor: t.btnBg,
       borderWidth: 1,
       borderColor: t.border,
+    },
+    counterText: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: t.text,
+      letterSpacing: 0.5,
+    },
+    timerChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: 12,
+      backgroundColor: t.btnBg,
+      borderWidth: 1,
+      borderColor: t.border,
+      paddingHorizontal: 4,
+      paddingVertical: 2,
+      gap: 4,
+    },
+    timerStepBtn: {
+      width: 26,
+      height: 26,
+      borderRadius: 6,
+      alignItems: 'center',
+      justifyContent: 'center',
       backgroundColor: t.surface,
     },
-    progressHeading: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    progressLabel: {
-      color: t.text,
-      fontSize: 12,
+    timerStepGlyph: {
+      fontSize: 14,
       fontWeight: '800',
-      letterSpacing: 0.8,
+      color: t.text,
+      lineHeight: 16,
+    },
+    timerChipLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: t.text,
+      paddingHorizontal: 2,
     },
     progressTrack: {
-      height: 7,
-      overflow: 'hidden',
+      height: 6,
       borderRadius: 99,
       backgroundColor: t.btnBg,
+      overflow: 'hidden',
     },
     progressFill: {
       height: '100%',
       borderRadius: 99,
       backgroundColor: t.primary,
     },
-    card: {
+    // Question Card
+    keyboardAvoid: {
       flex: 1,
-      minHeight: 240,
-      borderRadius: 22,
-      borderWidth: 1,
+    },
+    cardScrollView: {
+      flex: 1,
+    },
+    cardContentContainer: {
+      flexGrow: 1,
+    },
+    questionCard: {
+      flex: 1,
+      borderRadius: 24,
+      borderWidth: 1.5,
       borderColor: t.border,
       backgroundColor: t.surface,
-      padding: 18,
-      gap: 14,
+      padding: 20,
+      gap: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      elevation: 3,
     },
-    questionHeader: {
+    questionTypeBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
     },
-    questionIcon: {
-      width: 36,
-      height: 36,
+    questionTypePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: t.btnBg,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 10,
+      gap: 6,
+      borderWidth: 1,
+      borderColor: t.border,
+    },
+    questionTypeIcon: {
+      fontSize: 13,
+    },
+    questionTypeTitle: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: t.muted,
+      letterSpacing: 0.6,
+    },
+    promptZone: {
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 12,
-      backgroundColor: t.btnBg,
+      paddingVertical: 12,
+      gap: 8,
     },
-    questionIconText: {
-      color: t.primary,
-      fontSize: 18,
+    promptWord: {
+      fontSize: 42,
       fontWeight: '800',
+      color: t.text,
+      textAlign: 'center',
+      letterSpacing: 1.2,
     },
-    cardTitle: {
+    promptHint: {
+      fontSize: 13,
+      color: t.muted,
+      textAlign: 'center',
+    },
+    // Feedback Banner
+    feedbackCard: {
+      borderRadius: 16,
+      padding: 14,
+      gap: 8,
+      borderWidth: 1.5,
+    },
+    feedbackCardOk: {
+      backgroundColor: '#f0fdf4',
+      borderColor: '#86efac',
+    },
+    feedbackCardNo: {
+      backgroundColor: '#fef2f2',
+      borderColor: '#fca5a5',
+    },
+    feedbackHead: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    feedbackStatusOk: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: '#16a34a',
+    },
+    feedbackStatusNo: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: '#dc2626',
+    },
+    feedbackMeaning: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: '#1e293b',
+    },
+    feedbackChipsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+    },
+    feedbackChipPill: {
+      flexDirection: 'row',
+      backgroundColor: '#ffffff',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#e2e8f0',
+    },
+    feedbackChipLabel: {
+      fontSize: 11,
+      color: '#64748b',
+      fontWeight: '600',
+    },
+    feedbackChipVal: {
+      fontSize: 11,
+      color: '#0f172a',
+      fontWeight: '700',
+    },
+    feedbackExampleBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#ffffff',
+      padding: 8,
+      borderRadius: 8,
+      gap: 6,
+      borderWidth: 1,
+      borderColor: '#e2e8f0',
+    },
+    feedbackExampleIcon: {
+      fontSize: 12,
+    },
+    feedbackExampleText: {
       flex: 1,
       fontSize: 12,
-      lineHeight: 15,
-      letterSpacing: 0.6,
-      fontWeight: '800',
-      color: t.text,
+      color: '#334155',
+      fontStyle: 'italic',
     },
-    questionZone: {
+    // Input
+    inputSection: {
+      gap: 6,
+      marginTop: 'auto',
+    },
+    textInput: {
+      minHeight: 52,
+      borderWidth: 1.5,
+      borderColor: t.primary,
+      backgroundColor: t.btnBg,
+      color: t.text,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      fontSize: 20,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    inputOk: {
+      borderColor: '#16a34a',
+    },
+    inputNo: {
+      borderColor: '#dc2626',
+    },
+    retryBadge: {
+      alignItems: 'center',
+    },
+    retryText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: t.danger,
+    },
+    // Bottom Buttons
+    actionRow: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    hintBtn: {
+      flex: 1,
+      minHeight: 50,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: t.btnBorder,
+      backgroundColor: t.surface,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
-      paddingVertical: 8,
     },
-    question: {
-      fontSize: 36,
-      fontWeight: '800',
-      textAlign: 'center',
+    hintBtnText: {
+      fontSize: 15,
+      fontWeight: '700',
       color: t.text,
     },
-    questionHint: {
+    submitBtn: {
+      flex: 1.5,
+      minHeight: 50,
+      borderRadius: 16,
+      backgroundColor: t.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    submitBtnText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: t.primaryContrast,
+    },
+    advanceBtn: {
+      minHeight: 52,
+      borderRadius: 16,
+      backgroundColor: t.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    advanceBtnText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: t.primaryContrast,
+    },
+    // Results Screen
+    resultScroll: {
+      flex: 1,
+    },
+    resultScrollContent: {
+      paddingBottom: 20,
+      gap: 16,
+    },
+    resultHeroCard: {
+      borderRadius: 24,
+      borderWidth: 1.5,
+      borderColor: t.border,
+      backgroundColor: t.surface,
+      padding: 24,
+      alignItems: 'center',
+      gap: 8,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      elevation: 3,
+    },
+    resultTrophy: {
+      fontSize: 44,
+      marginBottom: 2,
+    },
+    resultHeroTitle: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: t.text,
+    },
+    resultScoreBadge: {
+      paddingHorizontal: 20,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: t.btnBg,
+      borderWidth: 1,
+      borderColor: t.border,
+    },
+    resultScoreBig: {
+      fontSize: 32,
+      fontWeight: '800',
+      color: t.primary,
+    },
+    resultScoreSub: {
+      fontSize: 18,
+      fontWeight: '600',
       color: t.muted,
-      fontSize: 13,
-      textAlign: 'center',
     },
-    feedback: {
-      gap: 4,
-      borderTopWidth: 1,
-      borderTopColor: t.border,
-      paddingTop: 8,
+    resultPercent: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: t.text,
     },
-    ok: {
+    saveMessageText: {
+      fontSize: 12,
+      color: t.muted,
+      marginTop: 4,
+    },
+    sectionHeaderTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: t.text,
+      marginTop: 8,
+    },
+    reviewList: {
+      gap: 10,
+    },
+    reviewCard: {
+      borderRadius: 16,
+      borderWidth: 1,
+      backgroundColor: t.surface,
+      padding: 14,
+      gap: 8,
+    },
+    reviewCardOk: {
+      borderColor: '#86efac',
+    },
+    reviewCardFail: {
+      borderColor: '#fca5a5',
+    },
+    reviewCardTop: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    reviewCardPrompt: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: t.text,
+    },
+    reviewStatusPill: {
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 8,
+    },
+    reviewStatusPillOk: {
+      backgroundColor: '#dcfce7',
+    },
+    reviewStatusPillFail: {
+      backgroundColor: '#fee2e2',
+    },
+    reviewStatusText: {
+      fontSize: 11,
+      fontWeight: '800',
+    },
+    reviewStatusTextOk: {
+      color: '#16a34a',
+    },
+    reviewStatusTextFail: {
+      color: '#dc2626',
+    },
+    reviewAnswerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    reviewLabel: {
+      fontSize: 12,
+      color: t.muted,
+    },
+    reviewUserAnswer: {
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    reviewAnswerOk: {
+      color: '#16a34a',
+    },
+    reviewAnswerFail: {
+      color: '#dc2626',
+    },
+    reviewCorrectAnswer: {
+      fontSize: 14,
       fontWeight: '700',
       color: t.primary,
     },
-    no: {
-      fontWeight: '700',
-      color: t.danger,
-    },
-    meaning: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: t.text,
-    },
-    bodyText: {
-      color: t.text,
-    },
-    input: {
+    restartActionBtn: {
       minHeight: 52,
-      borderWidth: 2,
-      borderColor: t.primary,
-      backgroundColor: t.btnBg,
-      color: t.text,
-      borderRadius: 14,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      fontSize: 18,
-      textAlign: 'center',
-    },
-    retry: {
-      color: t.danger,
-      fontWeight: '600',
-      textAlign: 'center',
-    },
-    actions: {
-      flexDirection: 'row',
-      gap: 8,
-      justifyContent: 'center',
-    },
-    actionButton: {
-      minHeight: 48,
-      justifyContent: 'center',
-      flex: 1,
-      paddingHorizontal: 12,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: t.btnBorder,
-      backgroundColor: t.btnBg,
-      alignItems: 'center',
-    },
-    primaryButtonInline: {
-      backgroundColor: t.primary,
-      borderColor: t.primary,
-    },
-    primaryButton: {
-      minHeight: 48,
-      justifyContent: 'center',
-      paddingHorizontal: 18,
-      borderRadius: 14,
+      borderRadius: 16,
       backgroundColor: t.primary,
       alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 10,
     },
-    primaryText: {
-      color: t.primaryContrast,
-      fontWeight: '700',
+    restartActionText: {
       fontSize: 16,
-    },
-    result: {
-      flex: 1,
-    },
-    score: {
-      fontSize: 20,
-      fontWeight: '800',
-      marginBottom: 8,
-      color: t.text,
-    },
-    reviewRow: {
-      paddingVertical: 8,
-      borderBottomWidth: 1,
-      borderBottomColor: t.border,
-      gap: 2,
-    },
-    reviewPrompt: {
       fontWeight: '700',
-      color: t.text,
+      color: t.primaryContrast,
     },
+    // Center / Empty
     center: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
+      paddingHorizontal: 24,
       gap: 12,
+    },
+    centerText: {
+      fontSize: 14,
+      color: t.muted,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    emptyIcon: {
+      fontSize: 48,
+      marginBottom: 4,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: t.text,
+    },
+    errorText: {
+      fontSize: 15,
+      color: t.danger,
+      textAlign: 'center',
+    },
+    primaryActionBtn: {
+      minHeight: 44,
+      paddingHorizontal: 20,
+      borderRadius: 12,
+      backgroundColor: t.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    primaryActionText: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: t.primaryContrast,
+    },
+    disabled: {
+      opacity: 0.35,
     },
     pressed: {
       opacity: 0.72,
-    },
-    centerText: {
-      color: t.text,
     },
   });

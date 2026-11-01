@@ -10,7 +10,7 @@ function ThemedStatusBar(): ReactElement {
   return <StatusBar style={name === 'dark' ? 'light' : 'dark'} />;
 }
 
-/** Root layout: DB SQLite + theme + phạm vi học + Stack các màn hình. */
+/** Root layout: DB SQLite + theme + phạm vi học + Stack (tabs + sub-screens). */
 export default function RootLayout(): ReactElement {
   return (
     <DbProvider>
@@ -38,7 +38,7 @@ function ThemedStack(): ReactElement {
         contentStyle: { backgroundColor: theme.bg },
       }}
     >
-      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="overview" options={{ title: 'Từ vựng' }} />
       <Stack.Screen name="flashcard" options={{ title: 'Flashcard' }} />
       <Stack.Screen name="quiz" options={{ title: 'Luyện tập' }} />

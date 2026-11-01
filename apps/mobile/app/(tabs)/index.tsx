@@ -9,9 +9,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useStoragePort } from '../src/db/DbProvider';
-import { runSync, type SyncRunSummary } from '../src/sync/sync-client';
-import { useTheme, type AppTheme } from '../src/theme/ThemeProvider';
+import { useStoragePort } from '../../src/db/DbProvider';
+import { useTheme, type AppTheme } from '../../src/theme/ThemeProvider';
 
 interface HomeCounts {
   folders: number;
@@ -19,23 +18,14 @@ interface HomeCounts {
   due: number;
 }
 
-const SHORTCUTS = [
-  { href: '/overview', glyph: '語', title: 'Từ vựng', caption: 'Bộ sưu tập của bạn' },
-  { href: '/flashcard', glyph: '記', title: 'Flashcard', caption: 'Ôn tập mỗi ngày' },
-  { href: '/quiz', glyph: '問', title: 'Luyện tập', caption: 'Kiểm tra ghi nhớ' },
-  { href: '/import', glyph: '＋', title: 'Thêm từ mới', caption: 'Nhập hoặc dán từ' },
-] as const;
-
-/** Trang chủ mobile: lối tắt học tập, tiến độ local và đồng bộ thủ công. */
+/** Trang chủ mobile: tổng quan tiến độ + thông số học tập. */
 export default function Home(): ReactElement {
   const port = useStoragePort();
-  const { theme, name, toggle } = useTheme();
+  const { theme } = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const [counts, setCounts] = useState<HomeCounts>({ folders: 0, vocabularies: 0, due: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [syncState, setSyncState] = useState<'idle' | 'syncing' | 'done' | 'error'>('idle');
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const refreshCounts = useCallback(async () => {
     const [folders, vocabularies] = await Promise.all([port.folders.all(), port.vocabs.all()]);
@@ -74,23 +64,6 @@ export default function Home(): ReactElement {
     }, [refreshCounts]),
   );
 
-  const syncNow = async (): Promise<void> => {
-    setSyncState('syncing');
-    setSyncMessage(null);
-    try {
-      const summary: SyncRunSummary = await runSync(port);
-      await refreshCounts();
-      setSyncState('done');
-      setSyncMessage(
-        `Đã gửi ${summary.pushed.folders.applied + summary.pushed.vocabularies.applied} · ` +
-          `nhận ${summary.merged.folders + summary.merged.vocabularies}`,
-      );
-    } catch (err) {
-      setSyncState('error');
-      setSyncMessage(err instanceof Error ? err.message : String(err));
-    }
-  };
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -107,17 +80,6 @@ export default function Home(): ReactElement {
               <Text style={styles.brandCaption}>GÓC HỌC TIẾNG NHẬT</Text>
             </View>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Bật giao diện ${name === 'dark' ? 'sáng' : 'tối'}`}
-            accessibilityHint="Chuyển đổi giao diện sáng và tối"
-            onPress={toggle}
-            style={({ pressed }) => [styles.themeButton, pressed && styles.pressed]}
-          >
-            <Text style={styles.themeGlyph} accessible={false}>
-              {name === 'dark' ? '☼' : '◐'}
-            </Text>
-          </Pressable>
         </View>
 
         <View style={styles.welcome}>
@@ -203,62 +165,6 @@ export default function Home(): ReactElement {
           </View>
         )}
 
-        <View style={styles.sectionHeading}>
-          <Text style={styles.sectionTitle}>Khám phá</Text>
-          <Text style={styles.sectionNote}>Chọn cách học phù hợp</Text>
-        </View>
-        <View style={styles.shortcutGrid}>
-          {SHORTCUTS.map((shortcut) => (
-            <Link key={shortcut.href} href={shortcut.href} asChild>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${shortcut.title}. ${shortcut.caption}`}
-                style={({ pressed }) => [styles.shortcut, pressed && styles.shortcutPressed]}
-              >
-                <View style={styles.shortcutGlyphBox} accessible={false}>
-                  <Text style={styles.shortcutGlyph}>{shortcut.glyph}</Text>
-                </View>
-                <Text style={styles.shortcutTitle}>{shortcut.title}</Text>
-                <Text style={styles.shortcutCaption}>{shortcut.caption}</Text>
-              </Pressable>
-            </Link>
-          ))}
-        </View>
-
-        <View style={styles.syncCard}>
-          <View style={styles.syncCopy}>
-            <Text style={styles.syncTitle}>Dữ liệu của bạn</Text>
-            <Text style={styles.syncDescription}>
-              Học offline, đồng bộ khi bạn sẵn sàng.
-            </Text>
-            {syncMessage !== null ? (
-              <Text
-                accessibilityRole={syncState === 'error' ? 'alert' : 'text'}
-                style={syncState === 'error' ? styles.syncError : styles.syncSuccess}
-              >
-                {syncState === 'error' ? `Chưa đồng bộ: ${syncMessage}` : syncMessage}
-              </Text>
-            ) : null}
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={syncState === 'syncing' ? 'Đang đồng bộ dữ liệu' : 'Đồng bộ dữ liệu'}
-            accessibilityHint="Gửi thay đổi lên máy chủ và nhận dữ liệu mới"
-            disabled={syncState === 'syncing'}
-            onPress={() => void syncNow()}
-            style={({ pressed }) => [
-              styles.syncButton,
-              pressed && styles.syncButtonPressed,
-              syncState === 'syncing' && styles.syncButtonDisabled,
-            ]}
-          >
-            {syncState === 'syncing' ? (
-              <ActivityIndicator color={theme.primaryContrast} />
-            ) : (
-              <Text style={styles.syncButtonText}>Đồng bộ</Text>
-            )}
-          </Pressable>
-        </View>
         <Text style={styles.footer}>HỌC CHẬM MÀ CHẮC · 一歩ずつ</Text>
       </ScrollView>
     </SafeAreaView>
@@ -313,20 +219,6 @@ const makeStyles = (t: AppTheme) =>
       fontSize: 12,
       fontWeight: '600',
       letterSpacing: 1,
-    },
-    themeButton: {
-      width: 44,
-      height: 44,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: t.border,
-      borderRadius: 15,
-      backgroundColor: t.surface,
-    },
-    themeGlyph: {
-      color: t.text,
-      fontSize: 22,
     },
     welcome: {
       gap: 5,
@@ -497,104 +389,6 @@ const makeStyles = (t: AppTheme) =>
       color: t.text,
       fontWeight: '700',
     },
-    shortcutGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 12,
-    },
-    shortcut: {
-      width: '47%',
-      minHeight: 142,
-      justifyContent: 'center',
-      gap: 6,
-      padding: 15,
-      borderWidth: 1,
-      borderColor: t.border,
-      borderRadius: 20,
-      backgroundColor: t.surface,
-    },
-    shortcutPressed: {
-      opacity: 0.75,
-      borderColor: t.primary,
-    },
-    shortcutGlyphBox: {
-      width: 38,
-      height: 38,
-      marginBottom: 3,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: 13,
-      backgroundColor: t.btnBg,
-    },
-    shortcutGlyph: {
-      color: t.primary,
-      fontSize: 20,
-      fontWeight: '800',
-    },
-    shortcutTitle: {
-      color: t.text,
-      fontSize: 15,
-      fontWeight: '800',
-    },
-    shortcutCaption: {
-      color: t.muted,
-      fontSize: 12,
-      lineHeight: 15,
-    },
-    syncCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 12,
-      padding: 16,
-      borderWidth: 1,
-      borderColor: t.border,
-      borderRadius: 20,
-      backgroundColor: t.surface,
-    },
-    syncCopy: {
-      flex: 1,
-      gap: 4,
-    },
-    syncTitle: {
-      color: t.text,
-      fontSize: 15,
-      fontWeight: '800',
-    },
-    syncDescription: {
-      color: t.muted,
-      fontSize: 12,
-      lineHeight: 17,
-    },
-    syncError: {
-      color: t.danger,
-      fontSize: 12,
-    },
-    syncSuccess: {
-      color: t.primary,
-      fontSize: 12,
-      fontWeight: '700',
-    },
-    syncButton: {
-      minWidth: 92,
-      minHeight: 48,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 12,
-      borderRadius: 14,
-      backgroundColor: t.primary,
-    },
-    syncButtonPressed: {
-      opacity: 0.75,
-    },
-    syncButtonDisabled: {
-      opacity: 0.7,
-    },
-    syncButtonText: {
-      color: t.primaryContrast,
-      fontSize: 13,
-      fontWeight: '800',
-    },
     pressed: {
       opacity: 0.7,
     },
@@ -604,5 +398,6 @@ const makeStyles = (t: AppTheme) =>
       fontSize: 12,
       fontWeight: '700',
       letterSpacing: 1.2,
+      marginTop: 8,
     },
   });
