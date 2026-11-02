@@ -446,6 +446,8 @@
   /* Màn hẹp: nhóm chế độ xuống dòng riêng full width, icon ở dòng dưới (mỗi dòng 40px) */
   .kn-fc__control {
     flex-wrap: wrap;
+    gap: 0.4rem;
+    padding: 0.5rem;
   }
   .kn-fc__modes {
     flex: 1 1 100%;
@@ -454,15 +456,24 @@
   .kn-fc__tools {
     flex: 1 1 100%;
     margin-left: 0;
+    justify-content: flex-end;
   }
   .kn-fc-card {
-    padding: 1.5rem 1rem;
+    height: clamp(17.5rem, calc(100dvh - 21rem), 24rem);
+    padding: 1.5rem 0.85rem;
+  }
+  .kn-fc-card__word {
+    font-size: clamp(2rem, 10vw, 2.8rem);
+  }
+  .kn-fc-card__sino {
+    font-size: 0.85rem;
   }
   .kn-fc-card__meaning {
-    font-size: 1.8rem;
+    font-size: clamp(1.4rem, 6vw, 1.8rem);
   }
   .kn-fc__progress {
     flex-wrap: wrap;
+    gap: 0.35rem;
   }
   .kn-fc__summary {
     flex: 1 1 100%;
@@ -470,6 +481,33 @@
     text-align: right;
   }
   .kn-fc__hint-keys {
+    display: none;
+  }
+  .kn-fc__nav {
+    gap: 0.5rem;
+  }
+  .kn-fc__nav .kn-ui-btn {
+    flex: 1 1 0;
+    padding: 0.65rem 0.75rem;
+  }
+  .kn-fc__ratings {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.35rem;
+  }
+  .kn-fc__ratings .kn-ui-btn {
+    flex: none;
+    min-width: 0;
+    padding: 0.35rem 0.2rem !important;
+    min-height: 3rem !important;
+  }
+  .kn-fc__rating-time {
+    font-size: 0.65rem;
+  }
+  .kn-fc__rating-label {
+    font-size: 0.75rem;
+  }
+  .kn-fc__kbd {
     display: none;
   }
 }

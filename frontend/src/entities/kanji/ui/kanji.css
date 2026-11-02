@@ -252,3 +252,26 @@
   font-size: 0.72rem;
   color: var(--kn-text-muted, #6b7280);
 }
+
+@media (max-width: 40rem) {
+  .kn-kanji-popover {
+    width: min(17.5rem, 88vw);
+    padding: 0.65rem 0.85rem;
+  }
+  .kn-kanji-popover__char {
+    font-size: 1.85rem;
+  }
+  .kn-kanji-popover__sino {
+    font-size: 1rem;
+  }
+  .kn-kanji-popover__meaning {
+    font-size: 0.88rem;
+  }
+  .kn-kanji-popover__close-btn {
+    min-width: 2rem;
+    min-height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

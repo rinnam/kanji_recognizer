@@ -239,6 +239,18 @@
     padding: 0.35rem 0.8rem;
     font-weight: 600;
   }
+
+  .kn-ws__tabs {
+    width: 100%;
+    display: flex;
+  }
+
+  .kn-ws__tab {
+    flex: 1 1 0;
+    justify-content: center;
+    padding: 0.45rem 0.35rem;
+    font-size: 0.8rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
