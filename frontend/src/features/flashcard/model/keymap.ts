@@ -7,6 +7,7 @@ export type FlashcardAction =
   | { type: 'next' }
   | { type: 'prev' }
   | { type: 'grade'; rating: SrsRating }
+  | { type: 'speak' }
   | { type: 'none' };
 
 export interface FlashcardKeyContext {
@@ -40,6 +41,7 @@ function isSpace(key: string): boolean {
  * - Space (MỌI chế độ): CHỈ lật thẻ qua lại (trước ↔ sau), TUYỆT ĐỐI không chuyển thẻ.
  * - ArrowRight/ArrowLeft → tiếp/trước, chặn ở biên (cách DUY NHẤT để chuyển thẻ bằng phím).
  * - 1/2/3/4 → chấm Again/Hard/Good/Easy, CHỈ khi Anki và đã lật.
+ * - R / r → nghe phát âm từ vựng / cách đọc (chuẩn Anki replay audio).
  */
 export function decideFlashcardAction(ctx: FlashcardKeyContext): FlashcardAction {
   if (ctx.typing || ctx.hasModifier) return NONE;
@@ -47,6 +49,11 @@ export function decideFlashcardAction(ctx: FlashcardKeyContext): FlashcardAction
   // Space luôn lật, ở MỌI chế độ và cả hai mặt — không bao giờ chuyển thẻ.
   if (isSpace(ctx.key)) {
     return { type: 'flip' };
+  }
+
+  // R hoặc r phát âm lại từ vựng
+  if (ctx.key === 'r' || ctx.key === 'R') {
+    return { type: 'speak' };
   }
 
   if (ctx.key === 'ArrowRight') {

@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
-import type { SrsRating } from '../../../entities/card';
+import {
+  previewIntervalLabel,
+  type SrsRating,
+  type SrsState,
+} from '../../../entities/card';
 import { getAllFoldersLocal, type LocalFolder } from '../../../entities/folder';
 import {
   applyScope,
@@ -9,7 +13,12 @@ import {
   type ScopeSelection,
 } from '../../../entities/vocabulary';
 import { useDb } from '../../../shared/db';
-import { emitDataChanged, subscribeDataChanged } from '../../../shared/lib';
+import {
+  emitDataChanged,
+  selectSpeechPrompt,
+  speakJapanese,
+  subscribeDataChanged,
+} from '../../../shared/lib';
 import {
   Button,
   EmptyState,
@@ -101,6 +110,8 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
   // Công tắc "Xáo trộn": khi bật, giữ MỘT thứ tự Fisher–Yates ổn định (không xáo lại mỗi render).
   const [shuffled, setShuffled] = useState(false);
   const [shuffleSeed, setShuffleSeed] = useState<string[] | null>(null);
+  // Anki: hàng đợi phiên học (session queue) để lặp lại thẻ Again trong ngày đến khi thuộc.
+  const [sessionQueueIds, setSessionQueueIds] = useState<string[] | null>(null);
   // Anki: chế độ "Ôn trước hạn" (nạp thẻ chưa tới hạn) khi hàng đợi tới hạn đã rỗng.
   const [reviewAhead, setReviewAhead] = useState(false);
   // "Làm lại" ở Anki = nạp lại hàng đợi: cập nhật mốc thời gian "now" (KHÔNG đụng srs*).
@@ -181,9 +192,24 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
     return out;
   }, [shuffled, shuffleSeed, baseUsed]);
 
-  const total = used.length;
+  // Khi ở chế độ Anki, hàng đợi phiên học được quản lý bởi sessionQueueIds:
+  // - Bấm Again: thẻ được chuyển về cuối danh sách phiên học (để ôn lại trong ngày).
+  // - Bấm Hard/Good/Easy: thẻ hoàn thành phiên học (rời khỏi phiên).
+  const ankiSessionDeck = useMemo(() => {
+    if (sessionQueueIds === null) return used;
+    const byId = new Map(scopeBase.map((v) => [v.id, v] as const));
+    const out: LocalVocabulary[] = [];
+    for (const id of sessionQueueIds) {
+      const found = byId.get(id);
+      if (found !== undefined) out.push(found);
+    }
+    return out;
+  }, [sessionQueueIds, used, scopeBase]);
+
+  const displayedDeck = mode === 'anki' ? ankiSessionDeck : used;
+  const total = displayedDeck.length;
   const safeIndex = total === 0 ? 0 : Math.min(index, total - 1);
-  const current = total === 0 ? null : used[safeIndex];
+  const current = total === 0 ? null : displayedDeck[safeIndex];
 
   const clampN = (value: number): number =>
     Math.max(1, Math.min(Math.round(value), Math.max(1, deck.length)));
@@ -205,6 +231,7 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
     setKind('all');
     setPickedIds(null);
     setReviewAhead(false);
+    setSessionQueueIds(null);
     clearShuffle();
     resetPos();
   };
@@ -214,6 +241,7 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
     if (next === 'random') setSeed(nextSeed);
     setKind(next);
     setPickedIds(pickFor({ mode: next, n: clampN(n), seed: nextSeed }));
+    setSessionQueueIds(null);
     clearShuffle();
     resetPos();
   };
@@ -221,6 +249,7 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
     const next = clampN(value);
     setN(next);
     if (kind !== 'all') setPickedIds(pickFor({ mode: kind, n: next, seed }));
+    setSessionQueueIds(null);
     clearShuffle();
     resetPos();
   };
@@ -229,17 +258,20 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
     const next = !shuffled;
     setShuffled(next);
     setShuffleSeed(next ? shuffleIds(baseUsed.map((v) => v.id)) : null);
+    setSessionQueueIds(null);
     resetPos();
   };
   // "Làm lại" là NÚT HÀNH ĐỘNG: về thẻ đầu + mặt trước; ở Anki nạp lại hàng đợi (KHÔNG đụng srs*).
   const redo = (): void => {
     setNow(new Date());
+    setSessionQueueIds(null);
     resetPos();
   };
   const startReviewAhead = (): void => {
     setReviewAhead(true);
     setKind('all');
     setPickedIds(null);
+    setSessionQueueIds(null);
     clearShuffle();
     resetPos();
   };
@@ -251,6 +283,7 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
       setResetting(false);
       setResetOpen(false);
       setReviewAhead(false);
+      setSessionQueueIds(null);
       setNow(new Date());
       resetPos();
     }
@@ -267,8 +300,30 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
   const rate = async (rating: SrsRating): Promise<void> => {
     if (current === null) return;
     await api.review(current, rating);
-    // Thẻ vừa chấm rời hàng đợi tới hạn → giữ nguyên index để thẻ kế trám vào chỗ đó.
+
+    // Cập nhật hàng đợi phiên học Anki:
+    setSessionQueueIds((prev) => {
+      const currentList = prev ?? used.map((v) => v.id);
+      if (currentList.length === 0) return [];
+      const currentId = current.id;
+      if (rating === 'again') {
+        // Nếu chỉ còn 1 thẻ: giữ nguyên thẻ trong phiên để lặp lại
+        if (currentList.length <= 1) return [...currentList];
+        // Đẩy thẻ hiện tại về cuối danh sách phiên học
+        const remaining = currentList.filter((id) => id !== currentId);
+        return [...remaining, currentId];
+      }
+      // Các mức khác (Hard, Good, Easy): thẻ tốt nghiệp phiên học hôm nay
+      return currentList.filter((id) => id !== currentId);
+    });
+
     setRevealed(false);
+  };
+
+  const speakCurrent = (): void => {
+    if (current === null) return;
+    const text = selectSpeechPrompt(current.word, current.reading);
+    speakJapanese(text);
   };
 
   useFlashcardKeys({
@@ -280,6 +335,7 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
     onNext: goNext,
     onPrev: goPrev,
     onGrade: (rating) => void rate(rating),
+    onSpeak: speakCurrent,
   });
 
   if (api.status === 'loading') {
@@ -430,11 +486,25 @@ export function FlashcardStudy({ folderId, scope }: FlashcardStudyProps): ReactE
               </div>
             ) : (
               <div className="kn-fc__nav kn-fc__ratings" aria-label="Đánh giá">
-                {RATINGS.map((item) => (
-                  <Button key={item.id} onClick={() => void rate(item.id)}>
-                    {item.label} <kbd className="kn-fc__kbd">{item.num}</kbd>
-                  </Button>
-                ))}
+                {RATINGS.map((item) => {
+                  const srsState: SrsState = {
+                    interval: current?.srsInterval ?? null,
+                    repetition: current?.srsRepetition ?? null,
+                    easeFactor: current?.srsEaseFactor ?? null,
+                  };
+                  const forecast = previewIntervalLabel(srsState, item.id, true);
+                  return (
+                    <Button
+                      key={item.id}
+                      className={`kn-fc__rating-btn kn-fc__rating-btn--${item.id}`}
+                      onClick={() => void rate(item.id)}
+                    >
+                      <span className="kn-fc__rating-time">{forecast}</span>
+                      <span className="kn-fc__rating-label">{item.label}</span>
+                      <kbd className="kn-fc__kbd">{item.num}</kbd>
+                    </Button>
+                  );
+                })}
               </div>
             )
           ) : (

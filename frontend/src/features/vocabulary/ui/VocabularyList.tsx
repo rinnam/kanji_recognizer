@@ -1,6 +1,8 @@
 import { Fragment, useState, type PointerEvent as ReactPointerEvent, type ReactElement } from 'react';
+import { InteractiveKanjiText } from '../../../entities/kanji';
 import type { LocalVocabulary } from '../../../entities/vocabulary';
-import { EmptyState, IconChevron, IconEdit, IconTrash } from '../../../shared/ui';
+import { selectSpeechPrompt } from '../../../shared/lib';
+import { EmptyState, IconChevron, IconEdit, IconTrash, SpeakButton } from '../../../shared/ui';
 
 interface VocabularyListProps {
   items: LocalVocabulary[];
@@ -126,7 +128,18 @@ export function VocabularyList({
                     />
                   </td>
                   <td className="kn-vtable__word" title={item.word}>
-                    {item.word}
+                    <div className="kn-vtable__word-cell">
+                      <InteractiveKanjiText
+                        text={item.word}
+                        sinoVietnamese={item.sinoVietnamese}
+                        meaning={item.meaning}
+                      />
+                      <SpeakButton
+                        text={selectSpeechPrompt(item.word, item.reading)}
+                        size="sm"
+                        label={`Nghe phát âm ${item.word}`}
+                      />
+                    </div>
                   </td>
                   <td title={item.reading ?? undefined}>{item.reading ?? '—'}</td>
                   <td className="kn-vtable__sino" title={item.sinoVietnamese ?? undefined}>

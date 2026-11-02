@@ -140,6 +140,12 @@
 .kn-vtable__word {
   font-weight: 600;
 }
+.kn-vtable__word-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 100%;
+}
 .kn-vtable__sino {
   text-transform: uppercase;
   letter-spacing: 0.03em;

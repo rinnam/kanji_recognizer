@@ -1,0 +1,254 @@
+/* =====================================================================
+   Giao diện tương tác chữ Hán Kanji (entities/kanji)
+   Hỗ trợ tooltip âm Hán Việt trên đầu chữ + Popover chi tiết khi hover/click
+   ===================================================================== */
+
+/* Ký tự Kanji tương tác */
+.kn-kanji-interactive {
+  position: relative;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+}
+
+.kn-kanji-char {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  padding: 0 0.1em;
+  margin: 0 -0.05em;
+  transition: all 0.15s ease-in-out;
+  border-bottom: 2px dotted color-mix(in srgb, var(--kn-primary, #6366f1) 50%, transparent);
+}
+
+.kn-kanji-char:hover,
+.kn-kanji-char.is-active {
+  background-color: var(--kn-kanji-highlight, #fff9c4);
+  color: #1a1a1a;
+  border-bottom-color: var(--kn-primary, #6366f1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+/* Tooltip âm Hán Việt / nghĩa ngắn nổi trên đầu chữ Kanji (như trong ảnh mẫu) */
+.kn-kanji-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: rgba(30, 30, 30, 0.92);
+  color: #ffffff;
+  padding: 0.25rem 0.55rem;
+  border-radius: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+  z-index: 50;
+  letter-spacing: 0.04em;
+}
+
+/* Mũi tên nhỏ dưới tooltip */
+.kn-kanji-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 4px;
+  border-style: solid;
+  border-color: rgba(30, 30, 30, 0.92) transparent transparent transparent;
+}
+
+.kn-kanji-char:hover .kn-kanji-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Popover chi tiết chữ Hán (Kanji Card Popover) */
+.kn-kanji-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(20rem, 88vw);
+  background: var(--kn-surface, #ffffff);
+  color: var(--kn-text, #1f2937);
+  border: 1px solid var(--kn-border, #e8e4dc);
+  border-radius: 0.85rem;
+  padding: 0.85rem 1.1rem;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.12), 0 3px 8px rgba(0, 0, 0, 0.05);
+  z-index: 100;
+  text-align: left;
+  animation: kn-popover-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: default;
+}
+
+@keyframes kn-popover-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+/* Mũi tên trỏ lên ký tự */
+.kn-kanji-popover::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent transparent var(--kn-border, #e8e4dc) transparent;
+}
+.kn-kanji-popover::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent transparent var(--kn-surface, #ffffff) transparent;
+}
+
+/* Header Popover: Chữ Hán to + Âm Hán Việt màu cam đất + Nút đóng góc phải */
+.kn-kanji-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.kn-kanji-popover__title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.kn-kanji-popover__char {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--kn-text, #111827);
+  letter-spacing: -0.02em;
+}
+
+.kn-kanji-popover__sino {
+  font-size: 1.12rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #b85d19; /* Terracotta / warm accent chuẩn như ảnh mẫu */
+  text-transform: uppercase;
+}
+
+.kn-kanji-popover__close-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.35rem;
+  line-height: 1;
+  color: #888888;
+  cursor: pointer;
+  padding: 0.1rem 0.25rem;
+  border-radius: 0.25rem;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+.kn-kanji-popover__close-btn:hover {
+  color: var(--kn-text, #111827);
+  transform: scale(1.15);
+}
+
+/* Đường kẻ phân cách tinh tế giữa Header và Body */
+.kn-kanji-popover__divider {
+  height: 1px;
+  background-color: var(--kn-border, #e8e3d8);
+  margin: 0.55rem 0 0.65rem;
+}
+
+/* Thân Popover: Nghĩa Hán Việt thuần túy của chữ Hán đơn lẻ */
+.kn-kanji-popover__meaning {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--kn-text, #262626);
+  line-height: 1.45;
+}
+
+/* Khu vực thông tin mở rộng (On/Kun/JLPT/nét nếu có) */
+.kn-kanji-popover__extra {
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--kn-border, #e5e7eb);
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.kn-kanji-popover__badges {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.kn-kanji-popover__badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.3rem;
+  background: var(--kn-primary-soft, #eef2ff);
+  color: var(--kn-primary, #6366f1);
+  border: 1px solid color-mix(in srgb, var(--kn-primary, #6366f1) 30%, transparent);
+}
+
+.kn-kanji-popover__badge--strokes {
+  background: var(--kn-surface-subtle, #f3f4f6);
+  color: var(--kn-text-muted, #6b7280);
+  border-color: var(--kn-border, #e5e7eb);
+}
+
+.kn-kanji-popover__readings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+}
+
+.kn-kanji-popover__reading-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.kn-kanji-popover__reading-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--kn-text-muted, #9ca3af);
+  min-width: 2.2rem;
+}
+
+.kn-kanji-popover__reading-val {
+  color: var(--kn-text, #374151);
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.kn-kanji-popover__radical {
+  font-size: 0.72rem;
+  color: var(--kn-text-muted, #6b7280);
+}

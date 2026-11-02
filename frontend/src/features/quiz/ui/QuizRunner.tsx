@@ -85,7 +85,11 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
   } = api;
 
   const [input, setInput] = useState('');
-  const [showSino, setShowSino] = useState(false);
+  const [sinoRevealedIndex, setSinoRevealedIndex] = useState<number | null>(null);
+  const showSino = sinoRevealedIndex === index;
+  const toggleSino = (): void => {
+    setSinoRevealedIndex((current) => (current === index ? null : index));
+  };
   const [seconds, setSeconds] = useState(5);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [shaking, setShaking] = useState(false);
@@ -98,11 +102,6 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
   // Vừa sai mà CÒN lượt: viền đỏ + "Còn k lần" (chưa chốt, chưa đếm ngược).
   const hasWrong = !resolved && attempt.attempts > 0;
   const triesLeft = remainingAttempts(attempt);
-
-  // Đổi câu hỏi: tự động ẩn gợi ý Âm Hán Việt để không làm lộ đáp án câu mới
-  useEffect(() => {
-    setShowSino(false);
-  }, [index]);
 
   // Tự focus ô nhập khi sang câu mới (chưa chốt). CHỈ focus — không setState trong thân effect.
   useEffect(() => {
@@ -173,7 +172,7 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
       if (e.key === 'Shift' || e.key === 'F2') {
         if (hasText(currentVocab?.sinoVietnamese ?? null)) {
           e.preventDefault();
-          setShowSino((value) => !value);
+          toggleSino();
           inputRef.current?.focus();
         }
         return;
@@ -368,7 +367,7 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
       if (hasText(currentVocab?.sinoVietnamese ?? null)) {
         event.preventDefault();
         event.stopPropagation(); // Ngăn sự kiện nổi bọt lên window gây toggle 2 lần
-        setShowSino((value) => !value);
+        toggleSino();
         return;
       }
     }
@@ -492,7 +491,7 @@ export function QuizRunner({ folderId, scope }: QuizRunnerProps): ReactElement {
                   <button
                     type="button"
                     className={`kn-quiz__sino-btn${showSino ? ' is-active' : ''}`}
-                    onClick={() => setShowSino((value) => !value)}
+                    onClick={toggleSino}
                     title="Bấm hoặc nhấn Shift để bật/tắt gợi ý Âm Hán Việt"
                   >
                     <span>{showSino ? 'Ẩn Hán Việt' : 'Gợi ý Âm Hán Việt'}</span>

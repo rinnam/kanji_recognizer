@@ -11,9 +11,9 @@
 
 ## Thuật ngữ học tập
 
-- **SRS (Spaced Repetition System):** hệ thống ôn tập ngắt quãng theo **Anki SM-2**. Ba tham số: **Interval** (`srsInterval`, số ngày), **Repetition** (`srsRepetition`, số lần nhớ liên tiếp), **Ease Factor** (`srsEaseFactor`, mặc định **2.5**, tối thiểu **1.3**). **srsNextReview** = ngày ôn kế tiếp.
-- **SRS phase / chế độ Flashcard:** **Normal** (lật thẻ thường), **Progress** (theo tiến độ), **Anki SRS** (áp công thức SM-2 + lịch ôn). Xem công thức ở `docs/reference/kotobase-feature-audit.md` §2.
-- **Rating (q):** mức đánh giá sau khi lật thẻ; ánh xạ SM-2 **đã chốt**: **Again=0, Hard=3, Good=4, Easy=5** (chi tiết `docs/reference/kotobase-feature-audit.md` §2.4).
+- **SRS (Spaced Repetition System):** hệ thống ôn tập ngắt quãng theo **Anki Modified SM-2**. Ba tham số: **Interval** (`srsInterval`, số ngày), **Repetition** (`srsRepetition`, số lần nhớ liên tiếp), **Ease Factor** (`srsEaseFactor`, mặc định **2.5**, tối thiểu **1.3**). **srsNextReview** = ngày ôn kế tiếp. Chuẩn Anki: Easy khởi đầu 4 ngày, Hard tăng 1.2x, Easy-bonus 1.3x, Again lặp lại trong phiên học đến khi thuộc.
+- **SRS phase / chế độ Flashcard:** **Normal** (lật thẻ thường), **Progress** (theo tiến độ), **Anki SRS** (áp công thức Anki SM-2 + lịch ôn + lặp thẻ Again trong phiên). Xem công thức ở `docs/reference/kotobase-feature-audit.md` §2.
+- **Rating:** 4 mức đánh giá sau khi lật thẻ: **Again** (lặp lại <10p, giảm EF 0.20), **Hard** (giãn nhẹ 1.2x, giảm EF 0.15), **Good** (nhớ chuẩn, giữ nguyên EF), **Easy** (nhớ tốt, bonus 1.3x, tăng EF 0.15). Hiển thị nhãn thời gian dự báo trên từng nút.
 - **Typing Quiz:** bài kiểm tra người học gõ đáp án; lưu ở `quiz_sessions` / `quiz_attempts`.
 - **Focus Recall:** chế độ ẩn nghĩa để tự kiểm tra.
 - **Quick Add:** thêm nhanh một từ, **chống trùng** theo (`word`, `reading`) trong cùng người dùng.

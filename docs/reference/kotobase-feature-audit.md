@@ -47,24 +47,33 @@ Trích từ `ANKI_SRS.md` (diễn giải lại). Mỗi từ quản lý bởi 3 t
 
 Người học chấm 1 trong 4 mức sau khi lật thẻ (`q`), quy ước Again/Hard/Good/Easy.
 
-**2.1. Cập nhật Ease Factor (EF):**
+**2.1. Cập nhật Ease Factor (EF) — Chuẩn Anki:**
+- `Again`: giảm 0.20
+- `Hard`: giảm 0.15
+- `Good`: giữ nguyên (0.00)
+- `Easy`: tăng 0.15
+- Sàn tối thiểu: `1.30`. Mặc định: `2.50`.
 
-```
-EF' = EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
-if EF' < 1.3 then EF' = 1.3
-```
+**2.2. Cập nhật Interval (I) và Repetition (n) — Chuẩn Anki:**
+- **Thẻ mới (`n = 0`):**
+  - `Again`: `n = 0, I = 1 ngày`, đưa về cuối hàng đợi phiên học để học lại trong ngày.
+  - `Hard`: `n = 1, I = 1 ngày`
+  - `Good`: `n = 1, I = 1 ngày`
+  - `Easy`: `n = 1, I = 4 ngày` (chuẩn Anki: Easy interval = 4 ngày)
+- **Thẻ lần 2 (`n = 1`):**
+  - `Hard`: `n = 2, I = 3 ngày` (giãn nhẹ)
+  - `Good`: `n = 2, I = 6 ngày` (chuẩn)
+  - `Easy`: `n = 2, I = 8 ngày` (Easy bonus 1.3x)
+- **Thẻ ôn tập (`n >= 2`):**
+  - `Hard`: `n += 1, I = max(I_trước + 1, round(I_trước × 1.2))` (Hard factor 1.2x)
+  - `Good`: `n += 1, I = max(I_trước + 1, round(I_trước × EF))`
+  - `Easy`: `n += 1, I = max(I_trước + 1, round(I_trước × EF × 1.3))` (Easy bonus 1.3x)
+  - `Again`: `n = 0, I = 1 ngày`, lặp lại trong phiên đến khi thuộc.
 
-**2.2. Cập nhật Interval (I) và Repetition (n):**
-
-- Nếu **quên** (`q < 3`, tức "Again"/"Lại"):
-  - `n = 0`
-  - `I = 1 ngày`
-- Nếu **nhớ** (`q >= 3`, tức "Hard"/"Good"/"Easy"):
-  - lần nhớ 1 (`n = 1`): `I = 1 ngày`
-  - lần nhớ 2 (`n = 2`): `I = 6 ngày`
-  - lần nhớ `n > 2`: `I = round(I_trước × EF)`
-
-**2.3. Hàng đợi ôn tập:** mỗi ngày lấy các thẻ có `srsNextReview <= now` để ôn.
+**2.3. Hàng đợi ôn tập & Phiên học:**
+- Mỗi ngày lấy các thẻ có `srsNextReview <= now` để ôn.
+- Trong phiên học: thẻ bấm `Again` được giữ lại và đẩy về cuối phiên để lặp lại cho tới khi người học nhớ lại (bấm Good/Easy).
+- Các nút hiển thị thời gian dự báo (forecast label): `<10p`, `1 ngày`, `4 ngày`, `15 ngày`...
 
 **2.4. Đối chiếu field (nhất quán với Bước 4):**
 
@@ -75,7 +84,7 @@ if EF' < 1.3 then EF' = 1.3
 | EF (ease factor) | `srsEaseFactor?: number` | mặc định `2.5`, sàn `1.3` |
 | ngày ôn kế tiếp | `srsNextReview?: string` | ISO Timestamp |
 
-> **Thang điểm SRS (ĐÃ CHỐT):** ánh xạ 4 nút → `q` của công thức SM-2 đã cho: **Again=0, Hard=3, Good=4, Easy=5**. Áp công thức `EF'` cho **mọi** lần đánh giá (sàn 1.3). Nếu `q < 3` (Again): `n=0`, `I=1`. Nếu `q ≥ 3`: `n += 1`, `I = (n==1 ? 1 : n==2 ? 6 : round(I_trước × EF'))`; `srsNextReview = now + I ngày`. Bám đúng công thức đã cho, KHÔNG thêm biến thể Hard×1.2 / Easy-bonus của Anki.
+> **Cập nhật chuẩn Anki SM-2:** Hệ thống đã nâng cấp toàn diện từ công thức SM-2 nguyên thủy (1987) sang **chuẩn Anki Modified SM-2**: Easy khởi đầu 4 ngày, Hard giãn 1.2x, Easy bonus 1.3x, lặp lại thẻ Again trong phiên học hôm nay và hiển thị nhãn dự báo thời gian trên 4 nút. Đồng bộ 100% giữa client và server.
 
 ## 3. Tích hợp từ điển ngoài (cho tính năng Kanji — làm cuối)
 

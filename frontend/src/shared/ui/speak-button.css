@@ -1,0 +1,69 @@
+/* Nút phát âm tiếng Nhật dùng chung (shared/ui/SpeakButton). */
+.kn-speak-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  flex-shrink: 0;
+  vertical-align: middle;
+  background: var(--kn-btn-bg, #f3f4f6);
+  color: var(--kn-btn-fg, #374151);
+  border: 1px solid var(--kn-btn-border, #d1d5db);
+  padding: 0;
+}
+
+.kn-speak-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--kn-primary, #6366f1) 12%, var(--kn-btn-bg, #f3f4f6));
+  border-color: var(--kn-primary, #6366f1);
+  color: var(--kn-primary, #6366f1);
+  transform: scale(1.06);
+}
+
+.kn-speak-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.kn-speak-btn:focus-visible {
+  outline: 2px solid var(--kn-focus, #6366f1);
+  outline-offset: 2px;
+}
+
+.kn-speak-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Kích cỡ */
+.kn-speak-btn--sm {
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: 0.85rem;
+}
+
+.kn-speak-btn--md {
+  width: 2.2rem;
+  height: 2.2rem;
+  font-size: 1.15rem;
+}
+
+/* Trạng thái đang phát âm */
+.kn-speak-btn.is-speaking {
+  color: var(--kn-primary, #6366f1);
+  border-color: var(--kn-primary, #6366f1);
+  background: color-mix(in srgb, var(--kn-primary, #6366f1) 20%, var(--kn-btn-bg, #f3f4f6));
+  animation: kn-speak-pulse 1s infinite alternate ease-in-out;
+}
+
+@keyframes kn-speak-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--kn-primary, #6366f1) 40%, transparent);
+  }
+  100% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--kn-primary, #6366f1) 15%, transparent);
+  }
+}

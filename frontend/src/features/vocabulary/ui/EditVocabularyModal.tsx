@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import type { LocalVocabulary } from '../../../entities/vocabulary';
 import type { JlptLevel } from '../../../shared/api';
 import { Button, Field, Input, Modal } from '../../../shared/ui';
@@ -30,7 +30,12 @@ export function EditVocabularyModal({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  const [prevVocab, setPrevVocab] = useState<LocalVocabulary | null>(null);
+  const [prevOpen, setPrevOpen] = useState(open);
+
+  if (open !== prevOpen || vocabulary !== prevVocab) {
+    setPrevOpen(open);
+    setPrevVocab(vocabulary);
     if (vocabulary) {
       setWord(vocabulary.word);
       setReading(vocabulary.reading ?? '');
@@ -42,7 +47,7 @@ export function EditVocabularyModal({
       setNote(vocabulary.note ?? '');
       setError(null);
     }
-  }, [vocabulary, open]);
+  }
 
   const handleSubmit = async (): Promise<void> => {
     if (!vocabulary) return;

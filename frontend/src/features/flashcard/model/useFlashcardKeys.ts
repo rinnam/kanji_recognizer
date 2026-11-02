@@ -12,6 +12,7 @@ export interface FlashcardKeyHandlers {
   onNext: () => void;
   onPrev: () => void;
   onGrade: (rating: SrsRating) => void;
+  onSpeak?: () => void;
 }
 
 /** Phím cần chặn mặc định (Space cuộn trang, mũi tên cuộn). */
@@ -67,6 +68,7 @@ export function useFlashcardKeys(handlers: FlashcardKeyHandlers): void {
       if (action.type === 'flip') current.onFlip();
       else if (action.type === 'next') current.onNext();
       else if (action.type === 'prev') current.onPrev();
+      else if (action.type === 'speak') current.onSpeak?.();
       else current.onGrade(action.rating);
     };
     document.addEventListener('keydown', onKeyDown);

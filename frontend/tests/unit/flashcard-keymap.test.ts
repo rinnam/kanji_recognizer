@@ -84,4 +84,15 @@ describe('flashcard/keymap decideFlashcardAction', () => {
       decideFlashcardAction(ctx({ key: '3', mode: 'normal', revealed: true })),
     ).toEqual({ type: 'none' });
   });
+
+  it('r/R phát âm lại từ vựng (mọi chế độ và mặt thẻ)', () => {
+    expect(decideFlashcardAction(ctx({ key: 'r', revealed: false }))).toEqual({ type: 'speak' });
+    expect(decideFlashcardAction(ctx({ key: 'R', revealed: true, mode: 'anki' }))).toEqual({
+      type: 'speak',
+    });
+    // đang gõ trong input → none
+    expect(decideFlashcardAction(ctx({ key: 'r', typing: true }))).toEqual({ type: 'none' });
+    // có modifier (Ctrl/Alt) → none
+    expect(decideFlashcardAction(ctx({ key: 'r', hasModifier: true }))).toEqual({ type: 'none' });
+  });
 });

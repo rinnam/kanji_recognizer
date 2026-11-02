@@ -12,6 +12,8 @@ export { Input } from './primitives/Input';
 export { Field } from './primitives/Field';
 export { Modal } from './primitives/Modal';
 export { ToggleIconButton } from './ToggleIconButton';
+export { SpeakButton } from './SpeakButton';
+export type { SpeakButtonProps } from './SpeakButton';
 export { ScopeBar } from './ScopeBar';
 export type { ScopeKind } from './ScopeBar';
 export { ToolbarSlotProvider, ToolbarSlotTarget, ToolbarSlot } from './ToolbarSlot';
@@ -36,4 +38,5 @@ export {
   IconBulb,
   IconWarning,
   IconEdit,
+  IconVolume,
 } from './icons';

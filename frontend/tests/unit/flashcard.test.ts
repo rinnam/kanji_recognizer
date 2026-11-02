@@ -110,6 +110,23 @@ describe('flashcard/review applyReview', () => {
     expect(next.srsInterval).toBe(1);
     expect(next.updatedAt).toBe(NOW.toISOString());
   });
+
+  it('easy lần đầu → interval 4 ngày (chuẩn Anki), EF tăng lên 2.65', () => {
+    const card = vocab({ id: 'e', updatedAt: '2026-01-01T00:00:00.000Z' });
+    const next = applyReview(card, 'easy', NOW);
+    expect(next.srsRepetition).toBe(1);
+    expect(next.srsInterval).toBe(4);
+    expect(next.srsEaseFactor).toBe(2.65);
+    expect(next.srsNextReview).toBe('2026-03-05T00:00:00.000Z');
+  });
+
+  it('hard thẻ ôn tập (rep >= 2) → interval tăng 1.2x thay vì tăng đột biến', () => {
+    const card = vocab({ id: 'h', srsRepetition: 2, srsInterval: 6, srsEaseFactor: 2.5 });
+    const next = applyReview(card, 'hard', NOW);
+    expect(next.srsRepetition).toBe(3);
+    expect(next.srsInterval).toBe(7); // round(6 * 1.2) = 7
+    expect(next.srsEaseFactor).toBe(2.35);
+  });
 });
 
 describe('flashcard/review persistReview', () => {

@@ -1,6 +1,8 @@
 import { type ReactElement } from 'react';
+import { InteractiveKanjiText } from '../../../entities/kanji';
 import type { LocalVocabulary } from '../../../entities/vocabulary';
-import { IconEdit, IconFlip } from '../../../shared/ui';
+import { selectSpeechPrompt } from '../../../shared/lib';
+import { IconEdit, IconFlip, SpeakButton } from '../../../shared/ui';
 import { selectFaceContent } from '../model/face';
 import { CatCardFrame } from './CatCardFrame';
 
@@ -12,12 +14,14 @@ interface FlashcardCardProps {
 
 /**
  * Thẻ lớn theo bố cục tham khảo (B1):
- * - MẶT TRƯỚC: TỪ VỰNG rất to ở giữa + Âm Hán Việt (IN HOA, giãn) ngay dưới (ẩn nếu rỗng).
- * - MẶT SAU: Cách đọc (trên) · Nghĩa (to, đậm) · khung "VÍ DỤ" (câu ví dụ + dịch nghiêng).
+ * - MẶT TRƯỚC: TỪ VỰNG rất to ở giữa + Âm Hán Việt (IN HOA, giãn) ngay dưới (ẩn nếu rỗng) + nút loa phát âm.
+ * - MẶT SAU: Cách đọc (trên) + nút loa · Nghĩa (to, đậm) · khung "VÍ DỤ" (câu ví dụ + dịch nghiêng).
  * Góc trên trái luôn có nhãn "BẤM ĐỂ LẬT". Hiển thị thuần — KHÔNG đổi logic SM-2.
  */
 export function FlashcardCard({ vocab, revealed, onEdit }: FlashcardCardProps): ReactElement {
   const content = selectFaceContent(vocab, revealed ? 'back' : 'front');
+  const speechText = selectSpeechPrompt(vocab.word, vocab.reading);
+
   return (
     <article
       className={revealed ? 'kn-fc-card kn-fc-card--back' : 'kn-fc-card'}
@@ -49,7 +53,21 @@ export function FlashcardCard({ vocab, revealed, onEdit }: FlashcardCardProps): 
       <div className="kn-fc-card__inner" key={content.face}>
         {content.face === 'front' ? (
           <div className="kn-fc-card__face">
-            <p className="kn-fc-card__word">{content.word}</p>
+            <div className="kn-fc-card__word-row">
+              <p className="kn-fc-card__word">
+                <InteractiveKanjiText
+                  text={content.word}
+                  sinoVietnamese={vocab.sinoVietnamese}
+                  meaning={vocab.meaning}
+                />
+              </p>
+              <SpeakButton
+                text={speechText}
+                size="md"
+                label={`Nghe phát âm ${vocab.word}`}
+                className="kn-fc-card__speak-btn"
+              />
+            </div>
             {content.sinoVietnamese !== null ? (
               <p className="kn-fc-card__sino">{content.sinoVietnamese}</p>
             ) : null}
@@ -57,7 +75,15 @@ export function FlashcardCard({ vocab, revealed, onEdit }: FlashcardCardProps): 
         ) : (
           <div className="kn-fc-card__face">
             {content.reading !== null ? (
-              <p className="kn-fc-card__reading">{content.reading}</p>
+              <div className="kn-fc-card__reading-row">
+                <p className="kn-fc-card__reading">{content.reading}</p>
+                <SpeakButton
+                  text={speechText}
+                  size="sm"
+                  label={`Nghe phát âm ${content.reading}`}
+                  className="kn-fc-card__speak-btn"
+                />
+              </div>
             ) : null}
             <p className="kn-fc-card__meaning">{content.meaning}</p>
             {content.example !== null ? (

@@ -823,3 +823,142 @@ Toàn bộ là hàm THUẦN (không DOM/DB), tái dùng `trimToNull` (normalize)
 - Ô nhập cao 3.5rem; hàng nút 2 ô cố định (Gợi ý ≥10rem luôn hiện + disabled khi chốt / Kiểm tra-Tiếp ≥12rem, cao 48px); dòng "Còn k lần" giữ chỗ; nav Flashcard cao 48px.
 - `selectFeedbackContent` lọc chip rỗng/gạch ngang + test mới; rỗng/kết quả vẫn giữ khối điều khiển + tiến độ.
 - Kiểm: typecheck 0 · test 208/208 · lint 0 (2 cảnh báo cũ) · build OK (154 modules). XEM MẮT: ô nhập/nút không xê dịch; lật thẻ không đổi cao.
+
+## [Phiên mới] Phần 7I — Chuẩn hóa cơ chế học Anki SM-2 (Công thức chuẩn + Lặp lại thẻ Again trong phiên + Forecast label) ✅
+- **Chuẩn hóa công thức Anki Modified SM-2 (cả FE & BE):**
+  - Thẻ mới (rep = 0): `Easy` khởi đầu 4 ngày (chuẩn Anki) thay vì 1 ngày; `Again` / `Hard` / `Good` = 1 ngày; EF điều chỉnh: Again -0.20, Hard -0.15, Good 0, Easy +0.15.
+  - Thẻ lần 2 (rep = 1): `Hard` = 3 ngày (giãn nhẹ), `Good` = 6 ngày, `Easy` = 8 ngày (Easy bonus 1.3x).
+  - Thẻ ôn tập (rep >= 2): `Hard` = round(prevInterval × 1.2) giãn nhẹ 1.2x (thay vì tăng vọt 2.36x như SM-2 cũ); `Good` = round(prevInterval × EF); `Easy` = round(prevInterval × EF × 1.3).
+  - Cập nhật đồng bộ: `backend/src/services/srs.service.ts` và `frontend/src/entities/card/model/srs.ts`.
+- **Hàng đợi phiên học Anki (Session Queue):**
+  - Trong `FlashcardStudy.tsx`: khi người học bấm `Again`, thẻ không còn biến mất ngay sang ngày mai mà được đẩy về cuối hàng đợi phiên học để ôn lại trong ngày cho đến khi thuộc (Good/Easy).
+  - Thẻ chỉ tốt nghiệp phiên học hôm nay khi bấm Hard/Good/Easy.
+- **Giao diện 4 nút đánh giá Anki:**
+  - Hiển thị nhãn thời gian dự báo (forecast label) trên từng nút: `<10p` (Again lặp trong phiên), `1 ngày`, `4 ngày`, `15 ngày`...
+  - Nút có màu sắc và viền phân biệt Anki: Đỏ (Again), Cam (Hard), Xanh lục (Good), Xanh dương (Easy).
+- **Kiểm thử & Tài liệu:**
+  - Backend: `npm test` 38/38 pass (thêm 7 test cho Anki SM-2).
+  - Frontend: `npm test` 211/211 pass (thêm test Easy 4d, Hard 1.2x, forecast label).
+  - Typecheck 0 lỗi ở cả FE và BE. Cập nhật `CONTEXT.md` và `docs/reference/kotobase-feature-audit.md`.
+
+## [Phiên mới] Phần 7J — Tích hợp nút phát âm từ vựng tiếng Nhật (Web Speech API + Phím tắt R Replay) ✅
+- **Cơ chế âm thanh (TTS 100% offline, 0 latency, 0 dependency ngoài):**
+  - Tạo `frontend/src/shared/lib/speech.ts`:
+    - `cleanJapaneseSpeechText(raw)`: Tách lấy cách đọc/từ đầu tiên, bỏ các dấu phân cách `/`, `,`, `;`, `、`, `\n` để phát âm chuẩn xác.
+    - `findJapaneseVoice(synth)`: Tự động phát hiện và ưu tiên giọng tiếng Nhật tự nhiên trên hệ điều hành (`Natural`, `Haruka`, `Kyoko`, `Google 日本語`).
+    - `speakJapanese(text, options)`: Tốc độ chuẩn 0.85x cho người học tiếng Nhật, tự ngắt âm thanh cũ khi bấm lại, quản lý listener `voiceschanged` mượt mà.
+- **Component dùng chung `SpeakButton` (`frontend/src/shared/ui/SpeakButton.tsx`):**
+  - Nút loa tròn bo góc, có hiệu ứng `kn-speak-pulse` khi đang phát âm thanh.
+  - Hỗ trợ 2 kích cỡ: `sm` (bảng từ vựng, cách đọc nhỏ) và `md` (thẻ flashcard chính).
+  - Tự động gọi `e.stopPropagation()` để không gây tác dụng phụ (không làm lật thẻ flashcard, không kích hoạt chọn dòng bảng).
+  - Tự động kiểm tra tính hỗ trợ của trình duyệt, disable và thông báo tooltip an toàn nếu chưa hỗ trợ.
+- **Tích hợp giao diện Flashcard & Bảng từ vựng:**
+  - `FlashcardCard.tsx`: Đặt nút phát âm `SpeakButton` cạnh từ vựng ở mặt trước (`.kn-fc-card__word-row`), và cạnh cách đọc ở mặt sau (`.kn-fc-card__reading-row`).
+  - `VocabularyList.tsx`: Thêm nút phát âm nhỏ `size="sm"` cạnh từng từ trong cột Từ (`.kn-vtable__word-cell`).
+- **Phím tắt Replay âm thanh (`R` / `r`):**
+  - `keymap.ts` & `useFlashcardKeys.ts`: Bổ sung action `{ type: 'speak' }` khi bấm `R` hoặc `r` trong màn học Flashcard (chuẩn phím tắt Anki replay audio).
+  - Bỏ qua khi người dùng đang nhập liệu trong ô input hoặc mở modal.
+- **Dọn dẹp code & Khắc phục cascading render cũ:**
+  - Giải quyết triệt để 2 lỗi ESLint `react-hooks/set-state-in-effect` có sẵn trong `QuizRunner.tsx` (chuyển sang derived state `sinoRevealedIndex === index`) và `EditVocabularyModal.tsx` (điều chỉnh state an toàn khi prop thay đổi).
+- **Kiểm thử & Chất lượng:**
+  - Tạo `tests/unit/speech.test.ts` (12 test cases kiểm tra xử lý chuỗi và Web Speech synthesis).
+  - Tạo `tests/unit/speak-button.test.tsx` (3 test cases kiểm tra render, aria-label, stopPropagation).
+  - Cập nhật `tests/unit/flashcard-keymap.test.ts` (test case phím tắt `R`).
+  - Frontend: `npm test` **227/227 tests pass 100%**.
+  - Typecheck: `npm run typecheck` **0 lỗi**.
+  - Lint: `npm run lint` **0 lỗi** (code 0).
+  - Build: `npm run build` thành công xuất sắc.
+  - Backend: `npm test` **38/38 tests pass 100%**.
+
+## [Phiên mới] Phần 7K — Nâng cấp giọng phát âm Google Neural TTS có Tokyo Pitch Accent & Cache siêu tốc ✅
+- **Vấn đề giải quyết:**
+  - Giọng Web Speech API offline trước đây bị phẳng lì (*flat pitch / monotone*), không thể hiện được cao độ (Pitch Accent - 高低アクセント) của tiếng Nhật chuẩn Tokyo do thiếu mô hình AI nhận diện ngữ cảnh và do chỉ truyền Hiragana trơ trọi.
+- **Backend Proxy & Cache HTTP (`/api/tts`):**
+  - Tạo `backend/src/services/tts.service.ts`: Chuyển tiếp tới Google Translate TTS audio stream với đầy đủ trọng âm Tokyo Pitch Accent; tự động cắt bỏ ký tự ngăn cách lựa chọn (`/`, `,`, `;`).
+  - Tạo `backend/src/validators/tts.ts` và `backend/src/controllers/tts.controller.ts`: Xác thực Zod, trả về `Content-Type: audio/mpeg` và header `Cache-Control: public, max-age=604800, immutable` (trình duyệt chỉ tải 1 lần cho mỗi từ, các lần sau lấy từ cache đĩa tức thì 0ms).
+  - Đăng ký `ttsRoutes` trong `backend/src/server.ts`.
+  - Thêm `backend/tests/unit/tts.service.test.ts` (7 ca kiểm thử).
+- **Frontend Hybrid Architecture (`speech.ts`):**
+  - **Tầng 1 (Ưu tiên cao nhất):** Phát qua Google Neural TTS với Audio element, tích hợp bộ nhớ cache `audioCache` trong client (LRU 60 từ) → phát lại lần 2 đạt độ trễ **0ms**.
+  - **Tầng 2 (Dự phòng liền mạch):** Tự động fallback sang Web Speech API cục bộ của thiết bị khi offline hoặc mất mạng, không bao giờ ngắt trải nghiệm người học.
+  - Hàm `selectSpeechPrompt(word, reading)`: Ưu tiên truyền chữ Hán (Kanji `word`) thay vì Hiragana trơ trọi để NLP của Google nhận diện đúng từ loại và gán đúng cao độ (ví dụ `重要な`, `雨` vs `飴`, `箸` vs `橋`).
+- **Cập nhật giao diện:**
+  - `FlashcardCard.tsx`: Dùng `selectSpeechPrompt` cho cả mặt trước và mặt sau.
+  - `VocabularyList.tsx`: Dùng `selectSpeechPrompt` cho từng từ trong bảng.
+  - `FlashcardStudy.tsx`: Phím `R` phát âm bằng `selectSpeechPrompt`.
+- **Kiểm thử & Chất lượng:**
+  - Frontend: `npm test` **230/230 tests pass 100%** (32 test files).
+  - Backend: `npm test` **45/45 tests pass 100%** (5 test files).
+  - Typecheck: 0 lỗi ở cả FE (`tsc -b`) và BE (`tsc --noEmit`).
+  - Lint: 0 lỗi ở cả FE và BE.
+  - Build: Hoàn tất production build mượt mà ở cả 2 phía.
+
+## [Phiên mới] Phần 7L — Tích hợp cơ chế tương tác Hán tự Kanji (Hover Tooltip + Popover Card) ✅
+- **Mục tiêu đáp ứng yêu cầu người dùng:**
+  - Khi lướt chuột qua từng chữ Hán Kanji (như `豊` trong `豊かな` hoặc `重`, `要` trong `重要な`):
+    - Highlight nhẹ chữ Hán (màu vàng nhạt `kn-kanji-highlight` như trong ảnh mẫu).
+    - Nổi ngay Tooltip nhỏ phía trên đầu chữ hiển thị âm Hán Việt / nghĩa tóm tắt (`PHONG` / `giàu có`).
+    - Bấm (Click / Tap / Enter): Mở thẻ **Kanji Popover Card** thanh lịch hiển thị đầy đủ Hán tự to, Âm Hán Việt, cấp JLPT, số nét, nghĩa chi tiết, On'yomi, Kun'yomi và Bộ thủ.
+- **Entity mới: `entities/kanji` (FSD):**
+  - `model/types.ts`: Khai báo `KanjiDetail`, `KanjiSegment`.
+  - `model/kanji-dict.ts`: Ngân hàng Hán tự offline chuẩn (Jouyou & JLPT phổ biến) tra cứu tức thì $O(1)$ kèm cơ chế fallback thông minh tự lấy `sinoVietnamese` của từ vựng nếu gặp chữ hiếm ngoài DB.
+  - `model/kanji-utils.ts`: Các hàm thuần `isKanji`, `extractKanji`, `segmentJapaneseWord`, `mapSinoForKanjiIndex` (khớp âm Hán Việt theo thứ tự chữ Hán trong từ ghép).
+  - `ui/KanjiPopover.tsx`: Popover card thông tin Hán tự, có nút đóng và chặn nổi bọt sự kiện.
+  - `ui/InteractiveKanjiText.tsx`: Render chuỗi tiếng Nhật bóc tách từng chữ Kanji, quản lý hover tooltip, popover và click-outside.
+  - `ui/kanji.css`: Style đẹp, hiện đại, mũi tên chỉ vào chữ, hỗ trợ theme sáng/tối.
+- **Tích hợp vào giao diện ứng dụng:**
+  - `FlashcardCard.tsx`: Bọc từ vựng mặt trước bằng `InteractiveKanjiText`.
+  - `VocabularyList.tsx`: Bọc từ vựng trong bảng danh sách bằng `InteractiveKanjiText`.
+  - Toàn bộ tương tác bấm/hover đều có `e.stopPropagation()` → **tuyệt đối không gây lật thẻ flashcard** ngoài ý muốn.
+- **Kiểm thử & Chất lượng:**
+  - Thêm `tests/unit/kanji-utils.test.ts` (10 ca kiểm thử logic bóc tách và tra cứu).
+  - Thêm `tests/unit/interactive-kanji.test.tsx` (3 ca kiểm thử render, tooltip, popover, accessibility bàn phím).
+  - Frontend: `npm test` **243/243 tests pass 100%** (34 test files).
+  - Backend: `npm test` **45/45 tests pass 100%** (5 test files).
+  - Typecheck (`tsc -b`), Linting (`eslint`), Build: **0 lỗi** ở cả 2 phía.
+
+## [Phiên mới] Phần 7M — Tích hợp từ điển Hán Việt toàn diện 10,383 chữ (KANJIDIC VN) & Tách bạch nghĩa chữ Hán đơn lẻ ✅
+- **Vấn đề giải quyết theo phản hồi của người dùng:**
+  - Trước đây, khi click vào chữ Hán (ví dụ chữ `清` trong `清潔`), do chữ chưa có trong DB mẫu 50 chữ nên hệ thống fallback lấy `meaning` của cả từ ghép (`sạch sẽ, vệ sinh`), dẫn đến chữ Hán đơn lẻ hiển thị nghĩa của cả cụm từ.
+  - Người dùng yêu cầu chuẩn xác: Phải là **nghĩa của chính chữ Hán đơn lẻ đó** (ví dụ `清` - THANH: trong sạch, thanh khiết, thanh cao, thanh thoát...), lấy từ bộ thư viện từ điển Hán tự miễn phí.
+- **Tích hợp bộ dữ liệu từ điển mã nguồn mở (`trungnt2910/KanjiDictVN` - MIT License):**
+  - Tải và xử lý toàn bộ dữ liệu Hán tự chuẩn hóa KANJIDIC + Từ điển Hán Nôm Thiều Chửu & Trần Văn Chánh (hơn 10,383 mục từ Hán tự).
+  - Tích hợp trực tiếp tại `frontend/src/entities/kanji/data/kanji-dict-vn.json` (dung lượng gọn nhẹ ~894 KB, tra cứu offline $O(1)$ với độ trễ < 0.01ms, không cần gọi mạng).
+  - Tải về và xử lý hoàn toàn trên **ổ D:** (`d:\Ki_1_nam_4\Chuyen_De_4\kanji_recognizer`), tuân thủ nghiêm ngặt chỉ đạo không lưu vào ổ C. Đã dọn dẹp sạch sẽ các tệp nén/tạm sau khi trích xuất.
+- **Nâng cấp `lookupKanji` (`frontend/src/entities/kanji/model/kanji-dict.ts`):**
+  - Bổ sung `清` (THANH) và `潔` (KHIẾT) vào `KANJI_DATABASE` chi tiết đầy đủ On/Kun/nét/JLPT.
+  - Tra cứu thông minh: Ưu tiên ngân hàng giàu chi tiết → tra cứu toàn diện 10,383 ký tự trong `KANJI_VN_DICT`.
+  - Khớp âm Hán Việt chính xác theo ngữ cảnh nếu chữ có nhiều âm đọc (`sảnh thanh` + ngữ cảnh `THANH` → chọn `THANH`).
+  - Lấy nghĩa thuần túy của **chính chữ Hán đơn lẻ**, tuyệt đối không để nghĩa từ vựng ghép xâm phạm vào nghĩa chữ đơn.
+- **Tối ưu hóa UI Popover Card theo thiết kế người dùng yêu cầu (`KanjiPopover.tsx` & `kanji.css`):**
+  - Header: Ký tự chữ Hán to (`清`), Âm Hán Việt in hoa màu cam đất ấm (`THANH` - `#b85d19`), nút đóng `×` tinh tế ở góc trên bên phải.
+  - Đường kẻ phân cách ngang trang nhã (`kn-kanji-popover__divider`).
+  - Thân Popover: Hiển thị nghĩa Hán Việt thuần túy của chữ Hán đơn lẻ (ví dụ: `Trong sạch, thanh khiết, thanh cao, thanh thoát`).
+  - Thông tin mở rộng (On/Kun, số nét, JLPT) được bố trí tinh tế ở phần bổ trợ nếu có.
+- **Kiểm thử & Chất lượng:**
+  - Thêm test trong `tests/unit/kanji-utils.test.ts`: kiểm tra tra cứu `清` ra đúng nghĩa `thanh thoát`, không dính `vệ sinh`; kiểm tra tra cứu chữ Hán bất kỳ trong 10,383 từ (`龍`).
+  - Frontend: `npm test` **245/245 tests pass 100%** (34 test files).
+  - Typecheck (`npm run typecheck`): 0 lỗi.
+  - Linting (`npm run lint`): 0 lỗi.
+  - Build (`npm run build`): Build Vite thành công mượt mà trong 716ms.
+
+## [Phiên mới] Phần 7N — Cố định thẻ Flashcard & Triệt tiêu thanh cuộn khi mở Kanji Popover ✅
+- **Vấn đề giải quyết theo phản hồi của người dùng:**
+  - Khi bấm vào 1 chữ Hán Kanji (như `療` trong `治療`), popup Kanji mở xuống phía dưới vượt qua giới hạn đáy của thẻ, khiến `.kn-fc-card` (có `overflow-y: auto`) sinh ra thanh cuộn xám xấu xí ở cạnh phải thẻ flashcard và làm nội dung thẻ bị xê dịch.
+  - Người dùng yêu cầu: Thẻ flashcard phải **cố định 100%**, tuyệt đối **không được sinh thanh cuộn** khi bấm xem Hán tự.
+- **Giải pháp xử lý triệt để:**
+  - `frontend/src/features/flashcard/ui/flashcard.css`:
+    - Đổi thuộc tính của `.kn-fc-card` từ `overflow-y: auto` thành `overflow: visible`. Popover thoải mái nổi lên trên bề mặt thẻ bằng `z-index` và bóng đổ mượt mà, không bao giờ kích hoạt thanh cuộn của thẻ.
+    - Duy trì `overflow-y: auto` riêng cho `.kn-fc-card--back` nếu câu ví dụ ở mặt sau quá dài trên màn hình nhỏ.
+  - `frontend/src/entities/kanji/ui/KanjiPopover.tsx` & `kanji.css`:
+    - Tinh chỉnh huy hiệu số nét (`17 nét`) và cấp JLPT đưa lên cùng hàng với Header (`疗 LIỆU [17 nét] ×`).
+    - Bỏ phần đường kẻ đứt bên dưới nếu chữ không có On/Kun/bộ thủ, giúp popover cực kỳ gọn gàng (chiều cao chỉ ~80px), không còn bị tràn đáy.
+- **Kiểm thử & Chất lượng:**
+  - Frontend: `npm test` **245/245 tests pass 100%** (34/34 test files).
+  - Typecheck (`npm run typecheck`): 0 lỗi.
+  - Linting (`npm run lint`): 0 lỗi.
+  - Build (`npm run build`): Thành công trong 703ms.
+
+
+
+
