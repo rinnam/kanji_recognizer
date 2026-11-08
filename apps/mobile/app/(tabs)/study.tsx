@@ -260,102 +260,76 @@ export default function Study(): ReactElement {
           </View>
         </View>
 
-        {/* PHẦN 3: THẺ FLASHCARD (BỐ CỤC THOÁNG ĐÃNG) */}
+        {/* PHẦN 3: THẺ FLASHCARD */}
         <Link href="/flashcard" asChild>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Mở Flashcard"
-            style={({ pressed }) => [styles.studyCard, styles.flashcardCard, pressed && styles.cardPressed]}
+            style={({ pressed }) => [styles.studyCard, pressed && styles.cardPressed]}
           >
-            {/* Watermark chữ Hán chìm */}
-            <View style={styles.stampBox} accessible={false}>
-              <Text style={styles.stampKanji}>記</Text>
-            </View>
-
-            <View style={styles.cardHeader}>
-              <View style={styles.iconCircle}>
+            <View style={styles.cardMain}>
+              <View style={[styles.iconBox, styles.flashcardIconBox]}>
                 <Text style={styles.iconGlyph}>記</Text>
               </View>
-              <View style={styles.cardTitleWrap}>
+
+              <View style={styles.cardInfo}>
                 <View style={styles.titleRow}>
                   <Text style={styles.cardTitle}>Flashcard</Text>
-                  {summary.due > 0 && (
-                    <Text style={styles.dueBadge}>{summary.due} thẻ đến hạn</Text>
-                  )}
+                  {summary.due > 0 ? (
+                    <View style={styles.dueBadge}>
+                      <Text style={styles.dueBadgeText}>{summary.due} cần ôn</Text>
+                    </View>
+                  ) : null}
                 </View>
-                <Text style={styles.cardSubtitle}>暗記カード · Lật thẻ ôn tập ngắt quãng SM-2</Text>
+                <Text style={styles.cardDesc}>Ôn tập ngắt quãng SM-2 · Lật thẻ ghi nhớ</Text>
+              </View>
+
+              <View style={styles.arrowCircle}>
+                <Text style={styles.arrowGlyph}>›</Text>
               </View>
             </View>
 
-            {/* Tính năng chính - trình bày thoáng, không chật chội */}
-            <View style={styles.featuresRow}>
-              <View style={styles.featureItem}>
-                <Text style={styles.featureDot}>•</Text>
-                <Text style={styles.featureText}>3 chế độ ôn</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <Text style={styles.featureDot}>•</Text>
-                <Text style={styles.featureText}>Lật thẻ 2 mặt</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <Text style={styles.featureDot}>•</Text>
-                <Text style={styles.featureText}>Xáo trộn thẻ</Text>
-              </View>
-            </View>
-
-            <View style={styles.ctaButton}>
-              <Text style={styles.ctaButtonText}>
-                {summary.due > 0 ? `Ôn ${summary.due} thẻ đến hạn ngay` : 'Bắt đầu học Flashcard'}
+            <View style={[styles.cardAction, styles.flashcardAction]}>
+              <Text style={styles.cardActionText}>
+                {summary.due > 0 ? `Ôn ${summary.due} thẻ đến hạn` : 'Bắt đầu học thẻ'}
               </Text>
-              <Text style={styles.ctaArrow} accessible={false}>→</Text>
+              <Text style={styles.actionArrow}>→</Text>
             </View>
           </Pressable>
         </Link>
 
-        {/* PHẦN 4: THẺ LUYỆN TẬP / QUIZ (BỐ CỤC THOÁNG ĐÃNG) */}
+        {/* PHẦN 4: THẺ LUYỆN TẬP */}
         <Link href="/quiz" asChild>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Mở Luyện tập trắc nghiệm"
-            style={({ pressed }) => [styles.studyCard, styles.quizCard, pressed && styles.cardPressed]}
+            accessibilityLabel="Mở Luyện tập"
+            style={({ pressed }) => [styles.studyCard, pressed && styles.cardPressed]}
           >
-            {/* Watermark chữ Hán chìm */}
-            <View style={styles.stampBox} accessible={false}>
-              <Text style={styles.stampKanji}>問</Text>
-            </View>
-
-            <View style={styles.cardHeader}>
-              <View style={[styles.iconCircle, styles.quizIconCircle]}>
+            <View style={styles.cardMain}>
+              <View style={[styles.iconBox, styles.quizIconBox]}>
                 <Text style={[styles.iconGlyph, styles.quizIconGlyph]}>問</Text>
               </View>
-              <View style={styles.cardTitleWrap}>
+
+              <View style={styles.cardInfo}>
                 <View style={styles.titleRow}>
-                  <Text style={styles.cardTitle}>Luyện tập gõ</Text>
-                  <Text style={styles.quizBadge}>PHẢN XẠ NHANH</Text>
+                  <Text style={styles.cardTitle}>Luyện tập</Text>
+                  <View style={styles.quizTag}>
+                    <Text style={styles.quizTagText}>Phản xạ gõ</Text>
+                  </View>
                 </View>
-                <Text style={styles.cardSubtitle}>クイズ練習 · Nhìn chữ đọc & dịch nghĩa</Text>
+                <Text style={styles.cardDesc}>Đọc cách phát âm & dịch nghĩa tương ứng</Text>
+              </View>
+
+              <View style={styles.arrowCircle}>
+                <Text style={styles.arrowGlyph}>›</Text>
               </View>
             </View>
 
-            {/* Tính năng chính */}
-            <View style={styles.featuresRow}>
-              <View style={styles.featureItem}>
-                <Text style={styles.featureDot}>•</Text>
-                <Text style={styles.featureText}>Gõ Hiragana</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <Text style={styles.featureDot}>•</Text>
-                <Text style={styles.featureText}>Dịch nghĩa tiếng Việt</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <Text style={styles.featureDot}>•</Text>
-                <Text style={styles.featureText}>Tự động chuyển câu</Text>
-              </View>
-            </View>
-
-            <View style={[styles.ctaButton, styles.quizCtaButton]}>
-              <Text style={[styles.ctaButtonText, styles.quizCtaButtonText]}>Vào luyện tập ngay</Text>
-              <Text style={[styles.ctaArrow, styles.quizCtaArrow]} accessible={false}>→</Text>
+            <View style={[styles.cardAction, styles.quizAction]}>
+              <Text style={[styles.cardActionText, styles.quizActionText]}>
+                Vào luyện tập
+              </Text>
+              <Text style={[styles.actionArrow, styles.quizActionArrow]}>→</Text>
             </View>
           </Pressable>
         </Link>
@@ -517,8 +491,8 @@ const makeStyles = (t: AppTheme) =>
     content: {
       paddingHorizontal: 20,
       paddingTop: 14,
-      paddingBottom: 40,
-      gap: 20,
+      paddingBottom: 44,
+      gap: 22,
     },
     // PHẦN 1: Thẻ Phạm vi học
     scopeCard: {
@@ -675,56 +649,41 @@ const makeStyles = (t: AppTheme) =>
       color: t.muted,
       fontSize: 11,
     },
-    // PHẦN 3 & 4: Thẻ Flashcard & Quiz (Rộng rãi, thoáng đạt)
+    // PHẦN 3 & 4: Thẻ Flashcard & Quiz (Gọn gàng, thoáng đãng, cân đối)
     studyCard: {
-      position: 'relative',
-      overflow: 'hidden',
       borderRadius: 22,
-      borderWidth: 1,
+      borderWidth: 1.5,
       borderColor: t.border,
       backgroundColor: t.surface,
-      padding: 20,
-      gap: 16,
-    },
-    flashcardCard: {
-      borderColor: t.primary,
-      borderWidth: 1.5,
-    },
-    quizCard: {
-      borderWidth: 1.5,
-      borderColor: t.border,
+      paddingHorizontal: 20,
+      paddingVertical: 22,
+      gap: 18,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
     },
     cardPressed: {
-      opacity: 0.9,
+      opacity: 0.88,
       transform: [{ scale: 0.99 }],
     },
-    stampBox: {
-      position: 'absolute',
-      right: 16,
-      top: 10,
-      opacity: 0.06,
-      zIndex: 0,
-    },
-    stampKanji: {
-      fontSize: 96,
-      fontWeight: '900',
-      color: t.text,
-    },
-    cardHeader: {
+    cardMain: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 14,
-      zIndex: 1,
     },
-    iconCircle: {
-      width: 48,
-      height: 48,
+    iconBox: {
+      width: 50,
+      height: 50,
       borderRadius: 16,
-      backgroundColor: t.primary,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    quizIconCircle: {
+    flashcardIconBox: {
+      backgroundColor: t.primary,
+    },
+    quizIconBox: {
       backgroundColor: t.btnBg,
       borderWidth: 1,
       borderColor: t.border,
@@ -737,9 +696,9 @@ const makeStyles = (t: AppTheme) =>
     quizIconGlyph: {
       color: t.primary,
     },
-    cardTitleWrap: {
+    cardInfo: {
       flex: 1,
-      gap: 3,
+      gap: 5,
     },
     titleRow: {
       flexDirection: 'row',
@@ -748,143 +707,85 @@ const makeStyles = (t: AppTheme) =>
     },
     cardTitle: {
       color: t.text,
-      fontSize: 19,
+      fontSize: 18,
       fontWeight: '800',
     },
     dueBadge: {
       backgroundColor: t.primary,
+      paddingHorizontal: 9,
+      paddingVertical: 3,
+      borderRadius: 8,
+    },
+    dueBadgeText: {
       color: t.primaryContrast,
       fontSize: 11,
       fontWeight: '800',
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 8,
-      overflow: 'hidden',
     },
-    quizBadge: {
+    quizTag: {
       backgroundColor: t.btnBg,
-      color: t.primary,
-      fontSize: 10,
-      fontWeight: '800',
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 6,
-      overflow: 'hidden',
+      paddingHorizontal: 9,
+      paddingVertical: 3,
+      borderRadius: 8,
       borderWidth: 1,
       borderColor: t.border,
-      letterSpacing: 0.5,
     },
-    cardSubtitle: {
+    quizTagText: {
+      color: t.muted,
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    cardDesc: {
       color: t.muted,
       fontSize: 13,
-      fontWeight: '600',
+      lineHeight: 18,
     },
-    featuresRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 14,
-      paddingVertical: 4,
-      zIndex: 1,
-    },
-    featureItem: {
-      flexDirection: 'row',
+    arrowCircle: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: t.btnBg,
       alignItems: 'center',
-      gap: 6,
+      justifyContent: 'center',
     },
-    featureDot: {
-      color: t.primary,
-      fontSize: 14,
-      fontWeight: '800',
+    arrowGlyph: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: t.muted,
+      marginTop: -2,
     },
-    featureText: {
-      color: t.text,
-      fontSize: 13,
-      fontWeight: '600',
-      opacity: 0.85,
-    },
-    ctaButton: {
+    cardAction: {
       minHeight: 48,
-      backgroundColor: t.primary,
       borderRadius: 14,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
       paddingHorizontal: 16,
-      zIndex: 1,
+      marginTop: 8,
     },
-    quizCtaButton: {
+    flashcardAction: {
+      backgroundColor: t.primary,
+    },
+    quizAction: {
       backgroundColor: t.btnBg,
       borderWidth: 1,
       borderColor: t.btnBorder,
     },
-    ctaButtonText: {
-      color: t.primaryContrast,
+    cardActionText: {
       fontSize: 15,
       fontWeight: '800',
+      color: t.primaryContrast,
     },
-    quizCtaButtonText: {
+    quizActionText: {
       color: t.text,
     },
-    ctaArrow: {
-      color: t.primaryContrast,
+    actionArrow: {
       fontSize: 16,
       fontWeight: '800',
+      color: t.primaryContrast,
     },
-    quizCtaArrow: {
+    quizActionArrow: {
       color: t.primary,
-    },
-    // PHẦN 5: Thẻ Thêm từ vựng
-    importCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: 16,
-      borderRadius: 18,
-      borderWidth: 1,
-      borderColor: t.border,
-      backgroundColor: t.surface,
-      gap: 12,
-    },
-    importLeft: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-    importGlyphBox: {
-      width: 42,
-      height: 42,
-      borderRadius: 13,
-      backgroundColor: t.btnBg,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: t.border,
-    },
-    importGlyph: {
-      color: t.primary,
-      fontSize: 20,
-      fontWeight: '800',
-    },
-    importTextGroup: {
-      flex: 1,
-      gap: 2,
-    },
-    importTitle: {
-      color: t.text,
-      fontSize: 15,
-      fontWeight: '800',
-    },
-    importSub: {
-      color: t.muted,
-      fontSize: 12,
-      lineHeight: 16,
-    },
-    importArrow: {
-      color: t.muted,
-      fontSize: 24,
-      fontWeight: '300',
     },
     // Modal chọn phạm vi học
     modalOverlay: {
