@@ -1,0 +1,1 @@
+{"root":["./src/theme/tokens.ts","./src/components/catmascot.tsx","./src/components/flashcardview.tsx","./src/components/headerprogress.tsx","./src/components/srsratingbar.tsx","./src/navigation/bottomtabs.tsx","./src/screens/libraryscreen.tsx","./src/screens/practicescreen.tsx","./src/screens/settingsscreen.tsx","./src/screens/studyscreen.tsx","./app.tsx"],"version":"6.0.3"}
