@@ -1,10 +1,18 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    fs: {
+      allow: [
+        fileURLToPath(new URL('.', import.meta.url)),
+        fileURLToPath(new URL('../packages/core/src', import.meta.url)),
+        fileURLToPath(new URL('../packages/contracts/src', import.meta.url)),
+      ],
+    },
     // Keep relative /api calls same-origin in the browser while forwarding them to Fastify in local development.
     // Backend serves every route under the /api prefix (see backend/src/server.ts), so no path rewrite is needed.
     // An explicit VITE_API_BASE_URL still bypasses this proxy in the API client.

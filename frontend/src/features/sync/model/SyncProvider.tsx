@@ -10,7 +10,8 @@ import {
 import { ApiError } from '../../../shared/api';
 import { useDb } from '../../../shared/db';
 import { subscribeDataChanged } from '../../../shared/lib';
-import { resetAndPullFromServer, runSync, type SyncRunSummary } from './runSync';
+import { runSync, type SyncRunSummary } from './runSync';
+import { readSyncCursor } from './cursor';
 import { SyncContext, type SyncContextValue, type SyncState } from './sync-context';
 
 /** Debounce đồng bộ sau khi ngừng thay đổi local (yêu cầu Mục 6/F5). */
@@ -105,6 +106,10 @@ export function SyncProvider({ children }: { children: ReactNode }): ReactElemen
 
   // Đồng bộ lần đầu khi mount + bám trạng thái mạng.
   useEffect(() => {
+    let active = true;
+    void readSyncCursor(db).then(({ lastPulledAt }) => {
+      if (active && lastPulledAt) setLastSyncedAt((current) => current ?? lastPulledAt);
+    }).catch((error: unknown) => console.error('[sync] Không đọc được trạng thái đồng bộ:', error));
     const handleOnline = (): void => {
       setIsOnline(true);
       syncNowRef.current();
@@ -116,59 +121,17 @@ export function SyncProvider({ children }: { children: ReactNode }): ReactElemen
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Tự động dọn sạch cache IndexedDB cũ để nhận đúng 880 từ mới chuẩn từ server
-    const CLEAN_KEY = 'kanji_nest_clean_seed_880_done_v1';
-    if (localStorage.getItem(CLEAN_KEY) !== 'true') {
-      localStorage.setItem(CLEAN_KEY, 'true');
-      void (async (): Promise<void> => {
-        try {
-          setState('syncing');
-          const summary = await resetAndPullFromServer(db);
-          setLastSummary(summary);
-          setLastSyncedAt(new Date().toISOString());
-          setState('idle');
-        } catch (error) {
-          console.error('[sync] Không thể làm mới từ server:', error);
-          if (!offlineNow()) syncNowRef.current();
-        }
-      })();
-    } else if (!offlineNow()) {
-      syncNowRef.current();
-    }
+    if (!offlineNow()) syncNowRef.current();
 
     return (): void => {
+      active = false;
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       if (debounceTimerRef.current !== null) clearTimeout(debounceTimerRef.current);
     };
   }, [db]);
 
-  const resetAndPull = useCallback((): void => {
-    if (offlineNow()) {
-      setIsOnline(false);
-      setState('offline');
-      return;
-    }
-    if (runningRef.current) return;
-    runningRef.current = true;
-    setIsOnline(true);
-    setState('syncing');
-    setLastError(null);
-    void (async (): Promise<void> => {
-      try {
-        const summary = await resetAndPullFromServer(db);
-        setLastSummary(summary);
-        setLastSyncedAt(new Date().toISOString());
-        setState('idle');
-      } catch (error) {
-        console.error('[sync] Làm mới từ server thất bại:', error);
-        setLastError(describeSyncError(error));
-        setState('error');
-      } finally {
-        runningRef.current = false;
-      }
-    })();
-  }, [db]);
+  const resetAndPull = syncNow;
 
   const value = useMemo<SyncContextValue>(
     () => ({ state, isOnline, lastError, lastSummary, lastSyncedAt, syncNow, resetAndPull, scheduleSync }),

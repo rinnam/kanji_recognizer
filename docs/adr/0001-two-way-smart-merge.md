@@ -1,6 +1,6 @@
 # ADR 0001 — Two-Way Smart Merge (đồng bộ local-first ↔ PostgreSQL)
 
-- **Trạng thái:** Accepted
+- **Trạng thái:** Accepted; phần chọn bản ghi để truyền trong mục 3 được thay thế cho Spec 001 bởi [ADR 0005](0005-personal-library-sync.md).
 - **Ngày:** 2026-10-01
 - **Liên quan:** `docs/database/schema.md`, `docs/database/schema.sql`, `docs/reference/kotobase-feature-audit.md` (§4)
 

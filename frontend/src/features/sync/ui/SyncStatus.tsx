@@ -32,7 +32,11 @@ export function SyncStatus(): ReactElement {
   return (
     <div className="kn-sync" role="status" aria-live="polite" title={detail}>
       <span className={`kn-sync__dot kn-sync__dot--${state}`} aria-hidden="true" />
-      <span className="kn-sync__label">{STATE_LABEL[state]}</span>
+      <span className="kn-sync__label">
+        {lastSyncedAt === null && state !== 'syncing'
+          ? `Chưa đồng bộ lần đầu${state === 'idle' ? '' : ` · ${STATE_LABEL[state]}`}`
+          : STATE_LABEL[state]}
+      </span>
       <Button
         variant="secondary"
         onClick={syncNow}
@@ -45,7 +49,7 @@ export function SyncStatus(): ReactElement {
         variant="secondary"
         onClick={resetAndPull}
         disabled={state === 'syncing' || !isOnline}
-        title="Tải lại toàn bộ dữ liệu từ máy chủ (xóa sạch bộ nhớ tạm local)"
+        title="Đồng bộ lại với máy chủ và giữ các thay đổi đang chờ"
         aria-label="Làm mới từ server"
       >
         Làm mới từ server

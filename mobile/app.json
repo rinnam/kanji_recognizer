@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "Kanji Nest",
+    "slug": "kanji-nest",
+    "scheme": "kanjinest",
+    "userInterfaceStyle": "automatic",
+    "plugins": ["expo-router"],
+    "web": { "bundler": "metro" }
+  }
+}

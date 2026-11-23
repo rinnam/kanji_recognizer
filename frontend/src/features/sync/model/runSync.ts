@@ -1,15 +1,13 @@
-import { pull, push, type FolderDto, type SyncCounts, type VocabularyDto } from '../../../shared/api';
-import { STORE } from '../../../shared/config';
-import { emitDataChanged, idbBulkPut, idbClear, idbGetAll } from '../../../shared/lib';
-import { readSyncCursor, writeLastPulledAt, writeLastPushedAt } from './cursor';
 import {
-  chunk,
-  latestIso,
-  maxUpdatedAt,
-  orderFoldersParentsFirst,
-  pickIncomingWinners,
-  selectDirty,
-} from './engine';
+  pull, push, type FolderDto, type PullResult, type SyncCounts, type VocabularyDto,
+} from '../../../shared/api';
+import { STORE } from '../../../shared/config';
+import { emitDataChanged } from '../../../shared/lib/change-bus';
+import {
+  queueRevision, runIdbTransaction, txGet, txGetAll, type PendingRevision, type StudyStore,
+} from '../../../shared/lib/idb';
+import { SYNC_META_KEY } from './cursor';
+import { chunk, orderFoldersParentsFirst } from './engine';
 
 export interface SyncRunSummary {
   pushed: { folders: SyncCounts; vocabularies: SyncCounts };
@@ -17,121 +15,106 @@ export interface SyncRunSummary {
   serverTime: string;
 }
 
-const EMPTY_COUNTS: SyncCounts = { applied: 0, skipped: 0 };
-
-/** Số bản ghi tối đa mỗi lô push (giữ body dưới giới hạn ~1 MiB mặc định của Fastify). */
+const SYNC_STORES = [STORE.folders, STORE.vocabularies, STORE.pending, STORE.meta];
+const ENROLLED = 'sync.pendingRevisionsEnrolled';
 const PUSH_BATCH_SIZE = 200;
 
-/** Một bản ghi bẩn kèm loại, để gộp folders + vocabularies vào MỘT dòng thời gian push. */
-type TaggedDirty =
-  | { kind: 'folder'; record: FolderDto }
-  | { kind: 'vocabulary'; record: VocabularyDto };
-
-function addCounts(a: SyncCounts, b: SyncCounts): SyncCounts {
-  return { applied: a.applied + b.applied, skipped: a.skipped + b.skipped };
-}
-
-/**
- * Một vòng đồng bộ hai chiều (local-first):
- *  1) PUSH các bản ghi local "bẩn" (`updatedAt` > `lastPushedAt`; chưa có con trỏ → tất cả),
- *     bao gồm cả tombstone để xóa lan truyền. Push thành công → lưu `lastPushedAt` =
- *     `updatedAt` LỚN NHẤT của tập vừa đẩy (KHÔNG dùng giờ máy client).
- *  2) PULL delta kể từ `lastPulledAt` → merge LWW (giữ tombstone) vào IndexedDB →
- *     lưu `lastPulledAt` = `serverTime` do server trả về.
- *
- * Push trước Pull để không đẩy ngược các bản vừa kéo về trong cùng một vòng. Thao tác
- * ở tầng store thô (`shared/lib` idb + `STORE`) vì sync là việc hạ tầng chung mọi entity;
- * local record = DTO (LocalFolder = FolderDto, LocalVocabulary = VocabularyDto).
- */
-export async function runSync(db: IDBDatabase): Promise<SyncRunSummary> {
-  const cursor = await readSyncCursor(db);
-
-  const localFolders = await idbGetAll<FolderDto>(db, STORE.folders);
-  const localVocabularies = await idbGetAll<VocabularyDto>(db, STORE.vocabularies);
-
-  // 1) PUSH các bản ghi bẩn — ĐẨY THEO LÔ (tránh vượt giới hạn body ~1 MiB của server).
-  // THỨ TỰ AN TOÀN KHÓA NGOẠI: đẩy TẤT CẢ folder TRƯỚC (cha trước con, theo độ sâu), RỒI tới
-  // vocabulary. Nếu trộn theo `updatedAt` rồi chia lô, một thư mục con có thể vào lô TRƯỚC thư
-  // mục cha (hoặc một từ lên trước thư mục nó tham chiếu): BE set `parent_id`/link tới bản ghi
-  // CHƯA tồn tại ở lô này ⇒ FK violation ⇒ "Lỗi đồng bộ". Folder-trước-vocab + cha-trước-con
-  // khử triệt để lỗi đó (BE còn xử lý tự-tham-chiếu trong MỘT request bằng 2 pha).
-  const dirtyFolders = selectDirty(localFolders, cursor.lastPushedAt);
-  const dirtyVocabularies = selectDirty(localVocabularies, cursor.lastPushedAt);
-
-  let pushed = { folders: EMPTY_COUNTS, vocabularies: EMPTY_COUNTS };
-  if (dirtyFolders.length > 0 || dirtyVocabularies.length > 0) {
-    const orderedFolders = orderFoldersParentsFirst(dirtyFolders);
-    const orderedVocabularies = [...dirtyVocabularies].sort(
-      (a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime(),
-    );
-    const timeline: TaggedDirty[] = [
-      ...orderedFolders.map((record): TaggedDirty => ({ kind: 'folder', record })),
-      ...orderedVocabularies.map((record): TaggedDirty => ({ kind: 'vocabulary', record })),
-    ];
-
-    let folderCounts: SyncCounts = { applied: 0, skipped: 0 };
-    let vocabularyCounts: SyncCounts = { applied: 0, skipped: 0 };
-
-    for (const batch of chunk(timeline, PUSH_BATCH_SIZE)) {
-      const folders: FolderDto[] = [];
-      const vocabularies: VocabularyDto[] = [];
-      for (const item of batch) {
-        if (item.kind === 'folder') folders.push(item.record);
-        else vocabularies.push(item.record);
-      }
-      const result = await push({ folders, vocabularies });
-      folderCounts = addCounts(folderCounts, result.folders);
-      vocabularyCounts = addCounts(vocabularyCounts, result.vocabularies);
-    }
-
-    // Vì thứ tự đẩy KHÔNG còn tăng đơn điệu theo `updatedAt` (folder-trước-vocab), không thể
-    // dời con trỏ an toàn giữa chừng. Chỉ dời con trỏ SAU KHI đẩy xong TOÀN BỘ: nếu một lô ném
-    // lỗi thì con trỏ GIỮ nguyên và vòng sau đẩy lại từ đầu (push idempotent ⇒ không mất dữ liệu).
-    const mark = latestIso([
-      cursor.lastPushedAt,
-      maxUpdatedAt([...dirtyFolders, ...dirtyVocabularies]),
+async function capturePending(db: IDBDatabase) {
+  return runIdbTransaction(db, SYNC_STORES, 'readwrite', async (tx) => {
+    const [folders, words, enrolled] = await Promise.all([
+      txGetAll<FolderDto>(tx, STORE.folders),
+      txGetAll<VocabularyDto>(tx, STORE.vocabularies),
+      txGet(tx, STORE.meta, ENROLLED),
     ]);
-    if (mark !== null) await writeLastPushedAt(db, mark);
-
-    pushed = { folders: folderCounts, vocabularies: vocabularyCounts };
-  }
-
-  // 2) PULL delta + merge LWW.
-  const pullResult = await pull(cursor.lastPulledAt ?? undefined);
-  const folderWinners = pickIncomingWinners(localFolders, pullResult.folders);
-  const vocabularyWinners = pickIncomingWinners(localVocabularies, pullResult.vocabularies);
-  await idbBulkPut(db, STORE.folders, folderWinners);
-  await idbBulkPut(db, STORE.vocabularies, vocabularyWinners);
-  await writeLastPulledAt(db, pullResult.serverTime);
-
-  if (folderWinners.length > 0 || vocabularyWinners.length > 0) {
-    emitDataChanged();
-  }
-
-  return {
-    pushed,
-    merged: { folders: folderWinners.length, vocabularies: vocabularyWinners.length },
-    serverTime: pullResult.serverTime,
-  };
+    if (!enrolled) {
+      for (const folder of folders) queueRevision(tx, STORE.folders, folder.id);
+      for (const word of words) queueRevision(tx, STORE.vocabularies, word.id);
+      tx.objectStore(STORE.meta).put({ key: ENROLLED, value: true });
+    }
+    const revisions = await txGetAll<PendingRevision>(tx, STORE.pending);
+    const dirty = (kind: StudyStore) =>
+      new Set(revisions.filter((row) => row.entityKind === kind).map((row) => row.recordId));
+    const dirtyFolders = dirty(STORE.folders);
+    const dirtyWords = dirty(STORE.vocabularies);
+    return {
+      revisions,
+      folders: orderFoldersParentsFirst(folders.filter((row) => dirtyFolders.has(row.id))),
+      words: words.filter((row) => dirtyWords.has(row.id)),
+    };
+  });
 }
 
-/** Tải lại toàn bộ dữ liệu từ server: xóa cache vocabularies local và nạp lại sạch sẽ. */
-export async function resetAndPullFromServer(db: IDBDatabase): Promise<SyncRunSummary> {
-  const pullResult = await pull();
-  await idbClear(db, STORE.vocabularies);
-  await idbBulkPut(db, STORE.vocabularies, pullResult.vocabularies);
+function countAcknowledgements(total: SyncCounts, counts: SyncCounts, expected: number): void {
+  if (!Number.isInteger(counts.applied) || !Number.isInteger(counts.skipped) ||
+      counts.applied < 0 || counts.skipped < 0 || counts.applied + counts.skipped !== expected) {
+    throw new Error('Máy chủ chưa xác nhận đầy đủ các thay đổi.');
+  }
+  total.applied += counts.applied;
+  total.skipped += counts.skipped;
+}
 
-  const localFolders = await idbGetAll<FolderDto>(db, STORE.folders);
-  const folderWinners = pickIncomingWinners(localFolders, pullResult.folders);
-  await idbBulkPut(db, STORE.folders, folderWinners);
+async function mergeRows<T extends FolderDto | VocabularyDto>(
+  tx: IDBTransaction, store: StudyStore, rows: T[], pending: Set<string>,
+): Promise<number> {
+  const current = new Map((await txGetAll<T>(tx, store)).map((row) => [row.id, row]));
+  let count = 0;
+  for (const row of rows) {
+    if (pending.has(row.id)) continue;
+    const local = current.get(row.id);
+    if (local && Date.parse(row.updatedAt) < Date.parse(local.updatedAt)) continue;
+    if (local && JSON.stringify(local) === JSON.stringify(row)) continue;
+    tx.objectStore(store).put(row);
+    count++;
+  }
+  return count;
+}
 
-  await writeLastPulledAt(db, pullResult.serverTime);
-  await writeLastPushedAt(db, pullResult.serverTime);
-  emitDataChanged();
+function validatePull(result: PullResult): void {
+  if (!Number.isFinite(Date.parse(result.serverTime)) ||
+      !Array.isArray(result.folders) || !Array.isArray(result.vocabularies) ||
+      [...result.folders, ...result.vocabularies].some((row) =>
+        typeof row?.id !== 'string' || !row.id || !Number.isFinite(Date.parse(row.updatedAt)) ||
+        (row.deletedAt !== null && !Number.isFinite(Date.parse(row.deletedAt))))) {
+    throw new Error('Dữ liệu đồng bộ từ máy chủ không hợp lệ.');
+  }
+}
 
-  return {
-    pushed: { folders: EMPTY_COUNTS, vocabularies: EMPTY_COUNTS },
-    merged: { folders: folderWinners.length, vocabularies: pullResult.vocabularies.length },
-    serverTime: pullResult.serverTime,
-  };
+export async function runSync(db: IDBDatabase): Promise<SyncRunSummary> {
+  const captured = await capturePending(db);
+  const pushed = { folders: { applied: 0, skipped: 0 }, vocabularies: { applied: 0, skipped: 0 } };
+  for (const folders of chunk(captured.folders, PUSH_BATCH_SIZE)) {
+    const result = await push({ folders, vocabularies: [] });
+    countAcknowledgements(pushed.folders, result.folders, folders.length);
+    countAcknowledgements(pushed.vocabularies, result.vocabularies, 0);
+  }
+  for (const vocabularies of chunk(captured.words, PUSH_BATCH_SIZE)) {
+    const result = await push({ folders: [], vocabularies });
+    countAcknowledgements(pushed.folders, result.folders, 0);
+    countAcknowledgements(pushed.vocabularies, result.vocabularies, vocabularies.length);
+  }
+
+  const incoming = await pull();
+  validatePull(incoming);
+  const merged = await runIdbTransaction(db, SYNC_STORES, 'readwrite', async (tx) => {
+    const sent = new Map(captured.revisions.map((row) =>
+      [JSON.stringify([row.entityKind, row.recordId]), row.revision]));
+    const folders = new Set<string>();
+    const words = new Set<string>();
+    for (const row of await txGetAll<PendingRevision>(tx, STORE.pending)) {
+      const key = [row.entityKind, row.recordId];
+      if (sent.get(JSON.stringify(key)) === row.revision) {
+        tx.objectStore(STORE.pending).delete(key);
+      } else {
+        (row.entityKind === STORE.folders ? folders : words).add(row.recordId);
+      }
+    }
+    const results = {
+      folders: await mergeRows(tx, STORE.folders, incoming.folders, folders),
+      vocabularies: await mergeRows(tx, STORE.vocabularies, incoming.vocabularies, words),
+    };
+    tx.objectStore(STORE.meta).put({ key: SYNC_META_KEY.lastPulledAt, value: incoming.serverTime });
+    return results;
+  });
+  if (merged.folders || merged.vocabularies) emitDataChanged();
+  return { pushed, merged, serverTime: incoming.serverTime };
 }

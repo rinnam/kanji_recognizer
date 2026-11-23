@@ -4,6 +4,10 @@
 
 ## Summary
 
+> **Architecture amendment (2026-11-23).** [ADR 0006](../../docs/adr/0006-expo-universal-workspace.md)
+> replaces the Capacitor execution plan below. Follow [expo-migration.md](expo-migration.md)
+> for the active delivery sequence. Existing parity, synchronization and recovery requirements apply.
+
 Package the existing responsive web workspace as locally installed Android and iOS apps. Keep the browser release available. First make initial sync safe for a phone that already contains offline work, then verify identical library and study outcomes on real devices.
 
 ## Technical Context
@@ -39,10 +43,12 @@ All five design gates pass subject to implementing and validating these obligati
 - `frontend/src/features/sync/`: startup, refresh, status, cursor management and reconciliation. Retain downward feature imports.
 - `backend/`: existing owner-scoped HTTP boundary. Limit changes to evidenced connectivity/configuration gaps. Preserve routes, services, repositories and current wire format.
 
+[ADR 0005](../../docs/adr/0005-personal-library-sync.md) governs transfer selection and equal-timestamp reconciliation for this release.
+
 ## Delivery sequence
 
 1. Capture fixture-based web baselines for SC-001, SC-002 and SC-004. Characterize sync behavior before modifying it.
-2. Add failing cases for offline-first edits, interrupted push/pull, concurrent local edits during pull, stale tombstones and retry. Replace startup reset and make normal refresh reconcile safely. Verify SC-003, SC-006 and SC-007 in isolation.
+2. Characterize destructive reset, late server arrivals after a completed pull, same-millisecond edits during push, failed batches and concurrent edits during pull. Use durable per-record pending revisions and full owner-scoped pulls on both web and mobile. Verify the sync scenarios with fixtures before packaging and on physical devices afterward.
 3. Generate the native packages from the same build. Configure the service origin, safe-area handling and keyboard behavior. Verify first launch with networking disabled.
 4. Exercise folder/library/import, Flashcard, Quiz, audio, both themes and accessibility on physical devices. Address evidenced platform gaps in the shared app or a narrow adapter.
 5. Validate in-place upgrade and recovery under SC-005. Record results per target before sign-off.

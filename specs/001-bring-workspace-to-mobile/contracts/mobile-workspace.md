@@ -6,9 +6,13 @@ The installed package serves the same workspace and bundled assets locally. Firs
 
 ## Sync boundary
 
-Use the existing owner-scoped POST /api/sync/push with folders and vocabularies. The response includes serverTime and applied/skipped counts per entity. Push parent folders, child folders, then vocabulary. GET /api/sync/pull takes the last committed pull time as optional since and returns serverTime, folders and vocabularies including tombstones. A fresh installation omits since. Preserve the [existing merge policy](../../../docs/adr/0001-two-way-smart-merge.md). Retry using stable IDs. Serialize overlapping sync runs and schedule another pass for edits made during a run.
+Use the existing owner-scoped POST /api/sync/push with folders and vocabularies. Push a captured set of pending local revisions, parents before children and folders before words. Keep stable record IDs across retries. After all batches return valid acknowledgement counts for every submitted record, clear only pending entries whose current revision still equals the captured revision. A skipped record is reconciled with the authoritative winner on pull. A failed or incomplete batch leaves the captured work eligible for replay.
+
+For this release, both updated clients request GET /api/sync/pull **without since on every reconciliation**, including reconnect and manual refresh. The complete owner-scoped response includes live records and tombstones. This ensures that an old edit committed on the server after an earlier pull is discoverable next time. Use updatedAt only to choose the winning version of the same record under [ADR 0001](../../../docs/adr/0001-two-way-smart-merge.md). Merge against current local rows and commit winners and completion metadata atomically. Absence from a response does not delete a local row. A malformed or incomplete response cannot complete first sync. Serialize runs and schedule another pass for edits made in flight.
 
 Startup, reconnect and manual refresh must retain confirmed edits. Remove the automatic vocabulary reset and route normal refresh through reconciliation; any full re-read must merge without clearing local rows. A response timeout, malformed response or failed local commit must leave enough durable state for retry. Network availability alone cannot clear the pending-first-sync indication.
+
+Equal timestamps use the server's stored row as the tie winner, including its deletion state ([ADR 0005](../../../docs/adr/0005-personal-library-sync.md)). Read current pending state inside the pull-commit transaction. If a revision is still pending for a tied row, preserve it and schedule another sync. Otherwise apply the complete server row, including its memberships. Identical rows are a no-op. This rule also recovers after a crash between a successful push acknowledgement and pull.
 
 ## User interactions
 

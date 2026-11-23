@@ -1,8 +1,8 @@
 <!--
 Sync Impact Report
-Version change: unversioned scaffold to 1.0.0 (first constitution on this branch).
-Principles: filled the five template slots with the project principles below.
-Sections added: Project Boundaries and Delivery and Review.
+Version change: 1.0.0 to 2.0.0.
+Principle I: replace the mandate to ship the web build with a shared Expo implementation.
+Project Boundaries: direct plans to the approved Expo architecture.
 Sections removed: none.
 Follow-up: owner to confirm the formal ratification date.
 -->
@@ -10,13 +10,13 @@ Follow-up: owner to confirm the formal ratification date.
 
 ## Core Principles
 
-### I. One Web Interface Across Platforms
+### I. One Shared Interface Across Platforms
 
-The existing web workspace in `frontend/` MUST be the source of the screens, styles and
-interactions shipped on every platform. Mobile packages MUST run that web build. A change to
-the folder tree, vocabulary table or Overview, Flashcard and Quiz tabs MUST reach each target
-through the same frontend change. Compact layouts MUST follow the existing responsive web
-behavior. An intentional change to that experience MUST be identified in the feature spec.
+The existing workspace in `frontend/` MUST be the visual and behavioral reference.
+Extract reusable logic and design tokens before porting screens. The Expo app MUST share
+the workspace presentation and study workflows across web, Android and iOS. Compact
+layouts MUST follow the existing responsive web behavior. An intentional change to that
+experience MUST be identified in the feature spec.
 
 ### II. Thin Platform Adapters
 
@@ -54,8 +54,8 @@ states. A target without runtime evidence MUST be recorded as unverified.
 All clients MUST use the shared backend through its HTTP boundary. Client code MUST respect
 Feature-Sliced Design imports. Backend requests MUST flow through routes and controllers,
 services and repositories to the database. Database credentials MUST stay on the server.
-The [cross-platform plan](../../docs/architecture/cross-platform.md) records packaging choices
-and delivery phases, including Capacitor for Android and iOS.
+The [Expo decision](../../docs/adr/0006-expo-universal-workspace.md) records the delivery
+architecture and its relationship to the previous packaging proposal.
 
 ## Delivery and Review
 
@@ -75,4 +75,4 @@ and link to supporting evidence. Incompatible changes to principles require a ma
 increment, additional or expanded obligations a minor increment, and wording corrections a
 patch increment. Each adopted amendment MUST update the version and amendment date.
 
-**Version**: 1.0.0 | **Ratified**: TODO(RATIFICATION_DATE): owner confirmation pending | **Last Amended**: 2026-11-22
+**Version**: 2.0.0 | **Ratified**: TODO(RATIFICATION_DATE): owner confirmation pending | **Last Amended**: 2026-11-23

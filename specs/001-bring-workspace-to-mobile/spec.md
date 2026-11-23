@@ -6,6 +6,9 @@
 
 **Status**: Draft
 
+The target app shares the workspace across browser, Android and iOS. The existing
+Vite app remains the visual and behavioral reference until the replacement passes parity.
+
 **Input**: Bring the existing Kanji Nest web experience to Android and iOS. Learners should recognize the workspace and obtain the same library and study outcomes on their phones.
 
 ## Clarifications
@@ -113,7 +116,7 @@ A learner with a locally saved library can study while disconnected and reconcil
 
 - **SC-001**: Both installed mobile apps pass the workspace comparison in both themes at matching compact widths. Every difference in labels, layout or available actions is resolved or documented and accepted by the owner.
 - **SC-002**: All scripted library, Flashcard and Quiz scenarios produce equivalent records, memberships, review schedules and grades on Android, iOS and the reference web app.
-- **SC-003**: On each mobile target, the outage scenario loses zero confirmed edits or ratings after restart. Reconnection introduces zero duplicate records or incorrectly reactivated deletions.
+- **SC-003**: On each mobile target, the outage scenario loses zero confirmed edits or ratings after restart. Reconnection introduces zero duplicate records or incorrectly reactivated deletions. Include a receiver that synced before another device uploaded an older offline edit or deletion, and two edits saved within the same clock tick while a sync was in flight. When devices change the same word at the same timestamp, both must converge to the server-retained version after all pending work settles, including edit versus deletion.
 - **SC-004**: A tester can select a folder, add a word, rate a card and submit a quiz answer on each phone using touch and its screen reader, and on web using the keyboard.
 - **SC-005**: Any required restore drill has zero missing or changed study records relative to its backup. Results identify the platform and runtime tested. A target without a runtime result remains unverified.
 

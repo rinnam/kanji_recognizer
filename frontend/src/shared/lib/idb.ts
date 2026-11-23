@@ -30,6 +30,9 @@ export function openKanjiDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE.meta)) {
         db.createObjectStore(STORE.meta, { keyPath: 'key' });
       }
+      if (!db.objectStoreNames.contains(STORE.pending)) {
+        db.createObjectStore(STORE.pending, { keyPath: ['entityKind', 'recordId'] });
+      }
     };
 
     request.onsuccess = (): void => resolve(request.result);
@@ -82,7 +85,7 @@ export function idbCount(db: IDBDatabase, name: string): Promise<number> {
 }
 
 export async function idbPut<T>(db: IDBDatabase, name: string, value: T): Promise<void> {
-  await toPromise(store(db, name, 'readwrite').put(value));
+  await idbBulkPutMany(db, [{ store: name, values: [value] }]);
 }
 
 export function idbBulkPut<T>(
@@ -90,17 +93,7 @@ export function idbBulkPut<T>(
   name: string,
   values: readonly T[],
 ): Promise<void> {
-  if (values.length === 0) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(name, 'readwrite');
-    const objectStore = transaction.objectStore(name);
-    for (const value of values) objectStore.put(value);
-    transaction.oncomplete = (): void => resolve();
-    transaction.onerror = (): void =>
-      reject(transaction.error ?? new Error('Lỗi ghi hàng loạt IndexedDB'));
-    transaction.onabort = (): void =>
-      reject(transaction.error ?? new Error('Giao dịch IndexedDB bị hủy'));
-  });
+  return idbBulkPutMany(db, [{ store: name, values }]);
 }
 
 export async function idbDelete(
@@ -132,17 +125,81 @@ export function idbBulkPutMany(
 ): Promise<void> {
   const active = writes.filter((write) => write.values.length > 0);
   if (active.length === 0) return Promise.resolve();
-  const storeNames = active.map((write) => write.store);
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(storeNames, 'readwrite');
+  const storeNames = new Set(active.map((write) => write.store));
+  if (active.some((write) => isStudyStore(write.store))) storeNames.add(STORE.pending);
+  return runIdbTransaction(db, [...storeNames], 'readwrite', async (transaction) => {
     for (const write of active) {
       const objectStore = transaction.objectStore(write.store);
-      for (const value of write.values) objectStore.put(value);
+      for (const value of write.values) {
+        if (isStudyStore(write.store)) {
+          await putLocalRevision(transaction, write.store, value as VersionedRow);
+        } else {
+          await toPromise(objectStore.put(value));
+        }
+      }
     }
-    transaction.oncomplete = (): void => resolve();
-    transaction.onerror = (): void =>
-      reject(transaction.error ?? new Error('Lỗi ghi hàng loạt nhiều store IndexedDB'));
-    transaction.onabort = (): void =>
-      reject(transaction.error ?? new Error('Giao dịch IndexedDB bị hủy'));
   });
+}
+
+export type StudyStore = typeof STORE.folders | typeof STORE.vocabularies;
+
+interface VersionedRow {
+  id: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
+export interface PendingRevision {
+  entityKind: StudyStore;
+  recordId: string;
+  revision: string;
+}
+
+function isStudyStore(name: string): name is StudyStore {
+  return name === STORE.folders || name === STORE.vocabularies;
+}
+
+export async function runIdbTransaction<T>(
+  db: IDBDatabase,
+  names: string[],
+  mode: IDBTransactionMode,
+  operation: (transaction: IDBTransaction) => Promise<T>,
+): Promise<T> {
+  const transaction = db.transaction(names, mode);
+  const completion = new Promise<void>((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () => reject(transaction.error ?? new Error('Giao dịch IndexedDB bị hủy'));
+  });
+  const result = operation(transaction).catch((error: unknown) => {
+    try { transaction.abort(); } catch { /* The transaction already aborted. */ }
+    throw error;
+  });
+  const [value] = await Promise.all([result, completion]);
+  return value;
+}
+
+export function txGet<T>(tx: IDBTransaction, name: string, key: IDBValidKey): Promise<T | undefined> {
+  return toPromise(tx.objectStore(name).get(key));
+}
+
+export function txGetAll<T>(tx: IDBTransaction, name: string): Promise<T[]> {
+  return toPromise(tx.objectStore(name).getAll());
+}
+
+export function queueRevision(tx: IDBTransaction, entityKind: StudyStore, recordId: string): void {
+  const entry: PendingRevision = { entityKind, recordId, revision: crypto.randomUUID() };
+  tx.objectStore(STORE.pending).put(entry);
+}
+
+async function putLocalRevision(tx: IDBTransaction, name: StudyStore, value: VersionedRow) {
+  const previous = await txGet<VersionedRow>(tx, name, value.id);
+  const previousTime = previous ? Date.parse(previous.updatedAt) : Number.NaN;
+  const updatedAt = Date.parse(value.updatedAt) <= previousTime
+    ? new Date(previousTime + 1).toISOString()
+    : value.updatedAt;
+  const deletedAt = value.deletedAt !== null && previous?.deletedAt !== value.deletedAt
+    ? updatedAt
+    : value.deletedAt;
+  tx.objectStore(name).put({ ...value, updatedAt, deletedAt });
+  queueRevision(tx, name, value.id);
 }
