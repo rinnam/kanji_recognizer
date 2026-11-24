@@ -8,6 +8,7 @@ import { flashcardRoutes } from './routes/flashcard.routes.js';
 import { folderRoutes } from './routes/folder.routes.js';
 import { quizRoutes } from './routes/quiz.routes.js';
 import { syncRoutes } from './routes/sync.routes.js';
+import { transcriptRoutes } from './routes/transcript.routes.js';
 import { ttsRoutes } from './routes/tts.routes.js';
 import { vocabularyRoutes } from './routes/vocabulary.routes.js';
 import {
@@ -87,6 +88,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(quizRoutes, { prefix: '/api' });
   await app.register(syncRoutes, { prefix: '/api' });
   await app.register(ttsRoutes, { prefix: '/api' });
+  await app.register(transcriptRoutes, { prefix: '/api' });
 
   return app;
 }

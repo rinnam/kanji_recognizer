@@ -47,3 +47,6 @@ docs/database-schema.sql
 
 # Local DB backups
 backups/
+
+# Local test module
+test_module/

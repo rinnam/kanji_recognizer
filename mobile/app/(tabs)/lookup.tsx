@@ -4,6 +4,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
+import { HandwritingModal } from '../../src/features/handwriting/HandwritingModal';
 
 const TABS = [
   { key: 'words', label: 'Từ vựng' },
@@ -64,33 +65,14 @@ export default function LookupScreen() {
         </Text>
       </View>
 
-      <Modal visible={handwritingOpen} transparent animationType="fade" onRequestClose={() => setHandwritingOpen(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Vùng viết tay tiếng Nhật</Text>
-              <Pressable onPress={() => setHandwritingOpen(false)}>
-                <Text style={styles.closeText}>Đóng</Text>
-              </Pressable>
-            </View>
-            <View style={styles.canvasBox}>
-              <Text style={styles.canvasHint}>Khung vẽ Kanji (chưa kết nối engine nhận diện)</Text>
-            </View>
-            <View style={styles.modalFooter}>
-              <Pressable style={styles.outlineBtn}>
-                <Text style={styles.outlineBtnText}>Xóa nét</Text>
-              </Pressable>
-              <View style={styles.candidatesRow}>
-                {['—', '—', '—', '—', '—'].map((c, idx) => (
-                  <View key={idx} style={styles.candidateChip}>
-                    <Text style={styles.candidateText}>{c}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <HandwritingModal
+        visible={handwritingOpen}
+        onClose={() => setHandwritingOpen(false)}
+        onSelectKanji={(kanji) => {
+          setQuery(kanji);
+          setActiveTab('kanji');
+        }}
+      />
     </AppShell>
   );
 }
