@@ -181,6 +181,30 @@ export default function FlashcardQuizPracticeScreen() {
     });
   };
 
+  const descendantMap = useMemo(() => {
+    const childrenByParent = new Map<string, string[]>();
+    for (const f of folders) {
+      if (f.parentId) {
+        const list = childrenByParent.get(f.parentId) ?? [];
+        list.push(f.id);
+        childrenByParent.set(f.parentId, list);
+      }
+    }
+    const map = new Map<string, Set<string>>();
+    const collect = (id: string): Set<string> => {
+      const cached = map.get(id);
+      if (cached) return cached;
+      const set = new Set<string>([id]);
+      for (const childId of childrenByParent.get(id) ?? []) {
+        for (const desc of collect(childId)) set.add(desc);
+      }
+      map.set(id, set);
+      return set;
+    };
+    for (const f of folders) collect(f.id);
+    return map;
+  }, [folders]);
+
   const folderTreeRows = useMemo(() => {
     const byParent = new Map<string | null, FolderDto[]>();
     for (const f of folders) {
@@ -195,7 +219,8 @@ export default function FlashcardQuizPracticeScreen() {
     const rows: { folder: FolderDto; depth: number; count: number }[] = [];
     const visit = (parentId: string | null, depth: number) => {
       for (const f of byParent.get(parentId) ?? []) {
-        const count = words.filter((w) => w.folderIds.includes(f.id)).length;
+        const scopeIds = descendantMap.get(f.id) ?? new Set([f.id]);
+        const count = words.filter((w) => w.folderIds.some((fid) => scopeIds.has(fid))).length;
         rows.push({ folder: f, depth, count });
         visit(f.id, depth + 1);
       }
@@ -203,17 +228,18 @@ export default function FlashcardQuizPracticeScreen() {
     visit(null, 0);
     const q = folderQuery.trim().toLowerCase();
     return q ? rows.filter((r) => r.folder.name.toLowerCase().includes(q)) : rows;
-  }, [folders, words, folderQuery]);
+  }, [folders, words, folderQuery, descendantMap]);
 
   const selectedFolderName = useMemo(() => {
     if (!folderId) return 'Tất cả thư mục';
     return folders.find((f) => f.id === folderId)?.name ?? 'Tất cả thư mục';
   }, [folders, folderId]);
 
-  const activeWords = useMemo(
-    () => (folderId ? words.filter((w) => w.folderIds.includes(folderId)) : words),
-    [words, folderId],
-  );
+  const activeWords = useMemo(() => {
+    if (!folderId) return words;
+    const scopeIds = descendantMap.get(folderId) ?? new Set([folderId]);
+    return words.filter((w) => w.folderIds.some((fid) => scopeIds.has(fid)));
+  }, [words, folderId, descendantMap]);
 
   const activeWordIds = useMemo(() => {
     const ids = activeWords.map((w) => w.id);
