@@ -17,7 +17,7 @@ export function WorkspaceStudy({ mode, words, theme, ...actions }: StudyActions 
 }) {
   const Component = mode === 'quiz' ? TypingQuiz : FlashcardStudy;
   return <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={!theme.compact}
-    contentContainerStyle={theme.styles.studyShell}>
+    contentContainerStyle={[theme.styles.studyShell, mode === 'quiz' && theme.styles.quizShell]}>
     <Component words={words} theme={theme} {...actions} />
   </ScrollView>;
 }

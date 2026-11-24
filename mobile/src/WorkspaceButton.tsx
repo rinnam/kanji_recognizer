@@ -15,9 +15,10 @@ interface ControlProps {
   layout?: StyleProp<ViewStyle>;
   icon?: ReactNode;
   dense?: boolean;
+  selectedFilled?: boolean;
 }
 
-export function Control({ theme, label, accessibleLabel, onPress, onLongPress, selected, disabled, count, compactTab, layout, icon, dense }: ControlProps) {
+export function Control({ theme, label, accessibleLabel, onPress, onLongPress, selected, disabled, count, compactTab, layout, icon, dense, selectedFilled }: ControlProps) {
   const [focused, setFocused] = useState(false);
   const { styles } = theme;
   const iconOnly = !!icon && label === '' && count === undefined;
@@ -39,7 +40,7 @@ export function Control({ theme, label, accessibleLabel, onPress, onLongPress, s
         count !== undefined && styles.folderButton,
         compactTab && styles.tabButton,
         iconOnly && styles.iconOnlyButton,
-        selected && (count !== undefined || compactTab ? styles.scopedActive : styles.active),
+        selected && (selectedFilled ? styles.active : (count !== undefined || compactTab ? styles.scopedActive : styles.active)),
         focused && styles.focus,
         disabled && { opacity: 0.55 },
       ]}
@@ -47,7 +48,7 @@ export function Control({ theme, label, accessibleLabel, onPress, onLongPress, s
       {icon}
       {!iconOnly && <Text style={[
         styles.buttonText, compactTab && styles.tabText, count !== undefined && { flexShrink: 1 },
-        selected && (count !== undefined || compactTab ? styles.scopedText : styles.activeText),
+        selected && (selectedFilled ? styles.activeText : (count !== undefined || compactTab ? styles.scopedText : styles.activeText)),
       ]}>{label}</Text>}
       {count !== undefined && <Text style={styles.pill}>{count}</Text>}
     </Pressable>

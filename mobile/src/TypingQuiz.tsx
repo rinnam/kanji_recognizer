@@ -103,7 +103,7 @@ export function TypingQuiz({ words, theme, onSaveQuiz }: StudyActions & { words:
     <View style={styles.studyControl}>
       <View style={[styles.tabs, theme.compact && { width: '100%' }]}>
         {([['random','Ngẫu nhiên'], ['reading','Dạng 1'], ['meaning','Dạng 2']] as const).map(([m,label]) =>
-          <Control key={m} theme={theme} dense={theme.compact} compactTab label={label} selected={mode === m} disabled={saving}
+          <Control key={m} theme={theme} dense={theme.compact} compactTab selectedFilled label={label} selected={mode === m} disabled={saving}
             layout={theme.compact ? { flex: 1, alignItems: 'center', paddingHorizontal: 4 } : undefined} onPress={() => start(m, shuffle)} />)}
       </View>
       <View style={[styles.actions, theme.compact && { width: '100%', flexWrap: 'nowrap', justifyContent: 'center' }]}>

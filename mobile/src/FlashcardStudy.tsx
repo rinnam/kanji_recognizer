@@ -70,7 +70,7 @@ export function FlashcardStudy({ words, theme, onRate, onReset, onEdit }: StudyA
     <View style={styles.studyControl}>
       <View style={[styles.tabs, theme.compact && { flex: 1 }]}>
       {([['normal', 'Bình thường'], ['progress', 'Tiến độ'], ['anki', 'Anki SRS']] as const).map(([id, label]) =>
-        <Control key={id} theme={theme} dense={theme.compact} compactTab label={label} selected={mode === id} disabled={saving}
+        <Control key={id} theme={theme} dense={theme.compact} compactTab selectedFilled label={label} selected={mode === id} disabled={saving}
           layout={theme.compact ? { flex: 1, alignItems: 'center', paddingHorizontal: 4 } : undefined} onPress={() => start(id, false)} />)}
       </View>
       <View style={[styles.actions, theme.compact && { flexWrap: 'nowrap', marginLeft: 'auto' }]}>

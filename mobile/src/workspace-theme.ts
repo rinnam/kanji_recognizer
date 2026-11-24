@@ -74,11 +74,12 @@ export function workspaceTheme(isDark: boolean, compact = false) {
         borderWidth: 1, borderColor: colors.buttonBorder, backgroundColor: colors.bg, color: colors.ink,
       },
       button: {
-        minHeight: compact ? 44 : 36, justifyContent: 'center', paddingHorizontal: compact ? 10 : 12, borderWidth: 1,
+        minHeight: compact ? 40 : 36, justifyContent: 'center', paddingHorizontal: compact ? 10 : 12, borderWidth: 1,
         borderColor: colors.buttonBorder, borderRadius: 8, backgroundColor: colors.bg,
       },
       denseButton: { minHeight: 36, paddingHorizontal: 8, borderRadius: 7 },
       iconOnlyButton: { alignItems: 'center', justifyContent: 'center', gap: 0 },
+      quizShell: { maxWidth: 704 },
       active: { borderColor: colors.primary, backgroundColor: colors.primary },
       folderButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
         borderColor: 'transparent', backgroundColor: colors.surface },
