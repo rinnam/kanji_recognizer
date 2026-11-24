@@ -213,22 +213,28 @@ export default function FlashcardQuizPracticeScreen() {
   const currentQuiz = activeWords[quizIndex % Math.max(activeWords.length, 1)];
 
   const resetRound = () => {
-    setSrsStates({});
+    const activeSet = new Set(activeWordIds);
+    const nextStates: Record<string, QuizletCardState> = {};
+    for (const [id, st] of Object.entries(srsStates)) {
+      if (!activeSet.has(id)) nextStates[id] = st;
+    }
+    setSrsStates(nextStates);
     setCurrentCardId(null);
     setBatchNewCount(0);
     setFlipped(false);
     setSrsFeedback(null);
-    void persistSrsSession({}, 0, null, folderId);
+    void persistSrsSession(nextStates, 0, null, folderId);
   };
 
   const selectFolder = (id: string | null) => {
     setFolderId(id);
     setCurrentCardId(null);
+    setBatchNewCount(0);
     setFlipped(false);
     setQuizIndex(0);
     setQuizResult('idle');
     setFolderModalOpen(false);
-    void persistSrsSession(srsStates, batchNewCount, null, id);
+    void persistSrsSession(srsStates, 0, null, id);
   };
 
   const applyFolderAction = async (action: FolderAction) => {
