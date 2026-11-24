@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Speech from 'expo-speech';
 import type { FolderDto, VocabularyDto } from '../../../packages/contracts/src/study';
+import { speakJapanese } from '../../src/utils/speak-japanese';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
@@ -408,8 +408,7 @@ export default function FlashcardQuizPracticeScreen() {
   };
 
   const speak = (text: string) => {
-    Speech.stop();
-    Speech.speak(text, { language: 'ja-JP', rate: 0.9 });
+    void speakJapanese(text);
   };
 
   useEffect(() => {
