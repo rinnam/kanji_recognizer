@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
 import type { FolderDto, VocabularyDto } from '../../../packages/contracts/src/study';
@@ -22,6 +22,21 @@ import {
 } from '../../src/features/flashcards/quizlet-srs';
 
 const SRS_SESSION_STORAGE_KEY = 'kanji_nest_quizlet_srs_session_v1';
+const SRS_OPTIONS_STORAGE_KEY = 'kanji_nest_quizlet_srs_options_v1';
+
+interface QuizletOptionsConfig {
+  sortingMode: 'srs' | 'basic';
+  newCardsPerDay: number;
+  autoTts: boolean;
+  frontSide: 'japanese' | 'vietnamese';
+}
+
+const DEFAULT_OPTIONS: QuizletOptionsConfig = {
+  sortingMode: 'srs',
+  newCardsPerDay: 100,
+  autoTts: false,
+  frontSide: 'japanese',
+};
 
 type Mode = 'flashcard' | 'quiz' | 'library';
 
@@ -54,6 +69,11 @@ export default function FlashcardQuizPracticeScreen() {
   const [batchNewCount, setBatchNewCount] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [srsFeedback, setSrsFeedback] = useState<string | null>(null);
+
+  // Quizlet Options modal state
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [options, setOptions] = useState<QuizletOptionsConfig>(DEFAULT_OPTIONS);
+  const [newCardsInput, setNewCardsInput] = useState(String(DEFAULT_OPTIONS.newCardsPerDay));
 
   // Quiz state
   const [quizIndex, setQuizIndex] = useState(0);
@@ -142,7 +162,24 @@ export default function FlashcardQuizPracticeScreen() {
 
   useEffect(() => {
     void fetchFromBackend();
+    void AsyncStorage.getItem(SRS_OPTIONS_STORAGE_KEY)
+      .then((raw) => {
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as Partial<QuizletOptionsConfig>;
+        const merged: QuizletOptionsConfig = { ...DEFAULT_OPTIONS, ...parsed };
+        setOptions(merged);
+        setNewCardsInput(String(merged.newCardsPerDay));
+      })
+      .catch(() => undefined);
   }, [fetchFromBackend]);
+
+  const updateOptions = (patch: Partial<QuizletOptionsConfig>) => {
+    setOptions((prev) => {
+      const next = { ...prev, ...patch };
+      void AsyncStorage.setItem(SRS_OPTIONS_STORAGE_KEY, JSON.stringify(next)).catch(() => undefined);
+      return next;
+    });
+  };
 
   const folderTreeRows = useMemo(() => {
     const byParent = new Map<string | null, FolderDto[]>();
@@ -178,7 +215,20 @@ export default function FlashcardQuizPracticeScreen() {
     [words, folderId],
   );
 
-  const activeWordIds = useMemo(() => activeWords.map((w) => w.id), [activeWords]);
+  const activeWordIds = useMemo(() => {
+    const ids = activeWords.map((w) => w.id);
+    const limit = Math.max(1, options.newCardsPerDay);
+    let newSeen = 0;
+    return ids.filter((id) => {
+      const st = srsStates[id];
+      if (st && st.stage !== 'new') return true;
+      if (newSeen < limit) {
+        newSeen += 1;
+        return true;
+      }
+      return false;
+    });
+  }, [activeWords, options.newCardsPerDay, srsStates]);
 
   const effectiveCardId = useMemo(() => {
     if (currentCardId && activeWordIds.includes(currentCardId)) {
@@ -311,6 +361,13 @@ export default function FlashcardQuizPracticeScreen() {
     Speech.speak(text, { language: 'ja-JP', rate: 0.9 });
   };
 
+  useEffect(() => {
+    if (mode !== 'flashcard' || !options.autoTts || !currentCard) return;
+    if (options.frontSide === 'japanese') {
+      speak(currentCard.reading || currentCard.word);
+    }
+  }, [mode, options.autoTts, options.frontSide, currentCard]);
+
   const handleRate = (rating: QuizletRating) => {
     if (!currentCard || !currentCardState) return;
     const nowMs = Date.now();
@@ -377,11 +434,107 @@ export default function FlashcardQuizPracticeScreen() {
         mode="subpage"
         title="Flashcard & Quiz"
         rightSlot={
-          <Pressable style={styles.ttsBtn} onPress={() => void fetchFromBackend()}>
-            <Text style={styles.ttsText}>↻ Đồng bộ</Text>
-          </Pressable>
+          <View style={styles.headerRight}>
+            <Pressable style={styles.ttsBtn} onPress={() => setOptionsOpen(true)}>
+              <Text style={styles.ttsText}>⚙ Cài đặt</Text>
+            </Pressable>
+            <Pressable style={styles.ttsBtn} onPress={() => void fetchFromBackend()}>
+              <Text style={styles.ttsText}>↻ Đồng bộ</Text>
+            </Pressable>
+          </View>
         }
       />
+
+      {/* Quizlet-style Options Modal */}
+      <Modal visible={optionsOpen} transparent animationType="fade" onRequestClose={() => setOptionsOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Cài đặt học (Options)</Text>
+              <Pressable onPress={() => setOptionsOpen(false)}>
+                <Text style={styles.modalClose}>Đóng</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.optionRow}>
+              <View style={styles.optionInfo}>
+                <Text style={styles.optionLabel}>Sắp xếp thẻ (Flashcard sorting)</Text>
+                <Text style={styles.optionDesc}>Chọn chế độ lặp lại ngắt quãng 4 mức hoặc cơ bản 2 nút</Text>
+              </View>
+              <Pressable
+                style={styles.smallPill}
+                onPress={() =>
+                  updateOptions({ sortingMode: options.sortingMode === 'srs' ? 'basic' : 'srs' })
+                }
+              >
+                <Text style={styles.smallPillText}>
+                  {options.sortingMode === 'srs' ? 'Spaced repetition ▾' : 'Cơ bản (2 nút) ▾'}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.optionRow}>
+              <View style={styles.optionInfo}>
+                <Text style={styles.optionLabel}>Số thẻ mới mỗi ngày</Text>
+                <Text style={styles.optionDesc}>Thêm nhiều thẻ hơn sẽ làm các phiên ôn sau dài hơn.</Text>
+              </View>
+              <TextInput
+                value={newCardsInput}
+                onChangeText={(val) => {
+                  const digits = val.replace(/[^0-9]/g, '');
+                  setNewCardsInput(digits);
+                  const n = Number(digits);
+                  if (n > 0) updateOptions({ newCardsPerDay: n });
+                }}
+                keyboardType="numeric"
+                style={styles.numInput}
+              />
+            </View>
+
+            <View style={styles.optionRow}>
+              <View style={styles.optionInfo}>
+                <Text style={styles.optionLabel}>Tự động phát âm (Text to speech)</Text>
+                <Text style={styles.optionDesc}>Tự đọc tiếng Nhật khi hiện thẻ mới</Text>
+              </View>
+              <Switch
+                value={options.autoTts}
+                onValueChange={(v) => updateOptions({ autoTts: v })}
+                trackColor={{ false: '#E5DDD4', true: nihongoTheme.colors.accent }}
+              />
+            </View>
+
+            <View style={styles.optionRow}>
+              <View style={styles.optionInfo}>
+                <Text style={styles.optionLabel}>Mặt trước (Front)</Text>
+                <Text style={styles.optionDesc}>Chọn ngôn ngữ hiển thị ở mặt trước thẻ</Text>
+              </View>
+              <Pressable
+                style={styles.smallPill}
+                onPress={() =>
+                  updateOptions({
+                    frontSide: options.frontSide === 'japanese' ? 'vietnamese' : 'japanese',
+                  })
+                }
+              >
+                <Text style={styles.smallPillText}>
+                  {options.frontSide === 'japanese' ? 'Tiếng Nhật ▾' : 'Tiếng Việt ▾'}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.optionFooter}>
+              <Pressable
+                onPress={() => {
+                  resetRound();
+                  setOptionsOpen(false);
+                }}
+              >
+                <Text style={styles.resetDangerText}>Đặt lại tiến trình SRS (Reset Spaced Repetition)</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Mode Switcher */}
       <View style={styles.tabsRow}>
@@ -605,29 +758,51 @@ export default function FlashcardQuizPracticeScreen() {
                   </Pressable>
                 </View>
 
-                <Text style={styles.kanjiLarge}>{currentCard.word}</Text>
+                <Text style={styles.kanjiLarge}>
+                  {options.frontSide === 'japanese' ? currentCard.word : currentCard.meaning}
+                </Text>
 
                 {flipped ? (
                   <View style={styles.backBox}>
-                    <Text style={styles.readingText}>{currentCard.reading}</Text>
-                    <Text style={styles.meaningText}>{currentCard.meaning}</Text>
+                    {options.frontSide === 'japanese' ? (
+                      <>
+                        <Text style={styles.readingText}>{currentCard.reading}</Text>
+                        <Text style={styles.meaningText}>{currentCard.meaning}</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.meaningText}>{currentCard.word}</Text>
+                        <Text style={styles.readingText}>{currentCard.reading}</Text>
+                      </>
+                    )}
                     {currentCard.sinoVietnamese ? (
                       <Text style={styles.hanVietText}>{currentCard.sinoVietnamese}</Text>
                     ) : null}
                   </View>
                 ) : (
-                  <Text style={styles.flipHint}>Chạm vào thẻ để lật xem nghĩa</Text>
+                  <Text style={styles.flipHint}>Chạm vào thẻ để lật xem đáp án</Text>
                 )}
               </Pressable>
 
-              <View style={styles.ratingRow}>
-                {quizletOptions.map((opt) => (
-                  <Pressable key={opt.rating} style={styles.ratingBtn} onPress={() => handleRate(opt.rating)}>
-                    <Text style={styles.ratingLabel}>{opt.label}</Text>
-                    <Text style={styles.ratingHint}>{opt.intervalLabel}</Text>
+              {options.sortingMode === 'basic' ? (
+                <View style={styles.quizletActions}>
+                  <Pressable style={styles.stillLearningBtn} onPress={() => handleRate('repeat')}>
+                    <Text style={styles.stillLearningText}>✕ Đang học</Text>
                   </Pressable>
-                ))}
-              </View>
+                  <Pressable style={styles.knowBtn} onPress={() => handleRate('easy')}>
+                    <Text style={styles.knowText}>✓ Đã biết</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.ratingRow}>
+                  {quizletOptions.map((opt) => (
+                    <Pressable key={opt.rating} style={styles.ratingBtn} onPress={() => handleRate(opt.rating)}>
+                      <Text style={styles.ratingLabel}>{opt.label}</Text>
+                      <Text style={styles.ratingHint}>{opt.intervalLabel}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
             </>
           ) : (
             <View style={styles.card}>
@@ -737,6 +912,54 @@ export default function FlashcardQuizPracticeScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerRight: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: nihongoTheme.colors.borderLight,
+  },
+  optionInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  optionLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  optionDesc: {
+    fontSize: 12,
+    color: nihongoTheme.colors.textSecondary,
+  },
+  numInput: {
+    width: 72,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  optionFooter: {
+    paddingTop: 8,
+    alignItems: 'flex-end',
+  },
+  resetDangerText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
   tabsRow: {
     flexDirection: 'row',
     gap: 8,
