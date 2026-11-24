@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import * as Speech from 'expo-speech';
 import type { SrsRating, VocabularyDto } from '../../packages/contracts/src/study';
 import { selectResetTargets } from '../../frontend/src/features/flashcard/model/reset';
@@ -11,6 +11,7 @@ import { StudyProgress } from './StudyProgress';
 import { Control } from './WorkspaceButton';
 import type { StudyActions } from './WorkspaceStudy';
 import type { WorkspaceTheme } from './workspace-theme';
+import { WorkspaceIcon } from './WorkspaceIcon';
 
 type Mode = 'normal' | 'progress' | 'anki';
 
@@ -18,6 +19,11 @@ export function FlashcardStudy({ words, theme, onRate, onReset, onEdit }: StudyA
   words: VocabularyDto[]; theme: WorkspaceTheme;
 }) {
   const { colors, styles } = theme;
+  const nativeCompact = theme.compact && Platform.OS !== 'web';
+  const toolSize = nativeCompact ? 36 : 44;
+  const toolIconSize = nativeCompact ? 16 : 20;
+  const { height } = useWindowDimensions();
+  const canvasHeight = theme.compact ? Math.max(230, Math.min(300, height - 555)) : 448;
   const [mode, setMode] = useState<Mode>('normal');
   const [shuffled, setShuffled] = useState(false);
   const [ids, setIds] = useState(() => buildQueue(words, 'normal', new Date()).map(w => w.id));
@@ -61,46 +67,58 @@ export function FlashcardStudy({ words, theme, onRate, onReset, onEdit }: StudyA
     return true;
   });
   return <>
-    <View style={styles.actions}>
+    <View style={styles.studyControl}>
+      <View style={[styles.tabs, theme.compact && { flex: 1 }]}>
       {([['normal', 'Bình thường'], ['progress', 'Tiến độ'], ['anki', 'Anki SRS']] as const).map(([id, label]) =>
-        <Control key={id} theme={theme} label={label} selected={mode === id} disabled={saving} onPress={() => start(id, false)} />)}
+        <Control key={id} theme={theme} dense={theme.compact} compactTab label={label} selected={mode === id} disabled={saving}
+          layout={theme.compact ? { flex: 1, alignItems: 'center', paddingHorizontal: 4 } : undefined} onPress={() => start(id, false)} />)}
+      </View>
+      <View style={[styles.actions, theme.compact && { flexWrap: 'nowrap', marginLeft: 'auto' }]}>
+        <Control theme={theme} dense={theme.compact} accessibleLabel="Xáo trộn thẻ" label="" disabled={saving} selected={shuffled}
+          icon={<WorkspaceIcon name="shuffle" color={shuffled ? colors.contrast : colors.ink} size={toolIconSize} />}
+          layout={{ width: toolSize, height: toolSize, paddingHorizontal: 0, alignItems: 'center' }} onPress={() => start(mode, !shuffled)} />
+        <Control theme={theme} dense={theme.compact} accessibleLabel="Làm lại từ thẻ đầu" label="" disabled={saving}
+          icon={<WorkspaceIcon name="reset" color={colors.ink} size={toolIconSize} />}
+          layout={{ width: toolSize, height: toolSize, paddingHorizontal: 0, alignItems: 'center' }} onPress={() => start(mode, shuffled)} />
+      </View>
     </View>
-    <View style={styles.actions}>
-      <Control theme={theme} label="Xáo trộn thẻ" disabled={saving} selected={shuffled} onPress={() => start(mode, !shuffled)} />
-      <Control theme={theme} label="Làm lại" disabled={saving} onPress={() => start(mode, shuffled)} />
-    </View>
-    <StudyProgress theme={theme} label="Tiến độ học" current={word ? index + 1 : 0} total={ids.length} />
-    <Text style={styles.muted}>Tổng {summary.total} · Tới hạn {summary.due} · Mới {summary.fresh}</Text>
+    <StudyProgress theme={theme} label="Tiến độ học" current={word ? index + 1 : 0} total={ids.length}
+      summary={`Tổng ${summary.total} · Tới hạn ${summary.due} · Mới ${summary.fresh}`} />
     {!!error && <Text accessibilityRole="alert" style={styles.field}>{error}</Text>}
     {word ? <>
-      <View style={{ borderWidth: 1, borderColor: colors.buttonBorder, backgroundColor: colors.surface, borderRadius: 16, overflow: 'hidden' }}>
+      <View style={[styles.studyCanvas, { height: canvasHeight, borderColor: mode === 'anki' ? colors.primary : colors.border }]}>
         <View pointerEvents="none" style={{ position: 'absolute', inset: 0, opacity: 0.22 }}><CatFrame color={colors.ink} /></View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Lật thẻ" onPress={() => setBack(!back)} disabled={saving}
-          style={{ minHeight: 220, alignItems: 'center', justifyContent: 'center', padding: 26, gap: 8 }}>
-          <Text style={styles.muted}>BẤM ĐỂ LẬT</Text>
-          {back && !!word.reading && <Text style={styles.field}>{word.reading}</Text>}
-          {back ? <Text style={[styles.title, { fontSize: 25, textAlign: 'center' }]}>{word.meaning}</Text> :
-            <KanjiWord key={word.id} word={word} theme={theme} />}
-          {!back && !!word.sinoVietnamese && <Text style={styles.muted}>{word.sinoVietnamese}</Text>}
-          {back && !!word.example && <><Text style={styles.muted}>VÍ DỤ</Text><Text style={styles.field}>{word.example}</Text>
-            {!!word.exampleMeaning && <Text style={styles.muted}>{word.exampleMeaning}</Text>}</>}
+        <Text style={[styles.muted, { position: 'absolute', left: 20, top: 18, fontSize: 11, letterSpacing: 1 }]}>↻ BẤM ĐỂ LẬT</Text>
+        {onEdit && <View style={{ position: 'absolute', right: 14, top: 10 }}><Control theme={theme} dense={theme.compact} label={theme.compact ? '✎ Sửa' : '✎ Sửa thẻ'} onPress={() => onEdit(word)} /></View>}
+        <Pressable accessibilityLabel="Lật thẻ" onPress={() => setBack(!back)} disabled={saving}
+          style={{ alignSelf: 'stretch', flex: 1, alignItems: 'center', justifyContent: 'center', padding: 26, gap: 12 }}>
+          {back && !!word.reading && <Text style={[styles.muted, { fontSize: theme.compact ? 17 : 20 }]}>{word.reading}</Text>}
+          {back ? <Text style={[styles.title, { fontSize: 32, textAlign: 'center' }]}>{word.meaning}</Text> :
+            <View style={[styles.actions, { justifyContent: 'center', flexWrap: 'nowrap' }]}>
+              <KanjiWord key={word.id} word={word} theme={theme} />
+              <Control theme={theme} dense={theme.compact} accessibleLabel="Nghe phát âm" label="🔊" onPress={speak} />
+            </View>}
+          {!back && !!word.sinoVietnamese && <Text style={[styles.muted, { letterSpacing: 2 }]}>{word.sinoVietnamese}</Text>}
+          {back && !!word.example && <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, gap: 5, minWidth: 300 }}>
+            <Text style={[styles.muted, { fontSize: 11, letterSpacing: 1 }]}>VÍ DỤ</Text><Text style={styles.field}>{word.example}</Text>
+            {!!word.exampleMeaning && <Text style={[styles.muted, { fontStyle: 'italic' }]}>{word.exampleMeaning}</Text>}
+          </View>}
         </Pressable>
-        <View style={[styles.actions, { justifyContent: 'center', paddingBottom: 8 }]}>
-          <Control theme={theme} label="Nghe phát âm" onPress={speak} />
-          {onEdit && <Control theme={theme} label="Sửa thẻ" onPress={() => onEdit(word)} />}
-        </View>
       </View>
-      {mode === 'anki' ? back ? <View style={styles.actions}>
+      {mode === 'anki' ? back ? <View style={[styles.actions, { alignSelf: 'stretch' }]}>
         {(['again', 'hard', 'good', 'easy'] as const).map((r, i) => <Control key={r} theme={theme}
           accessibleLabel={['Again', 'Hard', 'Good', 'Easy'][i]} disabled={saving || !onRate}
-          label={`${['Again', 'Hard', 'Good', 'Easy'][i]} · ${previewIntervalLabel({ interval: word.srsInterval, repetition: word.srsRepetition, easeFactor: word.srsEaseFactor }, r)}`}
+          layout={{ flex: 1, alignItems: 'center', minHeight: 68 }}
+          label={`${previewIntervalLabel({ interval: word.srsInterval, repetition: word.srsRepetition, easeFactor: word.srsEaseFactor }, r)}\n${['Again', 'Hard', 'Good', 'Easy'][i]}  ${i + 1}`}
           onPress={() => void rate(r)} />)}
-      </View> : <Control theme={theme} label="Hiện đáp án" selected onPress={() => setBack(true)} /> :
-        <View style={styles.actions}>
-          <Control theme={theme} label="Trước" disabled={!index} onPress={() => { setIndex(index - 1); setBack(false); }} />
-          <Control theme={theme} selected label="Tiếp theo" disabled={index === ids.length - 1}
+      </View> : <View style={{ alignSelf: 'center', minWidth: 190 }}><Control theme={theme} label="Hiện đáp án" selected onPress={() => setBack(true)} /></View> :
+        <View style={[styles.actions, { justifyContent: 'center', flexWrap: 'nowrap' }]}>
+          <Control theme={theme} label="←  Trước" disabled={!index} layout={theme.compact ? { width: 120, alignItems: 'center' } : undefined} onPress={() => { setIndex(index - 1); setBack(false); }} />
+          <Control theme={theme} selected label="Tiếp theo  →" disabled={index === ids.length - 1}
+            layout={theme.compact ? { width: 120, alignItems: 'center' } : undefined}
             onPress={() => { setIndex(index + 1); setBack(false); }} />
         </View>}
+      {!theme.compact && <Text style={[styles.muted, { textAlign: 'center', fontSize: 12 }]}>Space: lật · ← →: chuyển thẻ{mode === 'anki' ? ' · 1/2/3/4: chấm điểm' : ''}</Text>}
     </> : <>
       <Text style={styles.title}>{mode === 'anki' && words.length ? 'Đã hết thẻ tới hạn' : 'Thư mục này chưa có từ'}</Text>
       {mode === 'anki' && !!words.length && <>

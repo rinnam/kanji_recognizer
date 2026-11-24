@@ -140,6 +140,7 @@ export default function Index() {
     onSaveQuiz={remote && !count && !busy && !preview ? saveQuiz : undefined}
     error={storageError ?? error ?? (!libraryEndpoint ? 'Chưa cấu hình địa chỉ máy chủ.' : undefined)}
     onRetry={libraryEndpoint && local ? () => void sync(true) : undefined}
+    onRefresh={libraryEndpoint && local ? () => void sync(false) : undefined}
     sample={preview}
     onSample={!remote && !preview && !busy ? () => setPreview(true) : undefined}
     onAddWords={local && !storageError ? (inputs: WordInput[], folderId: string | null) => updateLocal((current) => ({

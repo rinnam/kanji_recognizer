@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from 'fastify';
+import cors from '@fastify/cors';
 import { sql } from 'kysely';
 import { ZodError } from 'zod';
 import { db, pool } from './config/database.js';
@@ -18,6 +19,17 @@ import { ensureLocalOwner } from './utils/local-owner.js';
 
 export async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({ logger: { level: env.LOG_LEVEL } });
+
+  await app.register(cors, {
+    origin: [
+      /^https?:\/\/localhost(?::\d+)?$/,
+      /^https?:\/\/127\.0\.0\.1(?::\d+)?$/,
+      /^https?:\/\/10(?:\.\d{1,3}){3}(?::\d+)?$/,
+      /^https?:\/\/192\.168(?:\.\d{1,3}){2}(?::\d+)?$/,
+      /^https?:\/\/172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}(?::\d+)?$/,
+    ],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  });
 
   // Error handler: map lỗi domain/validation → HTTP code phù hợp.
   app.setErrorHandler((error, _req, reply) => {

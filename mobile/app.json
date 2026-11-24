@@ -4,6 +4,7 @@
     "slug": "kanji-nest",
     "scheme": "kanjinest",
     "userInterfaceStyle": "automatic",
+    "android": { "softwareKeyboardLayoutMode": "resize" },
     "plugins": ["expo-router"],
     "web": { "bundler": "metro" }
   }

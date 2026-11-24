@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Platform, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useStudyKeys } from './use-study-keys';
 import type { QuizSessionDto, VocabularyDto } from '../../packages/contracts/src/study';
 import { gradeAnswer } from '../../packages/core/src/grade';
@@ -8,6 +8,7 @@ import type { StudyActions } from './WorkspaceStudy';
 import { StudyProgress } from './StudyProgress';
 import { Control } from './WorkspaceButton';
 import type { WorkspaceTheme } from './workspace-theme';
+import { WorkspaceIcon } from './WorkspaceIcon';
 
 export type QuizSubmission = {
   mode: 'typing'; startedAt: string; finishedAt: string;
@@ -35,6 +36,11 @@ export function TypingQuiz({ words, theme, onSaveQuiz }: StudyActions & { words:
   const advanceLock = useRef(false);
   const input = useRef<ComponentRef<typeof TextInput>>(null);
   const { colors, styles } = theme;
+  const nativeCompact = theme.compact && Platform.OS !== 'web';
+  const toolSize = nativeCompact ? 36 : 44;
+  const toolIconSize = nativeCompact ? 16 : 20;
+  const { height } = useWindowDimensions();
+  const canvasHeight = theme.compact ? Math.max(210, Math.min(270, height - 620)) : Math.max(320, Math.min(400, height - 470));
   const current = questions[index];
   const word = words.find(w => w.id === current?.vocabularyId);
   const resolved = attempt.status !== 'answering';
@@ -94,25 +100,42 @@ export function TypingQuiz({ words, theme, onSaveQuiz }: StudyActions & { words:
     return true;
   });
   return <>
-    <View style={styles.actions}>
-      {([['random','Ngẫu nhiên'], ['reading','Dạng 1'], ['meaning','Dạng 2']] as const).map(([m,label]) =>
-        <Control key={m} theme={theme} label={label} selected={mode === m} disabled={saving} onPress={() => start(m, shuffle)} />)}
-    </View>
-    <View style={styles.actions}>
-      <Control theme={theme} label="Xáo trộn câu" selected={shuffle} disabled={saving} onPress={() => start(mode,!shuffle)} />
-      <Control theme={theme} label="Làm lại" disabled={saving} onPress={() => start(mode,shuffle)} />
-      <Text style={styles.muted}>Tự chuyển (s)</Text><TextInput accessibilityLabel="Số giây tự chuyển" keyboardType="number-pad"
-        value={seconds} onChangeText={v => setSeconds(v.replace(/[^0-9]/g,'').slice(0,2))} onBlur={() => setSeconds(String(wait))}
-        style={[styles.input,{width:50}]} />
+    <View style={styles.studyControl}>
+      <View style={[styles.tabs, theme.compact && { width: '100%' }]}>
+        {([['random','Ngẫu nhiên'], ['reading','Dạng 1'], ['meaning','Dạng 2']] as const).map(([m,label]) =>
+          <Control key={m} theme={theme} dense={theme.compact} compactTab label={label} selected={mode === m} disabled={saving}
+            layout={theme.compact ? { flex: 1, alignItems: 'center', paddingHorizontal: 4 } : undefined} onPress={() => start(m, shuffle)} />)}
+      </View>
+      <View style={[styles.actions, theme.compact && { width: '100%', flexWrap: 'nowrap', justifyContent: 'center' }]}>
+        <Control theme={theme} dense={theme.compact} accessibleLabel="Xáo trộn câu" label="" selected={shuffle} disabled={saving}
+          icon={<WorkspaceIcon name="shuffle" color={shuffle ? colors.contrast : colors.ink} size={toolIconSize} />}
+          layout={{ width: toolSize, height: toolSize, paddingHorizontal: 0, alignItems: 'center' }} onPress={() => start(mode,!shuffle)} />
+        <Control theme={theme} dense={theme.compact} accessibleLabel="Làm lại từ câu đầu" label="" disabled={saving}
+          icon={<WorkspaceIcon name="reset" color={colors.ink} size={toolIconSize} />}
+          layout={{ width: toolSize, height: toolSize, paddingHorizontal: 0, alignItems: 'center' }} onPress={() => start(mode,shuffle)} />
+        <WorkspaceIcon name="clock" color={colors.muted} size={16} /><TextInput accessibilityLabel="Số giây tự chuyển" keyboardType="number-pad"
+          value={seconds} onChangeText={v => setSeconds(v.replace(/[^0-9]/g,'').slice(0,2))} onBlur={() => setSeconds(String(wait))}
+          style={[styles.input,{width:46, minHeight: 34, paddingVertical: 2}]} /><Text style={styles.muted}>s</Text>
+      </View>
     </View>
     <StudyProgress label="TIẾN ĐỘ KIỂM TRA" theme={theme} current={Math.min(index + 1, questions.length)} total={questions.length} />
-    {current ? <View style={[styles.studyCard, { borderColor: colors.border, borderWidth: 1 }]}>
-      <Text style={styles.muted}>{current.type === 'reading' ? 'DẠNG 1 · NHÌN CHỮ, NHẬP CÁCH ĐỌC' : 'DẠNG 2 · NHÌN NGHĨA, DỊCH SANG TIẾNG NHẬT'}</Text>
-      <Text style={[styles.title, { fontSize: 30 }]}>{current.prompt}</Text>
-      {!!word?.sinoVietnamese && <Control theme={theme} label={sino ? word.sinoVietnamese : 'Âm Hán Việt'} onPress={() => setSino(!sino)} />}
+    {current ? <>
+      <View style={[styles.studyCanvas, { height: canvasHeight }]}>
+        <Text style={[styles.muted, { position: 'absolute', top: 14, alignSelf: 'center', fontSize: 11, letterSpacing: 1 }]}>
+          ⓘ {current.type === 'reading' ? 'DẠNG 1: NHÌN CHỮ, NHẬP CÁCH ĐỌC' : 'DẠNG 2: NHÌN NGHĨA, DỊCH SANG TIẾNG NHẬT'}
+        </Text>
+        <View style={{ position: 'absolute', top: 54, left: 20, right: 20, height: 1, backgroundColor: colors.border }} />
+        <Text style={[styles.title, { fontSize: theme.compact ? 38 : 46, textAlign: 'center' }]}>{current.prompt}</Text>
+        <Text style={[styles.muted, { fontStyle: 'italic', fontSize: theme.compact ? 14 : 16, textAlign: 'center' }]}>
+          {current.type === 'reading' ? 'Gõ cách đọc bằng Hiragana' : 'Gõ Hiragana hoặc Kanji tương ứng'}
+        </Text>
+        {!!word?.sinoVietnamese && <Control theme={theme} label={sino ? word.sinoVietnamese : 'Ẩn Hán Việt　Shift'} selected={sino}
+          onPress={() => setSino(!sino)} />}
+      </View>
       <TextInput ref={input} accessibilityLabel="Nhập đáp án" placeholder={current.type === 'reading' ? 'Gõ cách đọc bằng Hiragana' : 'Gõ Hiragana hoặc Kanji'}
         placeholderTextColor={colors.muted} editable={!resolved} autoCapitalize="none" autoCorrect={false} value={answer}
-        onChangeText={setAnswer} submitBehavior="submit" onSubmitEditing={submit} style={styles.input} />
+        onChangeText={setAnswer} submitBehavior="submit" onSubmitEditing={submit}
+        style={[styles.input, { minHeight: theme.compact ? 56 : 76, borderWidth: 2, borderColor: colors.primary, borderRadius: 16, textAlign: 'center', fontSize: theme.compact ? 17 : 20 }]} />
       {resolved ? <>
         <Text accessibilityLiveRegion="polite" style={styles.title}>{attempt.status === 'correct' ? 'Chính xác' : 'Đáp án'} · {current.acceptedAnswers.join(' / ')}</Text>
         <Text style={styles.field}>{word?.meaning}</Text>
@@ -121,10 +144,11 @@ export function TypingQuiz({ words, theme, onSaveQuiz }: StudyActions & { words:
         <Control theme={theme} selected label={index + 1 === questions.length ? 'Xem kết quả' : 'Câu tiếp theo'} onPress={advance} />
       </> : <>
         {attempt.attempts > 0 && <Text accessibilityLiveRegion="polite" style={styles.field}>Chưa đúng · Còn {remainingAttempts(attempt)} lần</Text>}
-        <View style={styles.actions}><Control theme={theme} label="Kiểm tra" selected disabled={!answer.trim()} onPress={submit} />
-          <Control theme={theme} label="Gợi ý / xem đáp án" onPress={hint} /></View>
+        <View style={[styles.actions, { justifyContent: 'center', flexWrap: 'nowrap' }]}><Control theme={theme} label={theme.compact ? '💡 Gợi ý' : '💡 Gợi ý　Tab'}
+          layout={theme.compact ? { flex: 1, alignItems: 'center' } : undefined} onPress={hint} />
+          <Control theme={theme} label="Kiểm tra" selected disabled={!answer.trim()} layout={{ flex: theme.compact ? 2 : undefined, minWidth: theme.compact ? 0 : 240, alignItems: 'center' }} onPress={submit} /></View>
       </>}
-    </View> : submission ? <>
+    </> : submission ? <>
       <Text style={styles.title}>Điểm: {saved?.score ?? outcomes.filter(a => a.status === 'correct').length} / {questions.length}</Text>
       <Text style={styles.muted}>{saving ? 'Đang lưu…' : saved ? 'Đã lưu kết quả' : error || 'Kết quả trên thiết bị trong phiên này'}</Text>
       {!saved && !saving && <Control theme={theme} label="Lưu kết quả lên máy chủ" disabled={!onSaveQuiz} onPress={() => void save(submission)} />}

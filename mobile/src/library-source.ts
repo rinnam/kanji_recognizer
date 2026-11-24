@@ -4,8 +4,22 @@ import { Platform } from 'react-native';
 import type { LocalWorkspace } from './workspace-storage';
 
 const metroHost = Constants.expoConfig?.hostUri;
-export const libraryEndpoint = process.env.EXPO_PUBLIC_KANJI_API_BASE_URL?.trim().replace(/\/+$/, '') ||
-  (Platform.OS === 'web' ? '/api' : __DEV__ && metroHost ? `http://${metroHost}/api` : undefined);
+
+export function resolveLibraryEndpoint(platform: string, configured: string | undefined, hostUri: string | undefined, dev: boolean) {
+  const explicit = configured?.trim().replace(/\/+$/, '');
+  if (explicit) return explicit;
+  if (!dev) return undefined;
+  if (platform === 'web') return 'http://localhost:3000/api';
+  const host = hostUri?.replace(/^[a-z]+:\/\//i, '').split('/')[0]?.split(':')[0];
+  return host ? `http://${host}:3000/api` : undefined;
+}
+
+export const libraryEndpoint = resolveLibraryEndpoint(
+  Platform.OS,
+  process.env.EXPO_PUBLIC_KANJI_API_BASE_URL,
+  metroHost,
+  __DEV__,
+);
 
 export async function pushLibrary(changes: LocalWorkspace, signal: AbortSignal) {
   const response = await fetch(`${libraryEndpoint}/sync/push`, {
