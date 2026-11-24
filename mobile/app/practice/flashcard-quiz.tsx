@@ -301,7 +301,6 @@ export default function FlashcardQuizPracticeScreen() {
       <TopHeader
         mode="subpage"
         title="Flashcard & Quiz"
-        subtitle={`${activeWords.length} từ vựng · ${syncStatus}`}
         rightSlot={
           <Pressable style={styles.ttsBtn} onPress={() => void fetchFromBackend()}>
             <Text style={styles.ttsText}>↻ Đồng bộ</Text>
@@ -499,7 +498,6 @@ export default function FlashcardQuizPracticeScreen() {
                 ]}
               />
             </View>
-            {srsFeedback ? <Text style={styles.feedbackCaption}>{srsFeedback}</Text> : null}
           </View>
 
           {roundDone ? (
