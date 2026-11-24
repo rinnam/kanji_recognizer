@@ -1,73 +1,49 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { usePathname, useRouter } from 'expo-router';
 import { nihongoTheme } from '../theme/nihongo-theme';
 import { DESKTOP_BREAKPOINT } from './AppShell';
 
-interface DockRoute {
-  key: string;
-  name: string;
-}
+const TABS = [
+  { key: 'app', label: 'Trang chủ', icon: '⌂', route: '/app' as const },
+  { key: 'practice', label: 'Luyện tập', icon: '✦', route: '/practice' as const },
+  { key: 'lookup', label: 'Tra cứu', icon: '⌕', route: '/lookup' as const },
+  { key: 'lessons', label: 'Bài học', icon: '▤', route: '/lessons' as const },
+  { key: 'profile', label: 'Cá nhân', icon: '◯', route: '/profile' as const },
+];
 
-interface FloatingBottomDockProps {
-  state: {
-    index: number;
-    routes: DockRoute[];
-  };
-  navigateToTab?: (routeKey: string) => void;
-  navigation?: {
-    emit: (event: { type: 'tabPress'; target: string; canPreventDefault: true }) => { defaultPrevented?: boolean };
-    navigate: (name: string) => void;
-  };
-}
-
-const TAB_META: Record<string, { label: string; icon: string }> = {
-  app: { label: 'Trang chủ', icon: '⌂' },
-  practice: { label: 'Luyện tập', icon: '✦' },
-  lookup: { label: 'Tra cứu', icon: '⌕' },
-  lessons: { label: 'Bài học', icon: '▤' },
-  profile: { label: 'Cá nhân', icon: '◯' },
-};
-
-export function FloatingBottomDock({ state, navigateToTab, navigation }: FloatingBottomDockProps) {
+export function FloatingBottomDock() {
   const { width } = useWindowDimensions();
+  const pathname = usePathname();
+  const router = useRouter();
+
   if (width >= DESKTOP_BREAKPOINT) return null;
+  if (pathname === '/onboarding' || pathname === '/profile/learning') return null;
+
+  const isActive = (key: string) => {
+    if (key === 'app') return pathname === '/' || pathname === '/app' || pathname === '/plan';
+    if (key === 'practice') {
+      return pathname.startsWith('/practice') || pathname.startsWith('/flashcards') || pathname.startsWith('/games');
+    }
+    return pathname === `/${key}` || pathname.startsWith(`/${key}/`);
+  };
 
   return (
     <View pointerEvents="box-none" style={styles.outer}>
       <View style={styles.dock} accessibilityRole="tablist">
-        {state.routes.map((route, index) => {
-          const isFocused = state.index === index;
-          const meta = TAB_META[route.name] ?? { label: route.name, icon: '•' };
-
-          const onPress = () => {
-            if (isFocused) return;
-            if (navigateToTab) {
-              navigateToTab(route.key);
-              return;
-            }
-            if (navigation) {
-              const event = navigation.emit({
-                type: 'tabPress',
-                target: route.key,
-                canPreventDefault: true,
-              });
-              if (!event.defaultPrevented) {
-                navigation.navigate(route.name);
-              }
-            }
-          };
-
+        {TABS.map((tab) => {
+          const active = isActive(tab.key);
           return (
             <Pressable
-              key={route.key}
+              key={tab.key}
               accessibilityRole="tab"
-              accessibilityState={isFocused ? { selected: true } : {}}
-              onPress={onPress}
-              style={[styles.tabItem, isFocused && styles.tabItemActive]}
+              accessibilityState={active ? { selected: true } : {}}
+              onPress={() => router.push(tab.route)}
+              style={[styles.tabItem, active && styles.tabItemActive]}
             >
-              <Text style={[styles.icon, isFocused && styles.activeText]}>{meta.icon}</Text>
-              <Text style={[styles.label, isFocused && styles.activeText]}>{meta.label}</Text>
-              <View style={[styles.dot, isFocused && styles.dotActive]} />
+              <Text style={[styles.icon, active && styles.activeText]}>{tab.icon}</Text>
+              <Text style={[styles.label, active && styles.activeText]}>{tab.label}</Text>
+              <View style={[styles.dot, active && styles.dotActive]} />
             </Pressable>
           );
         })}
@@ -84,6 +60,7 @@ const styles = StyleSheet.create({
     bottom: nihongoTheme.layout.dockBottomOffset,
     alignItems: 'center',
     paddingHorizontal: 14,
+    zIndex: 25,
   },
   dock: {
     flexDirection: 'row',
@@ -100,10 +77,10 @@ const styles = StyleSheet.create({
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: nihongoTheme.radius.pill,
-    minWidth: 64,
+    minWidth: 60,
   },
   tabItemActive: {
     backgroundColor: nihongoTheme.colors.accentSoft,
