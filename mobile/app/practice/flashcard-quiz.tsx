@@ -62,11 +62,21 @@ export default function FlashcardQuizPracticeScreen() {
   const [quizScore, setQuizScore] = useState(0);
 
   const persistSrsSession = useCallback(
-    async (nextStates: Record<string, QuizletCardState>, nextBatch: number, nextCardId: string | null) => {
+    async (
+      nextStates: Record<string, QuizletCardState>,
+      nextBatch: number,
+      nextCardId: string | null,
+      nextFolderId: string | null,
+    ) => {
       try {
         await AsyncStorage.setItem(
           SRS_SESSION_STORAGE_KEY,
-          JSON.stringify({ states: nextStates, batchNewCount: nextBatch, currentCardId: nextCardId }),
+          JSON.stringify({
+            states: nextStates,
+            batchNewCount: nextBatch,
+            currentCardId: nextCardId,
+            folderId: nextFolderId,
+          }),
         );
       } catch {
         // ignore storage errors
@@ -81,6 +91,7 @@ export default function FlashcardQuizPracticeScreen() {
     let savedLocal: Record<string, QuizletCardState> = {};
     let savedBatch = 0;
     let savedCurrentId: string | null = null;
+    let savedFolderId: string | null = null;
     try {
       const raw = await AsyncStorage.getItem(SRS_SESSION_STORAGE_KEY);
       if (raw) {
@@ -88,10 +99,12 @@ export default function FlashcardQuizPracticeScreen() {
           states?: Record<string, QuizletCardState>;
           batchNewCount?: number;
           currentCardId?: string | null;
+          folderId?: string | null;
         };
         savedLocal = parsed.states ?? {};
         savedBatch = parsed.batchNewCount ?? 0;
         savedCurrentId = parsed.currentCardId ?? null;
+        savedFolderId = parsed.folderId ?? null;
       }
     } catch {
       // ignore malformed storage
@@ -106,6 +119,9 @@ export default function FlashcardQuizPracticeScreen() {
       setSrsStates(hydrateQuizletStates(liveWords, savedLocal));
       setBatchNewCount(savedBatch);
       setCurrentCardId(savedCurrentId);
+      if (savedFolderId && liveFolders.some((f) => f.id === savedFolderId)) {
+        setFolderId(savedFolderId);
+      }
       setConnected(true);
       setSyncStatus(`Đã nối Backend (${libraryEndpoint ?? 'local'})`);
     } catch {
@@ -120,6 +136,7 @@ export default function FlashcardQuizPracticeScreen() {
       setSrsStates(hydrateQuizletStates(fallbackWords, savedLocal));
       setBatchNewCount(savedBatch);
       setCurrentCardId(savedCurrentId);
+      if (savedFolderId) setFolderId(savedFolderId);
     }
   }, []);
 
@@ -201,7 +218,7 @@ export default function FlashcardQuizPracticeScreen() {
     setBatchNewCount(0);
     setFlipped(false);
     setSrsFeedback(null);
-    void persistSrsSession({}, 0, null);
+    void persistSrsSession({}, 0, null, folderId);
   };
 
   const selectFolder = (id: string | null) => {
@@ -211,6 +228,7 @@ export default function FlashcardQuizPracticeScreen() {
     setQuizIndex(0);
     setQuizResult('idle');
     setFolderModalOpen(false);
+    void persistSrsSession(srsStates, batchNewCount, null, id);
   };
 
   const applyFolderAction = async (action: FolderAction) => {
@@ -301,7 +319,7 @@ export default function FlashcardQuizPracticeScreen() {
     setCurrentCardId(picked.nextId);
     setFlipped(false);
     setSrsFeedback(feedback);
-    void persistSrsSession(nextStates, finalBatch, picked.nextId);
+    void persistSrsSession(nextStates, finalBatch, picked.nextId, folderId);
 
     // Persist graduated/learning SRS state to backend / local workspace
     const intervalDays = graduatedDays ?? 0;
