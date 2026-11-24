@@ -7,7 +7,13 @@ import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { sampleLibrary } from '../../src/sample-library';
-import { createLocalWord, readLocalWorkspace, saveLocalWorkspace } from '../../src/workspace-storage';
+import {
+  createLocalWord,
+  readLocalWorkspace,
+  readServerCache,
+  saveLocalWorkspace,
+  saveServerCache,
+} from '../../src/workspace-storage';
 import { libraryEndpoint, loadLibrary, pushLibrary } from '../../src/library-source';
 import { deletionPreview, folderWrites, type FolderAction } from '../../src/folder-actions';
 import { overlayPending } from '../../src/sync-merge';
@@ -57,11 +63,13 @@ export default function FlashcardQuizPracticeScreen() {
   const [movingFolderId, setMovingFolderId] = useState<string | null>(null);
   const [folderError, setFolderError] = useState<string | null>(null);
 
-  // Quick add word state
+  // Quick add word & library pagination state
   const [addWordOpen, setAddWordOpen] = useState(false);
   const [newWord, setNewWord] = useState('');
   const [newReading, setNewReading] = useState('');
   const [newMeaning, setNewMeaning] = useState('');
+  const [libQuery, setLibQuery] = useState('');
+  const [libLimit, setLibLimit] = useState(40);
 
   // Exact Quizlet Spaced Repetition session state
   const [srsStates, setSrsStates] = useState<Record<string, QuizletCardState>>({});
@@ -130,8 +138,29 @@ export default function FlashcardQuizPracticeScreen() {
       // ignore malformed storage
     }
 
+    // 1) Local-First: load cached library from device storage immediately (works 100% offline)
+    if (libraryEndpoint) {
+      const cached = await readServerCache(libraryEndpoint).catch(() => undefined);
+      if (cached && cached.vocabularies.length > 0) {
+        const cachedFolders = cached.folders.filter((f) => !f.deletedAt);
+        const cachedWords = cached.vocabularies.filter((v) => !v.deletedAt);
+        setFolders(cachedFolders);
+        setWords(cachedWords);
+        setSrsStates(hydrateQuizletStates(cachedWords, savedLocal));
+        setBatchNewCount(savedBatch);
+        setCurrentCardId(savedCurrentId);
+        if (savedFolderId && cachedFolders.some((f) => f.id === savedFolderId)) {
+          setFolderId(savedFolderId);
+        }
+      }
+    }
+
+    // 2) Background sync from Backend when online
     try {
       const result = await loadLibrary(controller.signal);
+      if (libraryEndpoint) {
+        void saveServerCache(libraryEndpoint, result).catch(() => undefined);
+      }
       const liveFolders = result.folders.filter((f) => !f.deletedAt);
       const liveWords = result.vocabularies.filter((v) => !v.deletedAt);
       setFolders(liveFolders);
@@ -146,17 +175,13 @@ export default function FlashcardQuizPracticeScreen() {
       setSyncStatus(`Đã nối Backend (${libraryEndpoint ?? 'local'})`);
     } catch {
       setConnected(false);
-      setSyncStatus('Chế độ mẫu (chưa nối được Backend :3000)');
+      setSyncStatus('Chế độ offline (dùng dữ liệu lưu trên máy)');
       const local = await readLocalWorkspace().catch(() => undefined);
-      const fallbackWords =
-        local && local.vocabularies.length > 0
-          ? local.vocabularies.filter((v) => !v.deletedAt)
-          : sampleLibrary.vocabularies;
-      setWords(fallbackWords);
-      setSrsStates(hydrateQuizletStates(fallbackWords, savedLocal));
-      setBatchNewCount(savedBatch);
-      setCurrentCardId(savedCurrentId);
-      if (savedFolderId) setFolderId(savedFolderId);
+      if (local && local.vocabularies.length > 0) {
+        const localWords = local.vocabularies.filter((v) => !v.deletedAt);
+        setWords(localWords);
+        setSrsStates(hydrateQuizletStates(localWords, savedLocal));
+      }
     }
   }, []);
 
@@ -880,9 +905,20 @@ export default function FlashcardQuizPracticeScreen() {
         </View>
       ) : null}
 
-      {/* MODE 3: LIBRARY + QUICK ADD WORD */}
+      {/* MODE 3: LIBRARY + QUICK ADD WORD (Paginated for instant render) */}
       {mode === 'library' ? (
         <View style={styles.list}>
+          <TextInput
+            value={libQuery}
+            onChangeText={(v) => {
+              setLibQuery(v);
+              setLibLimit(40);
+            }}
+            placeholder={`Tìm trong ${activeWords.length} từ...`}
+            placeholderTextColor={nihongoTheme.colors.textMuted}
+            style={styles.input}
+          />
+
           <Pressable style={styles.addWordTrigger} onPress={() => setAddWordOpen((v) => !v)}>
             <Text style={styles.addWordTriggerText}>{addWordOpen ? '− Đóng biểu mẫu' : '+ Thêm từ mới vào thư mục'}</Text>
           </Pressable>
@@ -916,21 +952,43 @@ export default function FlashcardQuizPracticeScreen() {
             </View>
           ) : null}
 
-          {activeWords.map((item) => (
-            <View key={item.id} style={styles.wordCard}>
-              <View style={styles.wordLeft}>
-                <Text style={styles.wordKanji}>{item.word}</Text>
-                <Text style={styles.wordReading}>{item.reading}</Text>
-              </View>
-              <View style={styles.wordMid}>
-                <Text style={styles.wordMeaning}>{item.meaning}</Text>
-                {item.sinoVietnamese ? <Text style={styles.wordHanViet}>{item.sinoVietnamese}</Text> : null}
-              </View>
-              <Pressable style={styles.ttsBtn} onPress={() => speak(item.reading || item.word)}>
-                <Text style={styles.ttsText}>🔊</Text>
-              </Pressable>
-            </View>
-          ))}
+          {(() => {
+            const q = libQuery.trim().toLowerCase();
+            const filtered = q
+              ? activeWords.filter(
+                  (w) =>
+                    w.word.toLowerCase().includes(q) ||
+                    (w.reading ?? '').toLowerCase().includes(q) ||
+                    w.meaning.toLowerCase().includes(q),
+                )
+              : activeWords;
+            const visible = filtered.slice(0, libLimit);
+            const remaining = filtered.length - visible.length;
+            return (
+              <>
+                {visible.map((item) => (
+                  <View key={item.id} style={styles.wordCard}>
+                    <View style={styles.wordLeft}>
+                      <Text style={styles.wordKanji}>{item.word}</Text>
+                      <Text style={styles.wordReading}>{item.reading}</Text>
+                    </View>
+                    <View style={styles.wordMid}>
+                      <Text style={styles.wordMeaning}>{item.meaning}</Text>
+                      {item.sinoVietnamese ? <Text style={styles.wordHanViet}>{item.sinoVietnamese}</Text> : null}
+                    </View>
+                    <Pressable style={styles.ttsBtn} onPress={() => speak(item.reading || item.word)}>
+                      <Text style={styles.ttsText}>🔊</Text>
+                    </Pressable>
+                  </View>
+                ))}
+                {remaining > 0 ? (
+                  <Pressable style={styles.outlineBtn} onPress={() => setLibLimit((n) => n + 40)}>
+                    <Text style={styles.outlineBtnText}>Xem thêm 40 từ (còn {remaining} từ)</Text>
+                  </Pressable>
+                ) : null}
+              </>
+            );
+          })()}
         </View>
       ) : null}
     </AppShell>
