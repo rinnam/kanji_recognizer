@@ -38,6 +38,51 @@ export function createInitialCardState(id: string): QuizletCardState {
   };
 }
 
+export interface PersistedWordSrs {
+  id: string;
+  srsInterval?: number | null;
+  srsRepetition?: number | null;
+  srsNextReview?: string | null;
+}
+
+/**
+ * Hydrates Quizlet SRS states from BOTH:
+ * 1) Database (srsNextReview / srsInterval / srsRepetition):
+ *    - If srsNextReview is still in the future and srsRepetition > 0 -> 'graduated' for today.
+ *    - When the next day arrives (now >= srsNextReview), it automatically becomes due again!
+ * 2) Local AsyncStorage mid-session state:
+ *    - Preserves in-session 'learning' cards (Repeat / Hard / Okay <=10m) across page reloads.
+ */
+export function hydrateQuizletStates(
+  words: PersistedWordSrs[],
+  savedLocal: Record<string, QuizletCardState>,
+  nowMs = Date.now(),
+): Record<string, QuizletCardState> {
+  const result: Record<string, QuizletCardState> = {};
+  for (const w of words) {
+    const nextMs = w.srsNextReview ? Date.parse(w.srsNextReview) : NaN;
+    const isGraduatedInDb = Number.isFinite(nextMs) && nextMs > nowMs && (w.srsRepetition ?? 0) > 0;
+    if (isGraduatedInDb) {
+      result[w.id] = {
+        id: w.id,
+        stage: 'graduated',
+        okayDays: w.srsInterval ?? 4,
+        easyDays: Math.max((w.srsInterval ?? 4) + 2, 7),
+        urgency: 0,
+        lastRatedAt: nowMs,
+        graduatedDays: w.srsInterval ?? 1,
+      };
+      continue;
+    }
+
+    const local = savedLocal[w.id];
+    if (local && local.stage === 'learning') {
+      result[w.id] = local;
+    }
+  }
+  return result;
+}
+
 /**
  * Exact Quizlet Spaced Repetition button options & intervals observed empirically:
  * - New:

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
 import type { FolderDto, VocabularyDto } from '../../../packages/contracts/src/study';
 import { AppShell } from '../../src/components/AppShell';
@@ -14,10 +15,13 @@ import {
   applyQuizletRating,
   createInitialCardState,
   getQuizletOptions,
+  hydrateQuizletStates,
   pickNextQuizletCard,
   type QuizletCardState,
   type QuizletRating,
 } from '../../src/features/flashcards/quizlet-srs';
+
+const SRS_SESSION_STORAGE_KEY = 'kanji_nest_quizlet_srs_session_v1';
 
 type Mode = 'flashcard' | 'quiz' | 'library';
 
@@ -57,22 +61,65 @@ export default function FlashcardQuizPracticeScreen() {
   const [quizResult, setQuizResult] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [quizScore, setQuizScore] = useState(0);
 
+  const persistSrsSession = useCallback(
+    async (nextStates: Record<string, QuizletCardState>, nextBatch: number, nextCardId: string | null) => {
+      try {
+        await AsyncStorage.setItem(
+          SRS_SESSION_STORAGE_KEY,
+          JSON.stringify({ states: nextStates, batchNewCount: nextBatch, currentCardId: nextCardId }),
+        );
+      } catch {
+        // ignore storage errors
+      }
+    },
+    [],
+  );
+
   const fetchFromBackend = useCallback(async () => {
     const controller = new AbortController();
     setSyncStatus('Đang tải từ backend…');
+    let savedLocal: Record<string, QuizletCardState> = {};
+    let savedBatch = 0;
+    let savedCurrentId: string | null = null;
+    try {
+      const raw = await AsyncStorage.getItem(SRS_SESSION_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as {
+          states?: Record<string, QuizletCardState>;
+          batchNewCount?: number;
+          currentCardId?: string | null;
+        };
+        savedLocal = parsed.states ?? {};
+        savedBatch = parsed.batchNewCount ?? 0;
+        savedCurrentId = parsed.currentCardId ?? null;
+      }
+    } catch {
+      // ignore malformed storage
+    }
+
     try {
       const result = await loadLibrary(controller.signal);
-      setFolders(result.folders.filter((f) => !f.deletedAt));
-      setWords(result.vocabularies.filter((v) => !v.deletedAt));
+      const liveFolders = result.folders.filter((f) => !f.deletedAt);
+      const liveWords = result.vocabularies.filter((v) => !v.deletedAt);
+      setFolders(liveFolders);
+      setWords(liveWords);
+      setSrsStates(hydrateQuizletStates(liveWords, savedLocal));
+      setBatchNewCount(savedBatch);
+      setCurrentCardId(savedCurrentId);
       setConnected(true);
       setSyncStatus(`Đã nối Backend (${libraryEndpoint ?? 'local'})`);
     } catch {
       setConnected(false);
       setSyncStatus('Chế độ mẫu (chưa nối được Backend :3000)');
       const local = await readLocalWorkspace().catch(() => undefined);
-      if (local && local.vocabularies.length > 0) {
-        setWords(local.vocabularies.filter((v) => !v.deletedAt));
-      }
+      const fallbackWords =
+        local && local.vocabularies.length > 0
+          ? local.vocabularies.filter((v) => !v.deletedAt)
+          : sampleLibrary.vocabularies;
+      setWords(fallbackWords);
+      setSrsStates(hydrateQuizletStates(fallbackWords, savedLocal));
+      setBatchNewCount(savedBatch);
+      setCurrentCardId(savedCurrentId);
     }
   }, []);
 
@@ -154,11 +201,13 @@ export default function FlashcardQuizPracticeScreen() {
     setBatchNewCount(0);
     setFlipped(false);
     setSrsFeedback(null);
+    void persistSrsSession({}, 0, null);
   };
 
   const selectFolder = (id: string | null) => {
     setFolderId(id);
-    resetRound();
+    setCurrentCardId(null);
+    setFlipped(false);
     setQuizIndex(0);
     setQuizResult('idle');
     setFolderModalOpen(false);
@@ -246,11 +295,13 @@ export default function FlashcardQuizPracticeScreen() {
     const nextBatch = currentCardState.stage === 'new' ? batchNewCount + 1 : batchNewCount;
     const picked = pickNextQuizletCard(activeWordIds, nextStates, nextBatch, currentCard.id);
 
+    const finalBatch = picked.resetBatch ? 0 : nextBatch;
     setSrsStates(nextStates);
-    setBatchNewCount(picked.resetBatch ? 0 : nextBatch);
+    setBatchNewCount(finalBatch);
     setCurrentCardId(picked.nextId);
     setFlipped(false);
     setSrsFeedback(feedback);
+    void persistSrsSession(nextStates, finalBatch, picked.nextId);
 
     // Persist graduated/learning SRS state to backend / local workspace
     const intervalDays = graduatedDays ?? 0;
