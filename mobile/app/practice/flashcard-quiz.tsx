@@ -86,6 +86,9 @@ export default function FlashcardQuizPracticeScreen() {
 
   // Quiz state
   const [quizMode, setQuizMode] = useState<'random' | 'jp_to_vi' | 'vi_to_jp'>('random');
+  const [quizShuffled, setQuizShuffled] = useState(false);
+  const [quizShuffleSeed, setQuizShuffleSeed] = useState(0);
+  const [quizAutoSecInput, setQuizAutoSecInput] = useState('2');
   const [quizIndex, setQuizIndex] = useState(0);
   const [answer, setAnswer] = useState('');
   const [quizResult, setQuizResult] = useState<'idle' | 'correct' | 'wrong'>('idle');
@@ -321,8 +324,20 @@ export default function FlashcardQuizPracticeScreen() {
     () => activeWordIds.filter((id) => srsStates[id]?.stage === 'graduated').length,
     [activeWordIds, srsStates],
   );
+  const quizWords = useMemo(() => {
+    if (!quizShuffled) return activeWords;
+    const copy = [...activeWords];
+    let seed = quizShuffleSeed + 1;
+    for (let i = copy.length - 1; i > 0; i -= 1) {
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      const j = seed % (i + 1);
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }, [activeWords, quizShuffled, quizShuffleSeed]);
+
   const roundDone = activeWordIds.length > 0 && completedCount >= activeWordIds.length;
-  const currentQuiz = activeWords[quizIndex % Math.max(activeWords.length, 1)];
+  const currentQuiz = quizWords[quizIndex % Math.max(quizWords.length, 1)];
 
   const resetRound = () => {
     const activeSet = new Set(activeWordIds);
@@ -490,12 +505,31 @@ export default function FlashcardQuizPracticeScreen() {
     if (ok) setQuizScore((s) => s + 1);
   };
 
-  const handleNextQuiz = () => {
+  const handleNextQuiz = useCallback(() => {
     setAnswer('');
     setQuizResult('idle');
     setShowHint(false);
-    setQuizIndex((i) => (i + 1) % Math.max(activeWords.length, 1));
+    setQuizIndex((i) => (i + 1) % Math.max(quizWords.length, 1));
+  }, [quizWords.length]);
+
+  const handleResetQuiz = () => {
+    setQuizIndex(0);
+    setQuizScore(0);
+    setAnswer('');
+    setQuizResult('idle');
+    setShowHint(false);
+    if (quizShuffled) setQuizShuffleSeed((s) => s + 1);
   };
+
+  useEffect(() => {
+    if (mode !== 'quiz' || quizResult === 'idle') return;
+    const sec = Number(quizAutoSecInput);
+    if (!Number.isFinite(sec) || sec <= 0) return;
+    const timer = setTimeout(() => {
+      handleNextQuiz();
+    }, sec * 1000);
+    return () => clearTimeout(timer);
+  }, [mode, quizResult, quizAutoSecInput, handleNextQuiz]);
 
   return (
     <AppShell>
@@ -910,30 +944,66 @@ export default function FlashcardQuizPracticeScreen() {
             <CatFrame color="#A89A8E" />
           </View>
 
-          <View style={styles.quizModeRow}>
-            {(
-              [
-                ['random', 'Ngẫu nhiên'],
-                ['jp_to_vi', 'Dạng 1 (Nhật → Việt)'],
-                ['vi_to_jp', 'Dạng 2 (Việt → Nhật)'],
-              ] as const
-            ).map(([key, label]) => {
-              const active = quizMode === key;
-              return (
-                <Pressable
-                  key={key}
-                  style={[styles.quizModeChip, active && styles.quizModeChipActive]}
-                  onPress={() => {
-                    setQuizMode(key);
-                    setQuizResult('idle');
-                    setAnswer('');
-                    setShowHint(false);
-                  }}
-                >
-                  <Text style={[styles.quizModeText, active && styles.quizModeTextActive]}>{label}</Text>
-                </Pressable>
-              );
-            })}
+          <View style={styles.quizTopBar}>
+            <View style={styles.quizModeRow}>
+              {(
+                [
+                  ['random', 'Ngẫu nhiên'],
+                  ['jp_to_vi', 'Dạng 1 (Nhật → Việt)'],
+                  ['vi_to_jp', 'Dạng 2 (Việt → Nhật)'],
+                ] as const
+              ).map(([key, label]) => {
+                const active = quizMode === key;
+                return (
+                  <Pressable
+                    key={key}
+                    style={[styles.quizModeChip, active && styles.quizModeChipActive]}
+                    onPress={() => {
+                      setQuizMode(key);
+                      setQuizResult('idle');
+                      setAnswer('');
+                      setShowHint(false);
+                    }}
+                  >
+                    <Text style={[styles.quizModeText, active && styles.quizModeTextActive]}>{label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.quizToolsRow}>
+              <Pressable
+                style={[styles.toolIconBtn, quizShuffled && styles.toolIconBtnActive]}
+                onPress={() => {
+                  setQuizShuffled((v) => !v);
+                  setQuizShuffleSeed((s) => s + 1);
+                  setQuizIndex(0);
+                  setQuizResult('idle');
+                  setAnswer('');
+                }}
+                accessibilityLabel="Xáo trộn câu hỏi"
+              >
+                <Text style={[styles.toolIconText, quizShuffled && styles.toolIconTextActive]}>🔀</Text>
+              </Pressable>
+              <Pressable
+                style={styles.toolIconBtn}
+                onPress={handleResetQuiz}
+                accessibilityLabel="Reset Quiz"
+              >
+                <Text style={styles.toolIconText}>↺</Text>
+              </Pressable>
+              <View style={styles.timerBox}>
+                <Text style={styles.timerIcon}>🕒</Text>
+                <TextInput
+                  value={quizAutoSecInput}
+                  onChangeText={(val) => setQuizAutoSecInput(val.replace(/[^0-9]/g, '').slice(0, 2))}
+                  keyboardType="numeric"
+                  style={styles.timerInput}
+                  accessibilityLabel="Số giây tự chuyển câu"
+                />
+                <Text style={styles.timerUnit}>s</Text>
+              </View>
+            </View>
           </View>
 
           <View style={styles.cardTopRow}>
@@ -1733,6 +1803,71 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     ...nihongoTheme.shadow.card,
+  },
+  quizTopBar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  quizToolsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  toolIconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#D6C7B8',
+    backgroundColor: 'rgba(255,255,255,0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolIconBtnActive: {
+    backgroundColor: '#F3D9C6',
+    borderColor: '#C87D55',
+  },
+  toolIconText: {
+    fontSize: 16,
+    color: nihongoTheme.colors.textPrimary,
+  },
+  toolIconTextActive: {
+    color: '#A64B24',
+  },
+  timerBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    height: 36,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#D6C7B8',
+    backgroundColor: 'rgba(255,255,255,0.65)',
+  },
+  timerIcon: {
+    fontSize: 13,
+  },
+  timerInput: {
+    width: 30,
+    height: 26,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#D6C7B8',
+    backgroundColor: '#FFFFFF',
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+    paddingVertical: 0,
+  },
+  timerUnit: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textSecondary,
   },
   quizModeRow: {
     flexDirection: 'row',
