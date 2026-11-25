@@ -85,10 +85,12 @@ export default function FlashcardQuizPracticeScreen() {
   const [newCardsInput, setNewCardsInput] = useState(String(DEFAULT_OPTIONS.newCardsPerDay));
 
   // Quiz state
+  const [quizMode, setQuizMode] = useState<'random' | 'jp_to_vi' | 'vi_to_jp'>('random');
   const [quizIndex, setQuizIndex] = useState(0);
   const [answer, setAnswer] = useState('');
   const [quizResult, setQuizResult] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [quizScore, setQuizScore] = useState(0);
+  const [showHint, setShowHint] = useState(false);
 
   const persistSrsSession = useCallback(
     async (
@@ -470,10 +472,17 @@ export default function FlashcardQuizPracticeScreen() {
     }
   };
 
+  const currentQuizDirection: 'jp_to_vi' | 'vi_to_jp' =
+    quizMode === 'random' ? (quizIndex % 2 === 0 ? 'jp_to_vi' : 'vi_to_jp') : quizMode;
+
   const handleCheckQuiz = () => {
     if (!currentQuiz || !answer.trim()) return;
     const normalized = answer.trim().toLowerCase();
-    const valid = [currentQuiz.word, currentQuiz.reading, currentQuiz.meaning]
+    const targets =
+      currentQuizDirection === 'jp_to_vi'
+        ? [currentQuiz.meaning, currentQuiz.reading]
+        : [currentQuiz.word, currentQuiz.reading];
+    const valid = targets
       .filter((s): s is string => typeof s === 'string' && s.length > 0)
       .map((s) => s.trim().toLowerCase());
     const ok = valid.some((v) => v === normalized || v.includes(normalized));
@@ -484,6 +493,7 @@ export default function FlashcardQuizPracticeScreen() {
   const handleNextQuiz = () => {
     setAnswer('');
     setQuizResult('idle');
+    setShowHint(false);
     setQuizIndex((i) => (i + 1) % Math.max(activeWords.length, 1));
   };
 
@@ -893,26 +903,76 @@ export default function FlashcardQuizPracticeScreen() {
         </View>
       ) : null}
 
-      {/* MODE 2: TYPING QUIZ */}
+      {/* MODE 2: TYPING QUIZ (3 modes + Sino-Vietnamese hint) */}
       {mode === 'quiz' && currentQuiz ? (
         <View style={styles.card}>
+          <View style={styles.quizModeRow}>
+            {(
+              [
+                ['random', 'Ngẫu nhiên'],
+                ['jp_to_vi', 'Dạng 1 (Nhật → Việt)'],
+                ['vi_to_jp', 'Dạng 2 (Việt → Nhật)'],
+              ] as const
+            ).map(([key, label]) => {
+              const active = quizMode === key;
+              return (
+                <Pressable
+                  key={key}
+                  style={[styles.quizModeChip, active && styles.quizModeChipActive]}
+                  onPress={() => {
+                    setQuizMode(key);
+                    setQuizResult('idle');
+                    setAnswer('');
+                    setShowHint(false);
+                  }}
+                >
+                  <Text style={[styles.quizModeText, active && styles.quizModeTextActive]}>{label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
           <View style={styles.cardTopRow}>
             <Text style={styles.progressText}>
               Câu {(quizIndex % activeWords.length) + 1} / {activeWords.length} · Điểm: {quizScore}
             </Text>
-            <Pressable style={styles.ttsBtn} onPress={() => speak(currentQuiz.reading || currentQuiz.word)}>
-              <Text style={styles.ttsText}>🔊 Nghe</Text>
-            </Pressable>
+            <View style={styles.headerRight}>
+              <Pressable style={styles.ttsBtn} onPress={() => setShowHint((v) => !v)}>
+                <Text style={styles.ttsText}>💡 Gợi ý Hán Việt</Text>
+              </Pressable>
+              <Pressable style={styles.ttsBtn} onPress={() => speak(currentQuiz.reading || currentQuiz.word)}>
+                <Text style={styles.ttsText}>🔊 Nghe</Text>
+              </Pressable>
+            </View>
           </View>
 
-          <Text style={styles.quizPromptLabel}>Nhập cách đọc (Kana) hoặc nghĩa của từ sau:</Text>
-          <Text style={styles.kanjiLarge}>{currentQuiz.word}</Text>
+          <Text style={styles.quizPromptLabel}>
+            {currentQuizDirection === 'jp_to_vi'
+              ? 'Dạng 1 · Nhập nghĩa tiếng Việt (hoặc cách đọc Kana):'
+              : 'Dạng 2 · Nhập từ tiếng Nhật (Kanji hoặc Kana):'}
+          </Text>
+          <Text style={styles.kanjiLarge}>
+            {currentQuizDirection === 'jp_to_vi' ? currentQuiz.word : currentQuiz.meaning}
+          </Text>
+
+          {showHint ? (
+            <View style={styles.hintBox}>
+              <Text style={styles.hintText}>
+                💡 Âm Hán Việt:{' '}
+                {currentQuiz.sinoVietnamese
+                  ? currentQuiz.sinoVietnamese
+                  : currentQuiz.reading
+                    ? `(Không có Hán Việt · Gợi ý chữ đầu: ${currentQuiz.reading.slice(0, 2)}…)`
+                    : 'Chưa có gợi ý'}
+              </Text>
+            </View>
+          ) : null}
 
           <TextInput
             value={answer}
             onChangeText={setAnswer}
             onSubmitEditing={handleCheckQuiz}
-            placeholder="Nhập đáp án..."
+            placeholder={currentQuizDirection === 'jp_to_vi' ? 'Nhập nghĩa tiếng Việt...' : 'Nhập từ tiếng Nhật / Kana...'}
             placeholderTextColor={nihongoTheme.colors.textMuted}
             style={styles.input}
           />
@@ -921,8 +981,8 @@ export default function FlashcardQuizPracticeScreen() {
             <View style={[styles.feedbackBox, quizResult === 'correct' ? styles.feedbackOk : styles.feedbackWrong]}>
               <Text style={quizResult === 'correct' ? styles.feedbackOkText : styles.feedbackWrongText}>
                 {quizResult === 'correct'
-                  ? `Chính xác! ${currentQuiz.reading} — ${currentQuiz.meaning}`
-                  : `Đáp án đúng: ${currentQuiz.reading} — ${currentQuiz.meaning}`}
+                  ? `Chính xác! ${currentQuiz.word} (${currentQuiz.reading}) — ${currentQuiz.meaning}`
+                  : `Đáp án đúng: ${currentQuiz.word} (${currentQuiz.reading}) — ${currentQuiz.meaning}`}
               </Text>
             </View>
           ) : null}
@@ -1658,6 +1718,39 @@ const styles = StyleSheet.create({
   ratingHint: {
     fontSize: 11,
     fontWeight: '600',
+    color: nihongoTheme.colors.accentHover,
+  },
+  quizModeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  quizModeChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: nihongoTheme.radius.pill,
+    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+  },
+  quizModeChipActive: {
+    backgroundColor: nihongoTheme.colors.accent,
+  },
+  quizModeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  quizModeTextActive: {
+    color: '#FFFFFF',
+  },
+  hintBox: {
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderRadius: nihongoTheme.radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  hintText: {
+    fontSize: 13,
+    fontWeight: '700',
     color: nihongoTheme.colors.accentHover,
   },
   quizPromptLabel: {
