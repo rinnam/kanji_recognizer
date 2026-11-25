@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import type { FolderDto, VocabularyDto } from '../../../packages/contracts/src/study';
 import { speakJapanese } from '../../src/utils/speak-japanese';
+import { parseCsv } from '../../src/import-parser';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { CatFrame } from '../../src/CatFrame';
@@ -471,27 +474,71 @@ export default function FlashcardQuizPracticeScreen() {
     }
   };
 
+  const SAMPLE_CSV =
+    'word,reading,meaning,sinoVietnamese,jlptLevel,example,exampleMeaning\n' +
+    '就職,しゅうしょく,"xin được việc, đi làm",TỰU CHỨC,N3,卒業したら、日本の会社に就職したいです。,Sau khi tốt nghiệp tôi muốn xin việc ở công ty Nhật.\n' +
+    '正確な,せいかくな,chính xác,CHÍNH XÁC,N3,正確な情報を伝えてください。,Hãy truyền đạt thông tin chính xác.';
+
+  const handleDownloadSampleCsv = () => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const blob = new Blob(['\uFEFF' + SAMPLE_CSV], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'kanji_nest_template.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+    setImportText(SAMPLE_CSV);
+  };
+
+  const handlePickImportFile = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'text/plain', 'text/tab-separated-values', '*/*'],
+        copyToCacheDirectory: true,
+      });
+      if (res.canceled || !res.assets?.[0]) return;
+      const asset = res.assets[0];
+      if (Platform.OS === 'web') {
+        const resp = await fetch(asset.uri);
+        const text = await resp.text();
+        setImportText(text);
+      } else {
+        const text = await FileSystem.readAsStringAsync(asset.uri);
+        setImportText(text);
+      }
+    } catch {
+      // ignore picker cancel/error
+    }
+  };
+
   const handleBulkImport = () => {
-    const lines = importText
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean);
-    if (lines.length === 0) return;
+    if (!importText.trim()) return;
+    const rows = parseCsv(importText).filter((r) => r.some((cell) => cell.trim().length > 0));
+    if (rows.length === 0) return;
+
+    const first = rows[0].map((c) => c.trim().toLowerCase());
+    const hasHeader = first.includes('word') || first.includes('meaning') || first.includes('từ');
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+
     const createdList: VocabularyDto[] = [];
-    for (const line of lines) {
-      const parts = line.includes('\t')
-        ? line.split('\t')
-        : line.includes('|')
-          ? line.split('|')
-          : line.split(/\s*-\s*/);
-      const word = (parts[0] ?? '').trim();
-      const reading = (parts.length >= 3 ? parts[1] : parts[0])?.trim() ?? '';
-      const meaning = (parts.length >= 3 ? parts[2] : parts[1])?.trim() ?? '';
-      const sinoVietnamese = (parts[3] ?? '').trim() || undefined;
+    for (const cols of dataRows) {
+      const word = (cols[0] ?? '').trim();
+      const reading = (cols.length >= 3 ? cols[1] : cols[0])?.trim() ?? '';
+      const meaning = (cols.length >= 3 ? cols[2] : cols[1])?.trim() ?? '';
+      const sinoVietnamese = (cols[3] ?? '').trim() || null;
+      const rawLevel = (cols[4] ?? '').trim().toUpperCase();
+      const jlptLevel = (['N1', 'N2', 'N3', 'N4', 'N5'].includes(rawLevel) ? rawLevel : 'N3') as VocabularyDto['jlptLevel'];
+      const example = (cols[5] ?? '').trim() || null;
+      const exampleMeaning = (cols[6] ?? '').trim() || null;
       if (!word || !meaning) continue;
       createdList.push({
-        ...createLocalWord({ word, reading, meaning, jlptLevel: 'N3' }, folderId),
-        sinoVietnamese: sinoVietnamese ?? null,
+        ...createLocalWord({ word, reading, meaning, jlptLevel: jlptLevel ?? 'N3' }, folderId),
+        sinoVietnamese,
+        example,
+        exampleMeaning,
       });
     }
     if (createdList.length === 0) return;
@@ -1188,16 +1235,28 @@ export default function FlashcardQuizPracticeScreen() {
 
           {importOpen ? (
             <View style={styles.card}>
+              <Text style={styles.optionLabel}>Import chuẩn CSV / TSV (giống Frontend)</Text>
               <Text style={styles.optionDesc}>
-                Mỗi dòng 1 từ theo định dạng: Từ Nhật | Cách đọc | Nghĩa tiếng Việt | Hán Việt (hoặc ngăn cách bằng Tab / dấu -)
+                Cột chuẩn: word, reading, meaning, sinoVietnamese, jlptLevel, example, exampleMeaning
               </Text>
+              <View style={styles.quizModeRow}>
+                <Pressable style={styles.smallPill} onPress={() => void handlePickImportFile()}>
+                  <Text style={styles.smallPillText}>📂 Chọn file .csv / .txt</Text>
+                </Pressable>
+                <Pressable style={styles.smallPill} onPress={() => setImportText(SAMPLE_CSV)}>
+                  <Text style={styles.smallPillText}>📋 Điền mẫu CSV</Text>
+                </Pressable>
+                <Pressable style={styles.smallPill} onPress={handleDownloadSampleCsv}>
+                  <Text style={styles.smallPillText}>⬇ Tải file mẫu (.csv)</Text>
+                </Pressable>
+              </View>
               <TextInput
                 value={importText}
                 onChangeText={setImportText}
                 multiline
-                placeholder={'就職 | しゅうしょく | xin việc, đi làm | TỰU CHỨC\n正確な | せいかくな | chính xác | CHÍNH XÁC'}
+                placeholder={SAMPLE_CSV}
                 placeholderTextColor={nihongoTheme.colors.textMuted}
-                style={[styles.input, { minHeight: 110, textAlignVertical: 'top' }]}
+                style={[styles.input, { minHeight: 120, textAlignVertical: 'top' }]}
               />
               <Pressable style={styles.primaryBtn} onPress={handleBulkImport}>
                 <Text style={styles.primaryBtnText}>Nhập danh sách vào thư mục</Text>
