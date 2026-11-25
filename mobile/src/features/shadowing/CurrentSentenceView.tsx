@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { nihongoTheme } from '../../theme/nihongo-theme';
 import type { AnalyzedToken, ShadowingLine } from './types';
 import { speakJapanese } from '../../utils/speak-japanese';
-import { formatTimestamp } from './shadowing-api';
+import { formatTimestamp, translateJapaneseApi } from './shadowing-api';
 import { ClockIcon, RepeatIcon, ResetIcon, VolumeIcon } from '../../components/AppIcons';
 
 interface CurrentSentenceViewProps {
@@ -33,6 +33,23 @@ export function CurrentSentenceView({
   onToggleLoop,
 }: CurrentSentenceViewProps) {
   const [showTable, setShowTable] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(true);
+  const [translation, setTranslation] = useState<string>('');
+  const [translating, setTranslating] = useState(false);
+
+  useEffect(() => {
+    if (!showTranslation || !line?.text) {
+      setTranslation('');
+      return;
+    }
+    const controller = new AbortController();
+    setTranslating(true);
+    void translateJapaneseApi(line.text, controller.signal)
+      .then((vi) => setTranslation(vi))
+      .catch(() => setTranslation(''))
+      .finally(() => setTranslating(false));
+    return () => controller.abort();
+  }, [line?.text, showTranslation]);
 
   if (!line) {
     return (
@@ -76,6 +93,15 @@ export function CurrentSentenceView({
             <VolumeIcon size={13} color={nihongoTheme.colors.accentHover} />
             <Text style={styles.smallBtnText}>Đọc mẫu</Text>
           </Pressable>
+
+          <Pressable
+            style={[styles.smallBtn, showTranslation && styles.smallBtnActive]}
+            onPress={() => setShowTranslation((v) => !v)}
+          >
+            <Text style={[styles.smallBtnText, showTranslation && styles.smallBtnTextActive]}>
+              {showTranslation ? 'Dịch: BẬT' : 'Dịch: TẮT'}
+            </Text>
+          </Pressable>
         </View>
       </View>
 
@@ -107,6 +133,11 @@ export function CurrentSentenceView({
             <Text style={styles.rawText}>{line.text}</Text>
           )}
         </View>
+        {showTranslation ? (
+          <Text style={styles.translationText}>
+            {translating ? 'Đang dịch tiếng Việt…' : translation || 'Chưa có bản dịch'}
+          </Text>
+        ) : null}
       </View>
 
       {/* Toggle table button */}
@@ -258,6 +289,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: nihongoTheme.colors.textPrimary,
     lineHeight: 28,
+  },
+  translationText: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: nihongoTheme.colors.borderWarm,
+    fontSize: 14,
+    fontStyle: 'italic',
+    color: nihongoTheme.colors.textSecondary,
+    lineHeight: 20,
   },
   rawText: {
     fontSize: 20,

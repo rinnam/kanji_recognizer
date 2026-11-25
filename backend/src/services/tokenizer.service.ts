@@ -68,9 +68,33 @@ export function getTokenizer(): Promise<KuromojiTokenizer | null> {
   if (tokenizerPromise) return tokenizerPromise;
 
   tokenizerPromise = new Promise<KuromojiTokenizer | null>((resolve) => {
+    // 1) Prefer npm-installed kuromoji (works on every machine without test_module/)
+    try {
+      const pkgPath = require.resolve('kuromoji/package.json');
+      const dictDir = path.join(path.dirname(pkgPath), 'dict');
+      if (fs.existsSync(dictDir)) {
+        const kuromoji = require('kuromoji') as {
+          builder: (opts: { dicPath: string }) => {
+            build: (cb: (err: unknown, tokenizer: KuromojiTokenizer) => void) => void;
+          };
+        };
+        kuromoji.builder({ dicPath: dictDir }).build((err, tokenizer) => {
+          if (err) {
+            console.error('[Tokenizer] Failed to build npm kuromoji:', err);
+            resolve(null);
+          } else {
+            resolve(tokenizer);
+          }
+        });
+        return;
+      }
+    } catch {
+      // Fallback to test_module/kuromoji-local below
+    }
+
     const paths = resolveKuromojiPaths();
     if (!paths) {
-      console.warn('[Tokenizer] Cannot locate kuromoji files in test_module/kuromoji-local');
+      console.warn('[Tokenizer] Cannot locate kuromoji in node_modules or test_module/kuromoji-local');
       resolve(null);
       return;
     }

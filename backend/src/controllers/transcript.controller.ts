@@ -55,3 +55,34 @@ export async function recognizeKanji(req: FastifyRequest, reply: FastifyReply): 
     });
   }
 }
+
+const translationCache = new Map<string, string>();
+
+export async function translateSentence(
+  req: { query: unknown },
+  reply: { status: (code: number) => { send: (body: unknown) => unknown }; send: (body: unknown) => unknown },
+) {
+  const q = req.query as { text?: string };
+  const text = typeof q?.text === 'string' ? q.text.trim() : '';
+  if (!text) {
+    return reply.status(400).send({ message: 'Thiếu tham số text.' });
+  }
+  const cached = translationCache.get(text);
+  if (cached !== undefined) {
+    return reply.send({ translation: cached });
+  }
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=vi&dt=t&q=${encodeURIComponent(text)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      return reply.status(502).send({ message: 'Không gọi được dịch vụ dịch.' });
+    }
+    const data = (await resp.json()) as unknown[];
+    const segments = Array.isArray(data[0]) ? (data[0] as unknown[][]) : [];
+    const translation = segments.map((s) => (typeof s[0] === 'string' ? s[0] : '')).join('').trim();
+    translationCache.set(text, translation);
+    return reply.send({ translation });
+  } catch {
+    return reply.status(502).send({ message: 'Lỗi kết nối dịch tiếng Việt.' });
+  }
+}

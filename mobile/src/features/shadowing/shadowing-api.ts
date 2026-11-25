@@ -43,3 +43,14 @@ export async function fetchTranscriptApi(
   }
   return response.json();
 }
+
+export async function translateJapaneseApi(text: string, signal?: AbortSignal): Promise<string> {
+  const clean = text.trim();
+  if (!clean) return '';
+  const base = libraryEndpoint || (Platform.OS === 'web' ? '/api' : 'http://localhost:3000/api');
+  const url = `${base.replace(/\/+$/, '')}/transcript/translate?text=${encodeURIComponent(clean)}`;
+  const response = await fetch(url, { signal });
+  if (!response.ok) return '';
+  const data = (await response.json()) as { translation?: string };
+  return data.translation ?? '';
+}
