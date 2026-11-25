@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
@@ -651,6 +651,93 @@ export default function FlashcardQuizPracticeScreen() {
     }, sec * 1000);
     return () => clearTimeout(timer);
   }, [mode, quizResult, quizAutoSecInput, handleNextQuiz]);
+
+  // Web keyboard shortcuts (ported from frontend/src/features/flashcard & quiz keymaps)
+  const keyStateRef = useRef({
+    mode,
+    hasModal: folderModalOpen || optionsOpen || importOpen,
+    currentCard,
+    currentQuiz,
+    quizResult,
+    answer,
+    handleRate,
+    handleCheckQuiz,
+    handleNextQuiz,
+  });
+  keyStateRef.current = {
+    mode,
+    hasModal: folderModalOpen || optionsOpen || importOpen,
+    currentCard,
+    currentQuiz,
+    quizResult,
+    answer,
+    handleRate,
+    handleCheckQuiz,
+    handleNextQuiz,
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const st = keyStateRef.current;
+      if (st.hasModal || event.ctrlKey || event.altKey || event.metaKey) return;
+
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName ?? '';
+      const isTyping =
+        tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || Boolean(target?.isContentEditable);
+
+      if (st.mode === 'flashcard') {
+        if (isTyping || !st.currentCard) return;
+        if (event.key === ' ' || event.key === 'Spacebar') {
+          if (tag === 'BUTTON') return;
+          event.preventDefault();
+          setFlipped((v) => !v);
+          return;
+        }
+        if (event.key === 'r' || event.key === 'R') {
+          speakJapanese(st.currentCard.reading || st.currentCard.word);
+          return;
+        }
+        const ratingMap: Record<string, QuizletRating> = {
+          '1': 'repeat',
+          '2': 'hard',
+          '3': 'okay',
+          '4': 'easy',
+        };
+        const rating = ratingMap[event.key];
+        if (rating) {
+          event.preventDefault();
+          st.handleRate(rating);
+        }
+        return;
+      }
+
+      if (st.mode === 'quiz' && st.currentQuiz) {
+        if (event.isComposing) return;
+        if (event.key === 'Enter') {
+          if (st.quizResult !== 'idle') {
+            event.preventDefault();
+            st.handleNextQuiz();
+          } else if (!isTyping && st.answer.trim()) {
+            event.preventDefault();
+            st.handleCheckQuiz();
+          }
+          return;
+        }
+        if (event.key === 'Shift') {
+          setShowHint((v) => !v);
+          return;
+        }
+        if (!isTyping && (event.key === 'r' || event.key === 'R')) {
+          speakJapanese(st.currentQuiz.reading || st.currentQuiz.word);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   return (
     <AppShell>
