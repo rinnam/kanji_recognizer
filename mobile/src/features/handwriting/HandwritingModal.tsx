@@ -58,7 +58,7 @@ export function HandwritingModal({
 
     setLoading(true);
     try {
-      const base = libraryEndpoint || 'http://localhost:3001/api';
+      const base = libraryEndpoint || 'http://localhost:3000/api';
       const res = await fetch(`${base.replace(/\/+$/, '')}/kanji/recognize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
