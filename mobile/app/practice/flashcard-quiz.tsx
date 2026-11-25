@@ -5,6 +5,7 @@ import type { FolderDto, VocabularyDto } from '../../../packages/contracts/src/s
 import { speakJapanese } from '../../src/utils/speak-japanese';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
+import { CatFrame } from '../../src/CatFrame';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { sampleLibrary } from '../../src/sample-library';
 import {
@@ -804,49 +805,64 @@ export default function FlashcardQuizPracticeScreen() {
           ) : currentCard && currentCardState ? (
             <>
               <Pressable style={styles.flashcard} onPress={() => setFlipped((v) => !v)}>
+                <View pointerEvents="none" style={styles.catFrameOverlay}>
+                  <CatFrame color="#A89A8E" />
+                </View>
+
                 <View style={styles.cardTopRow}>
-                  {currentCardState.stage === 'new' ? (
-                    <View style={styles.newPill}>
-                      <Text style={styles.newPillText}>New</Text>
-                    </View>
-                  ) : currentCardState.stage === 'review' ? (
-                    <View style={styles.reviewPill}>
-                      <Text style={styles.reviewPillText}>Review · Cần ôn</Text>
-                    </View>
-                  ) : (
-                    <View style={styles.learningBadge}>
-                      <Text style={styles.learningBadgeText}>Đang ôn</Text>
-                    </View>
-                  )}
+                  <View style={styles.cardTopLeft}>
+                    <Text style={styles.flipTag}>⇄ BẤM ĐỂ LẬT</Text>
+                    {currentCardState.stage === 'new' ? (
+                      <View style={styles.newPill}>
+                        <Text style={styles.newPillText}>New</Text>
+                      </View>
+                    ) : currentCardState.stage === 'review' ? (
+                      <View style={styles.reviewPill}>
+                        <Text style={styles.reviewPillText}>Review</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.learningBadge}>
+                        <Text style={styles.learningBadgeText}>Đang ôn</Text>
+                      </View>
+                    )}
+                  </View>
                   <Pressable style={styles.ttsBtn} onPress={() => speak(currentCard.reading || currentCard.word)}>
                     <Text style={styles.ttsText}>🔊 Nghe</Text>
                   </Pressable>
                 </View>
 
-                <Text style={styles.kanjiLarge}>
-                  {options.frontSide === 'japanese' ? currentCard.word : currentCard.meaning}
-                </Text>
+                <View style={styles.cardCenter}>
+                  {flipped ? (
+                    <View style={styles.backBox}>
+                      <View style={styles.readingRow}>
+                        <Text style={styles.readingText}>
+                          {options.frontSide === 'japanese' ? currentCard.reading : currentCard.word}
+                        </Text>
+                      </View>
+                      <Text style={styles.meaningLarge}>
+                        {options.frontSide === 'japanese' ? currentCard.meaning : currentCard.reading}
+                      </Text>
+                      {currentCard.sinoVietnamese ? (
+                        <Text style={styles.hanVietText}>{currentCard.sinoVietnamese}</Text>
+                      ) : null}
+                      {currentCard.example ? (
+                        <View style={styles.exampleBox}>
+                          <Text style={styles.exampleLabel}>VÍ DỤ</Text>
+                          <Text style={styles.exampleJp}>{currentCard.example}</Text>
+                          {currentCard.exampleMeaning ? (
+                            <Text style={styles.exampleVi}>{currentCard.exampleMeaning}</Text>
+                          ) : null}
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : (
+                    <Text style={styles.kanjiLarge}>
+                      {options.frontSide === 'japanese' ? currentCard.word : currentCard.meaning}
+                    </Text>
+                  )}
+                </View>
 
-                {flipped ? (
-                  <View style={styles.backBox}>
-                    {options.frontSide === 'japanese' ? (
-                      <>
-                        <Text style={styles.readingText}>{currentCard.reading}</Text>
-                        <Text style={styles.meaningText}>{currentCard.meaning}</Text>
-                      </>
-                    ) : (
-                      <>
-                        <Text style={styles.meaningText}>{currentCard.word}</Text>
-                        <Text style={styles.readingText}>{currentCard.reading}</Text>
-                      </>
-                    )}
-                    {currentCard.sinoVietnamese ? (
-                      <Text style={styles.hanVietText}>{currentCard.sinoVietnamese}</Text>
-                    ) : null}
-                  </View>
-                ) : (
-                  <Text style={styles.flipHint}>Chạm vào thẻ để lật xem đáp án</Text>
-                )}
+                <View style={styles.cardSpacer} />
               </Pressable>
 
               {options.sortingMode === 'basic' ? (
@@ -1434,15 +1450,85 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.textSecondary,
   },
   flashcard: {
-    minHeight: 215,
-    backgroundColor: nihongoTheme.colors.surface,
-    borderRadius: nihongoTheme.radius.card,
-    borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
+    minHeight: 240,
+    backgroundColor: '#FDF8F0',
+    borderRadius: 20,
+    borderWidth: 1.2,
+    borderColor: '#C87D55',
     padding: 18,
     alignItems: 'center',
     justifyContent: 'space-between',
+    overflow: 'hidden',
+    position: 'relative',
     ...nihongoTheme.shadow.card,
+  },
+  catFrameOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.55,
+  },
+  cardTopLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  flipTag: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    color: '#7A6F66',
+  },
+  cardCenter: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    zIndex: 2,
+  },
+  cardSpacer: {
+    height: 8,
+  },
+  readingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  meaningLarge: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+    textAlign: 'center',
+  },
+  exampleBox: {
+    marginTop: 10,
+    width: '100%',
+    maxWidth: 480,
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    borderWidth: 1,
+    borderColor: '#E6DCD1',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 3,
+  },
+  exampleLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    color: '#8C7E72',
+  },
+  exampleJp: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  exampleVi: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    color: nihongoTheme.colors.textSecondary,
   },
   card: {
     backgroundColor: nihongoTheme.colors.surface,
