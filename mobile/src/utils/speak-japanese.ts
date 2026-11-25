@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as Speech from 'expo-speech';
 
 let cachedJaVoiceId: string | undefined;
@@ -23,6 +24,24 @@ async function resolveJapaneseVoice(): Promise<string | undefined> {
 export async function speakJapanese(text: string): Promise<void> {
   const clean = text.trim();
   if (!clean) return;
+
+  // On Web, invoke speechSynthesis synchronously so keydown/click user-gesture activation is preserved.
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(clean);
+      utter.lang = 'ja-JP';
+      utter.rate = 0.9;
+      const voices = window.speechSynthesis.getVoices();
+      const jaVoice = voices.find((v) => v.lang.toLowerCase().startsWith('ja'));
+      if (jaVoice) utter.voice = jaVoice;
+      window.speechSynthesis.speak(utter);
+      return;
+    } catch {
+      // fall through to expo-speech
+    }
+  }
+
   try {
     const speaking = await Speech.isSpeakingAsync();
     if (speaking) {
