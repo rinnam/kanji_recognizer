@@ -249,17 +249,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   layout: {
-    gap: 14,
+    gap: 16,
   },
   layoutWide: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
+    minHeight: 500,
   },
   sideCol: {
-    flex: 0.8,
+    flex: 0.85,
   },
   mainCol: {
-    flex: 1.5,
+    flex: 1.65,
+    justifyContent: 'space-between',
   },
   card: {
     backgroundColor: nihongoTheme.colors.surface,
@@ -293,15 +295,16 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.accentHover,
   },
   centerBox: {
-    minHeight: 220,
+    flex: 1,
+    minHeight: 380,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 14,
     backgroundColor: '#FDF8F0',
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E8D5C4',
-    padding: 18,
+    borderWidth: 1.2,
+    borderColor: '#C87D55',
+    padding: 24,
   },
   qHeader: {
     width: '100%',
@@ -329,7 +332,7 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.textPrimary,
   },
   promptText: {
-    fontSize: 42,
+    fontSize: 56,
     fontWeight: '800',
     color: nihongoTheme.colors.textPrimary,
     textAlign: 'center',
@@ -393,7 +396,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   chatScroll: {
-    maxHeight: 300,
+    flex: 1,
+    maxHeight: 440,
   },
   chatItem: {
     paddingVertical: 6,
