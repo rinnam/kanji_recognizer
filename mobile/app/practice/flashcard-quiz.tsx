@@ -959,18 +959,20 @@ export default function FlashcardQuizPracticeScreen() {
             {currentQuizDirection === 'jp_to_vi' ? currentQuiz.word : currentQuiz.meaning}
           </Text>
 
-          {showHint ? (
-            <View style={styles.hintBox}>
-              <Text style={styles.hintText}>
-                💡 Âm Hán Việt:{' '}
-                {currentQuiz.sinoVietnamese
-                  ? currentQuiz.sinoVietnamese
-                  : currentQuiz.reading
-                    ? `(Không có Hán Việt · Gợi ý chữ đầu: ${currentQuiz.reading.slice(0, 2)}…)`
-                    : 'Chưa có gợi ý'}
-              </Text>
-            </View>
-          ) : null}
+          <View style={styles.hintSlot}>
+            {showHint ? (
+              <View style={styles.hintBox}>
+                <Text style={styles.hintText} numberOfLines={1}>
+                  💡 Âm Hán Việt:{' '}
+                  {currentQuiz.sinoVietnamese
+                    ? currentQuiz.sinoVietnamese
+                    : currentQuiz.reading
+                      ? `(Không có Hán Việt · Gợi ý chữ đầu: ${currentQuiz.reading.slice(0, 2)}…)`
+                      : 'Chưa có gợi ý'}
+                </Text>
+              </View>
+            ) : null}
+          </View>
 
           <TextInput
             value={answer}
@@ -1758,6 +1760,10 @@ const styles = StyleSheet.create({
   },
   quizModeTextActive: {
     color: '#FFFFFF',
+  },
+  hintSlot: {
+    height: 42,
+    justifyContent: 'center',
   },
   hintBox: {
     backgroundColor: nihongoTheme.colors.accentSoft,
