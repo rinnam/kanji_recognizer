@@ -170,6 +170,7 @@ export default function Interview3DRoomScreen() {
   const [evaluations, setEvaluations] = useState<EvaluationDto[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [lastFailedText, setLastFailedText] = useState<string | null>(null);
 
   const directAudioHandlerRef = useRef<(payload: RecordedAudioPayload) => void>(() => {});
   const mic = useJapaneseMic({
@@ -397,6 +398,7 @@ export default function Interview3DRoomScreen() {
     if (mic.listening) mic.stopListening();
     setSubmitting(true);
     setErrorMsg(null);
+    setLastFailedText(null);
     setMannerAlert(null);
 
     const placeholderId = `u-${Date.now()}`;
@@ -466,10 +468,13 @@ export default function Interview3DRoomScreen() {
         }, 3500);
       }
     } catch {
-      if (directAudio) {
-        setLogs((prev) => prev.filter((item) => item.id !== placeholderId));
+      setLogs((prev) => prev.filter((item) => item.id !== placeholderId));
+      if (clean) {
+        mic.setTranscript(clean);
+        mic.setAudioFillers(capturedFillers);
+        setLastFailedText(clean);
       }
-      setErrorMsg('Không gọi được AI phỏng vấn (có thể Google AI đang bận). Hãy thử lại sau vài giây.');
+      setErrorMsg('Google AI đang tạm bận — câu bạn vừa nói đã được giữ nguyên, chỉ cần bấm "Gửi lại"!');
       setMood('idle');
     } finally {
       setSubmitting(false);
@@ -626,6 +631,15 @@ export default function Interview3DRoomScreen() {
       {errorMsg ? (
         <View style={styles.errorCard}>
           <Text style={styles.errorText}>{errorMsg}</Text>
+          {lastFailedText ? (
+            <Pressable
+              style={styles.retryBtn}
+              disabled={submitting}
+              onPress={() => void handleQaTurn(lastFailedText)}
+            >
+              <Text style={styles.retryBtnText}>Gửi lại câu vừa rồi</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -976,11 +990,28 @@ const styles = StyleSheet.create({
     borderRadius: nihongoTheme.radius.md,
     padding: 12,
     marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 10,
   },
   errorText: {
     color: '#DC2626',
     fontWeight: '700',
     fontSize: 13,
+    flex: 1,
+  },
+  retryBtn: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: nihongoTheme.radius.pill,
+  },
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 12,
   },
   layout: {
     gap: 16,

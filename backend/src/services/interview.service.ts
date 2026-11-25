@@ -73,6 +73,7 @@ const GEMINI_MODEL_CHAIN = [
   'gemini-3.6-flash',
   'gemini-3.5-flash',
   'gemini-flash-lite-latest',
+  'gemini-3.1-flash-lite',
   'gemini-flash-latest',
 ] as const;
 
@@ -220,7 +221,7 @@ async function callGeminiJson<T>(parts: Array<Record<string, unknown>>): Promise
             responseMimeType: 'application/json',
           },
         }),
-        signal: AbortSignal.timeout(45000),
+        signal: AbortSignal.timeout(15000),
       });
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
