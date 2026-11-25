@@ -5,7 +5,8 @@ export const ttsQuerySchema = z.object({
     .string()
     .trim()
     .min(1, 'Text is required')
-    .max(200, 'Text must be at most 200 characters'),
+    .max(500, 'Text must be at most 500 characters'),
+  full: z.enum(['0', '1']).optional(),
 });
 
 export type TtsQuery = z.infer<typeof ttsQuerySchema>;

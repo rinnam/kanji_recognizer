@@ -26,8 +26,9 @@ export function cleanTtsPrompt(raw: string): string {
 export async function fetchJapaneseTts(
   rawText: string,
   fetchFn: typeof fetch = fetch,
+  preserveFullSentence = false,
 ): Promise<TtsAudioResult | null> {
-  const text = cleanTtsPrompt(rawText);
+  const text = preserveFullSentence ? rawText.trim() : cleanTtsPrompt(rawText);
   if (!text) return null;
 
   const url = `${GOOGLE_TTS_ENDPOINT}?ie=UTF-8&client=tw-ob&tl=ja&q=${encodeURIComponent(text)}`;

@@ -5,7 +5,7 @@ import { ttsQuerySchema } from '../validators/tts.js';
 export async function getTtsAudio(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const query = ttsQuerySchema.parse(req.query);
 
-  const audio = await fetchJapaneseTts(query.text);
+  const audio = await fetchJapaneseTts(query.text, fetch, query.full === '1');
   if (!audio) {
     void reply.code(502).send({
       error: 'BadGateway',

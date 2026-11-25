@@ -204,14 +204,15 @@ export default function Interview3DRoomScreen() {
     addLog('manner', note);
   };
 
-  const speakInterviewer = (ja: string, reading: string, vi: string, durationMs = 3200) => {
+  const speakInterviewer = (ja: string, reading: string, vi: string) => {
     setCurrentJa(ja);
     setCurrentReading(reading);
     setCurrentVi(vi);
     addLog('interviewer', ja);
     setMood('speaking');
-    void speakJapanese(ja);
-    setTimeout(() => setMood('idle'), durationMs);
+    void speakJapanese(ja).finally(() => {
+      setMood((prev) => (prev === 'speaking' ? 'idle' : prev));
+    });
   };
 
   // STEP 1: Knock on the 3D door (must be 3 times!)
@@ -235,7 +236,6 @@ export default function Interview3DRoomScreen() {
           'どうぞお入りください。',
           'どうぞおはいりください。',
           'Mời bạn vào! (Bây giờ hãy bấm Mic nói "失礼いたします" để mở cửa bước vào)',
-          2600,
         );
         setFlowStep('enter_phrase');
       }, 450);
@@ -328,7 +328,6 @@ export default function Interview3DRoomScreen() {
         'どうぞおかけください。',
         'どうぞおかけください。',
         'Mời bạn ngồi xuống ghế. (Hãy nói "失礼いたします" rồi bấm nút Ngồi xuống ghế)',
-        2600,
       );
       setFlowStep('sit_down');
     }, 1600);
@@ -368,7 +367,7 @@ export default function Interview3DRoomScreen() {
     setQaStage('jikoshokai');
     setTimeout(() => {
       if (scenario) {
-        speakInterviewer(scenario.openingJa, scenario.openingReading, scenario.openingVi, 4800);
+        speakInterviewer(scenario.openingJa, scenario.openingReading, scenario.openingVi);
       }
     }, 900);
   };
@@ -416,7 +415,7 @@ export default function Interview3DRoomScreen() {
       };
 
       setEvaluations((prev) => [...prev, data.evaluation]);
-      speakInterviewer(data.replyJa, data.replyReading, data.replyVi, 4500);
+      speakInterviewer(data.replyJa, data.replyReading, data.replyVi);
       setQaStage(data.nextStage);
 
       if (data.finished) {
@@ -615,8 +614,9 @@ export default function Interview3DRoomScreen() {
                   onPress={() => {
                     if (!currentJa || currentJa.startsWith('（')) return;
                     setMood('speaking');
-                    void speakJapanese(currentJa);
-                    setTimeout(() => setMood('idle'), 3500);
+                    void speakJapanese(currentJa).finally(() => {
+                      setMood((prev) => (prev === 'speaking' ? 'idle' : prev));
+                    });
                   }}
                 >
                   <Text style={styles.miniBtnText}>Nghe lại</Text>
