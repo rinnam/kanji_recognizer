@@ -28,11 +28,22 @@ export interface InterviewHistoryItem {
   text: string;
 }
 
+export interface FrameworkCheckItem {
+  code: string;
+  label: string;
+  met: boolean;
+}
+
 export interface InterviewEvaluation {
   keigoScore: number;
   grammarScore: number;
   naturalScore: number;
   contentScore: number;
+  structureScore: number;
+  framework: 'PREP' | 'STAR';
+  frameworkChecklist: FrameworkCheckItem[];
+  fillersDetected: string[];
+  fluencyNoteVi: string;
   betterJapanese: string;
   feedbackVi: string;
 }
@@ -45,6 +56,19 @@ export interface InterviewTurnResponse {
   finished: boolean;
   evaluation: InterviewEvaluation;
 }
+
+export interface ParsedCvResponse {
+  summary: string;
+  focusTopics: string[];
+}
+
+export interface TranscribedAudioResponse {
+  transcript: string;
+  fillers: string[];
+}
+
+const GEMINI_FLASH_URL =
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
 
 export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
   {
@@ -130,6 +154,32 @@ const STAGE_INSTRUCTIONS: Record<InterviewStage, string> = {
     'Buổi phỏng vấn đã kết thúc. Chào tạm biệt lịch sự "本日はありがとうございました。お気をつけてお帰りください。"',
 };
 
+const PREP_TEMPLATE: FrameworkCheckItem[] = [
+  { code: 'P', label: 'Kết luận (Point)', met: false },
+  { code: 'R', label: 'Lý do (Reason)', met: false },
+  { code: 'E', label: 'Ví dụ cụ thể (Example)', met: false },
+  { code: 'P', label: 'Chốt lại (Point)', met: false },
+];
+
+const STAR_TEMPLATE: FrameworkCheckItem[] = [
+  { code: 'S', label: 'Bối cảnh (Situation)', met: false },
+  { code: 'T', label: 'Nhiệm vụ (Task)', met: false },
+  { code: 'A', label: 'Hành động (Action)', met: false },
+  { code: 'R', label: 'Kết quả (Result)', met: false },
+];
+
+const FILLER_REGEX =
+  /(えー+と|えっと|あのー+|あのお|うー+ん|そのー+|まあ|なんか|えー+|あー+|umm+|uh+|à+|ờ+)/gi;
+
+export function detectTextFillers(text: string): string[] {
+  const matches = text.match(FILLER_REGEX) ?? [];
+  return [...new Set(matches.map((m) => m.trim()).filter(Boolean))];
+}
+
+function expectedFrameworkForStage(stage: InterviewStage): 'PREP' | 'STAR' {
+  return stage === 'cv_q1' || stage === 'cv_q3' ? 'STAR' : 'PREP';
+}
+
 function getNextStage(current: InterviewStage): InterviewStage {
   const idx = STAGE_ORDER.indexOf(current);
   if (idx < 0 || idx >= STAGE_ORDER.length - 1) return 'closing';
@@ -142,65 +192,150 @@ function clampScore(v: unknown, fallback = 78): number {
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
+async function callGeminiJson<T>(parts: Array<Record<string, unknown>>): Promise<T> {
+  if (!env.GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY is missing in backend/.env');
+  }
+  const res = await fetch(GEMINI_FLASH_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-goog-api-key': env.GEMINI_API_KEY,
+    },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts }],
+      generationConfig: {
+        temperature: 0.35,
+        responseMimeType: 'application/json',
+      },
+    }),
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Gemini API HTTP ${res.status}: ${errText.slice(0, 200)}`);
+  }
+  const data = (await res.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
+  const cleaned = rawText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
+  return JSON.parse(cleaned) as T;
+}
+
+/** Parses a real uploaded CV (PDF / Image / TXT) with Gemini Flash multimodal API. */
+export async function parseUploadedCv(input: {
+  fileName: string;
+  mimeType: string;
+  base64Data: string;
+}): Promise<ParsedCvResponse> {
+  if (!env.GEMINI_API_KEY) {
+    return {
+      summary: `Đã nhận tệp ${input.fileName} (cần cấu hình GEMINI_API_KEY để AI trích xuất tự động).`,
+      focusTopics: ['Dự án nổi bật', 'Kỹ năng chuyên môn', 'Lý do ứng tuyển'],
+    };
+  }
+
+  const prompt = `Bạn là chuyên gia tuyển dụng Nhật Bản (人事担当者).
+Hãy đọc kỹ hồ sơ CV / 履歴書 đính kèm (tên file: ${input.fileName}) và trích xuất thông tin súc tích để làm dữ liệu đặt câu hỏi phỏng vấn.
+
+CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
+{
+  "summary": "Đoạn tóm tắt 5-8 dòng bằng tiếng Việt (giữ nguyên tên dự án, công ty, công nghệ, chứng chỉ JLPT, học vấn, kinh nghiệm, điểm mạnh có thật trong CV)",
+  "focusTopics": ["3 điểm cụ thể có thật trong CV mà nhà tuyển dụng Nhật sẽ hỏi xoáy nhất"]
+}`;
+
+  const parts: Array<Record<string, unknown>> = [{ text: prompt }];
+  if (input.mimeType.startsWith('text/')) {
+    const decoded = Buffer.from(input.base64Data, 'base64').toString('utf8');
+    parts.push({ text: `Nội dung CV:\n${decoded.slice(0, 12000)}` });
+  } else {
+    parts.push({
+      inlineData: {
+        mimeType: input.mimeType || 'application/pdf',
+        data: input.base64Data,
+      },
+    });
+  }
+
+  const parsed = await callGeminiJson<Partial<ParsedCvResponse>>(parts);
+  return {
+    summary: parsed.summary?.trim() || `CV từ tệp ${input.fileName}`,
+    focusTopics: Array.isArray(parsed.focusTopics)
+      ? parsed.focusTopics.filter((x): x is string => typeof x === 'string').slice(0, 4)
+      : [],
+  };
+}
+
+/** Transcribes spoken Japanese audio using Gemini Flash, preserving verbatim fillers (えーと, あのー, うーん...). */
+export async function transcribeInterviewAudio(input: {
+  mimeType: string;
+  base64Data: string;
+}): Promise<TranscribedAudioResponse> {
+  const prompt = `Hãy chép lời (transcribe) chính xác đoạn ghi âm tiếng Nhật phỏng vấn sau đây.
+QUAN TRỌNG:
+- Giữ nguyên NGUYÊN VĂN tất cả từ đệm / tiếng ấp úng nếu người nói có phát ra (ví dụ: えーと, えっと, あのー, うーん, そのー, まあ, なんか, à, ờ).
+- Liệt kê các từ đệm / tiếng ấp úng nghe được vào mảng "fillers".
+
+CHỈ TRẢ VỀ JSON HỢP LỆ:
+{
+  "transcript": "string (tiếng Nhật người dùng vừa nói, giữ nguyên từ đệm)",
+  "fillers": ["string"]
+}`;
+
+  const parsed = await callGeminiJson<Partial<TranscribedAudioResponse>>([
+    { text: prompt },
+    {
+      inlineData: {
+        mimeType: input.mimeType || 'audio/webm',
+        data: input.base64Data,
+      },
+    },
+  ]);
+
+  const transcript = parsed.transcript?.trim() || '';
+  const aiFillers = Array.isArray(parsed.fillers)
+    ? parsed.fillers.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+    : [];
+  const regexFillers = detectTextFillers(transcript);
+  const fillers = [...new Set([...aiFillers, ...regexFillers])];
+
+  return { transcript, fillers };
+}
+
 export async function runInterviewTurn(input: {
   scenarioId: string;
   stage: InterviewStage;
   history: InterviewHistoryItem[];
   userMessage: string;
   cvSummary?: string | undefined;
+  fillersFromAudio?: string[] | undefined;
   action?: 'knock' | 'bow' | 'speak' | undefined;
 }): Promise<InterviewTurnResponse> {
   const scenario =
     INTERVIEW_SCENARIOS.find((s) => s.id === input.scenarioId) ?? INTERVIEW_SCENARIOS[0]!;
   const cvText = input.cvSummary?.trim() || scenario.defaultCv;
   const candidateText = input.userMessage.trim();
+  const framework = expectedFrameworkForStage(input.stage);
+  const templateChecklist = framework === 'STAR' ? STAR_TEMPLATE : PREP_TEMPLATE;
+
+  const detectedFillers = [
+    ...new Set([...(input.fillersFromAudio ?? []), ...detectTextFillers(candidateText)]),
+  ];
 
   const nextStage = getNextStage(input.stage);
   const willFinish = input.stage === 'reverse_question' || input.stage === 'closing';
 
   if (!env.GEMINI_API_KEY) {
-    const fallbackReplies: Record<InterviewStage, { ja: string; reading: string; vi: string }> = {
-      jikoshokai: {
-        ja: 'ありがとうございます。次に、あなたの強みや自己PRを教えていただけますか。',
-        reading: 'ありがとうございます。つぎに、あなたのつよみやじこぴーあーるをおしえていただけますか。',
-        vi: 'Cảm ơn bạn. Tiếp theo, hãy cho tôi biết điểm mạnh / tự PR (自己PR) của bạn nhé.',
-      },
-      jiko_pr: {
-        ja: '素晴らしい強みですね。履歴書を拝見しましたが、一番力を入れた経験やプロジェクトについて詳しく教えてください。',
-        reading: 'すばらしいつよみですね。りれきしょをはいけんしましたが、いちばんちからをいれたけいけんについてくわしくおしえてください。',
-        vi: 'Điểm mạnh rất tốt. Tôi đã xem qua CV của bạn, hãy kể chi tiết về dự án/kinh nghiệm bạn tâm đắc nhất nhé.',
-      },
-      cv_q1: {
-        ja: 'なるほど、よく分かりました。その経験を活かして、なぜ弊社を志望されたのか教えていただけますか。',
-        reading: 'なるほど、よくわかりました。そのけいけんをいかして、なぜへいしゃをしぼうされたのかおしえていただけますか。',
-        vi: 'Tôi hiểu rồi. Với kinh nghiệm đó, tại sao bạn lại ứng tuyển vào công ty chúng tôi?',
-      },
-      cv_q2: {
-        ja: 'ありがとうございます。これまでの活動の中で一番大変だったことと、それをどう乗り越えたかも教えてください。',
-        reading: 'ありがとうございます。これまでのかつどうのなかでいちばんたいへんだったことと、それをどうのりこえたかおしえてください。',
-        vi: 'Cảm ơn bạn. Hãy chia sẻ khó khăn lớn nhất bạn từng gặp và cách bạn vượt qua nó.',
-      },
-      cv_q3: {
-        ja: 'よく分かりました。最後に、弊社について何かご質問はありますか。',
-        reading: 'よくわかりました。さいごに、へいしゃについてなにかごしつもんはありますか。',
-        vi: 'Tôi đã rõ. Cuối cùng, bạn có câu hỏi nào dành cho công ty chúng tôi không?',
-      },
-      reverse_question: {
-        ja: 'ご質問ありがとうございます。チームで助け合いながら成長できる環境ですのでご安心ください。本日の面接は以上となります。本日はありがとうございました。',
-        reading: 'ごしつもんありがとうございます。ほんじつのめんせつはいじょうとなります。ほんじつはありがとうございました。',
-        vi: 'Cảm ơn câu hỏi của bạn. Môi trường của chúng tôi luôn hỗ trợ nhau phát triển. Buổi phỏng vấn hôm nay đến đây là kết thúc. Cảm ơn bạn rất nhiều.',
-      },
-      closing: {
-        ja: '本日はありがとうございました。お気をつけてお帰りください。',
-        reading: 'ほんじつはありがとうございました。おきをつけておかえりください。',
-        vi: 'Cảm ơn bạn hôm nay. Chúc bạn về bình an.',
-      },
-    };
-    const fb = fallbackReplies[input.stage];
     return {
-      replyJa: fb.ja,
-      replyReading: fb.reading,
-      replyVi: fb.vi,
+      replyJa: willFinish
+        ? '本日の面接は以上となります。本日はありがとうございました。'
+        : 'ありがとうございます。履歴書の内容についてもう少し詳しく教えていただけますか。',
+      replyReading: willFinish
+        ? 'ほんじつのめんせつはいじょうとなります。ほんじつはありがとうございました。'
+        : 'ありがとうございます。りれきしょのないようについてもうすこしくわしくおしえていただけますか。',
+      replyVi: willFinish
+        ? 'Buổi phỏng vấn hôm nay đến đây là kết thúc. Cảm ơn bạn rất nhiều.'
+        : 'Cảm ơn bạn. Bạn có thể chia sẻ chi tiết hơn về nội dung trong CV không?',
       nextStage,
       finished: willFinish,
       evaluation: {
@@ -208,6 +343,14 @@ export async function runInterviewTurn(input: {
         grammarScore: 80,
         naturalScore: 78,
         contentScore: 82,
+        structureScore: 75,
+        framework,
+        frameworkChecklist: templateChecklist,
+        fillersDetected: detectedFillers,
+        fluencyNoteVi:
+          detectedFillers.length > 0
+            ? `Phát hiện từ đệm (${detectedFillers.join(', ')}) — hãy ngắt nghỉ 0.5 giây thay vì nói "えーと/あのー".`
+            : 'Chưa phát hiện từ đệm ấp úng (フィラー).',
         betterJapanese: candidateText || 'よろしくお願いいたします。',
         feedbackVi: 'Chưa cấu hình GEMINI_API_KEY trong backend/.env — đang chạy chế độ mẫu.',
       },
@@ -215,10 +358,14 @@ export async function runInterviewTurn(input: {
   }
 
   const stageInstruction = STAGE_INSTRUCTIONS[input.stage];
+  const frameworkSpec =
+    framework === 'STAR'
+      ? 'STAR: S (Bối cảnh - Situation), T (Nhiệm vụ - Task), A (Hành động của riêng ứng viên - Action), R (Kết quả cụ thể - Result)'
+      : 'PREP: P (Kết luận trước - Point), R (Lý do - Reason), E (Ví dụ/bằng chứng cụ thể - Example), P (Chốt lại - Point)';
 
   const systemPrompt = `Bạn là nhà tuyển dụng Nhật Bản tên ${scenario.interviewerName} (${scenario.interviewerRole}) tại ${scenario.companyName}.
 Kịch bản: ${scenario.title} (Trình độ ${scenario.level}).
-Nội dung CV / 履歴書 của ứng viên:
+Nội dung CV / 履歴書 THẬT của ứng viên:
 """
 ${cvText}
 """
@@ -227,26 +374,30 @@ Lượt hiện tại ứng viên vừa trả lời thuộc bước: "${input.sta
 CHỈ DẪN BẮT BUỘC CHO LƯỢT NÀY:
 ${stageInstruction}
 
-Quy tắc chấm điểm & phản hồi:
-1. Câu nói của nhà tuyển dụng (replyJa): 1-3 câu tiếng Nhật lịch sự tự nhiên đúng văn phong phỏng vấn Nhật, KHÔNG lặp lại câu hỏi đã hỏi ở lịch sử.
-2. Chấm điểm câu trả lời vừa rồi của ứng viên (0-100):
-   - keigoScore: Mức độ dùng kính ngữ / thể lịch sự です・ます / khiêm nhường ngữ.
-   - grammarScore: Độ chính xác ngữ pháp.
-   - naturalScore: Độ tự nhiên khi nói phỏng vấn Nhật.
-   - contentScore: Mức độ trả lời đúng trọng tâm câu hỏi.
-3. betterJapanese: Viết lại câu trả lời của ứng viên thành phiên bản tiếng Nhật chuẩn, tự nhiên và lịch sự hơn để ứng viên học theo.
-4. feedbackVi: Nhận xét & chỉ rõ lỗi cần sửa (1-2 câu ngắn gọn bằng tiếng Việt).
+CHẤM ĐIỂM CHUYÊN SÂU:
+1. Đánh giá cấu trúc câu trả lời theo khung **${framework}** (${frameworkSpec}): kiểm tra từng yếu tố (met: true/false) và chấm structureScore (0-100).
+2. Phát hiện từ đệm / ấp úng (フィラー như えーと, あのー, うーん, そのー, まあ, à, ờ) có trong câu nói (hệ thống đã sơ bộ phát hiện: ${JSON.stringify(detectedFillers)}). Viết fluencyNoteVi nhận xét ngắn gọn độ trôi chảy & cách khắc phục từ đệm.
+3. Chấm keigoScore, grammarScore, naturalScore, contentScore (0-100).
+4. Viết betterJapanese: phiên bản trả lời tiếng Nhật lịch sự hơn, theo đúng cấu trúc ${framework} và không có từ đệm.
+5. Viết feedbackVi: nhận xét & sửa lỗi cụ thể 1-2 câu bằng tiếng Việt (nêu rõ thiếu phần nào của ${framework} nếu có).
 
 CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
 {
-  "replyJa": "string",
-  "replyReading": "string (toàn bộ bằng hiragana/katakana)",
-  "replyVi": "string (dịch tiếng Việt tự nhiên)",
+  "replyJa": "string (1-3 câu tiếng Nhật lịch sự của nhà tuyển dụng)",
+  "replyReading": "string (hiragana/katakana)",
+  "replyVi": "string (dịch tiếng Việt)",
   "evaluation": {
     "keigoScore": number,
     "grammarScore": number,
     "naturalScore": number,
     "contentScore": number,
+    "structureScore": number,
+    "framework": "${framework}",
+    "frameworkChecklist": [
+      { "code": "string", "label": "string", "met": boolean }
+    ],
+    "fillersDetected": ["string"],
+    "fluencyNoteVi": "string",
     "betterJapanese": "string",
     "feedbackVi": "string"
   }
@@ -259,39 +410,28 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
 
   const userPrompt = `Lịch sử buổi phỏng vấn:\n${historyText || '(Mở đầu)'}\n\nỨng viên vừa trả lời: ${candidateText}`;
 
-  const url =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-goog-api-key': env.GEMINI_API_KEY,
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.5,
-        responseMimeType: 'application/json',
-      },
-    }),
-  });
+  const parsed = await callGeminiJson<Partial<InterviewTurnResponse>>([
+    { text: `${systemPrompt}\n\n${userPrompt}` },
+  ]);
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Gemini API HTTP ${res.status}: ${errText.slice(0, 200)}`);
-  }
+  const rawChecklist = parsed.evaluation?.frameworkChecklist;
+  const normalizedChecklist: FrameworkCheckItem[] =
+    Array.isArray(rawChecklist) && rawChecklist.length === 4
+      ? rawChecklist.map((item, idx) => ({
+          code: item?.code || templateChecklist[idx]!.code,
+          label: item?.label || templateChecklist[idx]!.label,
+          met: Boolean(item?.met),
+        }))
+      : templateChecklist;
 
-  const data = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
-  const cleaned = rawText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
-  const parsed = JSON.parse(cleaned) as Partial<InterviewTurnResponse>;
+  const mergedFillers = [
+    ...new Set([
+      ...detectedFillers,
+      ...(Array.isArray(parsed.evaluation?.fillersDetected)
+        ? parsed.evaluation!.fillersDetected.filter((x): x is string => typeof x === 'string')
+        : []),
+    ]),
+  ];
 
   return {
     replyJa:
@@ -306,10 +446,19 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
       grammarScore: clampScore(parsed.evaluation?.grammarScore, 80),
       naturalScore: clampScore(parsed.evaluation?.naturalScore, 76),
       contentScore: clampScore(parsed.evaluation?.contentScore, 80),
+      structureScore: clampScore(parsed.evaluation?.structureScore, 72),
+      framework,
+      frameworkChecklist: normalizedChecklist,
+      fillersDetected: mergedFillers,
+      fluencyNoteVi:
+        parsed.evaluation?.fluencyNoteVi?.trim() ||
+        (mergedFillers.length > 0
+          ? `Phát hiện từ đệm (${mergedFillers.join(', ')}) — hãy dừng nhẹ im lặng thay vì nói từ đệm.`
+          : 'Diễn đạt trôi chảy, không mắc lỗi từ đệm (フィラー).'),
       betterJapanese: parsed.evaluation?.betterJapanese?.trim() || candidateText,
       feedbackVi:
         parsed.evaluation?.feedbackVi?.trim() ||
-        'Câu trả lời rõ ràng, hãy chú ý dùng thể lịch sự です/ます hoặc kính ngữ khi phỏng vấn.',
+        `Hãy cố gắng trình bày đủ cấu trúc ${framework} để nhà tuyển dụng Nhật dễ nắm bắt ý chính.`,
     },
   };
 }

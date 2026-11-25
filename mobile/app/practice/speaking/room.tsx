@@ -65,11 +65,22 @@ interface ScenarioInfo {
   openingVi: string;
 }
 
+interface FrameworkCheckItem {
+  code: string;
+  label: string;
+  met: boolean;
+}
+
 interface EvaluationDto {
   keigoScore: number;
   grammarScore: number;
   naturalScore: number;
   contentScore: number;
+  structureScore: number;
+  framework: 'PREP' | 'STAR';
+  frameworkChecklist: FrameworkCheckItem[];
+  fillersDetected: string[];
+  fluencyNoteVi: string;
   betterJapanese: string;
   feedbackVi: string;
 }
@@ -386,7 +397,9 @@ export default function Interview3DRoomScreen() {
       { id: `u-${Date.now()}`, role: 'candidate', text: clean },
     ];
     setLogs(nextLogs);
+    const capturedFillers = [...mic.audioFillers];
     mic.setTranscript('');
+    mic.setAudioFillers([]);
 
     try {
       const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
@@ -401,6 +414,7 @@ export default function Interview3DRoomScreen() {
             .map((l) => ({ role: l.role as 'interviewer' | 'candidate', text: l.text })),
           userMessage: clean,
           cvSummary: cvSummary || undefined,
+          fillersFromAudio: capturedFillers.length > 0 ? capturedFillers : undefined,
           action: 'speak',
         }),
       });
@@ -718,11 +732,15 @@ export default function Interview3DRoomScreen() {
               <View style={styles.inputRow}>
                 <Pressable
                   style={[styles.micBtn, mic.listening && styles.micBtnActive]}
-                  disabled={submitting}
-                  onPress={() => (mic.listening ? mic.stopListening() : mic.startListening())}
+                  disabled={submitting || mic.transcribing}
+                  onPress={() => (mic.listening ? mic.stopListening() : void mic.startListening())}
                 >
                   <Text style={[styles.micBtnText, mic.listening && styles.micBtnTextActive]}>
-                    {mic.listening ? 'Dừng Mic' : 'Nói tiếng Nhật'}
+                    {mic.transcribing
+                      ? 'Đang chép lời...'
+                      : mic.listening
+                        ? 'Dừng ghi âm'
+                        : 'Nói tiếng Nhật'}
                   </Text>
                 </Pressable>
                 <TextInput
@@ -778,6 +796,57 @@ export default function Interview3DRoomScreen() {
                     <Text style={styles.scoreVal}>{latestEval.contentScore}</Text>
                     <Text style={styles.scoreLbl}>Nội dung</Text>
                   </View>
+                </View>
+
+                {/* PREP / STAR Structure Evaluation */}
+                <View style={styles.frameworkBox}>
+                  <View style={styles.frameworkHeader}>
+                    <Text style={styles.frameworkTitle}>
+                      Cấu trúc {latestEval.framework}
+                    </Text>
+                    <Text style={styles.frameworkScore}>{latestEval.structureScore}đ</Text>
+                  </View>
+                  <View style={styles.frameworkRow}>
+                    {(latestEval.frameworkChecklist ?? []).map((item, idx) => (
+                      <View
+                        key={`${item.code}-${idx}`}
+                        style={[styles.fwChip, item.met ? styles.fwChipMet : styles.fwChipMiss]}
+                      >
+                        <Text
+                          style={[
+                            styles.fwChipText,
+                            item.met ? styles.fwChipTextMet : styles.fwChipTextMiss,
+                          ]}
+                        >
+                          {item.met ? '✓' : '✗'} {item.code} · {item.label.split(' (')[0]}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Filler / Ấp úng (フィラー) Detection */}
+                <View
+                  style={[
+                    styles.fillerBox,
+                    (latestEval.fillersDetected?.length ?? 0) > 0
+                      ? styles.fillerBoxWarn
+                      : styles.fillerBoxOk,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.fillerTitle,
+                      (latestEval.fillersDetected?.length ?? 0) > 0
+                        ? styles.fillerTitleWarn
+                        : styles.fillerTitleOk,
+                    ]}
+                  >
+                    {(latestEval.fillersDetected?.length ?? 0) > 0
+                      ? `Từ đệm / Ấp úng (フィラー): ${latestEval.fillersDetected.join(', ')}`
+                      : 'Độ trôi chảy: Tốt (0 từ đệm えーと/あのー)'}
+                  </Text>
+                  <Text style={styles.fillerNote}>{latestEval.fluencyNoteVi}</Text>
                 </View>
 
                 <View style={styles.correctionBox}>
@@ -1168,6 +1237,87 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: nihongoTheme.colors.textMuted,
+  },
+  frameworkBox: {
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderRadius: nihongoTheme.radius.md,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 11,
+    gap: 8,
+  },
+  frameworkHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  frameworkTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  frameworkScore: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  frameworkRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  fwChip: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: nihongoTheme.radius.pill,
+    borderWidth: 1,
+  },
+  fwChipMet: {
+    backgroundColor: nihongoTheme.colors.successBg,
+    borderColor: '#86EFAC',
+  },
+  fwChipMiss: {
+    backgroundColor: '#F5F5F4',
+    borderColor: '#D6D3D1',
+  },
+  fwChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  fwChipTextMet: {
+    color: '#15803D',
+  },
+  fwChipTextMiss: {
+    color: '#78716C',
+  },
+  fillerBox: {
+    borderRadius: nihongoTheme.radius.md,
+    borderWidth: 1,
+    padding: 10,
+    gap: 3,
+  },
+  fillerBoxWarn: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#F59E0B',
+  },
+  fillerBoxOk: {
+    backgroundColor: nihongoTheme.colors.successBg,
+    borderColor: '#86EFAC',
+  },
+  fillerTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  fillerTitleWarn: {
+    color: '#92400E',
+  },
+  fillerTitleOk: {
+    color: '#15803D',
+  },
+  fillerNote: {
+    fontSize: 11,
+    color: nihongoTheme.colors.textSecondary,
+    lineHeight: 16,
   },
   correctionBox: {
     backgroundColor: '#FDF8F0',

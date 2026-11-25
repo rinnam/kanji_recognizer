@@ -2,7 +2,9 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import {
   INTERVIEW_SCENARIOS,
+  parseUploadedCv,
   runInterviewTurn,
+  transcribeInterviewAudio,
 } from '../services/interview.service.js';
 
 const turnSchema = z.object({
@@ -26,13 +28,45 @@ const turnSchema = z.object({
     .default([]),
   userMessage: z.string().default(''),
   cvSummary: z.string().optional(),
+  fillersFromAudio: z.array(z.string()).optional(),
   action: z.enum(['knock', 'bow', 'speak']).optional(),
+});
+
+const parseCvSchema = z.object({
+  fileName: z.string().min(1),
+  mimeType: z.string().min(1),
+  base64Data: z.string().min(10),
+});
+
+const transcribeSchema = z.object({
+  mimeType: z.string().min(1),
+  base64Data: z.string().min(10),
 });
 
 export const interviewRoutes: FastifyPluginAsync = async (app) => {
   app.get('/interview/scenarios', async (_req, reply) => {
     return reply.send({ scenarios: INTERVIEW_SCENARIOS });
   });
+
+  app.post(
+    '/interview/parse-cv',
+    { bodyLimit: 12 * 1024 * 1024 },
+    async (req, reply) => {
+      const parsed = parseCvSchema.parse(req.body);
+      const result = await parseUploadedCv(parsed);
+      return reply.send(result);
+    },
+  );
+
+  app.post(
+    '/interview/transcribe-audio',
+    { bodyLimit: 12 * 1024 * 1024 },
+    async (req, reply) => {
+      const parsed = transcribeSchema.parse(req.body);
+      const result = await transcribeInterviewAudio(parsed);
+      return reply.send(result);
+    },
+  );
 
   app.post('/interview/turn', async (req, reply) => {
     const parsed = turnSchema.parse(req.body);

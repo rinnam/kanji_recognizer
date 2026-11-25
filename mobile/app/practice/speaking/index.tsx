@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import { AppShell } from '../../../src/components/AppShell';
 import { TopHeader } from '../../../src/components/TopHeader';
@@ -59,11 +69,33 @@ const FALLBACK_SCENARIOS: ScenarioItem[] = [
   },
 ];
 
+async function assetToBase64(uri: string): Promise<string> {
+  if (Platform.OS === 'web') {
+    const resp = await fetch(uri);
+    const blob = await resp.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const s = String(reader.result ?? '');
+        const idx = s.indexOf(',');
+        resolve(idx >= 0 ? s.slice(idx + 1) : s);
+      };
+      reader.onerror = () => reject(new Error('Read failed'));
+      reader.readAsDataURL(blob);
+    });
+  }
+  return FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+}
+
 export default function SpeakingLobbyScreen() {
   const router = useRouter();
   const [scenarios, setScenarios] = useState<ScenarioItem[]>(FALLBACK_SCENARIOS);
   const [selectedId, setSelectedId] = useState<string>('it_engineer');
   const [cvText, setCvText] = useState<string>(FALLBACK_SCENARIOS[0]!.defaultCv);
+  const [cvFileName, setCvFileName] = useState<string | null>(null);
+  const [cvFocusTopics, setCvFocusTopics] = useState<string[]>([]);
+  const [parsingCv, setParsingCv] = useState(false);
+  const [cvError, setCvError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -85,7 +117,44 @@ export default function SpeakingLobbyScreen() {
 
   const handleSelectScenario = (item: ScenarioItem) => {
     setSelectedId(item.id);
-    setCvText(item.defaultCv);
+    if (!cvFileName) {
+      setCvText(item.defaultCv);
+    }
+  };
+
+  const handleUploadRealCv = async () => {
+    setCvError(null);
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*', 'text/plain'],
+        copyToCacheDirectory: true,
+      });
+      if (res.canceled || !res.assets?.[0]) return;
+      const asset = res.assets[0];
+      setParsingCv(true);
+      const base64Data = await assetToBase64(asset.uri);
+      const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+      const resp = await fetch(`${base}/interview/parse-cv`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: asset.name || 'cv.pdf',
+          mimeType: asset.mimeType || 'application/pdf',
+          base64Data,
+        }),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const parsed = (await resp.json()) as { summary?: string; focusTopics?: string[] };
+      if (parsed.summary) {
+        setCvText(parsed.summary);
+        setCvFileName(asset.name || 'CV của bạn');
+        setCvFocusTopics(parsed.focusTopics ?? []);
+      }
+    } catch {
+      setCvError('Không đọc được tệp CV. Hãy thử file PDF/ảnh dưới 8MB hoặc dán trực tiếp nội dung CV.');
+    } finally {
+      setParsingCv(false);
+    }
   };
 
   const handleStart = async () => {
@@ -103,13 +172,13 @@ export default function SpeakingLobbyScreen() {
       <TopHeader
         mode="subpage"
         title="Phỏng vấn 3D cùng AI"
-        subtitle="Đủ quy trình thực tế: Gõ cửa 3 lần → 自己紹介 → 自己PR → 3 câu hỏi CV → 逆質問 → Cúi chào ra về"
+        subtitle="Tải lên CV thật (PDF/Ảnh) · Đủ quy trình 3D · Chấm điểm PREP / STAR & phát hiện ấp úng (フィラー)"
       />
 
       <View style={styles.bannerCard}>
         <Text style={styles.bannerTitle}>Lộ trình đầy đủ buổi phỏng vấn chuẩn Nhật</Text>
         <Text style={styles.bannerSteps}>
-          ① Gõ cửa 3D (3 lần) &amp; 失礼いたします → ② Đứng cạnh ghế chào 30° &amp; Ngồi xuống → ③ 自己紹介 (Tự giới thiệu) → ④ 自己PR (Điểm mạnh) → ⑤ 3 câu hỏi đào sâu từ CV → ⑥ 逆質問 (Hỏi ngược công ty) → ⑦ Cúi chào 45° &amp; Ra về
+          ① Gõ cửa 3D (3 lần) &amp; 失礼いたします → ② Đứng cạnh ghế chào 30° &amp; Ngồi xuống → ③ 自己紹介 → ④ 自己PR → ⑤ 3 câu hỏi xoáy trực tiếp vào CV thật của bạn → ⑥ 逆質問 → ⑦ Cúi chào 45° &amp; Ra về
         </Text>
       </View>
 
@@ -150,25 +219,66 @@ export default function SpeakingLobbyScreen() {
             })}
           </View>
 
-          {/* Editable CV / 履歴書 Box */}
+          {/* Real CV Upload + Editable Summary */}
           <View style={styles.cvCard}>
             <View style={styles.cvHeader}>
-              <Text style={styles.cvTitle}>Hồ sơ ứng tuyển / CV (履歴書) của bạn</Text>
-              {selectedScenario ? (
-                <Pressable onPress={() => setCvText(selectedScenario.defaultCv)}>
-                  <Text style={styles.resetCvText}>Dùng CV mẫu</Text>
+              <Text style={styles.cvTitle}>Hồ sơ ứng tuyển / CV thật (履歴書)</Text>
+              <View style={styles.cvHeaderActions}>
+                <Pressable
+                  style={styles.uploadBtn}
+                  disabled={parsingCv}
+                  onPress={() => void handleUploadRealCv()}
+                >
+                  {parsingCv ? (
+                    <ActivityIndicator size="small" color={nihongoTheme.colors.accentHover} />
+                  ) : (
+                    <Text style={styles.uploadBtnText}>+ Tải lên CV (PDF / Ảnh / TXT)</Text>
+                  )}
                 </Pressable>
-              ) : null}
+                {selectedScenario ? (
+                  <Pressable
+                    onPress={() => {
+                      setCvFileName(null);
+                      setCvFocusTopics([]);
+                      setCvText(selectedScenario.defaultCv);
+                    }}
+                  >
+                    <Text style={styles.resetCvText}>CV mẫu</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
-            <Text style={styles.cvHint}>
-              AI sẽ đọc trực tiếp nội dung CV này để đặt 3 câu hỏi đào sâu (dự án, kinh nghiệm, điểm mạnh...) y như phỏng vấn thật. Bạn có thể sửa hoặc dán CV thật của mình vào đây:
-            </Text>
+
+            {cvFileName ? (
+              <View style={styles.parsedBadge}>
+                <Text style={styles.parsedBadgeText}>
+                  AI đã đọc CV: {cvFileName} — Sẽ đặt 3 câu hỏi xoáy vào các chi tiết bên dưới!
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.cvHint}>
+                Tải lên CV thật của bạn (PDF tiếng Việt/Anh/Nhật hoặc ảnh chụp 履歴書), AI sẽ tự đọc trích xuất và đặt 3 câu hỏi đào sâu đúng dự án/kinh nghiệm của bạn.
+              </Text>
+            )}
+
+            {cvFocusTopics.length > 0 ? (
+              <View style={styles.topicsWrap}>
+                {cvFocusTopics.map((t, i) => (
+                  <View key={i} style={styles.topicChip}>
+                    <Text style={styles.topicText}>AI sẽ hỏi: {t}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {cvError ? <Text style={styles.cvErrorText}>{cvError}</Text> : null}
+
             <TextInput
               value={cvText}
               onChangeText={setCvText}
               multiline
-              numberOfLines={4}
-              placeholder="Nhập học vấn, kỹ năng, dự án nổi bật, chứng chỉ JLPT..."
+              numberOfLines={5}
+              placeholder="Nội dung CV của bạn (hoặc bấm Tải lên CV ở trên để AI tự đọc)..."
               placeholderTextColor={nihongoTheme.colors.textMuted}
               style={styles.cvInput}
             />
@@ -288,6 +398,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  cvHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  uploadBtn: {
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: nihongoTheme.radius.pill,
+  },
+  uploadBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
   },
   cvTitle: {
     fontSize: 15,
@@ -297,7 +427,40 @@ const styles = StyleSheet.create({
   resetCvText: {
     fontSize: 12,
     fontWeight: '700',
-    color: nihongoTheme.colors.accentHover,
+    color: nihongoTheme.colors.textMuted,
+  },
+  parsedBadge: {
+    backgroundColor: nihongoTheme.colors.successBg,
+    borderRadius: nihongoTheme.radius.md,
+    padding: 10,
+  },
+  parsedBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  topicsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  topicChip: {
+    backgroundColor: '#FDF8F0',
+    borderWidth: 1,
+    borderColor: '#E5D5C3',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: nihongoTheme.radius.pill,
+  },
+  topicText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#9A5B37',
+  },
+  cvErrorText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
   },
   cvHint: {
     fontSize: 12,
@@ -305,7 +468,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   cvInput: {
-    minHeight: 96,
+    minHeight: 110,
     backgroundColor: nihongoTheme.colors.surfaceSubtle,
     borderWidth: 1,
     borderColor: nihongoTheme.colors.borderWarm,
