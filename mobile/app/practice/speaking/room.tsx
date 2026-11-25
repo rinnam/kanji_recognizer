@@ -22,7 +22,10 @@ import {
   type ScenePhase,
 } from '../../../src/features/interview/InterviewScene3D';
 import { playDoorKnockSfx } from '../../../src/features/interview/interview-sfx';
-import { useJapaneseMic } from '../../../src/features/interview/use-japanese-mic';
+import {
+  useJapaneseMic,
+  type RecordedAudioPayload,
+} from '../../../src/features/interview/use-japanese-mic';
 import { INTERVIEW_CV_STORAGE_KEY } from './index';
 
 type InterviewStage =
@@ -168,7 +171,11 @@ export default function Interview3DRoomScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const mic = useJapaneseMic();
+  const directAudioHandlerRef = useRef<(payload: RecordedAudioPayload) => void>(() => {});
+  const mic = useJapaneseMic({
+    directMode: flowStep === 'qa_interview',
+    onDirectAudio: (payload) => directAudioHandlerRef.current(payload),
+  });
   const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
 
   useEffect(() => {
@@ -383,18 +390,23 @@ export default function Interview3DRoomScreen() {
     }, 900);
   };
 
-  // STEP 5: Real AI Interview Q&A with Gemini Flash
-  const handleQaTurn = async (rawText: string) => {
+  // STEP 5: Real AI Interview Q&A with Gemini Flash (supports 1-Shot Direct Voice Turn!)
+  const handleQaTurn = async (rawText: string, directAudio?: RecordedAudioPayload) => {
     const clean = rawText.trim();
-    if (!scenario || !clean || submitting) return;
+    if (!scenario || (!clean && !directAudio) || submitting) return;
     if (mic.listening) mic.stopListening();
     setSubmitting(true);
     setErrorMsg(null);
     setMannerAlert(null);
 
+    const placeholderId = `u-${Date.now()}`;
     const nextLogs: ChatLogItem[] = [
       ...logs,
-      { id: `u-${Date.now()}`, role: 'candidate', text: clean },
+      {
+        id: placeholderId,
+        role: 'candidate',
+        text: directAudio ? '（音声回答を送信中… / Đang gửi giọng nói...）' : clean,
+      },
     ];
     setLogs(nextLogs);
     const capturedFillers = [...mic.audioFillers];
@@ -409,17 +421,20 @@ export default function Interview3DRoomScreen() {
         body: JSON.stringify({
           scenarioId: scenario.id,
           stage: qaStage,
-          history: nextLogs
+          history: logs
             .filter((l) => l.role !== 'manner')
             .map((l) => ({ role: l.role as 'interviewer' | 'candidate', text: l.text })),
           userMessage: clean,
           cvSummary: cvSummary || undefined,
           fillersFromAudio: capturedFillers.length > 0 ? capturedFillers : undefined,
+          audioBase64: directAudio?.base64Data,
+          audioMimeType: directAudio?.mimeType,
           action: 'speak',
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as {
+        candidateTranscript?: string;
         replyJa: string;
         replyReading: string;
         replyVi: string;
@@ -427,6 +442,14 @@ export default function Interview3DRoomScreen() {
         finished: boolean;
         evaluation: EvaluationDto;
       };
+
+      if (directAudio && data.candidateTranscript) {
+        setLogs((prev) =>
+          prev.map((item) =>
+            item.id === placeholderId ? { ...item, text: data.candidateTranscript! } : item,
+          ),
+        );
+      }
 
       setEvaluations((prev) => [...prev, data.evaluation]);
       speakInterviewer(data.replyJa, data.replyReading, data.replyVi);
@@ -443,11 +466,18 @@ export default function Interview3DRoomScreen() {
         }, 3500);
       }
     } catch {
-      setErrorMsg('Không gọi được AI phỏng vấn. Hãy kiểm tra Backend cổng 3000.');
+      if (directAudio) {
+        setLogs((prev) => prev.filter((item) => item.id !== placeholderId));
+      }
+      setErrorMsg('Không gọi được AI phỏng vấn (có thể Google AI đang bận). Hãy thử lại sau vài giây.');
       setMood('idle');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  directAudioHandlerRef.current = (payload) => {
+    void handleQaTurn('', payload);
   };
 
   // STEP 6: Stand beside chair, say thank you, bow 45°
@@ -739,7 +769,9 @@ export default function Interview3DRoomScreen() {
                     {mic.transcribing
                       ? 'Đang chép lời...'
                       : mic.listening
-                        ? 'Dừng ghi âm'
+                        ? flowStep === 'qa_interview'
+                          ? `Dừng & Gửi (${mic.recordSeconds}s)`
+                          : `Dừng (${mic.recordSeconds}s)`
                         : 'Nói tiếng Nhật'}
                   </Text>
                 </Pressable>

@@ -49,6 +49,7 @@ export interface InterviewEvaluation {
 }
 
 export interface InterviewTurnResponse {
+  candidateTranscript?: string;
   replyJa: string;
   replyReading: string;
   replyVi: string;
@@ -218,7 +219,7 @@ async function callGeminiJson<T>(parts: Array<Record<string, unknown>>): Promise
             responseMimeType: 'application/json',
           },
         }),
-        signal: AbortSignal.timeout(25000),
+        signal: AbortSignal.timeout(45000),
       });
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
@@ -328,6 +329,8 @@ export async function runInterviewTurn(input: {
   userMessage: string;
   cvSummary?: string | undefined;
   fillersFromAudio?: string[] | undefined;
+  audioBase64?: string | undefined;
+  audioMimeType?: string | undefined;
   action?: 'knock' | 'bow' | 'speak' | undefined;
 }): Promise<InterviewTurnResponse> {
   const scenario =
@@ -402,6 +405,7 @@ CHẤM ĐIỂM CHUYÊN SÂU:
 
 CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
 {
+  "candidateTranscript": "string (nếu ứng viên gửi file ghi âm, chép lại nguyên văn tiếng Nhật ứng viên vừa nói gồm cả từ đệm えーと/あのー; nếu gửi văn bản thì trả lại văn bản đó)",
   "replyJa": "string (1-3 câu tiếng Nhật lịch sự của nhà tuyển dụng)",
   "replyReading": "string (hiragana/katakana)",
   "replyVi": "string (dịch tiếng Việt)",
@@ -427,11 +431,24 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
     .map((h) => `${h.role === 'interviewer' ? 'Nhà tuyển dụng' : 'Ứng viên'}: ${h.text}`)
     .join('\n');
 
-  const userPrompt = `Lịch sử buổi phỏng vấn:\n${historyText || '(Mở đầu)'}\n\nỨng viên vừa trả lời: ${candidateText}`;
+  const hasAudio = Boolean(input.audioBase64 && input.audioBase64.length > 20);
+  const userPrompt = hasAudio
+    ? `Lịch sử buổi phỏng vấn:\n${historyText || '(Mở đầu)'}\n\nỨng viên vừa trả lời trực tiếp bằng ĐOẠN GHI ÂM đính kèm. Hãy nghe kỹ giọng nói, phát hiện mọi từ đệm/ấp úng (えーと, あのー, うーん, à, ờ), chép lại vào candidateTranscript, chấm điểm và trả lời tiếp.`
+    : `Lịch sử buổi phỏng vấn:\n${historyText || '(Mở đầu)'}\n\nỨng viên vừa trả lời: ${candidateText}`;
 
-  const parsed = await callGeminiJson<Partial<InterviewTurnResponse>>([
-    { text: `${systemPrompt}\n\n${userPrompt}` },
-  ]);
+  const parts: Array<Record<string, unknown>> = [{ text: `${systemPrompt}\n\n${userPrompt}` }];
+  if (hasAudio && input.audioBase64) {
+    parts.push({
+      inlineData: {
+        mimeType: input.audioMimeType || 'audio/webm',
+        data: input.audioBase64,
+      },
+    });
+  }
+
+  const parsed = await callGeminiJson<Partial<InterviewTurnResponse>>(parts);
+  const resolvedCandidateText = parsed.candidateTranscript?.trim() || candidateText;
+  const fillersFromResolved = detectTextFillers(resolvedCandidateText);
 
   const rawChecklist = parsed.evaluation?.frameworkChecklist;
   const normalizedChecklist: FrameworkCheckItem[] =
@@ -446,6 +463,7 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
   const mergedFillers = [
     ...new Set([
       ...detectedFillers,
+      ...fillersFromResolved,
       ...(Array.isArray(parsed.evaluation?.fillersDetected)
         ? parsed.evaluation!.fillersDetected.filter((x): x is string => typeof x === 'string')
         : []),
@@ -453,6 +471,7 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
   ];
 
   return {
+    candidateTranscript: resolvedCandidateText,
     replyJa:
       parsed.replyJa?.trim() ||
       'ありがとうございます。もう少し詳しく教えていただけますか。',
@@ -474,7 +493,7 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
         (mergedFillers.length > 0
           ? `Phát hiện từ đệm (${mergedFillers.join(', ')}) — hãy dừng nhẹ im lặng thay vì nói từ đệm.`
           : 'Diễn đạt trôi chảy, không mắc lỗi từ đệm (フィラー).'),
-      betterJapanese: parsed.evaluation?.betterJapanese?.trim() || candidateText,
+      betterJapanese: parsed.evaluation?.betterJapanese?.trim() || resolvedCandidateText,
       feedbackVi:
         parsed.evaluation?.feedbackVi?.trim() ||
         `Hãy cố gắng trình bày đủ cấu trúc ${framework} để nhà tuyển dụng Nhật dễ nắm bắt ý chính.`,

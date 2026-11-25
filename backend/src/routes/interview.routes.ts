@@ -29,6 +29,8 @@ const turnSchema = z.object({
   userMessage: z.string().default(''),
   cvSummary: z.string().optional(),
   fillersFromAudio: z.array(z.string()).optional(),
+  audioBase64: z.string().optional(),
+  audioMimeType: z.string().optional(),
   action: z.enum(['knock', 'bow', 'speak']).optional(),
 });
 
@@ -68,9 +70,13 @@ export const interviewRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.post('/interview/turn', async (req, reply) => {
-    const parsed = turnSchema.parse(req.body);
-    const result = await runInterviewTurn(parsed);
-    return reply.send(result);
-  });
+  app.post(
+    '/interview/turn',
+    { bodyLimit: 12 * 1024 * 1024 },
+    async (req, reply) => {
+      const parsed = turnSchema.parse(req.body);
+      const result = await runInterviewTurn(parsed);
+      return reply.send(result);
+    },
+  );
 };

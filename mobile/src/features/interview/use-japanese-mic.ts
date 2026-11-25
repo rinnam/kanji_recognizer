@@ -15,14 +15,23 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+export interface RecordedAudioPayload {
+  base64Data: string;
+  mimeType: string;
+}
+
 /**
- * Records spoken Japanese audio via MediaRecorder and transcribes verbatim through
- * Backend Gemini Audio (/api/interview/transcribe-audio), preserving fillers (えーと, あのー, うーん).
- * Works reliably on both Edge and Chrome without Web Speech API "network" errors.
+ * Compact 24kbps Opus MediaRecorder hook.
+ * Supports 1-Shot Direct Audio Mode (skips separate transcription round-trip during Q&A)
+ * as well as standalone transcription for etiquette steps.
  */
-export function useJapaneseMic() {
+export function useJapaneseMic(options?: {
+  onDirectAudio?: (payload: RecordedAudioPayload) => void;
+  directMode?: boolean;
+}) {
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
   const [transcript, setTranscript] = useState('');
   const [audioFillers, setAudioFillers] = useState<string[]>([]);
   const [micError, setMicError] = useState<string | null>(null);
@@ -31,6 +40,11 @@ export function useJapaneseMic() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const directModeRef = useRef(Boolean(options?.directMode));
+  const onDirectAudioRef = useRef(options?.onDirectAudio);
+
+  directModeRef.current = Boolean(options?.directMode);
+  onDirectAudioRef.current = options?.onDirectAudio;
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof navigator === 'undefined') return;
@@ -48,9 +62,18 @@ export function useJapaneseMic() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!listening) {
+      setRecordSeconds(0);
+      return;
+    }
+    const t = setInterval(() => setRecordSeconds((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [listening]);
+
   const startListening = useCallback(async () => {
     if (Platform.OS !== 'web' || typeof navigator === 'undefined') return;
-    if (!navigator.mediaDevices?.getUserMedia) {
+    if (typeof navigator.mediaDevices?.getUserMedia !== 'function') {
       setMicError('Trình duyệt không hỗ trợ ghi âm Micro. Bạn có thể gõ câu trả lời trực tiếp.');
       return;
     }
@@ -67,7 +90,11 @@ export function useJapaneseMic() {
           ? 'audio/webm'
           : 'audio/mp4';
 
-      const recorder = new MediaRecorder(stream, { mimeType });
+      const recorder = new MediaRecorder(stream, {
+        mimeType,
+        audioBitsPerSecond: 24000,
+      });
+
       recorder.ondataavailable = (ev) => {
         if (ev.data && ev.data.size > 0) {
           chunksRef.current.push(ev.data);
@@ -77,12 +104,27 @@ export function useJapaneseMic() {
       recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
-        const blob = new Blob(chunksRef.current, { type: mimeType.split(';')[0] || 'audio/webm' });
+        const cleanMime = mimeType.split(';')[0] || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: cleanMime });
         chunksRef.current = [];
         if (blob.size < 200) {
           setListening(false);
           return;
         }
+
+        // 1-Shot Direct Voice Turn: pass compact audio directly to /interview/turn (zero extra round-trip!)
+        if (directModeRef.current && onDirectAudioRef.current) {
+          void blobToBase64(blob)
+            .then((base64Data) => {
+              onDirectAudioRef.current?.({ base64Data, mimeType: cleanMime });
+            })
+            .catch(() => {
+              setMicError('Không đọc được đoạn ghi âm. Hãy thử lại.');
+            });
+          return;
+        }
+
+        // Standalone transcribe for etiquette steps
         setTranscribing(true);
         void blobToBase64(blob)
           .then(async (base64Data) => {
@@ -90,10 +132,7 @@ export function useJapaneseMic() {
             const res = await fetch(`${base}/interview/transcribe-audio`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                mimeType: blob.type || 'audio/webm',
-                base64Data,
-              }),
+              body: JSON.stringify({ mimeType: cleanMime, base64Data }),
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = (await res.json()) as { transcript?: string; fillers?: string[] };
@@ -105,7 +144,7 @@ export function useJapaneseMic() {
             setAudioFillers(Array.isArray(data.fillers) ? data.fillers : []);
           })
           .catch(() => {
-            setMicError('Không nhận diện được giọng nói từ Backend. Hãy kiểm tra Backend cổng 3000.');
+            setMicError('Máy chủ AI đang bận. Bạn có thể bấm thử lại hoặc gõ trực tiếp vào ô bên cạnh.');
           })
           .finally(() => {
             setTranscribing(false);
@@ -136,6 +175,7 @@ export function useJapaneseMic() {
     supported,
     listening,
     transcribing,
+    recordSeconds,
     transcript,
     setTranscript,
     audioFillers,
