@@ -7,7 +7,15 @@ import {
 
 const turnSchema = z.object({
   scenarioId: z.string().min(1),
-  stage: z.enum(['entrance', 'self_intro', 'motivation', 'situational', 'closing']),
+  stage: z.enum([
+    'jikoshokai',
+    'jiko_pr',
+    'cv_q1',
+    'cv_q2',
+    'cv_q3',
+    'reverse_question',
+    'closing',
+  ]),
   history: z
     .array(
       z.object({
@@ -17,6 +25,7 @@ const turnSchema = z.object({
     )
     .default([]),
   userMessage: z.string().default(''),
+  cvSummary: z.string().optional(),
   action: z.enum(['knock', 'bow', 'speak']).optional(),
 });
 

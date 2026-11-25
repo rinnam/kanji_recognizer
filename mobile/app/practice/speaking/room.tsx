@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AppShell } from '../../../src/components/AppShell';
 import { TopHeader } from '../../../src/components/TopHeader';
@@ -22,8 +23,26 @@ import {
 } from '../../../src/features/interview/InterviewScene3D';
 import { playDoorKnockSfx } from '../../../src/features/interview/interview-sfx';
 import { useJapaneseMic } from '../../../src/features/interview/use-japanese-mic';
+import { INTERVIEW_CV_STORAGE_KEY } from './index';
 
-type InterviewStage = 'entrance' | 'self_intro' | 'motivation' | 'situational' | 'closing';
+type InterviewStage =
+  | 'jikoshokai'
+  | 'jiko_pr'
+  | 'cv_q1'
+  | 'cv_q2'
+  | 'cv_q3'
+  | 'reverse_question'
+  | 'closing';
+
+const QA_STAGE_LABELS: Record<InterviewStage, string> = {
+  jikoshokai: 'Câu 1/6 · 自己紹介 (Tự giới thiệu)',
+  jiko_pr: 'Câu 2/6 · 自己PR (Điểm mạnh)',
+  cv_q1: 'Câu 3/6 · Hỏi sâu CV #1',
+  cv_q2: 'Câu 4/6 · Hỏi sâu CV #2 & Động lực',
+  cv_q3: 'Câu 5/6 · Hỏi sâu CV #3 (Tình huống)',
+  reverse_question: 'Câu 6/6 · 逆質問 (Câu hỏi ngược cho công ty)',
+  closing: 'Kết thúc hỏi đáp → Chuẩn bị Ra về',
+};
 
 type FlowStep =
   | 'knock_door'
@@ -113,9 +132,10 @@ export default function Interview3DRoomScreen() {
   const isWide = width >= 960;
 
   const [scenario, setScenario] = useState<ScenarioInfo | null>(null);
+  const [cvSummary, setCvSummary] = useState<string>('');
   const [flowStep, setFlowStep] = useState<FlowStep>('knock_door');
   const [scenePhase, setScenePhase] = useState<ScenePhase>('hallway');
-  const [qaStage, setQaStage] = useState<InterviewStage>('self_intro');
+  const [qaStage, setQaStage] = useState<InterviewStage>('jikoshokai');
   const [mood, setMood] = useState<AvatarMood>('idle');
 
   const [knockCount, setKnockCount] = useState(0);
@@ -141,6 +161,9 @@ export default function Interview3DRoomScreen() {
   const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
 
   useEffect(() => {
+    void AsyncStorage.getItem(INTERVIEW_CV_STORAGE_KEY).then((val) => {
+      if (val) setCvSummary(val);
+    });
     const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
     void fetch(`${base}/interview/scenarios`)
       .then((r) => (r.ok ? r.json() : null))
@@ -342,7 +365,7 @@ export default function Interview3DRoomScreen() {
     }
     setScenePhase('seated');
     setFlowStep('qa_interview');
-    setQaStage('self_intro');
+    setQaStage('jikoshokai');
     setTimeout(() => {
       if (scenario) {
         speakInterviewer(scenario.openingJa, scenario.openingReading, scenario.openingVi, 4800);
@@ -378,6 +401,7 @@ export default function Interview3DRoomScreen() {
             .filter((l) => l.role !== 'manner')
             .map((l) => ({ role: l.role as 'interviewer' | 'candidate', text: l.text })),
           userMessage: clean,
+          cvSummary: cvSummary || undefined,
           action: 'speak',
         }),
       });
@@ -579,7 +603,7 @@ export default function Interview3DRoomScreen() {
             <View style={styles.subtitleTop}>
               <Text style={styles.subtitleLabel}>
                 {flowStep === 'qa_interview'
-                  ? `Phỏng vấn (${qaStage})`
+                  ? QA_STAGE_LABELS[qaStage]
                   : 'Hướng dẫn quy trình chuẩn Nhật'}
               </Text>
               <View style={styles.subtitleActions}>

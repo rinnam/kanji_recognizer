@@ -1,6 +1,13 @@
 import { env } from '../config/env.js';
 
-export type InterviewStage = 'entrance' | 'self_intro' | 'motivation' | 'situational' | 'closing';
+export type InterviewStage =
+  | 'jikoshokai'
+  | 'jiko_pr'
+  | 'cv_q1'
+  | 'cv_q2'
+  | 'cv_q3'
+  | 'reverse_question'
+  | 'closing';
 
 export interface InterviewScenario {
   id: string;
@@ -10,6 +17,7 @@ export interface InterviewScenario {
   interviewerRole: string;
   level: string;
   description: string;
+  defaultCv: string;
   openingJa: string;
   openingReading: string;
   openingVi: string;
@@ -40,28 +48,40 @@ export interface InterviewTurnResponse {
 
 export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
   {
-    id: 'baito',
-    title: 'Phỏng vấn làm thêm (アルバイト)',
-    companyName: 'Sakura Coffee Tokyo',
-    interviewerName: 'Tanaka Kenji (田中 健二)',
-    interviewerRole: 'Quản lý cửa hàng (店長)',
-    level: 'N4 – N3',
-    description: 'Luyện tác phong chào hỏi, giới thiệu bản thân, lịch làm việc và xử lý tình huống với khách hàng.',
-    openingJa: 'こんにちは。本日はお越しいただきありがとうございます。どうぞおかけください。まず、簡単に自己紹介をお願いします。',
-    openingReading: 'こんにちは。ほんじつはおこしいただきありがとうございます。どうぞおかけください。まず、かんたんにじこしょうかいをおねがいします。',
-    openingVi: 'Xin chào. Cảm ơn bạn hôm nay đã đến. Mời bạn ngồi. Trước tiên, hãy giới thiệu ngắn gọn về bản thân bạn nhé.',
-  },
-  {
     id: 'it_engineer',
     title: 'Phỏng vấn Kỹ sư IT (ITエンジニア)',
     companyName: 'Mirai Tech Japan Inc.',
     interviewerName: 'Sato Yuki (佐藤 由紀)',
     interviewerRole: 'Trưởng phòng Kỹ thuật (開発部長)',
     level: 'N3 – N2',
-    description: 'Phỏng vấn công ty công nghệ Nhật: kinh nghiệm dự án, lý do chọn Nhật Bản và cách làm việc nhóm.',
-    openingJa: '本日は面接にお越しいただき、ありがとうございます。開発部の佐藤と申します。それでは、自己紹介とこれまでの経験について教えていただけますか。',
-    openingReading: 'ほんじつはめんせつにおこしいただき、ありがとうございます。かいはつぶのさとうともうします。それでは、じこしょうかいとこれまでのけいけんについておしえていただけますか。',
-    openingVi: 'Cảm ơn bạn hôm nay đã đến buổi phỏng vấn. Tôi là Sato thuộc phòng Phát triển. Bạn có thể giới thiệu bản thân và kinh nghiệm trước đây của mình không?',
+    description:
+      'Đủ 6 chặng chuẩn Nhật: 自己紹介 → 自己PR → 3 câu hỏi đào sâu từ CV/Dự án → 逆質問 (hỏi ngược công ty) → Ra về.',
+    defaultCv:
+      'Chuyên ngành: Công nghệ thông tin (Năm 4). Kỹ năng: TypeScript, React, Node.js, PostgreSQL. Dự án nổi bật: Xây dựng ứng dụng học tiếng Nhật Kanji Nest (Flashcard SRS, game đối kháng WebSocket). Chứng chỉ: JLPT N3. Điểm mạnh: Tự học nhanh, làm việc nhóm tốt.',
+    openingJa:
+      '本日は面接にお越しいただき、ありがとうございます。開発部の佐藤と申します。それではまず、1分ほどで自己紹介をお願いいたします。',
+    openingReading:
+      'ほんじつはめんせつにおこしいただき、ありがとうございます。かいはつぶのさとうともうします。それではまず、いっぷんほどでじこしょうかいをおねがいいたします。',
+    openingVi:
+      'Cảm ơn bạn hôm nay đã đến buổi phỏng vấn. Tôi là Sato thuộc phòng Phát triển. Trước tiên, bạn hãy tự giới thiệu bản thân (自己紹介) trong khoảng 1 phút nhé.',
+  },
+  {
+    id: 'baito',
+    title: 'Phỏng vấn làm thêm (アルバイト)',
+    companyName: 'Sakura Coffee Tokyo',
+    interviewerName: 'Tanaka Kenji (田中 健二)',
+    interviewerRole: 'Quản lý cửa hàng (店長)',
+    level: 'N4 – N3',
+    description:
+      'Đủ 6 chặng: 自己紹介 → 自己PR → 3 câu hỏi theo CV (kinh nghiệm phục vụ, lịch làm việc, tình huống khách) → 逆質問.',
+    defaultCv:
+      'Du học sinh năm 2 tại Tokyo. Từng làm phục vụ quán cafe 6 tháng ở Việt Nam. Có thể làm 4 buổi/tuần (tối thứ 2, 4, 6 và cuối tuần). Trình độ tiếng Nhật: N3. Điểm mạnh: Luôn đúng giờ, giao tiếp thân thiện và cười tươi với khách.',
+    openingJa:
+      '本日はお越しいただきありがとうございます。店長の田中と申します。まず最初に、簡単に自己紹介をお願いいたします。',
+    openingReading:
+      'ほんじつはおこしいただきありがとうございます。てんちょうのたなかともうします。まずさいしょに、かんたんにじこしょうかいをおねがいいたします。',
+    openingVi:
+      'Cảm ơn bạn hôm nay đã đến. Tôi là Tanaka, quản lý cửa hàng. Trước tiên, hãy tự giới thiệu ngắn gọn về bản thân bạn nhé.',
   },
   {
     id: 'study_abroad',
@@ -70,20 +90,45 @@ export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
     interviewerName: 'Yamada Haruo (山田 春夫)',
     interviewerRole: 'Cán bộ tuyển sinh (入試担当)',
     level: 'N4 – N3',
-    description: 'Luyện trả lời mục tiêu du học, kế hoạch học tập và lý do yêu thích tiếng Nhật.',
-    openingJa: 'こんにちは。本日は面接にご参加いただきありがとうございます。はじめに、お名前と日本語を勉強しようと思ったきっかけを教えてください。',
-    openingReading: 'こんにちは。ほんじつはめんせつにごさんかいただきありがとうございます。はじめに、おなまえとにほんごをべんきょうしようとおもったきっかけをおしえてください。',
-    openingVi: 'Xin chào. Cảm ơn bạn đã tham gia buổi phỏng vấn hôm nay. Trước hết, hãy cho tôi biết tên bạn và cơ duyên khiến bạn muốn học tiếng Nhật.',
+    description:
+      'Đủ 6 chặng: 自己紹介 → 自己PR → 3 câu hỏi về hồ sơ học tập, kế hoạch tài chính & mục tiêu tại Nhật → 逆質問.',
+    defaultCv:
+      'Tốt nghiệp THPT loại Giỏi, đã học tiếng Nhật 1 năm (đạt N4, đang ôn N3). Gia đình hỗ trợ tài chính ổn định. Mục tiêu: Học trường Nhật ngữ 1.5 năm đạt N2, sau đó thi vào đại học chuyên ngành Kinh tế hoặc CNTT tại Nhật.',
+    openingJa:
+      '本日は面接にご参加いただきありがとうございます。入試担当の山田と申します。はじめに、自己紹介をお願いいたします。',
+    openingReading:
+      'ほんじつはめんせつにごさんかいただきありがとうございます。にゅうしたんとうのやまだともうします。はじめに、じこしょうかいをおねがいいたします。',
+    openingVi:
+      'Cảm ơn bạn đã tham gia buổi phỏng vấn hôm nay. Tôi là Yamada phụ trách tuyển sinh. Trước hết, hãy tự giới thiệu về bản thân bạn nhé.',
   },
 ];
 
 const STAGE_ORDER: InterviewStage[] = [
-  'entrance',
-  'self_intro',
-  'motivation',
-  'situational',
+  'jikoshokai',
+  'jiko_pr',
+  'cv_q1',
+  'cv_q2',
+  'cv_q3',
+  'reverse_question',
   'closing',
 ];
+
+const STAGE_INSTRUCTIONS: Record<InterviewStage, string> = {
+  jikoshokai:
+    'Ứng viên vừa hoàn thành 自己紹介 (Tự giới thiệu). Hãy phản hồi lịch sự (1 câu ngắn) rồi chuyển sang hỏi 自己PR (điểm mạnh / điều muốn PR về bản thân).',
+  jiko_pr:
+    'Ứng viên vừa trả lời 自己PR (Điểm mạnh). Hãy nhận xét ngắn gọn tích cực, sau đó đặt CÂU HỎI CV #1 đào sâu trực tiếp vào 1 chi tiết cụ thể (dự án / kinh nghiệm / kỹ năng) có trong CV của ứng viên.',
+  cv_q1:
+    'Ứng viên vừa trả lời Câu hỏi CV #1. Hãy phản hồi tự nhiên rồi đặt CÂU HỎI CV #2 dựa trên một điểm khác trong CV hoặc hỏi về 志望動機 (lý do ứng tuyển vào công ty/trường và liên hệ với kinh nghiệm trong CV).',
+  cv_q2:
+    'Ứng viên vừa trả lời Câu hỏi CV #2. Hãy phản hồi rồi đặt CÂU HỎI CV #3 mang tính tình huống/đào sâu từ CV (ví dụ: khó khăn lớn nhất từng gặp, cách xử lý áp lực, hoặc kế hoạch tương lai 3 năm tới).',
+  cv_q3:
+    'Ứng viên vừa trả lời Câu hỏi CV #3. Hãy cảm ơn câu trả lời, rồi chuyển sang phần 逆質問 (Câu hỏi ngược): hỏi rõ "最後に、弊社（または当校）について何かご質問はありますか？" để ứng viên đặt câu hỏi cho công ty.',
+  reverse_question:
+    'Ứng viên vừa đặt câu hỏi ngược (逆質問) hoặc nói không có câu hỏi. Hãy trả lời lịch sự, chân thành câu hỏi đó (1-2 câu), sau đó tuyên bố KẾT THÚC buổi phỏng vấn chuẩn Nhật: "本日の面接は以上となります。結果は後日ご連絡いたします。本日はありがとうございました。"',
+  closing:
+    'Buổi phỏng vấn đã kết thúc. Chào tạm biệt lịch sự "本日はありがとうございました。お気をつけてお帰りください。"',
+};
 
 function getNextStage(current: InterviewStage): InterviewStage {
   const idx = STAGE_ORDER.indexOf(current);
@@ -91,7 +136,7 @@ function getNextStage(current: InterviewStage): InterviewStage {
   return STAGE_ORDER[idx + 1] ?? 'closing';
 }
 
-function clampScore(v: unknown, fallback = 75): number {
+function clampScore(v: unknown, fallback = 78): number {
   const n = Number(v);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.min(100, Math.round(n)));
@@ -102,32 +147,61 @@ export async function runInterviewTurn(input: {
   stage: InterviewStage;
   history: InterviewHistoryItem[];
   userMessage: string;
+  cvSummary?: string | undefined;
   action?: 'knock' | 'bow' | 'speak' | undefined;
 }): Promise<InterviewTurnResponse> {
   const scenario =
     INTERVIEW_SCENARIOS.find((s) => s.id === input.scenarioId) ?? INTERVIEW_SCENARIOS[0]!;
-  const candidateText =
-    input.action === 'knock'
-      ? '（ノックして）失礼いたします。'
-      : input.action === 'bow'
-        ? '（お辞儀をして）よろしくお願いいたします。'
-        : input.userMessage.trim();
+  const cvText = input.cvSummary?.trim() || scenario.defaultCv;
+  const candidateText = input.userMessage.trim();
 
-  const suggestedNext = getNextStage(input.stage);
-  const willFinish = input.stage === 'closing';
+  const nextStage = getNextStage(input.stage);
+  const willFinish = input.stage === 'reverse_question' || input.stage === 'closing';
 
   if (!env.GEMINI_API_KEY) {
+    const fallbackReplies: Record<InterviewStage, { ja: string; reading: string; vi: string }> = {
+      jikoshokai: {
+        ja: 'ありがとうございます。次に、あなたの強みや自己PRを教えていただけますか。',
+        reading: 'ありがとうございます。つぎに、あなたのつよみやじこぴーあーるをおしえていただけますか。',
+        vi: 'Cảm ơn bạn. Tiếp theo, hãy cho tôi biết điểm mạnh / tự PR (自己PR) của bạn nhé.',
+      },
+      jiko_pr: {
+        ja: '素晴らしい強みですね。履歴書を拝見しましたが、一番力を入れた経験やプロジェクトについて詳しく教えてください。',
+        reading: 'すばらしいつよみですね。りれきしょをはいけんしましたが、いちばんちからをいれたけいけんについてくわしくおしえてください。',
+        vi: 'Điểm mạnh rất tốt. Tôi đã xem qua CV của bạn, hãy kể chi tiết về dự án/kinh nghiệm bạn tâm đắc nhất nhé.',
+      },
+      cv_q1: {
+        ja: 'なるほど、よく分かりました。その経験を活かして、なぜ弊社を志望されたのか教えていただけますか。',
+        reading: 'なるほど、よくわかりました。そのけいけんをいかして、なぜへいしゃをしぼうされたのかおしえていただけますか。',
+        vi: 'Tôi hiểu rồi. Với kinh nghiệm đó, tại sao bạn lại ứng tuyển vào công ty chúng tôi?',
+      },
+      cv_q2: {
+        ja: 'ありがとうございます。これまでの活動の中で一番大変だったことと、それをどう乗り越えたかも教えてください。',
+        reading: 'ありがとうございます。これまでのかつどうのなかでいちばんたいへんだったことと、それをどうのりこえたかおしえてください。',
+        vi: 'Cảm ơn bạn. Hãy chia sẻ khó khăn lớn nhất bạn từng gặp và cách bạn vượt qua nó.',
+      },
+      cv_q3: {
+        ja: 'よく分かりました。最後に、弊社について何かご質問はありますか。',
+        reading: 'よくわかりました。さいごに、へいしゃについてなにかごしつもんはありますか。',
+        vi: 'Tôi đã rõ. Cuối cùng, bạn có câu hỏi nào dành cho công ty chúng tôi không?',
+      },
+      reverse_question: {
+        ja: 'ご質問ありがとうございます。チームで助け合いながら成長できる環境ですのでご安心ください。本日の面接は以上となります。本日はありがとうございました。',
+        reading: 'ごしつもんありがとうございます。ほんじつのめんせつはいじょうとなります。ほんじつはありがとうございました。',
+        vi: 'Cảm ơn câu hỏi của bạn. Môi trường của chúng tôi luôn hỗ trợ nhau phát triển. Buổi phỏng vấn hôm nay đến đây là kết thúc. Cảm ơn bạn rất nhiều.',
+      },
+      closing: {
+        ja: '本日はありがとうございました。お気をつけてお帰りください。',
+        reading: 'ほんじつはありがとうございました。おきをつけておかえりください。',
+        vi: 'Cảm ơn bạn hôm nay. Chúc bạn về bình an.',
+      },
+    };
+    const fb = fallbackReplies[input.stage];
     return {
-      replyJa: willFinish
-        ? '本日はありがとうございました。結果は後日ご連絡いたします。お気をつけてお帰りください。'
-        : 'ありがとうございます。とても分かりやすかったです。では次に、志望動機を教えていただけますか。',
-      replyReading: willFinish
-        ? 'ほんじつはありがとうございました。けっかはごじつごれんらくいたします。おきをつけておかえりください。'
-        : 'ありがとうございます。とてもわかりやすかったです。ではつぎに、しぼうどうきをおしえていただけますか。',
-      replyVi: willFinish
-        ? 'Cảm ơn bạn hôm nay. Kết quả sẽ được thông báo sau. Chúc bạn về bình an.'
-        : 'Cảm ơn bạn, rất dễ hiểu. Tiếp theo, bạn có thể cho biết lý do ứng tuyển không?',
-      nextStage: suggestedNext,
+      replyJa: fb.ja,
+      replyReading: fb.reading,
+      replyVi: fb.vi,
+      nextStage,
       finished: willFinish,
       evaluation: {
         keigoScore: 80,
@@ -140,24 +214,34 @@ export async function runInterviewTurn(input: {
     };
   }
 
+  const stageInstruction = STAGE_INSTRUCTIONS[input.stage];
+
   const systemPrompt = `Bạn là nhà tuyển dụng Nhật Bản tên ${scenario.interviewerName} (${scenario.interviewerRole}) tại ${scenario.companyName}.
-Kịch bản: ${scenario.title} (${scenario.level}).
-Chặng hiện tại: ${input.stage}. Chặng tiếp theo gợi ý: ${suggestedNext}.
-Quy trình 5 chặng chuẩn Nhật: entrance (vào phòng) -> self_intro (tự giới thiệu) -> motivation (lý do ứng tuyển) -> situational (câu hỏi tình huống) -> closing (câu hỏi ngược & kết thúc).
+Kịch bản: ${scenario.title} (Trình độ ${scenario.level}).
+Nội dung CV / 履歴書 của ứng viên:
+"""
+${cvText}
+"""
 
-Nhiệm vụ:
-1. Đọc câu trả lời của ứng viên và lịch sử hội thoại.
-2. Đóng vai nhà tuyển dụng Nhật Bản lịch sự, chuyên nghiệp để phản hồi tự nhiên bằng tiếng Nhật (1-2 câu ngắn gọn, rõ ràng, phù hợp trình độ ${scenario.level}) và dẫn sang câu hỏi tiếp theo (nếu stage là "closing" thì chào kết thúc buổi phỏng vấn và đặt finished: true).
-3. Chấm điểm câu trả lời của ứng viên (0-100) theo 4 tiêu chí: keigoScore (kính ngữ & lễ nghi), grammarScore (ngữ pháp), naturalScore (độ tự nhiên văn nói), contentScore (nội dung).
-4. Viết betterJapanese (câu nói tiếng Nhật chuẩn & lịch sự hơn ứng viên nên dùng) và feedbackVi (nhận xét & sửa lỗi ngắn gọn 1-2 câu bằng tiếng Việt).
+Lượt hiện tại ứng viên vừa trả lời thuộc bước: "${input.stage}".
+CHỈ DẪN BẮT BUỘC CHO LƯỢT NÀY:
+${stageInstruction}
 
-CHỈ TRẢ VỀ JSON HỢP LỆ theo đúng schema sau (không bọc markdown):
+Quy tắc chấm điểm & phản hồi:
+1. Câu nói của nhà tuyển dụng (replyJa): 1-3 câu tiếng Nhật lịch sự tự nhiên đúng văn phong phỏng vấn Nhật, KHÔNG lặp lại câu hỏi đã hỏi ở lịch sử.
+2. Chấm điểm câu trả lời vừa rồi của ứng viên (0-100):
+   - keigoScore: Mức độ dùng kính ngữ / thể lịch sự です・ます / khiêm nhường ngữ.
+   - grammarScore: Độ chính xác ngữ pháp.
+   - naturalScore: Độ tự nhiên khi nói phỏng vấn Nhật.
+   - contentScore: Mức độ trả lời đúng trọng tâm câu hỏi.
+3. betterJapanese: Viết lại câu trả lời của ứng viên thành phiên bản tiếng Nhật chuẩn, tự nhiên và lịch sự hơn để ứng viên học theo.
+4. feedbackVi: Nhận xét & chỉ rõ lỗi cần sửa (1-2 câu ngắn gọn bằng tiếng Việt).
+
+CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
 {
   "replyJa": "string",
   "replyReading": "string (toàn bộ bằng hiragana/katakana)",
-  "replyVi": "string (dịch tiếng Việt)",
-  "nextStage": "entrance | self_intro | motivation | situational | closing",
-  "finished": boolean,
+  "replyVi": "string (dịch tiếng Việt tự nhiên)",
   "evaluation": {
     "keigoScore": number,
     "grammarScore": number,
@@ -169,11 +253,11 @@ CHỈ TRẢ VỀ JSON HỢP LỆ theo đúng schema sau (không bọc markdown):
 }`;
 
   const historyText = input.history
-    .slice(-8)
+    .slice(-10)
     .map((h) => `${h.role === 'interviewer' ? 'Nhà tuyển dụng' : 'Ứng viên'}: ${h.text}`)
     .join('\n');
 
-  const userPrompt = `Lịch sử gần đây:\n${historyText || '(Bắt đầu buổi phỏng vấn)'}\n\nỨng viên vừa nói/làm: ${candidateText}`;
+  const userPrompt = `Lịch sử buổi phỏng vấn:\n${historyText || '(Mở đầu)'}\n\nỨng viên vừa trả lời: ${candidateText}`;
 
   const url =
     'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
@@ -209,10 +293,6 @@ CHỈ TRẢ VỀ JSON HỢP LỆ theo đúng schema sau (không bọc markdown):
   const cleaned = rawText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
   const parsed = JSON.parse(cleaned) as Partial<InterviewTurnResponse>;
 
-  const nextStage = STAGE_ORDER.includes(parsed.nextStage as InterviewStage)
-    ? (parsed.nextStage as InterviewStage)
-    : suggestedNext;
-
   return {
     replyJa:
       parsed.replyJa?.trim() ||
@@ -220,7 +300,7 @@ CHỈ TRẢ VỀ JSON HỢP LỆ theo đúng schema sau (không bọc markdown):
     replyReading: parsed.replyReading?.trim() || '',
     replyVi: parsed.replyVi?.trim() || 'Cảm ơn bạn. Bạn có thể chia sẻ chi tiết hơn không?',
     nextStage,
-    finished: Boolean(parsed.finished ?? willFinish),
+    finished: willFinish,
     evaluation: {
       keigoScore: clampScore(parsed.evaluation?.keigoScore, 78),
       grammarScore: clampScore(parsed.evaluation?.grammarScore, 80),
