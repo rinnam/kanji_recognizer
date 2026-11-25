@@ -79,6 +79,8 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   centerShell: {
     flex: 1,
+    width: '100%',
+    maxWidth: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
