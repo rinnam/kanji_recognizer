@@ -1831,7 +1831,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   cardSpacer: {
-    height: 8,
+    height: 32,
   },
   readingRow: {
     flexDirection: 'row',
@@ -1839,7 +1839,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   meaningLarge: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '800',
     color: nihongoTheme.colors.textPrimary,
     textAlign: 'center',
@@ -1924,18 +1924,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   kanjiLarge: {
-    fontSize: 40,
+    fontSize: 52,
+    lineHeight: 64,
     fontWeight: '800',
     color: nihongoTheme.colors.textPrimary,
     textAlign: 'center',
-    marginVertical: 12,
+    marginVertical: 8,
   },
   backBox: {
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   readingText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: nihongoTheme.colors.accentHover,
   },
