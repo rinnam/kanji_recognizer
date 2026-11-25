@@ -67,8 +67,12 @@ export interface TranscribedAudioResponse {
   fillers: string[];
 }
 
-const GEMINI_FLASH_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
+const GEMINI_MODEL_CHAIN = [
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-flash-lite-latest',
+  'gemini-flash-latest',
+] as const;
 
 export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
   {
@@ -196,33 +200,45 @@ async function callGeminiJson<T>(parts: Array<Record<string, unknown>>): Promise
   if (!env.GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY is missing in backend/.env');
   }
-  const res = await fetch(GEMINI_FLASH_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-goog-api-key': env.GEMINI_API_KEY,
-    },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts }],
-      generationConfig: {
-        temperature: 0.35,
-        maxOutputTokens: 1024,
-        responseMimeType: 'application/json',
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    }),
-    signal: AbortSignal.timeout(25000),
-  });
-  if (!res.ok) {
-    const errText = await res.text().catch(() => '');
-    throw new Error(`Gemini API HTTP ${res.status}: ${errText.slice(0, 200)}`);
+  let lastErr = 'Unknown Gemini error';
+  for (const model of GEMINI_MODEL_CHAIN) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': env.GEMINI_API_KEY,
+        },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts }],
+          generationConfig: {
+            temperature: 0.35,
+            maxOutputTokens: 1024,
+            responseMimeType: 'application/json',
+          },
+        }),
+        signal: AbortSignal.timeout(25000),
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        lastErr = `${model} HTTP ${res.status}: ${errText.slice(0, 160)}`;
+        if (res.status === 503 || res.status === 429 || res.status === 404 || res.status >= 500) {
+          continue;
+        }
+        throw new Error(lastErr);
+      }
+      const data = (await res.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      };
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
+      const cleaned = rawText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
+      return JSON.parse(cleaned) as T;
+    } catch (err) {
+      lastErr = err instanceof Error ? err.message : String(err);
+    }
   }
-  const data = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
-  const cleaned = rawText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
-  return JSON.parse(cleaned) as T;
+  throw new Error(`All Gemini models failed: ${lastErr}`);
 }
 
 /** Parses a real uploaded CV (PDF / Image / TXT) with Gemini Flash multimodal API. */
