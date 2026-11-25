@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import websocket from '@fastify/websocket';
 import { sql } from 'kysely';
 import { ZodError } from 'zod';
 import { db, pool } from './config/database.js';
@@ -7,6 +8,7 @@ import { env } from './config/env.js';
 import { authRoutes } from './routes/auth.routes.js';
 import { flashcardRoutes } from './routes/flashcard.routes.js';
 import { folderRoutes } from './routes/folder.routes.js';
+import { gameRoutes } from './routes/game.routes.js';
 import { quizRoutes } from './routes/quiz.routes.js';
 import { syncRoutes } from './routes/sync.routes.js';
 import { transcriptRoutes } from './routes/transcript.routes.js';
@@ -89,7 +91,9 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(quizRoutes, { prefix: '/api' });
   await app.register(syncRoutes, { prefix: '/api' });
   await app.register(ttsRoutes, { prefix: '/api' });
+  await app.register(websocket);
   await app.register(authRoutes, { prefix: '/api' });
+  await app.register(gameRoutes, { prefix: '/api' });
   await app.register(transcriptRoutes, { prefix: '/api' });
 
   return app;
