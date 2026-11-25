@@ -15,6 +15,7 @@ const envSchema = z.object({
     .default('info'),
   DATABASE_URL: z.string().url(),
   LOCAL_OWNER_ID: z.string().uuid(),
+  GEMINI_API_KEY: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
