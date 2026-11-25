@@ -47,6 +47,8 @@ export default function ListeningScreen() {
   const [loading, setLoading] = useState<boolean>(false);
   const [loadingVideoId, setLoadingVideoId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [videoPickerOpen, setVideoPickerOpen] = useState<boolean>(false);
+  const [quickUrl, setQuickUrl] = useState<string>('');
 
   const playerRef = useRef<PlayerRef>(null);
   const lastPausedLineRef = useRef<number>(-1);
@@ -310,11 +312,73 @@ export default function ListeningScreen() {
             subtitle={currentVideo.channel ? `${videoTitle} · ${currentVideo.channel}` : videoTitle}
             onBack={handleBackToCatalog}
             rightSlot={
-              <Pressable style={styles.backButton} onPress={handleBackToCatalog}>
-                <Text style={styles.backButtonText}>← Đổi video khác</Text>
+              <Pressable style={styles.backButton} onPress={() => setVideoPickerOpen(true)}>
+                <Text style={styles.backButtonText}>Đổi video ▾</Text>
               </Pressable>
             }
           />
+
+          {/* In-place Video Switcher Modal */}
+          <Modal
+            visible={videoPickerOpen}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setVideoPickerOpen(false)}
+          >
+            <View style={styles.pickerOverlay}>
+              <View style={styles.pickerCard}>
+                <View style={styles.pickerHeader}>
+                  <Text style={styles.pickerTitle}>Chọn video luyện nghe</Text>
+                  <Pressable onPress={() => setVideoPickerOpen(false)}>
+                    <Text style={styles.pickerClose}>Đóng</Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.pickerUrlRow}>
+                  <TextInput
+                    value={quickUrl}
+                    onChangeText={setQuickUrl}
+                    placeholder="Dán link YouTube khác..."
+                    placeholderTextColor={nihongoTheme.colors.textMuted}
+                    style={styles.pickerInput}
+                  />
+                  <Pressable
+                    style={styles.pickerAddBtn}
+                    onPress={() => {
+                      if (!quickUrl.trim()) return;
+                      const url = quickUrl.trim();
+                      setQuickUrl('');
+                      setVideoPickerOpen(false);
+                      void handleCustomUrlSubmit(url);
+                    }}
+                  >
+                    <Text style={styles.pickerAddText}>Mở</Text>
+                  </Pressable>
+                </View>
+
+                <ScrollView style={styles.pickerList} showsVerticalScrollIndicator>
+                  {catalogVideos.map((v) => {
+                    const active = v.videoId === videoId;
+                    return (
+                      <Pressable
+                        key={v.videoId}
+                        style={[styles.pickerItem, active && styles.pickerItemActive]}
+                        onPress={() => {
+                          setVideoPickerOpen(false);
+                          void handleSelectCatalogVideo(v);
+                        }}
+                      >
+                        <Text style={[styles.pickerItemTitle, active && styles.pickerItemTitleActive]} numberOfLines={2}>
+                          {v.title}
+                        </Text>
+                        {v.channel ? <Text style={styles.pickerItemChannel}>{v.channel}</Text> : null}
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
 
           {/* Main Layout: 2 Columns on Desktop, 1 Column on Mobile */}
           <View style={[styles.mainLayout, isDesktop ? styles.layoutDesktop : styles.layoutMobile]}>
