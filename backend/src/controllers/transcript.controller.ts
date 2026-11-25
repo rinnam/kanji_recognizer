@@ -86,3 +86,92 @@ export async function translateSentence(
     return reply.status(502).send({ message: 'Lỗi kết nối dịch tiếng Việt.' });
   }
 }
+
+export async function getVideoLibrary(
+  _req: unknown,
+  reply: { status: (code: number) => { send: (body: unknown) => unknown }; send: (body: unknown) => unknown },
+) {
+  try {
+    const { pool } = await import('../config/database.js');
+    const [foldersRes, videosRes] = await Promise.all([
+      pool.query('SELECT id, name FROM video_folders WHERE deleted_at IS NULL ORDER BY created_at ASC'),
+      pool.query(
+        'SELECT video_id AS "videoId", title, channel, level, duration, description, folder_id AS "folderId" FROM listening_videos WHERE deleted_at IS NULL ORDER BY created_at DESC',
+      ),
+    ]);
+    return reply.send({
+      folders: foldersRes.rows,
+      customVideos: videosRes.rows.map((v: Record<string, unknown>) => ({ ...v, isCustom: true })),
+    });
+  } catch (err) {
+    return reply.status(500).send({ message: err instanceof Error ? err.message : 'Lỗi đọc thư viện video.' });
+  }
+}
+
+export async function saveVideoLibrary(
+  req: { body: unknown },
+  reply: { status: (code: number) => { send: (body: unknown) => unknown }; send: (body: unknown) => unknown },
+) {
+  const body = (req.body ?? {}) as {
+    folders?: Array<{ id: string; name: string }>;
+    customVideos?: Array<{
+      videoId: string;
+      title: string;
+      channel?: string;
+      level?: string;
+      duration?: string;
+      description?: string;
+      folderId?: string | null;
+    }>;
+  };
+  try {
+    const { pool } = await import('../config/database.js');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const f of body.folders ?? []) {
+        if (!f?.id || !f?.name) continue;
+        await client.query(
+          `INSERT INTO video_folders (id, name, updated_at, deleted_at)
+           VALUES ($1, $2, now(), NULL)
+           ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, updated_at = now(), deleted_at = NULL`,
+          [f.id, f.name],
+        );
+      }
+      for (const v of body.customVideos ?? []) {
+        if (!v?.videoId || !v?.title) continue;
+        await client.query(
+          `INSERT INTO listening_videos (video_id, title, channel, level, duration, description, folder_id, updated_at, deleted_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, now(), NULL)
+           ON CONFLICT (video_id) DO UPDATE SET
+             title = EXCLUDED.title,
+             channel = EXCLUDED.channel,
+             level = EXCLUDED.level,
+             duration = EXCLUDED.duration,
+             description = EXCLUDED.description,
+             folder_id = EXCLUDED.folder_id,
+             updated_at = now(),
+             deleted_at = NULL`,
+          [
+            v.videoId,
+            v.title,
+            v.channel ?? null,
+            v.level ?? null,
+            v.duration ?? null,
+            v.description ?? null,
+            v.folderId ?? null,
+          ],
+        );
+      }
+      await client.query('COMMIT');
+      return reply.send({ ok: true });
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    return reply.status(500).send({ message: err instanceof Error ? err.message : 'Lỗi lưu thư viện video.' });
+  }
+}

@@ -199,3 +199,28 @@ CREATE TRIGGER trg_vocab_srv_recv
   FOR EACH ROW EXECUTE FUNCTION set_server_received_at();
 
 COMMIT;
+
+-- ---------------------------------------------------------------------
+-- video_folders & listening_videos (Shadowing YouTube library)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS video_folders (
+  id          text PRIMARY KEY,
+  name        text NOT NULL,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  deleted_at  timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS listening_videos (
+  video_id    text PRIMARY KEY,
+  title       text NOT NULL,
+  channel     text,
+  level       text,
+  duration    text,
+  description text,
+  folder_id   text REFERENCES video_folders(id) ON DELETE SET NULL,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  deleted_at  timestamptz
+);
+CREATE INDEX IF NOT EXISTS idx_listening_videos_folder ON listening_videos(folder_id);
