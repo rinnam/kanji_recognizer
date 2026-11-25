@@ -939,129 +939,133 @@ export default function FlashcardQuizPracticeScreen() {
 
       {/* MODE 2: TYPING QUIZ (3 modes + Sino-Vietnamese hint + CatFrame style) */}
       {mode === 'quiz' && currentQuiz ? (
-        <View style={styles.quizCatCard}>
-          <View pointerEvents="none" style={styles.catFrameOverlay}>
-            <CatFrame color="#A89A8E" />
-          </View>
-
-          <View style={styles.quizTopBar}>
-            <View style={styles.quizModeRow}>
-              {(
-                [
-                  ['random', 'Ngẫu nhiên'],
-                  ['jp_to_vi', 'Dạng 1 (Nhật → Việt)'],
-                  ['vi_to_jp', 'Dạng 2 (Việt → Nhật)'],
-                ] as const
-              ).map(([key, label]) => {
-                const active = quizMode === key;
-                return (
-                  <Pressable
-                    key={key}
-                    style={[styles.quizModeChip, active && styles.quizModeChipActive]}
-                    onPress={() => {
-                      setQuizMode(key);
-                      setQuizResult('idle');
-                      setAnswer('');
-                      setShowHint(false);
-                    }}
-                  >
-                    <Text style={[styles.quizModeText, active && styles.quizModeTextActive]}>{label}</Text>
-                  </Pressable>
-                );
-              })}
+        <View style={styles.section}>
+          <View style={styles.quizCatCard}>
+            <View pointerEvents="none" style={styles.catFrameOverlay}>
+              <CatFrame color="#A89A8E" />
             </View>
 
-            <View style={styles.quizToolsRow}>
-              <Pressable
-                style={[styles.toolIconBtn, quizShuffled && styles.toolIconBtnActive]}
-                onPress={() => {
-                  setQuizShuffled((v) => !v);
-                  setQuizShuffleSeed((s) => s + 1);
-                  setQuizIndex(0);
-                  setQuizResult('idle');
-                  setAnswer('');
-                }}
-                accessibilityLabel="Xáo trộn câu hỏi"
-              >
-                <Text style={[styles.toolIconText, quizShuffled && styles.toolIconTextActive]}>🔀</Text>
-              </Pressable>
-              <Pressable
-                style={styles.toolIconBtn}
-                onPress={handleResetQuiz}
-                accessibilityLabel="Reset Quiz"
-              >
-                <Text style={styles.toolIconText}>↺</Text>
-              </Pressable>
-              <View style={styles.timerBox}>
-                <Text style={styles.timerIcon}>🕒</Text>
-                <TextInput
-                  value={quizAutoSecInput}
-                  onChangeText={(val) => setQuizAutoSecInput(val.replace(/[^0-9]/g, '').slice(0, 2))}
-                  keyboardType="numeric"
-                  style={styles.timerInput}
-                  accessibilityLabel="Số giây tự chuyển câu"
-                />
-                <Text style={styles.timerUnit}>s</Text>
+            <View style={styles.quizTopBar}>
+              <View style={styles.quizModeRow}>
+                {(
+                  [
+                    ['random', 'Ngẫu nhiên'],
+                    ['jp_to_vi', 'Dạng 1 (Nhật → Việt)'],
+                    ['vi_to_jp', 'Dạng 2 (Việt → Nhật)'],
+                  ] as const
+                ).map(([key, label]) => {
+                  const active = quizMode === key;
+                  return (
+                    <Pressable
+                      key={key}
+                      style={[styles.quizModeChip, active && styles.quizModeChipActive]}
+                      onPress={() => {
+                        setQuizMode(key);
+                        setQuizResult('idle');
+                        setAnswer('');
+                        setShowHint(false);
+                      }}
+                    >
+                      <Text style={[styles.quizModeText, active && styles.quizModeTextActive]}>{label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View style={styles.quizToolsRow}>
+                <Pressable
+                  style={[styles.toolIconBtn, quizShuffled && styles.toolIconBtnActive]}
+                  onPress={() => {
+                    setQuizShuffled((v) => !v);
+                    setQuizShuffleSeed((s) => s + 1);
+                    setQuizIndex(0);
+                    setQuizResult('idle');
+                    setAnswer('');
+                  }}
+                  accessibilityLabel="Xáo trộn câu hỏi"
+                >
+                  <Text style={[styles.toolIconText, quizShuffled && styles.toolIconTextActive]}>🔀</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.toolIconBtn}
+                  onPress={handleResetQuiz}
+                  accessibilityLabel="Reset Quiz"
+                >
+                  <Text style={styles.toolIconText}>↺</Text>
+                </Pressable>
+                <View style={styles.timerBox}>
+                  <Text style={styles.timerIcon}>🕒</Text>
+                  <TextInput
+                    value={quizAutoSecInput}
+                    onChangeText={(val) => setQuizAutoSecInput(val.replace(/[^0-9]/g, '').slice(0, 2))}
+                    keyboardType="numeric"
+                    style={styles.timerInput}
+                    accessibilityLabel="Số giây tự chuyển câu"
+                  />
+                  <Text style={styles.timerUnit}>s</Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          <View style={styles.cardTopRow}>
-            <Text style={styles.progressText}>
-              Câu {(quizIndex % activeWords.length) + 1} / {activeWords.length} · Điểm: {quizScore}
+            <View style={styles.cardTopRow}>
+              <Text style={styles.progressText}>
+                Câu {(quizIndex % activeWords.length) + 1} / {activeWords.length} · Điểm: {quizScore}
+              </Text>
+              <View style={styles.headerRight}>
+                <Pressable style={styles.ttsBtn} onPress={() => setShowHint((v) => !v)}>
+                  <Text style={styles.ttsText}>💡 Gợi ý Hán Việt</Text>
+                </Pressable>
+                <Pressable style={styles.ttsBtn} onPress={() => speak(currentQuiz.reading || currentQuiz.word)}>
+                  <Text style={styles.ttsText}>🔊 Nghe</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <Text style={styles.kanjiLarge}>
+              {currentQuizDirection === 'jp_to_vi' ? currentQuiz.word : currentQuiz.meaning}
             </Text>
-            <View style={styles.headerRight}>
-              <Pressable style={styles.ttsBtn} onPress={() => setShowHint((v) => !v)}>
-                <Text style={styles.ttsText}>💡 Gợi ý Hán Việt</Text>
-              </Pressable>
-              <Pressable style={styles.ttsBtn} onPress={() => speak(currentQuiz.reading || currentQuiz.word)}>
-                <Text style={styles.ttsText}>🔊 Nghe</Text>
-              </Pressable>
+
+            <View style={styles.hintSlot}>
+              {showHint ? (
+                <View style={styles.hintBox}>
+                  <Text style={styles.hintText} numberOfLines={1}>
+                    💡 Âm Hán Việt:{' '}
+                    {currentQuiz.sinoVietnamese
+                      ? currentQuiz.sinoVietnamese
+                      : currentQuiz.reading
+                        ? `(Không có Hán Việt · Gợi ý chữ đầu: ${currentQuiz.reading.slice(0, 2)}…)`
+                        : 'Chưa có gợi ý'}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            {/* Answer feedback directly under the question inside the CatFrame card */}
+            <View style={styles.feedbackSlot}>
+              {quizResult !== 'idle' ? (
+                <View style={[styles.feedbackBox, quizResult === 'correct' ? styles.feedbackOk : styles.feedbackWrong]}>
+                  <Text
+                    style={quizResult === 'correct' ? styles.feedbackOkText : styles.feedbackWrongText}
+                    numberOfLines={2}
+                  >
+                    {quizResult === 'correct'
+                      ? `✓ Chính xác! ${currentQuiz.word} (${currentQuiz.reading}) — ${currentQuiz.meaning}`
+                      : `✕ Đáp án đúng: ${currentQuiz.word} (${currentQuiz.reading}) — ${currentQuiz.meaning}`}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
 
-          <Text style={styles.kanjiLarge}>
-            {currentQuizDirection === 'jp_to_vi' ? currentQuiz.word : currentQuiz.meaning}
-          </Text>
-
-          <View style={styles.hintSlot}>
-            {showHint ? (
-              <View style={styles.hintBox}>
-                <Text style={styles.hintText} numberOfLines={1}>
-                  💡 Âm Hán Việt:{' '}
-                  {currentQuiz.sinoVietnamese
-                    ? currentQuiz.sinoVietnamese
-                    : currentQuiz.reading
-                      ? `(Không có Hán Việt · Gợi ý chữ đầu: ${currentQuiz.reading.slice(0, 2)}…)`
-                      : 'Chưa có gợi ý'}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-
+          {/* Input & Check button right below the CatFrame card */}
           <TextInput
             value={answer}
             onChangeText={setAnswer}
             onSubmitEditing={handleCheckQuiz}
             placeholder={currentQuizDirection === 'jp_to_vi' ? 'Nhập nghĩa tiếng Việt...' : 'Nhập từ tiếng Nhật / Kana...'}
             placeholderTextColor={nihongoTheme.colors.textMuted}
-            style={styles.input}
+            style={styles.quizInputOutside}
           />
-
-          <View style={styles.feedbackSlot}>
-            {quizResult !== 'idle' ? (
-              <View style={[styles.feedbackBox, quizResult === 'correct' ? styles.feedbackOk : styles.feedbackWrong]}>
-                <Text
-                  style={quizResult === 'correct' ? styles.feedbackOkText : styles.feedbackWrongText}
-                  numberOfLines={2}
-                >
-                  {quizResult === 'correct'
-                    ? `Chính xác! ${currentQuiz.word} (${currentQuiz.reading}) — ${currentQuiz.meaning}`
-                    : `Đáp án đúng: ${currentQuiz.word} (${currentQuiz.reading}) — ${currentQuiz.meaning}`}
-                </Text>
-              </View>
-            ) : null}
-          </View>
 
           <View style={styles.quizActions}>
             <Pressable style={styles.primaryBtn} onPress={quizResult === 'idle' ? handleCheckQuiz : handleNextQuiz}>
@@ -1915,6 +1919,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: nihongoTheme.colors.textSecondary,
     textAlign: 'center',
+  },
+  quizInputOutside: {
+    backgroundColor: '#FDF8F0',
+    borderWidth: 1.5,
+    borderColor: '#C87D55',
+    borderRadius: nihongoTheme.radius.button,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    textAlign: 'center',
+    color: nihongoTheme.colors.textPrimary,
   },
   input: {
     backgroundColor: nihongoTheme.colors.surfaceSubtle,
