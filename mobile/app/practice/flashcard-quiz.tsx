@@ -1792,7 +1792,7 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.textSecondary,
   },
   flashcard: {
-    minHeight: 300,
+    minHeight: 400,
     backgroundColor: '#FDF8F0',
     borderRadius: 20,
     borderWidth: 1.2,
