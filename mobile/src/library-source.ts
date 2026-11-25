@@ -2,6 +2,12 @@ import type { PullResult, QuizSessionDto } from '../../packages/contracts/src/st
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import type { LocalWorkspace } from './workspace-storage';
+import { readAuthSession } from './features/auth/auth-store';
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const session = await readAuthSession();
+  return session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {};
+}
 
 const metroHost = Constants.expoConfig?.hostUri;
 
@@ -22,15 +28,22 @@ export const libraryEndpoint = resolveLibraryEndpoint(
 );
 
 export async function pushLibrary(changes: LocalWorkspace, signal: AbortSignal) {
+  const headers = await authHeaders();
   const response = await fetch(`${libraryEndpoint}/sync/push`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(changes), signal,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(changes),
+    signal,
   });
   if (!response.ok) throw new Error(`Không gửi được thay đổi (HTTP ${response.status}).`);
 }
 
 async function postStudy<T>(path: string, data: unknown): Promise<T> {
+  const headers = await authHeaders();
   const response = await fetch(`${libraryEndpoint}${path}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error(`Không lưu được kết quả (HTTP ${response.status}).`);
   return response.json();
@@ -42,7 +55,8 @@ export function saveQuiz(payload: import('./TypingQuiz').QuizSubmission) {
 
 export async function loadLibrary(signal: AbortSignal): Promise<PullResult> {
   if (!libraryEndpoint) throw new Error('Chưa cấu hình địa chỉ máy chủ.');
-  const response = await fetch(`${libraryEndpoint.replace(/\/+$/, '')}/sync/pull`, { signal });
+  const headers = await authHeaders();
+  const response = await fetch(`${libraryEndpoint.replace(/\/+$/, '')}/sync/pull`, { headers, signal });
   if (!response.ok) throw new Error(`Không tải được thư viện (HTTP ${response.status}).`);
   const result: PullResult = await response.json();
   if (typeof result.serverTime !== 'string' || !Array.isArray(result.vocabularies) || !Array.isArray(result.folders)) {

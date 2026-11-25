@@ -47,12 +47,12 @@ export function isIncomingNewer(
 }
 
 /** Pull theo delta: trả folders + vocabularies đổi kể từ `since` (kèm tombstone). */
-export async function pull(since?: string): Promise<PullResult> {
+export async function pull(since?: string, targetOwnerId = ownerId()): Promise<PullResult> {
   const sinceDate = since === undefined ? undefined : new Date(since);
   const serverTime = new Date().toISOString();
 
-  const folderRows = await folderRepo.listChangedSince(ownerId(), sinceDate);
-  const vocabRows = await vocabRepo.listChangedSince(ownerId(), sinceDate);
+  const folderRows = await folderRepo.listChangedSince(targetOwnerId, sinceDate);
+  const vocabRows = await vocabRepo.listChangedSince(targetOwnerId, sinceDate);
 
   const folders = folderRows.map(folderRowToDto);
 
@@ -67,10 +67,10 @@ export async function pull(since?: string): Promise<PullResult> {
 }
 
 /** Map FolderPushItem (camelCase) → row DB (snake_case). */
-function toFolderRow(item: FolderPushItem): NewFolderRow {
+function toFolderRow(item: FolderPushItem, targetOwnerId: string): NewFolderRow {
   return {
     id: item.id,
-    owner_id: ownerId(),
+    owner_id: targetOwnerId,
     name: item.name,
     parent_id: item.parentId,
     sort_order: item.order,
@@ -81,10 +81,10 @@ function toFolderRow(item: FolderPushItem): NewFolderRow {
 }
 
 /** Map VocabularyPushItem (camelCase) → row DB (snake_case). */
-function toVocabRow(item: VocabularyPushItem): NewVocabularyRow {
+function toVocabRow(item: VocabularyPushItem, targetOwnerId: string): NewVocabularyRow {
   return {
     id: item.id,
-    owner_id: ownerId(),
+    owner_id: targetOwnerId,
     word: item.word,
     meaning: item.meaning,
     reading: item.reading ?? null,
@@ -108,7 +108,7 @@ function toVocabRow(item: VocabularyPushItem): NewVocabularyRow {
  * Push: áp LWW theo từng id trong MỘT transaction.
  * Thứ tự: folders (2 pha vì parent_id tự tham chiếu) → vocabularies → links.
  */
-export async function push(payload: PushBody): Promise<PushResult> {
+export async function push(payload: PushBody, targetOwnerId = ownerId()): Promise<PushResult> {
   const folderItems = payload.folders ?? [];
   const vocabItems = payload.vocabularies ?? [];
 
@@ -122,12 +122,12 @@ export async function push(payload: PushBody): Promise<PushResult> {
     const appliedFolderParents = new Map<string, string | null>();
 
     for (const item of folderItems) {
-      const existing = await folderRepo.findForMerge(ownerId(), item.id, trx);
+      const existing = await folderRepo.findForMerge(targetOwnerId, item.id, trx);
       if (existing && !isIncomingNewer(item.updatedAt, existing.updated_at)) {
         folders.skipped += 1;
         continue;
       }
-      const row = toFolderRow(item);
+      const row = toFolderRow(item, targetOwnerId);
       await folderRepo.upsertFromClient({ ...row, parent_id: null }, trx);
       appliedFolderParents.set(item.id, item.parentId);
       folders.applied += 1;
@@ -135,22 +135,22 @@ export async function push(payload: PushBody): Promise<PushResult> {
 
     // Pha B: gán parent_id cho các folder vừa áp (giờ mọi folder đã tồn tại).
     for (const [id, parentId] of appliedFolderParents) {
-      await folderRepo.setParentId(ownerId(), id, parentId, trx);
+      await folderRepo.setParentId(targetOwnerId, id, parentId, trx);
     }
 
     // --- Vocabularies + links ---
     for (const item of vocabItems) {
-      const existing = await vocabRepo.findForMerge(ownerId(), item.id, trx);
+      const existing = await vocabRepo.findForMerge(targetOwnerId, item.id, trx);
       if (existing && !isIncomingNewer(item.updatedAt, existing.updated_at)) {
         vocabularies.skipped += 1;
         continue;
       }
-      const row = toVocabRow(item);
+      const row = toVocabRow(item, targetOwnerId);
       await vocabRepo.upsertFromClient(row, trx);
 
       // Thay thế liên kết folder, chỉ giữ folderIds thực sự tồn tại (chống FK).
       const requested = item.folderIds ?? [];
-      const valid = await filterExistingFolderIds(requested, trx);
+      const valid = await filterExistingFolderIds(targetOwnerId, requested, trx);
       await vocabFoldersRepo.replaceLinks(item.id, valid, trx);
 
       vocabularies.applied += 1;
@@ -168,9 +168,10 @@ export async function push(payload: PushBody): Promise<PushResult> {
 
 /** Chỉ giữ folderIds còn tồn tại cho owner (bỏ qua rỗng để khỏi query thừa). */
 async function filterExistingFolderIds(
+  targetOwnerId: string,
   folderIds: string[],
   trx: Executor,
 ): Promise<string[]> {
   if (folderIds.length === 0) return [];
-  return vocabFoldersRepo.listExistingFolderIds(ownerId(), folderIds, trx);
+  return vocabFoldersRepo.listExistingFolderIds(targetOwnerId, folderIds, trx);
 }
