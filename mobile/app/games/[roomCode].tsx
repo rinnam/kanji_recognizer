@@ -187,7 +187,9 @@ export default function KotobaLiveRoomScreen() {
         <View style={[styles.card, isWide && styles.mainCol]}>
           {room?.status === 'lobby' ? (
             <View style={styles.centerBox}>
-              <CatFrame color="#A89A8E" />
+              <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                <CatFrame color="#A89A8E" />
+              </View>
               <Text style={styles.bigTitle}>Sẵn sàng thi đấu!</Text>
               <Text style={styles.subText}>
                 Chia sẻ mã phòng <Text style={styles.codeHighlight}>{roomCode}</Text> cho bạn bè cùng vào.
@@ -198,7 +200,9 @@ export default function KotobaLiveRoomScreen() {
             </View>
           ) : room?.status === 'finished' ? (
             <View style={styles.centerBox}>
-              <CatFrame color="#A89A8E" />
+              <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                <CatFrame color="#A89A8E" />
+              </View>
               <Text style={styles.bigTitle}>🏆 Trận đấu kết thúc!</Text>
               <Text style={styles.subText}>Người dẫn đầu: {players[0]?.name ?? '—'} ({players[0]?.score ?? 0}đ)</Text>
               <Pressable style={styles.primaryBtn} onPress={() => sendMsg({ type: 'start' })}>
@@ -207,7 +211,9 @@ export default function KotobaLiveRoomScreen() {
             </View>
           ) : question ? (
             <View style={[styles.centerBox, styles.questionBox]}>
-              <CatFrame color="#A89A8E" />
+              <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                <CatFrame color="#A89A8E" />
+              </View>
               <View style={styles.qTopWrap}>
                 <View style={styles.qHeader}>
                   <Text style={styles.qBadge}>
@@ -228,11 +234,6 @@ export default function KotobaLiveRoomScreen() {
 
               <View style={styles.promptCenter}>
                 <Text style={styles.promptText}>{question.prompt}</Text>
-                {question.sinoVietnamese ? (
-                  <View style={styles.hintPill}>
-                    <Text style={styles.hintText}>Hán Việt: {question.sinoVietnamese}</Text>
-                  </View>
-                ) : null}
               </View>
 
               <Pressable style={styles.skipBtn} onPress={() => sendMsg({ type: 'skip' })}>
@@ -241,7 +242,9 @@ export default function KotobaLiveRoomScreen() {
             </View>
           ) : (
             <View style={styles.centerBox}>
-              <CatFrame color="#A89A8E" />
+              <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                <CatFrame color="#A89A8E" />
+              </View>
               <Text style={styles.subText}>Đang chuẩn bị câu tiếp theo…</Text>
             </View>
           )}
