@@ -73,9 +73,29 @@ const GEMINI_MODEL_CHAIN = [
   'gemini-flash-lite-latest',
   'gemini-3.1-flash-lite',
   'gemini-3.5-flash-lite',
+  'gemma-4-26b-a4b-it',
   'gemini-3.5-flash',
   'gemini-3.6-flash',
+  'gemini-flash-latest',
 ] as const;
+
+/** Cooldown circuit breaker: skips models that recently hit 429 (30m) or 503/timeout (2m). */
+const modelCooldownUntil = new Map<string, number>();
+
+function isModelOnCooldown(model: string): boolean {
+  const until = modelCooldownUntil.get(model);
+  if (!until) return false;
+  if (Date.now() >= until) {
+    modelCooldownUntil.delete(model);
+    return false;
+  }
+  return true;
+}
+
+function markModelCooldown(model: string, status: number): void {
+  const durationMs = status === 429 ? 30 * 60 * 1000 : 2 * 60 * 1000;
+  modelCooldownUntil.set(model, Date.now() + durationMs);
+}
 
 export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
   {
@@ -203,9 +223,19 @@ async function callGeminiJson<T>(parts: Array<Record<string, unknown>>): Promise
   if (!env.GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY is missing in backend/.env');
   }
+  const activeModels = GEMINI_MODEL_CHAIN.filter((m) => !isModelOnCooldown(m));
+  const candidates = activeModels.length > 0 ? activeModels : [...GEMINI_MODEL_CHAIN];
+
   let lastErr = 'Unknown Gemini error';
-  for (const model of GEMINI_MODEL_CHAIN) {
+  for (const model of candidates) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    const generationConfig: Record<string, unknown> = {
+      temperature: 0.35,
+      maxOutputTokens: 1024,
+    };
+    if (model.startsWith('gemini-')) {
+      generationConfig.responseMimeType = 'application/json';
+    }
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -215,18 +245,15 @@ async function callGeminiJson<T>(parts: Array<Record<string, unknown>>): Promise
         },
         body: JSON.stringify({
           contents: [{ role: 'user', parts }],
-          generationConfig: {
-            temperature: 0.35,
-            maxOutputTokens: 1024,
-            responseMimeType: 'application/json',
-          },
+          generationConfig,
         }),
         signal: AbortSignal.timeout(15000),
       });
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
         lastErr = `${model} HTTP ${res.status}: ${errText.slice(0, 160)}`;
-        if (res.status === 503 || res.status === 429 || res.status === 404 || res.status >= 500) {
+        if (res.status === 429 || res.status === 503 || res.status === 404 || res.status >= 500) {
+          markModelCooldown(model, res.status);
           continue;
         }
         throw new Error(lastErr);
@@ -235,9 +262,14 @@ async function callGeminiJson<T>(parts: Array<Record<string, unknown>>): Promise
         candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
       };
       const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
-      const cleaned = rawText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
+      const cleaned = rawText
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/```$/i, '')
+        .trim();
       return JSON.parse(cleaned) as T;
     } catch (err) {
+      markModelCooldown(model, 503);
       lastErr = err instanceof Error ? err.message : String(err);
     }
   }
