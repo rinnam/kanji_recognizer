@@ -689,14 +689,15 @@ export default function FlashcardQuizPracticeScreen() {
 
       if (st.mode === 'flashcard') {
         if (isTyping || !st.currentCard) return;
-        if (event.key === ' ' || event.key === 'Spacebar') {
+        if (event.key === ' ' || event.key === 'Spacebar' || event.code === 'Space') {
           if (tag === 'BUTTON') return;
           event.preventDefault();
           setFlipped((v) => !v);
           return;
         }
-        if (event.key === 'r' || event.key === 'R') {
-          speakJapanese(st.currentCard.reading || st.currentCard.word);
+        if (event.key === 'r' || event.key === 'R' || event.code === 'KeyR') {
+          event.preventDefault();
+          void speakJapanese(st.currentCard.reading || st.currentCard.word);
           return;
         }
         const ratingMap: Record<string, QuizletRating> = {
@@ -704,8 +705,12 @@ export default function FlashcardQuizPracticeScreen() {
           '2': 'hard',
           '3': 'okay',
           '4': 'easy',
+          Digit1: 'repeat',
+          Digit2: 'hard',
+          Digit3: 'okay',
+          Digit4: 'easy',
         };
-        const rating = ratingMap[event.key];
+        const rating = ratingMap[event.key] ?? ratingMap[event.code];
         if (rating) {
           event.preventDefault();
           st.handleRate(rating);
@@ -729,8 +734,9 @@ export default function FlashcardQuizPracticeScreen() {
           setShowHint((v) => !v);
           return;
         }
-        if (!isTyping && (event.key === 'r' || event.key === 'R')) {
-          speakJapanese(st.currentQuiz.reading || st.currentQuiz.word);
+        if (!isTyping && (event.key === 'r' || event.key === 'R' || event.code === 'KeyR')) {
+          event.preventDefault();
+          void speakJapanese(st.currentQuiz.reading || st.currentQuiz.word);
         }
       }
     };
