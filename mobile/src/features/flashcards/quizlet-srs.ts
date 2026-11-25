@@ -2,7 +2,7 @@ export type QuizletRating = 'repeat' | 'hard' | 'okay' | 'easy';
 
 export interface QuizletCardState {
   id: string;
-  stage: 'new' | 'learning' | 'graduated';
+  stage: 'new' | 'review' | 'learning' | 'graduated';
   /** Target graduation days when user picks Okay / Easy on the next review */
   okayDays: number;
   easyDays: number;
@@ -78,6 +78,23 @@ export function hydrateQuizletStates(
     const local = savedLocal[w.id];
     if (local && local.stage === 'learning') {
       result[w.id] = local;
+      continue;
+    }
+
+    // Due Review card from a previous day (srsNextReview <= now and srsRepetition > 0)
+    const isDueReview = Number.isFinite(nextMs) && nextMs <= nowMs && (w.srsRepetition ?? 0) > 0;
+    if (isDueReview) {
+      const prevDays = Math.max(1, w.srsInterval ?? 1);
+      const nextOkay = Math.max(2, Math.round(prevDays * 2));
+      const nextEasy = Math.max(nextOkay + 2, Math.round(prevDays * 2.5));
+      result[w.id] = {
+        id: w.id,
+        stage: 'review',
+        okayDays: nextOkay,
+        easyDays: nextEasy,
+        urgency: 0,
+        lastRatedAt: 0,
+      };
     }
   }
   return result;
@@ -187,17 +204,24 @@ export function pickNextQuizletCard(
   batchNewCount: number,
   justRatedId?: string,
 ): { nextId: string | null; resetBatch: boolean } {
+  const reviewIds = orderedIds.filter((id) => states[id]?.stage === 'review');
   const newIds = orderedIds.filter((id) => (states[id]?.stage ?? 'new') === 'new');
   const learningStates = orderedIds
     .map((id) => states[id])
     .filter((s): s is QuizletCardState => Boolean(s && s.stage === 'learning'));
 
-  const shouldDrainLearning = learningStates.length > 0 && (batchNewCount >= QUIZLET_BATCH_SIZE || newIds.length === 0);
+  const shouldDrainLearning =
+    learningStates.length > 0 && (batchNewCount >= QUIZLET_BATCH_SIZE || (reviewIds.length === 0 && newIds.length === 0));
 
   if (shouldDrainLearning) {
     const sorted = [...learningStates].sort((a, b) => a.urgency - b.urgency || a.lastRatedAt - b.lastRatedAt);
     const candidate = sorted.find((s) => s.id !== justRatedId) ?? sorted[0];
     return { nextId: candidate.id, resetBatch: learningStates.length === 1 };
+  }
+
+  // Due Review cards from previous days come first before New cards
+  if (reviewIds.length > 0) {
+    return { nextId: reviewIds[0], resetBatch: false };
   }
 
   if (newIds.length > 0) {

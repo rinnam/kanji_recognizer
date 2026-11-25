@@ -302,6 +302,14 @@ export default function FlashcardQuizPracticeScreen() {
     [currentCardState],
   );
 
+  const dueReviewCount = useMemo(
+    () => activeWordIds.filter((id) => srsStates[id]?.stage === 'review' || srsStates[id]?.stage === 'learning').length,
+    [activeWordIds, srsStates],
+  );
+  const dueNewCount = useMemo(
+    () => activeWordIds.filter((id) => !srsStates[id] || srsStates[id].stage === 'new').length,
+    [activeWordIds, srsStates],
+  );
   const reviewedCount = useMemo(
     () => activeWordIds.filter((id) => srsStates[id] && srsStates[id].stage !== 'new').length,
     [activeWordIds, srsStates],
@@ -747,6 +755,25 @@ export default function FlashcardQuizPracticeScreen() {
       {/* MODE 1: EXACT QUIZLET SPACED REPETITION */}
       {mode === 'flashcard' ? (
         <View style={styles.section}>
+          {/* Today's Spaced Repetition Plan (Quizlet Day-2+ Review + New) */}
+          <View style={styles.planCard}>
+            <Text style={styles.planTitle}>Kế hoạch ôn tập hôm nay</Text>
+            <View style={styles.planRow}>
+              <View style={styles.planBox}>
+                <Text style={styles.planNumReview}>{dueReviewCount}</Text>
+                <Text style={styles.planLabel}>Thẻ cần ôn tập</Text>
+              </View>
+              <View style={styles.planBox}>
+                <Text style={styles.planNumNew}>{dueNewCount}</Text>
+                <Text style={styles.planLabel}>Thẻ mới</Text>
+              </View>
+              <View style={styles.planBox}>
+                <Text style={styles.planNumDone}>{completedCount}</Text>
+                <Text style={styles.planLabel}>Đã xong</Text>
+              </View>
+            </View>
+          </View>
+
           {/* 3-Layer Segmented Progress Bar (Gray base + Orange reviewed + Green completed) */}
           <View style={styles.srsProgressWrap}>
             <View style={styles.srsHeaderRow}>
@@ -797,6 +824,10 @@ export default function FlashcardQuizPracticeScreen() {
                   {currentCardState.stage === 'new' ? (
                     <View style={styles.newPill}>
                       <Text style={styles.newPillText}>New</Text>
+                    </View>
+                  ) : currentCardState.stage === 'review' ? (
+                    <View style={styles.reviewPill}>
+                      <Text style={styles.reviewPillText}>Review · Cần ôn</Text>
                     </View>
                   ) : (
                     <View style={styles.learningBadge}>
@@ -1267,6 +1298,63 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 14,
+  },
+  planCard: {
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.md,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 14,
+    gap: 10,
+    ...nihongoTheme.shadow.card,
+  },
+  planTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  planRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  planBox: {
+    flex: 1,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  planNumReview: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  planNumNew: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  planNumDone: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: nihongoTheme.colors.successText,
+  },
+  planLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: nihongoTheme.colors.textSecondary,
+    marginTop: 2,
+  },
+  reviewPill: {
+    backgroundColor: '#DBEAFE',
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  reviewPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1D4ED8',
   },
   srsProgressWrap: {
     gap: 8,
