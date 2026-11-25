@@ -27,53 +27,108 @@ export default function LoginScreen() {
   };
 
   return (
-    <AppShell>
-      <View style={styles.wrap}>
-        <View style={styles.card}>
-          <View style={styles.brand}>
-            <MomoAvatar size={54} />
-            <Text style={styles.title}>Đăng nhập NihonGO</Text>
-            <Text style={styles.subtitle}>Đồng bộ dữ liệu học & tham gia game đối kháng</Text>
-          </View>
-
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Email (vd: user1@gmail.com)"
-            placeholderTextColor={nihongoTheme.colors.textMuted}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            style={styles.input}
-          />
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Mật khẩu"
-            placeholderTextColor={nihongoTheme.colors.textMuted}
-            secureTextEntry
-            onSubmitEditing={() => void handleLogin()}
-            style={styles.input}
-          />
-
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-          <Pressable style={styles.primaryBtn} onPress={() => void handleLogin()} disabled={busy}>
-            <Text style={styles.primaryBtnText}>{busy ? 'Đang đăng nhập…' : 'Đăng nhập'}</Text>
-          </Pressable>
-
-          <Pressable style={styles.linkBtn} onPress={() => router.push('/register')}>
-            <Text style={styles.linkText}>Chưa có tài khoản? Đăng ký ngay</Text>
-          </Pressable>
+    <AppShell scroll={false} contentStyle={styles.centerShell}>
+      <View style={styles.card}>
+        <View style={styles.brand}>
+          <MomoAvatar size={54} />
+          <Text style={styles.title}>Đăng nhập NihonGO</Text>
+          <Text style={styles.subtitle}>Đồng bộ dữ liệu học & tham gia game đối kháng</Text>
         </View>
+
+        <TextInput
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Email (vd: user1@gmail.com)"
+          placeholderTextColor={nihongoTheme.colors.textMuted}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          style={styles.input}
+        />
+        <TextInput
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Mật khẩu"
+          placeholderTextColor={nihongoTheme.colors.textMuted}
+          secureTextEntry
+          onSubmitEditing={() => void handleLogin()}
+          style={styles.input}
+        />
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        <Pressable style={styles.primaryBtn} onPress={() => void handleLogin()} disabled={busy}>
+          <Text style={styles.primaryBtnText}>{busy ? 'Đang đăng nhập…' : 'Đăng nhập'}</Text>
+        </Pressable>
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>hoặc</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <Pressable
+          style={styles.googleBtn}
+          onPress={() => {
+            if (!process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID) {
+              setError('Cần cấu hình EXPO_PUBLIC_GOOGLE_CLIENT_ID (Google Cloud Console) trong mobile/.env để bật Google OAuth.');
+            }
+          }}
+        >
+          <Text style={styles.googleG}>G</Text>
+          <Text style={styles.googleText}>Tiếp tục với Google</Text>
+        </Pressable>
+
+        <Pressable style={styles.linkBtn} onPress={() => router.push('/register')}>
+          <Text style={styles.linkText}>Chưa có tài khoản? Đăng ký ngay</Text>
+        </Pressable>
       </View>
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    paddingTop: 32,
+  centerShell: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: 2,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: nihongoTheme.colors.borderWarm,
+  },
+  dividerText: {
+    fontSize: 12,
+    color: nihongoTheme.colors.textMuted,
+    fontWeight: '600',
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: nihongoTheme.radius.button,
+    paddingVertical: 12,
+  },
+  googleG: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#EA4335',
+  },
+  googleText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
   },
   card: {
     width: '100%',

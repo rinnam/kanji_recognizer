@@ -28,9 +28,8 @@ export default function RegisterScreen() {
   };
 
   return (
-    <AppShell>
-      <View style={styles.wrap}>
-        <View style={styles.card}>
+    <AppShell scroll={false} contentStyle={styles.centerShell}>
+      <View style={styles.card}>
           <View style={styles.brand}>
             <MomoAvatar size={54} />
             <Text style={styles.title}>Tạo tài khoản mới</Text>
