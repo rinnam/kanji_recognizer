@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   Modal,
   ScrollView,
@@ -20,6 +20,12 @@ import { ShadowingToolbar } from '../../../src/features/shadowing/ShadowingToolb
 import { WordDetailModal } from '../../../src/features/shadowing/WordDetailModal';
 import { VideoCatalogView } from '../../../src/features/shadowing/VideoCatalogView';
 import { SAMPLE_VIDEOS } from '../../../src/features/shadowing/sample-videos';
+import {
+  readShadowingLibrary,
+  saveShadowingLibrary,
+  type SavedVideoItem,
+  type VideoFolder,
+} from '../../../src/features/shadowing/video-library-store';
 import { fetchTranscriptApi, parseYouTubeVideoId } from '../../../src/features/shadowing/shadowing-api';
 import type { AnalyzedToken, ShadowingLine, SampleVideoItem } from '../../../src/features/shadowing/types';
 
@@ -31,8 +37,39 @@ export default function ListeningScreen() {
   // Screen mode: 'catalog' shows the list of videos + custom link input; 'player' shows the shadowing workspace
   const [screenMode, setScreenMode] = useState<'catalog' | 'player'>('catalog');
 
-  const [catalogVideos, setCatalogVideos] = useState<SampleVideoItem[]>(SAMPLE_VIDEOS);
+  const [videoFolders, setVideoFolders] = useState<VideoFolder[]>([]);
+  const [customVideos, setCustomVideos] = useState<SavedVideoItem[]>([]);
+  const [selectedVideoFolderId, setSelectedVideoFolderId] = useState<string | null>(null);
+  const [newVideoFolderName, setNewVideoFolderName] = useState<string>('');
   const [currentVideo, setCurrentVideo] = useState<SampleVideoItem>(SAMPLE_VIDEOS[0]);
+
+  useEffect(() => {
+    void readShadowingLibrary().then((data) => {
+      setVideoFolders(data.folders);
+      setCustomVideos(data.customVideos);
+    });
+  }, []);
+
+  const catalogVideos = useMemo<SavedVideoItem[]>(() => {
+    const merged: SavedVideoItem[] = [...customVideos, ...SAMPLE_VIDEOS];
+    if (!selectedVideoFolderId) return merged;
+    return merged.filter((v) => v.folderId === selectedVideoFolderId);
+  }, [customVideos, selectedVideoFolderId]);
+
+  const persistLibrary = (nextFolders: VideoFolder[], nextVideos: SavedVideoItem[]) => {
+    setVideoFolders(nextFolders);
+    setCustomVideos(nextVideos);
+    void saveShadowingLibrary({ folders: nextFolders, customVideos: nextVideos });
+  };
+
+  const handleCreateVideoFolder = () => {
+    const name = newVideoFolderName.trim();
+    if (!name) return;
+    const created: VideoFolder = { id: `vfolder_${Date.now()}`, name };
+    persistLibrary([...videoFolders, created], customVideos);
+    setNewVideoFolderName('');
+    setSelectedVideoFolderId(created.id);
+  };
 
   // In-memory cache for fetched transcript lines to avoid re-fetching the same video within the same session
   const linesCacheRef = useRef<Record<string, ShadowingLine[]>>({});
@@ -232,12 +269,15 @@ export default function ListeningScreen() {
     // Check session cache
     if (linesCacheRef.current[extractedId]) {
       const cached = linesCacheRef.current[extractedId];
-      const newVideo: SampleVideoItem = {
+      const newVideo: SavedVideoItem = {
         videoId: extractedId,
         title: `YouTube Video (${extractedId})`,
-        channel: 'YouTube',
+        channel: 'YouTube (Đã lưu)',
+        folderId: selectedVideoFolderId,
+        isCustom: true,
       };
-      setCatalogVideos((prev) => [newVideo, ...prev]);
+      const nextCustom = [newVideo, ...customVideos.filter((v) => v.videoId !== extractedId)];
+      persistLibrary(videoFolders, nextCustom);
       setCurrentVideo(newVideo);
       setVideoId(extractedId);
       setVideoTitle(newVideo.title);
@@ -257,13 +297,16 @@ export default function ListeningScreen() {
       }
 
       linesCacheRef.current[extractedId] = res.lines;
-      const newVideo: SampleVideoItem = {
+      const newVideo: SavedVideoItem = {
         videoId: extractedId,
         title: `YouTube Video (${extractedId})`,
-        channel: 'YouTube',
+        channel: 'YouTube (Đã lưu)',
+        folderId: selectedVideoFolderId,
+        isCustom: true,
       };
 
-      setCatalogVideos((prev) => [newVideo, ...prev]);
+      const nextCustom = [newVideo, ...customVideos.filter((v) => v.videoId !== extractedId)];
+      persistLibrary(videoFolders, nextCustom);
       setCurrentVideo(newVideo);
       setVideoId(extractedId);
       setVideoTitle(newVideo.title);
@@ -295,8 +338,50 @@ export default function ListeningScreen() {
           <TopHeader
             mode="subpage"
             title="Luyện nghe & Shadowing"
-            subtitle="Chọn video luyện tập hoặc dán link YouTube bất kỳ để bắt đầu"
+            subtitle="Chọn video luyện tập hoặc dán link YouTube bất kỳ để lưu vào thư mục"
           />
+
+          {/* Video Folder Filter & Quick Create Bar */}
+          <View style={styles.folderStrip}>
+            <View style={styles.folderChips}>
+              <Pressable
+                style={[styles.folderChip, selectedVideoFolderId === null && styles.folderChipActive]}
+                onPress={() => setSelectedVideoFolderId(null)}
+              >
+                <Text style={[styles.folderChipText, selectedVideoFolderId === null && styles.folderChipTextActive]}>
+                  Tất cả ({customVideos.length + SAMPLE_VIDEOS.length})
+                </Text>
+              </Pressable>
+              {videoFolders.map((f) => {
+                const active = selectedVideoFolderId === f.id;
+                const count = customVideos.filter((v) => v.folderId === f.id).length;
+                return (
+                  <Pressable
+                    key={f.id}
+                    style={[styles.folderChip, active && styles.folderChipActive]}
+                    onPress={() => setSelectedVideoFolderId(f.id)}
+                  >
+                    <Text style={[styles.folderChipText, active && styles.folderChipTextActive]}>
+                      {f.name} ({count})
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={styles.folderCreateRow}>
+              <TextInput
+                value={newVideoFolderName}
+                onChangeText={setNewVideoFolderName}
+                onSubmitEditing={handleCreateVideoFolder}
+                placeholder="Tạo thư mục video mới..."
+                placeholderTextColor={nihongoTheme.colors.textMuted}
+                style={styles.pickerInput}
+              />
+              <Pressable style={styles.pickerAddBtn} onPress={handleCreateVideoFolder}>
+                <Text style={styles.pickerAddText}>+ Tạo</Text>
+              </Pressable>
+            </View>
+          </View>
 
           <VideoCatalogView
             videos={catalogVideos}
@@ -493,6 +578,42 @@ const styles = StyleSheet.create({
   },
   rightColumn: {
     flex: 0.95,
+  },
+  folderStrip: {
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 14,
+    marginBottom: 14,
+    gap: 10,
+    ...nihongoTheme.shadow.card,
+  },
+  folderChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  folderChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: nihongoTheme.radius.pill,
+    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+  },
+  folderChipActive: {
+    backgroundColor: nihongoTheme.colors.accent,
+  },
+  folderChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  folderChipTextActive: {
+    color: '#FFFFFF',
+  },
+  folderCreateRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
   pickerOverlay: {
     flex: 1,
