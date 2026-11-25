@@ -950,11 +950,6 @@ export default function FlashcardQuizPracticeScreen() {
             </View>
           </View>
 
-          <Text style={styles.quizPromptLabel}>
-            {currentQuizDirection === 'jp_to_vi'
-              ? 'Dạng 1 · Nhập nghĩa tiếng Việt (hoặc cách đọc Kana):'
-              : 'Dạng 2 · Nhập từ tiếng Nhật (Kanji hoặc Kana):'}
-          </Text>
           <Text style={styles.kanjiLarge}>
             {currentQuizDirection === 'jp_to_vi' ? currentQuiz.word : currentQuiz.meaning}
           </Text>
