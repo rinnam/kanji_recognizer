@@ -1048,15 +1048,20 @@ export default function FlashcardQuizPracticeScreen() {
             style={styles.input}
           />
 
-          {quizResult !== 'idle' ? (
-            <View style={[styles.feedbackBox, quizResult === 'correct' ? styles.feedbackOk : styles.feedbackWrong]}>
-              <Text style={quizResult === 'correct' ? styles.feedbackOkText : styles.feedbackWrongText}>
-                {quizResult === 'correct'
-                  ? `Chính xác! ${currentQuiz.word} (${currentQuiz.reading}) — ${currentQuiz.meaning}`
-                  : `Đáp án đúng: ${currentQuiz.word} (${currentQuiz.reading}) — ${currentQuiz.meaning}`}
-              </Text>
-            </View>
-          ) : null}
+          <View style={styles.feedbackSlot}>
+            {quizResult !== 'idle' ? (
+              <View style={[styles.feedbackBox, quizResult === 'correct' ? styles.feedbackOk : styles.feedbackWrong]}>
+                <Text
+                  style={quizResult === 'correct' ? styles.feedbackOkText : styles.feedbackWrongText}
+                  numberOfLines={2}
+                >
+                  {quizResult === 'correct'
+                    ? `Chính xác! ${currentQuiz.word} (${currentQuiz.reading}) — ${currentQuiz.meaning}`
+                    : `Đáp án đúng: ${currentQuiz.word} (${currentQuiz.reading}) — ${currentQuiz.meaning}`}
+                </Text>
+              </View>
+            ) : null}
+          </View>
 
           <View style={styles.quizActions}>
             <Pressable style={styles.primaryBtn} onPress={quizResult === 'idle' ? handleCheckQuiz : handleNextQuiz}>
@@ -1920,6 +1925,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
     color: nihongoTheme.colors.textPrimary,
+  },
+  feedbackSlot: {
+    height: 48,
+    justifyContent: 'center',
   },
   feedbackBox: {
     borderRadius: nihongoTheme.radius.md,
