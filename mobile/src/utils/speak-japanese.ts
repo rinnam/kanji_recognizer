@@ -1,5 +1,8 @@
 import { Platform } from 'react-native';
 import * as Speech from 'expo-speech';
+import { libraryEndpoint } from '../library-source';
+
+let activeWebAudio: HTMLAudioElement | null = null;
 
 let cachedJaVoiceId: string | undefined;
 let voiceLookupDone = false;
@@ -25,20 +28,33 @@ export async function speakJapanese(text: string): Promise<void> {
   const clean = text.trim();
   if (!clean) return;
 
-  // On Web, invoke speechSynthesis synchronously so keydown/click user-gesture activation is preserved.
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  // On Web, play real Japanese MP3 from backend /api/tts (works even without Windows Japanese voice pack).
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof Audio !== 'undefined') {
+    const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+    const url = `${base}/tts?text=${encodeURIComponent(clean)}`;
     try {
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(clean);
-      utter.lang = 'ja-JP';
-      utter.rate = 0.9;
-      const voices = window.speechSynthesis.getVoices();
-      const jaVoice = voices.find((v) => v.lang.toLowerCase().startsWith('ja'));
-      if (jaVoice) utter.voice = jaVoice;
-      window.speechSynthesis.speak(utter);
+      if (activeWebAudio) {
+        activeWebAudio.pause();
+        activeWebAudio.currentTime = 0;
+      }
+      const audio = new Audio(url);
+      activeWebAudio = audio;
+      const playPromise = audio.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {
+          // Fallback to browser speechSynthesis if backend /api/tts is unreachable
+          if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(clean);
+            utter.lang = 'ja-JP';
+            utter.rate = 0.9;
+            window.speechSynthesis.speak(utter);
+          }
+        });
+      }
       return;
     } catch {
-      // fall through to expo-speech
+      // fall through
     }
   }
 
