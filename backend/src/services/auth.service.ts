@@ -60,7 +60,10 @@ export function signToken(user: AuthUser): string {
 export function verifyToken(token: string): AuthUser | null {
   const parts = token.split('.');
   if (parts.length !== 3) return null;
-  const [header, payload, sig] = parts;
+  const header = parts[0];
+  const payload = parts[1];
+  const sig = parts[2];
+  if (!header || !payload || !sig) return null;
   const expected = crypto.createHmac('sha256', getJwtSecret()).update(`${header}.${payload}`).digest('base64url');
   const sigBuf = Buffer.from(sig);
   const expBuf = Buffer.from(expected);
@@ -79,7 +82,7 @@ export function verifyToken(token: string): AuthUser | null {
     return {
       id: parsed.sub,
       email: parsed.email,
-      displayName: parsed.displayName || parsed.email.split('@')[0],
+      displayName: parsed.displayName || parsed.email.split('@')[0] || 'User',
       role: parsed.role === 'admin' ? 'admin' : 'user',
     };
   } catch {
@@ -127,7 +130,7 @@ export async function loginUser(emailRaw: string, password: string) {
   const user: AuthUser = {
     id: row.id,
     email: row.email,
-    displayName: row.displayName || row.email.split('@')[0],
+    displayName: row.displayName || row.email.split('@')[0] || 'User',
     role: row.role === 'admin' ? 'admin' : 'user',
   };
   return { accessToken: signToken(user), user };
