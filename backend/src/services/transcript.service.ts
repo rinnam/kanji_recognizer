@@ -56,8 +56,10 @@ export async function fetchVideoTranscript(videoId: string): Promise<VideoTransc
 
   try {
     const { stdout, stderr } = await execFileAsync(pythonExe, [scriptPath, cleanId], {
-      timeout: 20000,
+      timeout: 25000,
+      maxBuffer: 10 * 1024 * 1024,
       encoding: 'utf-8',
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
     });
 
     if (stderr && !stdout) {
