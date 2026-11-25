@@ -9,14 +9,27 @@ import {
   readLearningProfile,
   type LearningProfile,
 } from '../../src/features/profile/profile-store';
+import {
+  readAuthSession,
+  saveAuthSession,
+  type AuthSession,
+} from '../../src/features/auth/auth-store';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<LearningProfile>(DEFAULT_PROFILE);
+  const [session, setSession] = useState<AuthSession | null>(null);
 
   useEffect(() => {
     void readLearningProfile().then(setProfile);
+    void readAuthSession().then(setSession);
   }, []);
+
+  const handleLogout = async () => {
+    await saveAuthSession(null);
+    setSession(null);
+    router.push('/login');
+  };
 
   return (
     <AppShell>
@@ -32,17 +45,28 @@ export default function ProfileScreen() {
       />
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Thông tin người học</Text>
+        <Text style={styles.cardTitle}>Tài khoản & Phân quyền</Text>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Tên hiển thị</Text>
-          <Text style={styles.infoValue}>{profile.displayName}</Text>
+          <Text style={styles.infoLabel}>Email</Text>
+          <Text style={styles.infoValue}>{session?.user.email ?? 'Chưa đăng nhập'}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Chế độ lưu trữ</Text>
+          <Text style={styles.infoLabel}>Vai trò (Role)</Text>
           <View style={styles.greenBadge}>
-            <Text style={styles.greenBadgeText}>Local-First · 1 người dùng</Text>
+            <Text style={styles.greenBadgeText}>
+              {session ? (session.user.role === 'admin' ? 'Admin' : 'User') : 'Khách'}
+            </Text>
           </View>
         </View>
+        {session ? (
+          <Pressable style={styles.outlineBtn} onPress={() => void handleLogout()}>
+            <Text style={styles.outlineBtnText}>Đăng xuất</Text>
+          </Pressable>
+        ) : (
+          <Pressable style={styles.primaryBtn} onPress={() => router.push('/login')}>
+            <Text style={styles.primaryBtnText}>Đăng nhập / Đăng ký</Text>
+          </Pressable>
+        )}
       </View>
 
       <View style={styles.card}>

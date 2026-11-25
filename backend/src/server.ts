@@ -4,6 +4,7 @@ import { sql } from 'kysely';
 import { ZodError } from 'zod';
 import { db, pool } from './config/database.js';
 import { env } from './config/env.js';
+import { authRoutes } from './routes/auth.routes.js';
 import { flashcardRoutes } from './routes/flashcard.routes.js';
 import { folderRoutes } from './routes/folder.routes.js';
 import { quizRoutes } from './routes/quiz.routes.js';
@@ -88,6 +89,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(quizRoutes, { prefix: '/api' });
   await app.register(syncRoutes, { prefix: '/api' });
   await app.register(ttsRoutes, { prefix: '/api' });
+  await app.register(authRoutes, { prefix: '/api' });
   await app.register(transcriptRoutes, { prefix: '/api' });
 
   return app;

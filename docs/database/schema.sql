@@ -224,3 +224,10 @@ CREATE TABLE IF NOT EXISTS listening_videos (
   deleted_at  timestamptz
 );
 CREATE INDEX IF NOT EXISTS idx_listening_videos_folder ON listening_videos(folder_id);
+
+-- ---------------------------------------------------------------------
+-- Auth & RBAC columns on users (Phase 1 of 003-kotobaweb-multiplayer-game)
+-- ---------------------------------------------------------------------
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'user';
