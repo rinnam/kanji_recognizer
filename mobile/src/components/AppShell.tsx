@@ -1,6 +1,7 @@
 import React from 'react';
 import { Platform, ScrollView, StyleSheet, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { usePathname } from 'expo-router';
 import { nihongoTheme } from '../theme/nihongo-theme';
 import { DesktopSidebar } from './DesktopSidebar';
 
@@ -14,7 +15,9 @@ export const DESKTOP_BREAKPOINT = 960;
 
 export function AppShell({ children, scroll = true, contentStyle }: AppShellProps) {
   const { width } = useWindowDimensions();
-  const isDesktop = width >= DESKTOP_BREAKPOINT;
+  const pathname = usePathname();
+  const isAuthPage = pathname === '/login' || pathname === '/register';
+  const isDesktop = width >= DESKTOP_BREAKPOINT && !isAuthPage;
 
   const webGradient =
     Platform.OS === 'web'

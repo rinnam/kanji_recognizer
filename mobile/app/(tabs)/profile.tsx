@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
+import { MomoAvatar } from '../../src/components/MomoAvatar';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import {
   DEFAULT_PROFILE,
@@ -28,98 +29,169 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     await saveAuthSession(null);
     setSession(null);
-    router.push('/login');
+    router.replace('/login');
   };
+
+  const displayName = session?.user.displayName || profile.displayName;
+  const email = session?.user.email || 'Chưa đăng nhập';
+  const roleLabel = session?.user.role === 'admin' ? 'Admin' : 'Thành viên';
 
   return (
     <AppShell>
-      <TopHeader
-        mode="subpage"
-        title="Cá nhân"
-        subtitle="Chế độ 1 người dùng (Local-First)"
-        rightSlot={
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{profile.displayName.charAt(0).toUpperCase()}</Text>
-          </View>
-        }
-      />
+      <TopHeader mode="subpage" title="Cá nhân" subtitle="Quản lý tài khoản và lộ trình học tập" />
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Tài khoản & Phân quyền</Text>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Email</Text>
-          <Text style={styles.infoValue}>{session?.user.email ?? 'Chưa đăng nhập'}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Vai trò (Role)</Text>
-          <View style={styles.greenBadge}>
-            <Text style={styles.greenBadgeText}>
-              {session ? (session.user.role === 'admin' ? 'Admin' : 'User') : 'Khách'}
-            </Text>
+      {/* Hero Profile Banner */}
+      <View style={styles.heroCard}>
+        <View style={styles.heroLeft}>
+          <View style={styles.avatarLarge}>
+            <Text style={styles.avatarLargeText}>{displayName.charAt(0).toUpperCase()}</Text>
+          </View>
+          <View style={styles.heroMeta}>
+            <View style={styles.nameRow}>
+              <Text style={styles.heroName}>{displayName}</Text>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleBadgeText}>{roleLabel}</Text>
+              </View>
+            </View>
+            <Text style={styles.heroEmail}>{email}</Text>
           </View>
         </View>
-        {session ? (
-          <Pressable style={styles.outlineBtn} onPress={() => void handleLogout()}>
-            <Text style={styles.outlineBtnText}>Đăng xuất</Text>
-          </Pressable>
-        ) : (
-          <Pressable style={styles.primaryBtn} onPress={() => router.push('/login')}>
-            <Text style={styles.primaryBtnText}>Đăng nhập / Đăng ký</Text>
-          </Pressable>
-        )}
+        <MomoAvatar size={52} />
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Thiết lập học tập</Text>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Trình độ hiện tại</Text>
-          <Text style={styles.infoValue}>{profile.jlptLevel}</Text>
+      {/* 2-Column Grid */}
+      <View style={styles.grid}>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Thiết lập học tập</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Trình độ hiện tại</Text>
+            <View style={styles.accentPill}>
+              <Text style={styles.accentPillText}>{profile.jlptLevel}</Text>
+            </View>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Mục tiêu chính</Text>
+            <Text style={styles.infoValue}>{profile.primaryGoal}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Thời gian mỗi ngày</Text>
+            <Text style={styles.infoValue}>{profile.dailyMinutes} phút / ngày</Text>
+          </View>
+          <Pressable style={styles.primaryBtn} onPress={() => router.push('/profile/learning')}>
+            <Text style={styles.primaryBtnText}>Chỉnh sửa trình độ & mục tiêu</Text>
+          </Pressable>
         </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Mục tiêu chính</Text>
-          <Text style={styles.infoValue}>{profile.primaryGoal}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Thời gian mỗi ngày</Text>
-          <Text style={styles.infoValue}>{profile.dailyMinutes} phút</Text>
-        </View>
-        <Pressable style={styles.primaryBtn} onPress={() => router.push('/profile/learning')}>
-          <Text style={styles.primaryBtnText}>Chỉnh sửa trình độ và mục tiêu</Text>
-        </Pressable>
-      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Lộ trình & Hướng dẫn</Text>
-        <Pressable style={styles.outlineBtn} onPress={() => router.push('/onboarding')}>
-          <Text style={styles.outlineBtnText}>Mở lại màn hình Onboarding 3 bước</Text>
-        </Pressable>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Phiên đăng nhập & Bảo mật</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Trạng thái</Text>
+            <View style={styles.greenBadge}>
+              <Text style={styles.greenBadgeText}>{session ? 'Đã xác thực' : 'Chưa đăng nhập'}</Text>
+            </View>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Đồng bộ đám mây</Text>
+            <Text style={styles.infoValue}>PostgreSQL · Tự động</Text>
+          </View>
+          <View style={styles.actionsCol}>
+            <Pressable style={styles.outlineBtn} onPress={() => router.push('/onboarding')}>
+              <Text style={styles.outlineBtnText}>Mở lại hướng dẫn Onboarding</Text>
+            </Pressable>
+            {session ? (
+              <Pressable style={styles.dangerBtn} onPress={() => void handleLogout()}>
+                <Text style={styles.dangerBtnText}>Đăng xuất</Text>
+              </Pressable>
+            ) : (
+              <Pressable style={styles.primaryBtn} onPress={() => router.push('/login')}>
+                <Text style={styles.primaryBtnText}>Đăng nhập ngay</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
       </View>
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: nihongoTheme.colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 16,
-  },
-  card: {
+  heroCard: {
     backgroundColor: nihongoTheme.colors.surface,
     borderRadius: nihongoTheme.radius.card,
     borderWidth: 1,
     borderColor: nihongoTheme.colors.borderWarm,
-    padding: 18,
-    marginBottom: 14,
-    gap: 12,
+    padding: 20,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+    ...nihongoTheme.shadow.card,
+  },
+  heroLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    flex: 1,
+  },
+  avatarLarge: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: nihongoTheme.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarLargeText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 24,
+  },
+  heroMeta: {
+    gap: 4,
+    flex: 1,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  heroName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  heroEmail: {
+    fontSize: 13,
+    color: nihongoTheme.colors.textSecondary,
+  },
+  roleBadge: {
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  roleBadgeText: {
+    color: nihongoTheme.colors.accentHover,
+    fontWeight: '800',
+    fontSize: 11,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+  },
+  card: {
+    flex: 1,
+    minWidth: 280,
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 20,
+    gap: 14,
+    justifyContent: 'space-between',
     ...nihongoTheme.shadow.card,
   },
   cardTitle: {
@@ -131,6 +203,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: nihongoTheme.colors.borderLight,
   },
   infoLabel: {
     fontSize: 13,
@@ -140,6 +215,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: nihongoTheme.colors.textPrimary,
+  },
+  accentPill: {
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  accentPillText: {
+    color: nihongoTheme.colors.accentHover,
+    fontWeight: '800',
+    fontSize: 12,
   },
   greenBadge: {
     backgroundColor: nihongoTheme.colors.successBg,
@@ -151,6 +237,10 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.successText,
     fontWeight: '700',
     fontSize: 12,
+  },
+  actionsCol: {
+    gap: 8,
+    marginTop: 4,
   },
   primaryBtn: {
     backgroundColor: nihongoTheme.colors.accent,
@@ -172,6 +262,19 @@ const styles = StyleSheet.create({
   },
   outlineBtnText: {
     color: nihongoTheme.colors.textPrimary,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  dangerBtn: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: nihongoTheme.radius.button,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  dangerBtnText: {
+    color: '#DC2626',
     fontWeight: '700',
     fontSize: 13,
   },
