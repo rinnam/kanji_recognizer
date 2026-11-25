@@ -33,7 +33,7 @@ export async function fetchTranscriptApi(
   videoId: string,
   signal?: AbortSignal,
 ): Promise<{ videoId: string; lines: ShadowingLine[] }> {
-  const base = libraryEndpoint || (Platform.OS === 'web' ? '/api' : 'http://localhost:3001/api');
+  const base = libraryEndpoint || (Platform.OS === 'web' ? '/api' : 'http://localhost:3000/api');
   const url = `${base.replace(/\/+$/, '')}/transcript?id=${encodeURIComponent(videoId)}`;
 
   const response = await fetch(url, { signal });
