@@ -1,0 +1,55 @@
+import json
+import sys
+import traceback
+from faster_whisper import WhisperModel
+
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stdin.reconfigure(encoding="utf-8")
+
+INITIAL_PROMPT = (
+    "本日はよろしくお願いいたします。失礼いたします。自己紹介をお願いいたします。"
+    "えーと、あのー、うーん、そのー。"
+)
+
+
+def main() -> None:
+    model = WhisperModel("base", device="cpu", compute_type="int8")
+    print(json.dumps({"ready": True}, ensure_ascii=False), flush=True)
+
+    for raw_line in sys.stdin:
+        line = raw_line.strip()
+        if not line:
+            continue
+        req_id = ""
+        try:
+            payload = json.loads(line)
+            req_id = str(payload.get("id", ""))
+            audio_path = str(payload.get("path", ""))
+            segments, _info = model.transcribe(
+                audio_path,
+                language="ja",
+                beam_size=2,
+                vad_filter=True,
+                initial_prompt=INITIAL_PROMPT,
+            )
+            text = "".join(seg.text for seg in segments).strip()
+            print(
+                json.dumps({"id": req_id, "text": text}, ensure_ascii=False),
+                flush=True,
+            )
+        except Exception as exc:
+            print(
+                json.dumps(
+                    {
+                        "id": req_id,
+                        "error": f"{exc.__class__.__name__}: {exc}",
+                        "trace": traceback.format_exc(limit=2),
+                    },
+                    ensure_ascii=False,
+                ),
+                flush=True,
+            )
+
+
+if __name__ == "__main__":
+    main()

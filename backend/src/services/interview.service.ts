@@ -1,4 +1,5 @@
 import { env } from '../config/env.js';
+import { transcribeWithLocalWhisper } from './whisper.service.js';
 
 export type InterviewStage =
   | 'jikoshokai'
@@ -286,40 +287,38 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
   };
 }
 
-/** Transcribes spoken Japanese audio using Gemini Flash, preserving verbatim fillers (えーと, あのー, うーん...). */
+/** Transcribes spoken Japanese audio 100% locally via faster-whisper (0 Gemini tokens!). */
 export async function transcribeInterviewAudio(input: {
   mimeType: string;
   base64Data: string;
 }): Promise<TranscribedAudioResponse> {
-  const prompt = `Hãy chép lời (transcribe) chính xác đoạn ghi âm tiếng Nhật phỏng vấn sau đây.
-QUAN TRỌNG:
-- Giữ nguyên NGUYÊN VĂN tất cả từ đệm / tiếng ấp úng nếu người nói có phát ra (ví dụ: えーと, えっと, あのー, うーん, そのー, まあ, なんか, à, ờ).
-- Liệt kê các từ đệm / tiếng ấp úng nghe được vào mảng "fillers".
+  try {
+    const transcript = await transcribeWithLocalWhisper(input.base64Data, input.mimeType);
+    const fillers = detectTextFillers(transcript);
+    return { transcript, fillers };
+  } catch {
+    // Fallback to Gemini Audio only if local Python faster-whisper is not installed
+    const prompt = `Hãy chép lời (transcribe) chính xác đoạn ghi âm tiếng Nhật phỏng vấn sau đây.
+Giữ nguyên từ đệm nếu có (えーと, あのー, うーん, そのー, まあ).
+CHỈ TRẢ VỀ JSON HỢP LỆ: { "transcript": "string", "fillers": ["string"] }`;
 
-CHỈ TRẢ VỀ JSON HỢP LỆ:
-{
-  "transcript": "string (tiếng Nhật người dùng vừa nói, giữ nguyên từ đệm)",
-  "fillers": ["string"]
-}`;
-
-  const parsed = await callGeminiJson<Partial<TranscribedAudioResponse>>([
-    { text: prompt },
-    {
-      inlineData: {
-        mimeType: input.mimeType || 'audio/webm',
-        data: input.base64Data,
+    const parsed = await callGeminiJson<Partial<TranscribedAudioResponse>>([
+      { text: prompt },
+      {
+        inlineData: {
+          mimeType: input.mimeType || 'audio/webm',
+          data: input.base64Data,
+        },
       },
-    },
-  ]);
+    ]);
 
-  const transcript = parsed.transcript?.trim() || '';
-  const aiFillers = Array.isArray(parsed.fillers)
-    ? parsed.fillers.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
-    : [];
-  const regexFillers = detectTextFillers(transcript);
-  const fillers = [...new Set([...aiFillers, ...regexFillers])];
-
-  return { transcript, fillers };
+    const transcript = parsed.transcript?.trim() || '';
+    const aiFillers = Array.isArray(parsed.fillers)
+      ? parsed.fillers.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+      : [];
+    const fillers = [...new Set([...aiFillers, ...detectTextFillers(transcript)])];
+    return { transcript, fillers };
+  }
 }
 
 export async function runInterviewTurn(input: {

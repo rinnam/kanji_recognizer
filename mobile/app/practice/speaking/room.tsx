@@ -173,7 +173,7 @@ export default function Interview3DRoomScreen() {
 
   const directAudioHandlerRef = useRef<(payload: RecordedAudioPayload) => void>(() => {});
   const mic = useJapaneseMic({
-    directMode: flowStep === 'qa_interview',
+    directMode: false,
     onDirectAudio: (payload) => directAudioHandlerRef.current(payload),
   });
   const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
@@ -769,9 +769,7 @@ export default function Interview3DRoomScreen() {
                     {mic.transcribing
                       ? 'Đang chép lời...'
                       : mic.listening
-                        ? flowStep === 'qa_interview'
-                          ? `Dừng & Gửi (${mic.recordSeconds}s)`
-                          : `Dừng (${mic.recordSeconds}s)`
+                        ? `Dừng ghi âm (${mic.recordSeconds}s)`
                         : 'Nói tiếng Nhật'}
                   </Text>
                 </Pressable>
