@@ -366,7 +366,7 @@ function nextQuestion(room: GameRoom) {
   }, room.answerTimeSec * 1000);
 }
 
-export function attachSocketToRoom(roomCode: string, socket: GameSocket, playerName: string) {
+export function attachSocketToRoom(roomCode: string, socket: GameSocket, playerName: string, userId?: string) {
   const room = rooms.get(roomCode.toUpperCase());
   if (!room) {
     socket.send(JSON.stringify({ type: 'error', message: 'Không tìm thấy phòng chơi này.' }));
@@ -374,18 +374,32 @@ export function attachSocketToRoom(roomCode: string, socket: GameSocket, playerN
     return;
   }
 
-  const playerId = crypto.randomUUID();
-  const isHost = room.players.size === 0;
-  const player: GamePlayer = {
-    id: playerId,
-    name: playerName.trim() || `Người chơi ${room.players.size + 1}`,
-    score: 0,
-    isHost,
-    socket,
-  };
-  room.players.set(playerId, player);
-  pushChat(room, { type: 'system', text: `${player.name} đã vào phòng.` });
-  broadcastState(room);
+  const playerId = userId?.trim() || crypto.randomUUID();
+  const existing = room.players.get(playerId);
+  let player: GamePlayer;
+
+  if (existing) {
+    const oldSocket = existing.socket;
+    existing.socket = socket;
+    existing.name = playerName.trim() || existing.name;
+    player = existing;
+    if (oldSocket && oldSocket !== socket && oldSocket.readyState === 1) {
+      oldSocket.close();
+    }
+    broadcastState(room);
+  } else {
+    const isHost = room.players.size === 0;
+    player = {
+      id: playerId,
+      name: playerName.trim() || `Người chơi ${room.players.size + 1}`,
+      score: 0,
+      isHost,
+      socket,
+    };
+    room.players.set(playerId, player);
+    pushChat(room, { type: 'system', text: `${player.name} đã vào phòng.` });
+    broadcastState(room);
+  }
 
   socket.on('message', (rawBuf: unknown) => {
     try {
@@ -454,6 +468,8 @@ export function attachSocketToRoom(roomCode: string, socket: GameSocket, playerN
   });
 
   socket.on('close', () => {
+    const current = room.players.get(playerId);
+    if (!current || current.socket !== socket) return;
     room.players.delete(playerId);
     if (room.players.size === 0) {
       if (room.timer) clearTimeout(room.timer);

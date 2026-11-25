@@ -33,7 +33,7 @@ export const gameRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/games/ws/:roomCode', { websocket: true }, (socket, req) => {
     const params = req.params as { roomCode?: string };
-    const query = req.query as { name?: string };
-    attachSocketToRoom(params.roomCode ?? '', socket, query.name ?? 'Người chơi');
+    const query = req.query as { name?: string; userId?: string };
+    attachSocketToRoom(params.roomCode ?? '', socket, query.name ?? 'Người chơi', query.userId);
   });
 };

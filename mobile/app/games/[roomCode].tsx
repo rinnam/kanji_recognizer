@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { CatFrame } from '../../src/CatFrame';
@@ -57,53 +57,61 @@ export default function KotobaLiveRoomScreen() {
   const inputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
   const timerProgress = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    let active = true;
-    void readAuthSession().then((session) => {
-      if (!active || !roomCode) return;
-      const name = session?.user.displayName || 'Người chơi';
-      const httpBase = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
-      const wsBase = httpBase.replace(/^http/, 'ws');
-      const socket = new WebSocket(`${wsBase}/games/ws/${encodeURIComponent(roomCode)}?name=${encodeURIComponent(name)}`);
-      wsRef.current = socket;
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void readAuthSession().then((session) => {
+        if (!active || !roomCode) return;
+        const name = session?.user.displayName || 'Người chơi';
+        const userId = session?.user.id || '';
+        const httpBase = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+        const wsBase = httpBase.replace(/^http/, 'ws');
+        const socket = new WebSocket(
+          `${wsBase}/games/ws/${encodeURIComponent(roomCode)}?name=${encodeURIComponent(name)}&userId=${encodeURIComponent(userId)}`,
+        );
+        wsRef.current = socket;
 
-      socket.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(String(event.data)) as {
-            type?: string;
-            room?: RoomStateDto;
-            players?: PlayerRow[];
-            question?: ActiveQuestionDto | null;
-            chat?: ChatEntry[];
-            entry?: ChatEntry;
-            message?: string;
-          };
-          if (msg.type === 'error') {
-            setWsError(msg.message || 'Không vào được phòng.');
-            return;
+        socket.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(String(event.data)) as {
+              type?: string;
+              room?: RoomStateDto;
+              players?: PlayerRow[];
+              question?: ActiveQuestionDto | null;
+              chat?: ChatEntry[];
+              entry?: ChatEntry;
+              message?: string;
+            };
+            if (msg.type === 'error') {
+              setWsError(msg.message || 'Không vào được phòng.');
+              return;
+            }
+            if (msg.type === 'room_state') {
+              if (msg.room) setRoom(msg.room);
+              if (msg.players) setPlayers(msg.players);
+              setQuestion(msg.question ?? null);
+              if (msg.chat) setChat(msg.chat);
+            }
+            if (msg.type === 'chat' && msg.entry) {
+              setChat((prev) => [...prev.slice(-49), msg.entry!]);
+            }
+          } catch {
+            // ignore
           }
-          if (msg.type === 'room_state') {
-            if (msg.room) setRoom(msg.room);
-            if (msg.players) setPlayers(msg.players);
-            setQuestion(msg.question ?? null);
-            if (msg.chat) setChat(msg.chat);
-          }
-          if (msg.type === 'chat' && msg.entry) {
-            setChat((prev) => [...prev.slice(-49), msg.entry!]);
-          }
-        } catch {
-          // ignore
+        };
+
+        socket.onerror = () => setWsError('Mất kết nối WebSocket tới phòng chơi.');
+      });
+
+      return () => {
+        active = false;
+        if (wsRef.current) {
+          wsRef.current.close();
+          wsRef.current = null;
         }
       };
-
-      socket.onerror = () => setWsError('Mất kết nối WebSocket tới phòng chơi.');
-    });
-
-    return () => {
-      active = false;
-      wsRef.current?.close();
-    };
-  }, [roomCode]);
+    }, [roomCode]),
+  );
 
   useEffect(() => {
     if (!question) {
