@@ -1,12 +1,22 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
+import {
+  DEFAULT_PROFILE,
+  readLearningProfile,
+  type LearningProfile,
+} from '../../src/features/profile/profile-store';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const [profile, setProfile] = useState<LearningProfile>(DEFAULT_PROFILE);
+
+  useEffect(() => {
+    void readLearningProfile().then(setProfile);
+  }, []);
 
   return (
     <AppShell>
@@ -16,7 +26,7 @@ export default function ProfileScreen() {
         subtitle="Chế độ 1 người dùng (Local-First)"
         rightSlot={
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>N</Text>
+            <Text style={styles.avatarText}>{profile.displayName.charAt(0).toUpperCase()}</Text>
           </View>
         }
       />
@@ -25,7 +35,7 @@ export default function ProfileScreen() {
         <Text style={styles.cardTitle}>Thông tin người học</Text>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Tên hiển thị</Text>
-          <Text style={styles.infoValue}>Người học (Chưa thiết lập)</Text>
+          <Text style={styles.infoValue}>{profile.displayName}</Text>
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Chế độ lưu trữ</Text>
@@ -39,15 +49,15 @@ export default function ProfileScreen() {
         <Text style={styles.cardTitle}>Thiết lập học tập</Text>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Trình độ hiện tại</Text>
-          <Text style={styles.infoValue}>N3 · Trung cấp</Text>
+          <Text style={styles.infoValue}>{profile.jlptLevel}</Text>
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Mục tiêu chính</Text>
-          <Text style={styles.infoValue}>Ôn thi JLPT</Text>
+          <Text style={styles.infoValue}>{profile.primaryGoal}</Text>
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Thời gian mỗi ngày</Text>
-          <Text style={styles.infoValue}>30 phút</Text>
+          <Text style={styles.infoValue}>{profile.dailyMinutes} phút</Text>
         </View>
         <Pressable style={styles.primaryBtn} onPress={() => router.push('/profile/learning')}>
           <Text style={styles.primaryBtnText}>Chỉnh sửa trình độ và mục tiêu</Text>

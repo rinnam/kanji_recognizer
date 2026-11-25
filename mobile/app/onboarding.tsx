@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppShell } from '../src/components/AppShell';
 import { TopHeader } from '../src/components/TopHeader';
 import { nihongoTheme } from '../src/theme/nihongo-theme';
+import {
+  readLearningProfile,
+  saveLearningProfile,
+  type LearningProfile,
+} from '../src/features/profile/profile-store';
 
 const LEVELS = [
   { key: 'BEGINNER', label: 'Mới bắt đầu', desc: 'Chưa biết hoặc mới học Hiragana/Katakana' },
@@ -27,9 +32,29 @@ const MINUTES = [5, 10, 15, 30, 60];
 export default function OnboardingScreen() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [level, setLevel] = useState('N3');
+  const [displayName, setDisplayName] = useState('Võ Gia Lượng');
+  const [level, setLevel] = useState<LearningProfile['jlptLevel']>('N3');
   const [goal, setGoal] = useState('Ôn thi JLPT');
   const [minutes, setMinutes] = useState(30);
+
+  useEffect(() => {
+    void readLearningProfile().then((p) => {
+      setDisplayName(p.displayName);
+      setLevel(p.jlptLevel);
+      setGoal(p.primaryGoal);
+      setMinutes(p.dailyMinutes);
+    });
+  }, []);
+
+  const handleConfirm = async () => {
+    await saveLearningProfile({
+      displayName: displayName.trim() || 'Người học',
+      jlptLevel: level,
+      primaryGoal: goal,
+      dailyMinutes: minutes,
+    });
+    router.replace('/app');
+  };
 
   return (
     <AppShell>
@@ -60,7 +85,7 @@ export default function OnboardingScreen() {
               <Pressable
                 key={item.key}
                 style={[styles.optionCard, selected && styles.optionCardActive]}
-                onPress={() => setLevel(item.key)}
+                onPress={() => setLevel(item.key as LearningProfile['jlptLevel'])}
               >
                 <Text style={styles.optionTitle}>{item.label}</Text>
                 <Text style={styles.optionDesc}>{item.desc}</Text>
@@ -129,6 +154,14 @@ export default function OnboardingScreen() {
             <Text style={styles.summaryValue}>{goal}</Text>
           </View>
           <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Tên hiển thị</Text>
+            <TextInput
+              value={displayName}
+              onChangeText={setDisplayName}
+              style={{ fontWeight: '700', color: nihongoTheme.colors.textPrimary, textAlign: 'right' }}
+            />
+          </View>
+          <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Mỗi ngày</Text>
             <Text style={styles.summaryValue}>{minutes} phút</Text>
           </View>
@@ -137,7 +170,7 @@ export default function OnboardingScreen() {
             <Pressable style={styles.outlineBtn} onPress={() => setStep(2)}>
               <Text style={styles.outlineBtnText}>Quay lại</Text>
             </Pressable>
-            <Pressable style={[styles.primaryBtn, styles.flexBtn]} onPress={() => router.replace('/app')}>
+            <Pressable style={[styles.primaryBtn, styles.flexBtn]} onPress={() => void handleConfirm()}>
               <Text style={styles.primaryBtnText}>Xác nhận và bắt đầu ✓</Text>
             </Pressable>
           </View>

@@ -1,10 +1,25 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { VocabularyDto } from '../../../packages/contracts/src/study';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { MomoAvatar } from '../../src/components/MomoAvatar';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
+import {
+  DEFAULT_PROFILE,
+  readLearningProfile,
+  type LearningProfile,
+} from '../../src/features/profile/profile-store';
+import {
+  formatMmSs,
+  getLocalDateKey,
+  useStudyTracker,
+} from '../../src/features/study-tracker/use-study-tracker';
+import { libraryEndpoint, loadLibrary } from '../../src/library-source';
+import { readServerCache } from '../../src/workspace-storage';
+import { hydrateQuizletStates } from '../../src/features/flashcards/quizlet-srs';
 
 const SKILLS = [
   { key: 'listening', title: 'Nghe', desc: 'Hội thoại và phát âm', badge: '🎧', route: '/practice/listening' as const },
@@ -13,23 +28,128 @@ const SKILLS = [
   { key: 'writing', title: 'Viết', desc: 'Kana, Kanji và viết câu', badge: '✍️', route: '/practice/writing' as const },
 ];
 
+interface DailyChallengeQuestion {
+  word: VocabularyDto;
+  choices: string[];
+  correctAnswer: string;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const [query, setQuery] = useState('');
-  const [year, setYear] = useState(2026);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [profile, setProfile] = useState<LearningProfile>(DEFAULT_PROFILE);
+  const [words, setWords] = useState<VocabularyDto[]>([]);
+  const [dueReviewCount, setDueReviewCount] = useState(0);
+  const [dueNewCount, setDueNewCount] = useState(0);
+
+  // Daily 5-question challenge state
+  const [challengeOpen, setChallengeOpen] = useState(false);
+  const [challengeIdx, setChallengeIdx] = useState(0);
+  const [challengeScore, setChallengeScore] = useState(0);
+  const [challengeSelected, setChallengeSelected] = useState<string | null>(null);
+  const [challengeDoneToday, setChallengeDoneToday] = useState(false);
+
+  const study = useStudyTracker(profile.dailyMinutes);
+
+  useEffect(() => {
+    void readLearningProfile().then(setProfile);
+    const loadSummary = async () => {
+      let liveWords: VocabularyDto[] = [];
+      if (libraryEndpoint) {
+        const cached = await readServerCache(libraryEndpoint).catch(() => undefined);
+        if (cached) liveWords = cached.vocabularies.filter((v) => !v.deletedAt);
+      }
+      if (liveWords.length === 0) {
+        const controller = new AbortController();
+        const pulled = await loadLibrary(controller.signal).catch(() => undefined);
+        if (pulled) liveWords = pulled.vocabularies.filter((v) => !v.deletedAt);
+      }
+      setWords(liveWords);
+
+      let savedLocal = {};
+      try {
+        const raw = await AsyncStorage.getItem('kanji_nest_quizlet_srs_session_v1');
+        if (raw) savedLocal = (JSON.parse(raw) as { states?: Record<string, never> }).states ?? {};
+      } catch {
+        // ignore
+      }
+      const states = hydrateQuizletStates(liveWords, savedLocal);
+      const rev = liveWords.filter((w) => states[w.id]?.stage === 'review' || states[w.id]?.stage === 'learning').length;
+      const nw = liveWords.filter((w) => !states[w.id] || states[w.id].stage === 'new').length;
+      setDueReviewCount(rev);
+      setDueNewCount(nw);
+    };
+    void loadSummary();
+  }, []);
+
+  const challengeQuestions = useMemo<DailyChallengeQuestion[]>(() => {
+    if (words.length < 4) return [];
+    const pool = [...words].slice(0, 40);
+    const chosen = pool.slice(0, 5);
+    return chosen.map((w, idx) => {
+      const distractors = pool
+        .filter((other) => other.id !== w.id && other.meaning !== w.meaning)
+        .slice(idx, idx + 3)
+        .map((d) => d.meaning);
+      const all = [w.meaning, ...distractors].sort((a, b) => a.localeCompare(b));
+      return { word: w, choices: all, correctAnswer: w.meaning };
+    });
+  }, [words]);
+
+  const heatmapCells = useMemo(() => {
+    // Last 26 weeks (182 days) ending today
+    const cells: { key: string; level: number }[] = [];
+    const today = new Date();
+    for (let i = 181; i >= 0; i -= 1) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const k = getLocalDateKey(d);
+      const secs = study.logs[k]?.seconds ?? 0;
+      const level = secs >= 1800 ? 3 : secs >= 600 ? 2 : secs >= 60 ? 1 : 0;
+      cells.push({ key: k, level });
+    }
+    return cells;
+  }, [study.logs]);
 
   const handleSearch = () => {
     router.push({ pathname: '/lookup', params: query.trim() ? { q: query.trim(), kind: 'words' } : undefined });
   };
 
+  const startChallenge = () => {
+    setChallengeIdx(0);
+    setChallengeScore(0);
+    setChallengeSelected(null);
+    setChallengeOpen(true);
+  };
+
+  const handlePickChoice = (choice: string) => {
+    if (challengeSelected) return;
+    setChallengeSelected(choice);
+    const q = challengeQuestions[challengeIdx];
+    if (q && choice === q.correctAnswer) {
+      setChallengeScore((s) => s + 1);
+    }
+  };
+
+  const handleNextChallenge = () => {
+    if (challengeIdx + 1 >= challengeQuestions.length) {
+      setChallengeDoneToday(true);
+      setChallengeOpen(false);
+      return;
+    }
+    setChallengeSelected(null);
+    setChallengeIdx((i) => i + 1);
+  };
+
   return (
     <AppShell>
-      <TopHeader mode="home" jlptLevel="N3" dailyMinutes={30} />
+      <TopHeader mode="home" jlptLevel={profile.jlptLevel} dailyMinutes={profile.dailyMinutes} />
 
       {/* Hero Greeting */}
       <View style={styles.heroRow}>
         <View style={styles.heroTextCol}>
-          <Text style={styles.heroTitle}>Chào bạn</Text>
+          <Text style={styles.heroTitle}>Chào {profile.displayName}</Text>
           <Text style={styles.heroSubtitle}>Một chút tiếng Nhật, mỗi ngày.</Text>
         </View>
         <MomoAvatar size={64} />
@@ -53,17 +173,19 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Daily Goal Card */}
+      {/* Live Daily Goal Card */}
       <View style={styles.card}>
         <View style={styles.rowBetween}>
           <Text style={styles.cardTitle}>Mục tiêu hôm nay</Text>
           <View style={styles.softBadge}>
-            <Text style={styles.softBadgeText}>0%</Text>
+            <Text style={styles.softBadgeText}>{study.percent}%</Text>
           </View>
         </View>
-        <Text style={styles.goalTimer}>00:00 / 30 phút</Text>
+        <Text style={styles.goalTimer}>
+          {formatMmSs(study.todaySeconds)} / {profile.dailyMinutes} phút
+        </Text>
         <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: '0%' }]} />
+          <View style={[styles.progressFill, { width: `${study.percent}%` }]} />
         </View>
       </View>
 
@@ -87,26 +209,35 @@ export default function HomeScreen() {
 
         <View style={styles.kpiRow}>
           <View style={styles.kpiBox}>
-            <Text style={styles.kpiValue}>0</Text>
+            <Text style={styles.kpiValue}>{study.currentStreak}</Text>
             <Text style={styles.kpiLabel}>Ngày liên tiếp</Text>
           </View>
           <View style={styles.kpiBox}>
-            <Text style={styles.kpiValue}>0</Text>
+            <Text style={styles.kpiValue}>{study.totalDays}</Text>
             <Text style={styles.kpiLabel}>Ngày đã học</Text>
           </View>
           <View style={styles.kpiBox}>
-            <Text style={styles.kpiValue}>0</Text>
+            <Text style={styles.kpiValue}>{study.longestStreak}</Text>
             <Text style={styles.kpiLabel}>Chuỗi dài nhất</Text>
           </View>
         </View>
 
-        {/* Empty 52-week placeholder heatmap */}
+        {/* Live 26-week Heatmap */}
         <View style={styles.heatmapPlaceholder}>
           {Array.from({ length: 7 }).map((_, rowIdx) => (
             <View key={rowIdx} style={styles.heatmapRow}>
-              {Array.from({ length: 26 }).map((__, colIdx) => (
-                <View key={colIdx} style={styles.heatmapCell} />
-              ))}
+              {Array.from({ length: 26 }).map((__, colIdx) => {
+                const cell = heatmapCells[colIdx * 7 + rowIdx];
+                const bg =
+                  cell?.level === 3
+                    ? '#1B873F'
+                    : cell?.level === 2
+                      ? '#4CAF50'
+                      : cell?.level === 1
+                        ? '#A5D6A7'
+                        : '#F3EEE8';
+                return <View key={colIdx} style={[styles.heatmapCell, { backgroundColor: bg }]} />;
+              })}
             </View>
           ))}
         </View>
@@ -116,17 +247,31 @@ export default function HomeScreen() {
       <View style={styles.twoColRow}>
         <View style={[styles.card, styles.flexCard]}>
           <Text style={styles.cardTitle}>Ôn tập hôm nay</Text>
-          <Text style={styles.cardSubtitle}>Chưa có bộ thẻ nào đang học.</Text>
-          <Pressable style={styles.primaryBtn} onPress={() => router.push('/flashcards')}>
-            <Text style={styles.primaryBtnText}>Chọn bộ thẻ đầu tiên</Text>
+          <Text style={styles.cardSubtitle}>
+            {words.length > 0
+              ? `Bạn còn ${dueReviewCount} thẻ cần ôn · ${dueNewCount} thẻ mới (${words.length} từ trong thư viện)`
+              : 'Chưa có bộ thẻ nào đang học.'}
+          </Text>
+          <Pressable style={styles.primaryBtn} onPress={() => router.push('/practice/flashcard-quiz')}>
+            <Text style={styles.primaryBtnText}>Tiếp tục flashcard</Text>
           </Pressable>
         </View>
 
         <View style={[styles.card, styles.flexCard]}>
           <Text style={styles.cardTitle}>Thử thách hôm nay</Text>
-          <Text style={styles.cardSubtitle}>Mỗi ngày có tối đa 5 câu hỏi. Học ít nhất 4 từ để mở khóa.</Text>
-          <Pressable style={[styles.primaryBtn, styles.disabledBtn]} disabled>
-            <Text style={styles.primaryBtnText}>Bắt đầu thử thách</Text>
+          <Text style={styles.cardSubtitle}>
+            {challengeDoneToday
+              ? `Bạn đã hoàn thành thử thách hôm nay (${challengeScore}/${challengeQuestions.length} câu đúng)!`
+              : 'Mỗi ngày có tối đa 5 câu hỏi trắc nghiệm nhanh từ kho từ của bạn.'}
+          </Text>
+          <Pressable
+            style={[styles.primaryBtn, challengeQuestions.length === 0 && styles.disabledBtn]}
+            disabled={challengeQuestions.length === 0}
+            onPress={startChallenge}
+          >
+            <Text style={styles.primaryBtnText}>
+              {challengeDoneToday ? 'Làm lại thử thách' : 'Bắt đầu thử thách'}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -165,6 +310,60 @@ export default function HomeScreen() {
         </View>
         <MomoAvatar size={46} badgeColor="#FFFFFF" />
       </Pressable>
+
+      {/* Daily 5-Question Challenge Modal */}
+      <Modal visible={challengeOpen} transparent animationType="fade" onRequestClose={() => setChallengeOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.cardTitle}>
+                Thử thách hôm nay ({challengeIdx + 1}/{challengeQuestions.length})
+              </Text>
+              <Pressable onPress={() => setChallengeOpen(false)}>
+                <Text style={styles.closeText}>Đóng</Text>
+              </Pressable>
+            </View>
+
+            {challengeQuestions[challengeIdx] ? (
+              <>
+                <Text style={styles.challengeWord}>{challengeQuestions[challengeIdx].word.word}</Text>
+                <Text style={styles.challengeReading}>{challengeQuestions[challengeIdx].word.reading}</Text>
+
+                <View style={styles.choicesCol}>
+                  {challengeQuestions[challengeIdx].choices.map((c) => {
+                    const isPicked = challengeSelected === c;
+                    const isCorrect = c === challengeQuestions[challengeIdx].correctAnswer;
+                    const bg = !challengeSelected
+                      ? nihongoTheme.colors.surfaceSubtle
+                      : isCorrect
+                        ? nihongoTheme.colors.successBg
+                        : isPicked
+                          ? nihongoTheme.colors.warningBg
+                          : nihongoTheme.colors.surfaceSubtle;
+                    return (
+                      <Pressable
+                        key={c}
+                        style={[styles.choiceBtn, { backgroundColor: bg }]}
+                        onPress={() => handlePickChoice(c)}
+                      >
+                        <Text style={styles.choiceText}>{c}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {challengeSelected ? (
+                  <Pressable style={styles.primaryBtn} onPress={handleNextChallenge}>
+                    <Text style={styles.primaryBtnText}>
+                      {challengeIdx + 1 >= challengeQuestions.length ? 'Hoàn thành ✓' : 'Câu tiếp theo →'}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </AppShell>
   );
 }
@@ -333,7 +532,6 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     maxHeight: 12,
     borderRadius: 3,
-    backgroundColor: '#F3EEE8',
   },
   twoColRow: {
     flexDirection: 'row',
@@ -451,6 +649,55 @@ const styles = StyleSheet.create({
   planTitle: {
     fontSize: 16,
     fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(20, 16, 12, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 460,
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    padding: 22,
+    gap: 14,
+    ...nihongoTheme.shadow.dock,
+  },
+  closeText: {
+    color: nihongoTheme.colors.accentHover,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  challengeWord: {
+    fontSize: 34,
+    fontWeight: '800',
+    textAlign: 'center',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  challengeReading: {
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+    color: nihongoTheme.colors.accentHover,
+    marginTop: -8,
+  },
+  choicesCol: {
+    gap: 8,
+  },
+  choiceBtn: {
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: nihongoTheme.radius.button,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  choiceText: {
+    fontSize: 14,
+    fontWeight: '700',
     color: nihongoTheme.colors.textPrimary,
   },
 });

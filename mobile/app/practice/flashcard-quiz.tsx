@@ -64,11 +64,15 @@ export default function FlashcardQuizPracticeScreen() {
   const [movingFolderId, setMovingFolderId] = useState<string | null>(null);
   const [folderError, setFolderError] = useState<string | null>(null);
 
-  // Quick add word & library pagination state
+  // Quick add / edit / bulk import word & library pagination state
   const [addWordOpen, setAddWordOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [editingWordId, setEditingWordId] = useState<string | null>(null);
   const [newWord, setNewWord] = useState('');
   const [newReading, setNewReading] = useState('');
   const [newMeaning, setNewMeaning] = useState('');
+  const [newHanViet, setNewHanViet] = useState('');
   const [libQuery, setLibQuery] = useState('');
   const [libLimit, setLibLimit] = useState(40);
 
@@ -413,23 +417,90 @@ export default function FlashcardQuizPracticeScreen() {
 
   const handleAddWord = async () => {
     if (!newWord.trim() || !newMeaning.trim()) return;
-    const created = createLocalWord(
-      {
-        word: newWord.trim(),
-        reading: newReading.trim() || newWord.trim(),
-        meaning: newMeaning.trim(),
-        jlptLevel: 'N3',
-      },
-      folderId,
-    );
-    setWords((prev) => [created, ...prev]);
+    if (editingWordId) {
+      const existing = words.find((w) => w.id === editingWordId);
+      if (existing) {
+        const updated: VocabularyDto = {
+          ...existing,
+          word: newWord.trim(),
+          reading: newReading.trim() || newWord.trim(),
+          meaning: newMeaning.trim(),
+          sinoVietnamese: newHanViet.trim() || null,
+          updatedAt: new Date(Math.max(Date.now(), Date.parse(existing.updatedAt) + 1)).toISOString(),
+        };
+        setWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+        if (connected) {
+          const controller = new AbortController();
+          void pushLibrary({ folders: [], vocabularies: [updated] }, controller.signal).catch(() => undefined);
+        }
+      }
+      setEditingWordId(null);
+    } else {
+      const created: VocabularyDto = {
+        ...createLocalWord(
+          {
+            word: newWord.trim(),
+            reading: newReading.trim() || newWord.trim(),
+            meaning: newMeaning.trim(),
+            jlptLevel: 'N3',
+          },
+          folderId,
+        ),
+        sinoVietnamese: newHanViet.trim() || null,
+      };
+      setWords((prev) => [created, ...prev]);
+      if (connected) {
+        const controller = new AbortController();
+        void pushLibrary({ folders: [], vocabularies: [created] }, controller.signal).catch(() => undefined);
+      }
+    }
     setNewWord('');
     setNewReading('');
     setNewMeaning('');
+    setNewHanViet('');
     setAddWordOpen(false);
+  };
+
+  const handleDeleteWord = (item: VocabularyDto) => {
+    const now = new Date(Math.max(Date.now(), Date.parse(item.updatedAt) + 1)).toISOString();
+    const deleted: VocabularyDto = { ...item, updatedAt: now, deletedAt: now };
+    setWords((prev) => prev.filter((w) => w.id !== item.id));
     if (connected) {
       const controller = new AbortController();
-      void pushLibrary({ folders: [], vocabularies: [created] }, controller.signal).catch(() => undefined);
+      void pushLibrary({ folders: [], vocabularies: [deleted] }, controller.signal).catch(() => undefined);
+    }
+  };
+
+  const handleBulkImport = () => {
+    const lines = importText
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (lines.length === 0) return;
+    const createdList: VocabularyDto[] = [];
+    for (const line of lines) {
+      const parts = line.includes('\t')
+        ? line.split('\t')
+        : line.includes('|')
+          ? line.split('|')
+          : line.split(/\s*-\s*/);
+      const word = (parts[0] ?? '').trim();
+      const reading = (parts.length >= 3 ? parts[1] : parts[0])?.trim() ?? '';
+      const meaning = (parts.length >= 3 ? parts[2] : parts[1])?.trim() ?? '';
+      const sinoVietnamese = (parts[3] ?? '').trim() || undefined;
+      if (!word || !meaning) continue;
+      createdList.push({
+        ...createLocalWord({ word, reading, meaning, jlptLevel: 'N3' }, folderId),
+        sinoVietnamese: sinoVietnamese ?? null,
+      });
+    }
+    if (createdList.length === 0) return;
+    setWords((prev) => [...createdList, ...prev]);
+    setImportText('');
+    setImportOpen(false);
+    if (connected) {
+      const controller = new AbortController();
+      void pushLibrary({ folders: [], vocabularies: createdList }, controller.signal).catch(() => undefined);
     }
   };
 
@@ -1089,12 +1160,54 @@ export default function FlashcardQuizPracticeScreen() {
             style={styles.input}
           />
 
-          <Pressable style={styles.addWordTrigger} onPress={() => setAddWordOpen((v) => !v)}>
-            <Text style={styles.addWordTriggerText}>{addWordOpen ? '− Đóng biểu mẫu' : '+ Thêm từ mới vào thư mục'}</Text>
-          </Pressable>
+          <View style={styles.quizActions}>
+            <Pressable
+              style={[styles.addWordTrigger, { flex: 1 }]}
+              onPress={() => {
+                setEditingWordId(null);
+                setNewWord('');
+                setNewReading('');
+                setNewMeaning('');
+                setNewHanViet('');
+                setImportOpen(false);
+                setAddWordOpen((v) => !v);
+              }}
+            >
+              <Text style={styles.addWordTriggerText}>{addWordOpen ? '− Đóng' : '+ Thêm từ mới'}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.addWordTrigger, { flex: 1 }]}
+              onPress={() => {
+                setAddWordOpen(false);
+                setImportOpen((v) => !v);
+              }}
+            >
+              <Text style={styles.addWordTriggerText}>{importOpen ? '− Đóng Import' : '📥 Import hàng loạt'}</Text>
+            </Pressable>
+          </View>
+
+          {importOpen ? (
+            <View style={styles.card}>
+              <Text style={styles.optionDesc}>
+                Mỗi dòng 1 từ theo định dạng: Từ Nhật | Cách đọc | Nghĩa tiếng Việt | Hán Việt (hoặc ngăn cách bằng Tab / dấu -)
+              </Text>
+              <TextInput
+                value={importText}
+                onChangeText={setImportText}
+                multiline
+                placeholder={'就職 | しゅうしょく | xin việc, đi làm | TỰU CHỨC\n正確な | せいかくな | chính xác | CHÍNH XÁC'}
+                placeholderTextColor={nihongoTheme.colors.textMuted}
+                style={[styles.input, { minHeight: 110, textAlignVertical: 'top' }]}
+              />
+              <Pressable style={styles.primaryBtn} onPress={handleBulkImport}>
+                <Text style={styles.primaryBtnText}>Nhập danh sách vào thư mục</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           {addWordOpen ? (
             <View style={styles.card}>
+              <Text style={styles.optionLabel}>{editingWordId ? 'Sửa từ vựng' : 'Thêm từ mới'}</Text>
               <TextInput
                 value={newWord}
                 onChangeText={setNewWord}
@@ -1116,8 +1229,15 @@ export default function FlashcardQuizPracticeScreen() {
                 placeholderTextColor={nihongoTheme.colors.textMuted}
                 style={styles.input}
               />
+              <TextInput
+                value={newHanViet}
+                onChangeText={setNewHanViet}
+                placeholder="Âm Hán Việt (không bắt buộc)"
+                placeholderTextColor={nihongoTheme.colors.textMuted}
+                style={styles.input}
+              />
               <Pressable style={styles.primaryBtn} onPress={() => void handleAddWord()}>
-                <Text style={styles.primaryBtnText}>Lưu từ mới</Text>
+                <Text style={styles.primaryBtnText}>{editingWordId ? 'Cập nhật từ' : 'Lưu từ mới'}</Text>
               </Pressable>
             </View>
           ) : null}
@@ -1146,9 +1266,27 @@ export default function FlashcardQuizPracticeScreen() {
                       <Text style={styles.wordMeaning}>{item.meaning}</Text>
                       {item.sinoVietnamese ? <Text style={styles.wordHanViet}>{item.sinoVietnamese}</Text> : null}
                     </View>
-                    <Pressable style={styles.ttsBtn} onPress={() => speak(item.reading || item.word)}>
-                      <Text style={styles.ttsText}>🔊</Text>
-                    </Pressable>
+                    <View style={styles.rowActions}>
+                      <Pressable style={styles.ttsBtn} onPress={() => speak(item.reading || item.word)}>
+                        <Text style={styles.ttsText}>🔊</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          setEditingWordId(item.id);
+                          setNewWord(item.word);
+                          setNewReading(item.reading ?? '');
+                          setNewMeaning(item.meaning);
+                          setNewHanViet(item.sinoVietnamese ?? '');
+                          setImportOpen(false);
+                          setAddWordOpen(true);
+                        }}
+                      >
+                        <Text style={styles.actionText}>Sửa</Text>
+                      </Pressable>
+                      <Pressable onPress={() => handleDeleteWord(item)}>
+                        <Text style={[styles.actionText, styles.deleteText]}>Xóa</Text>
+                      </Pressable>
+                    </View>
                   </View>
                 ))}
                 {remaining > 0 ? (
