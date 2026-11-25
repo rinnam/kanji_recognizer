@@ -755,37 +755,21 @@ export default function FlashcardQuizPracticeScreen() {
       {/* MODE 1: EXACT QUIZLET SPACED REPETITION */}
       {mode === 'flashcard' ? (
         <View style={styles.section}>
-          {/* Today's Spaced Repetition Plan (Quizlet Day-2+ Review + New) */}
-          <View style={styles.planCard}>
-            <Text style={styles.planTitle}>Kế hoạch ôn tập hôm nay</Text>
-            <View style={styles.planRow}>
-              <View style={styles.planBox}>
-                <Text style={styles.planNumReview}>{dueReviewCount}</Text>
-                <Text style={styles.planLabel}>Thẻ cần ôn tập</Text>
-              </View>
-              <View style={styles.planBox}>
-                <Text style={styles.planNumNew}>{dueNewCount}</Text>
-                <Text style={styles.planLabel}>Thẻ mới</Text>
-              </View>
-              <View style={styles.planBox}>
-                <Text style={styles.planNumDone}>{completedCount}</Text>
-                <Text style={styles.planLabel}>Đã xong</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* 3-Layer Segmented Progress Bar (Gray base + Orange reviewed + Green completed) */}
+          {/* Compact Today's SRS Plan + 3-Layer Segmented Progress Bar */}
           <View style={styles.srsProgressWrap}>
             <View style={styles.srsHeaderRow}>
               <Text style={styles.progressFraction}>
                 {completedCount} / {activeWordIds.length} hoàn thành
               </Text>
               <View style={styles.quizletPills}>
+                <View style={styles.reviewPill}>
+                  <Text style={styles.reviewPillText}>Cần ôn: {dueReviewCount}</Text>
+                </View>
                 <View style={styles.learningBadge}>
-                  <Text style={styles.learningBadgeText}>Đã xem: {reviewedCount}</Text>
+                  <Text style={styles.learningBadgeText}>Thẻ mới: {dueNewCount}</Text>
                 </View>
                 <View style={styles.knownBadge}>
-                  <Text style={styles.knownBadgeText}>Hoàn thành: {completedCount}</Text>
+                  <Text style={styles.knownBadgeText}>Đã xong: {completedCount}</Text>
                 </View>
               </View>
             </View>
@@ -1450,12 +1434,12 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.textSecondary,
   },
   flashcard: {
-    minHeight: 280,
+    minHeight: 215,
     backgroundColor: nihongoTheme.colors.surface,
     borderRadius: nihongoTheme.radius.card,
     borderWidth: 1,
     borderColor: nihongoTheme.colors.borderWarm,
-    padding: 24,
+    padding: 18,
     alignItems: 'center',
     justifyContent: 'space-between',
     ...nihongoTheme.shadow.card,
