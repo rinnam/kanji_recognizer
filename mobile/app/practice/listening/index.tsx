@@ -1,5 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
+  Modal,
+  ScrollView,
+  TextInput,
   View,
   Text,
   StyleSheet,
@@ -490,5 +493,93 @@ const styles = StyleSheet.create({
   },
   rightColumn: {
     flex: 0.95,
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  pickerCard: {
+    width: '100%',
+    maxWidth: 480,
+    maxHeight: '80%',
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1.5,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 18,
+    gap: 12,
+    ...nihongoTheme.shadow.dock,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pickerTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  pickerClose: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.accentHover,
+  },
+  pickerUrlRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  pickerInput: {
+    flex: 1,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: nihongoTheme.radius.button,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: nihongoTheme.colors.textPrimary,
+  },
+  pickerAddBtn: {
+    backgroundColor: nihongoTheme.colors.accent,
+    borderRadius: nihongoTheme.radius.button,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+  },
+  pickerAddText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  pickerList: {
+    maxHeight: 340,
+  },
+  pickerItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 6,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    gap: 2,
+  },
+  pickerItemActive: {
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.accent,
+  },
+  pickerItemTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  pickerItemTitleActive: {
+    color: nihongoTheme.colors.accentHover,
+  },
+  pickerItemChannel: {
+    fontSize: 11,
+    color: nihongoTheme.colors.textSecondary,
   },
 });
