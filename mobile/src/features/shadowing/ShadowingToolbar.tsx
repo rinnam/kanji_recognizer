@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform, Alert } from 'react-native';
 import { nihongoTheme } from '../../theme/nihongo-theme';
+import { NextIcon, PauseIcon, PlayIcon, PrevIcon } from '../../components/AppIcons';
 
 interface ShadowingToolbarProps {
   isPlaying: boolean;
