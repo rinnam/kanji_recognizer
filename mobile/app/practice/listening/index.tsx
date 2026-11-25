@@ -307,27 +307,14 @@ export default function ListeningScreen() {
           <TopHeader
             mode="subpage"
             title="Luyện nghe & Shadowing"
-            subtitle={videoTitle}
+            subtitle={currentVideo.channel ? `${videoTitle} · ${currentVideo.channel}` : videoTitle}
             onBack={handleBackToCatalog}
+            rightSlot={
+              <Pressable style={styles.backButton} onPress={handleBackToCatalog}>
+                <Text style={styles.backButtonText}>← Đổi video khác</Text>
+              </Pressable>
+            }
           />
-
-          {/* Player Navigation / Header Bar */}
-          <View style={styles.playerTopBar}>
-            <Pressable style={styles.backButton} onPress={handleBackToCatalog}>
-              <Text style={styles.backButtonText}>← Đổi video khác</Text>
-            </Pressable>
-
-            <View style={styles.playerVideoMeta}>
-              <Text style={styles.playerVideoTitle} numberOfLines={1}>
-                {videoTitle}
-              </Text>
-              {currentVideo.channel ? (
-                <Text style={styles.playerVideoChannel} numberOfLines={1}>
-                  🎙️ {currentVideo.channel}
-                </Text>
-              ) : null}
-            </View>
-          </View>
 
           {/* Main Layout: 2 Columns on Desktop, 1 Column on Mobile */}
           <View style={[styles.mainLayout, isDesktop ? styles.layoutDesktop : styles.layoutMobile]}>
