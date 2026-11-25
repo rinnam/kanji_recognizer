@@ -25,6 +25,63 @@ const POS_COLORS: Record<string, { border: string; bg: string; text: string }> =
   other: { border: '#6B7280', bg: '#F9FAFB', text: '#4B5563' },
 };
 
+const POS_VI_MAP: Record<string, string> = {
+  名詞: 'Danh từ',
+  代名詞: 'Đại từ',
+  固有名詞: 'Danh từ riêng',
+  サ変接続: 'Kết hợp する',
+  形容動詞語幹: 'Tính từ な',
+  数: 'Số từ',
+  接尾: 'Hậu tố',
+  非自立: 'Phụ thuộc',
+  自立: 'Độc lập',
+  一般: 'Thông thường',
+  動詞: 'Động từ',
+  助動詞: 'Trợ động từ',
+  助詞: 'Trợ từ',
+  格助詞: 'Cách',
+  接続助詞: 'Nối câu',
+  終助詞: 'Cuối câu',
+  係助詞: 'Nhấn mạnh',
+  副助詞: 'Phó trợ từ',
+  連体化: 'Bổ nghĩa',
+  並立助詞: 'Liệt kê',
+  形容詞: 'Tính từ い',
+  副詞: 'Phó từ',
+  接続詞: 'Liên từ',
+  連体詞: 'Định từ',
+  感動詞: 'Thán từ',
+  接頭詞: 'Tiền tố',
+  フィラー: 'Từ đệm',
+  記号: 'Ký hiệu',
+  読点: 'Dấu phẩy',
+  句点: 'Dấu chấm',
+  括弧開: 'Mở ngoặc',
+  括弧閉: 'Đóng ngoặc',
+  空白: 'Khoảng trắng',
+};
+
+const POS_FALLBACK_VI: Record<string, string> = {
+  particle: 'Trợ từ',
+  noun: 'Danh từ',
+  verb: 'Động từ',
+  adjective: 'Tính từ',
+  adverb: 'Phó từ',
+  conjunction: 'Liên từ',
+  symbol: 'Ký hiệu',
+  other: 'Khác',
+};
+
+function formatPosVietnamese(posRaw?: string, pos?: string): string {
+  if (!posRaw) return POS_FALLBACK_VI[pos ?? 'other'] ?? 'Khác';
+  const parts = posRaw
+    .split(/[·・,\s]+/)
+    .map((p) => p.trim())
+    .filter((p) => p && p !== '*');
+  const translated = parts.map((p) => POS_VI_MAP[p] ?? p);
+  return translated.length > 0 ? translated.join(' · ') : (POS_FALLBACK_VI[pos ?? 'other'] ?? 'Khác');
+}
+
 export function CurrentSentenceView({
   line,
   onSelectToken,
@@ -177,7 +234,9 @@ export function CurrentSentenceView({
                   <Text style={[styles.tableCell, styles.cellBase]}>{token.base || token.surface}</Text>
                   <View style={styles.cellPos}>
                     <View style={[styles.posChip, { backgroundColor: posStyle.bg }]}>
-                      <Text style={[styles.posChipText, { color: posStyle.text }]}>{token.posRaw || token.pos}</Text>
+                      <Text style={[styles.posChipText, { color: posStyle.text }]}>
+                        {formatPosVietnamese(token.posRaw, token.pos)}
+                      </Text>
                     </View>
                   </View>
                 </Pressable>
