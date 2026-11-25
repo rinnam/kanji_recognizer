@@ -1,6 +1,12 @@
 import crypto from 'node:crypto';
-import type { WebSocket } from 'ws';
 import { pool } from '../config/database.js';
+
+export interface GameSocket {
+  readyState: number;
+  send: (data: string) => void;
+  close: () => void;
+  on: (event: string, listener: (...args: unknown[]) => void) => void;
+}
 
 export type GameMode = 'reading' | 'meaning' | 'mixed';
 
@@ -24,7 +30,7 @@ export interface GamePlayer {
   name: string;
   score: number;
   isHost: boolean;
-  socket: WebSocket;
+  socket: GameSocket;
 }
 
 export interface ChatEntry {
@@ -360,7 +366,7 @@ function nextQuestion(room: GameRoom) {
   }, room.answerTimeSec * 1000);
 }
 
-export function attachSocketToRoom(roomCode: string, socket: WebSocket, playerName: string) {
+export function attachSocketToRoom(roomCode: string, socket: GameSocket, playerName: string) {
   const room = rooms.get(roomCode.toUpperCase());
   if (!room) {
     socket.send(JSON.stringify({ type: 'error', message: 'Không tìm thấy phòng chơi này.' }));
@@ -381,9 +387,9 @@ export function attachSocketToRoom(roomCode: string, socket: WebSocket, playerNa
   pushChat(room, { type: 'system', text: `${player.name} đã vào phòng.` });
   broadcastState(room);
 
-  socket.on('message', (rawBuf) => {
+  socket.on('message', (rawBuf: unknown) => {
     try {
-      const msg = JSON.parse(rawBuf.toString()) as { type?: string; text?: string };
+      const msg = JSON.parse(String(rawBuf)) as { type?: string; text?: string };
       if (msg.type === 'start') {
         if (room.cards.length === 0) {
           pushChat(room, { type: 'system', text: 'Bộ từ đang trống, không thể bắt đầu.' });
