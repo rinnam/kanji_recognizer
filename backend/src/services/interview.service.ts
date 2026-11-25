@@ -206,9 +206,12 @@ async function callGeminiJson<T>(parts: Array<Record<string, unknown>>): Promise
       contents: [{ role: 'user', parts }],
       generationConfig: {
         temperature: 0.35,
+        maxOutputTokens: 1024,
         responseMimeType: 'application/json',
+        thinkingConfig: { thinkingBudget: 0 },
       },
     }),
+    signal: AbortSignal.timeout(25000),
   });
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
