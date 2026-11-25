@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions
 import { useLocalSearchParams } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
+import { CatFrame } from '../../src/CatFrame';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { libraryEndpoint } from '../../src/library-source';
 import { readAuthSession } from '../../src/features/auth/auth-store';
@@ -50,8 +51,11 @@ export default function KotobaLiveRoomScreen() {
   const [chat, setChat] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState('');
   const [remainingSec, setRemainingSec] = useState(0);
+  const [totalSec, setTotalSec] = useState(20);
   const [wsError, setWsError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const chatScrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const inputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
   useEffect(() => {
     let active = true;
@@ -106,12 +110,14 @@ export default function KotobaLiveRoomScreen() {
       setRemainingSec(0);
       return;
     }
+    const initial = Math.max(1, Math.ceil((question.deadlineMs - Date.now()) / 1000));
+    setTotalSec(initial);
     const tick = () => {
       const left = Math.max(0, Math.ceil((question.deadlineMs - Date.now()) / 1000));
       setRemainingSec(left);
     };
     tick();
-    const t = setInterval(tick, 250);
+    const t = setInterval(tick, 200);
     return () => clearInterval(t);
   }, [question]);
 
@@ -125,7 +131,11 @@ export default function KotobaLiveRoomScreen() {
     if (!input.trim()) return;
     sendMsg({ type: 'answer', text: input.trim() });
     setInput('');
+    setTimeout(() => inputRef.current?.focus(), 0);
   };
+
+  const timerPct = totalSec > 0 ? Math.max(0, Math.min(100, (remainingSec / totalSec) * 100)) : 0;
+  const isUrgent = remainingSec > 0 && remainingSec <= 5;
 
   return (
     <AppShell>
@@ -142,23 +152,42 @@ export default function KotobaLiveRoomScreen() {
       ) : null}
 
       <View style={[styles.layout, isWide && styles.layoutWide]}>
-        {/* Left: Live Leaderboard */}
-        <View style={[styles.card, isWide && styles.sideCol]}>
-          <Text style={styles.cardTitle}>Bảng xếp hạng</Text>
-          {players.map((p, idx) => (
-            <View key={p.id} style={styles.playerRow}>
-              <Text style={styles.playerName}>
-                #{idx + 1} {p.name} {p.isHost ? '👑' : ''}
-              </Text>
-              <Text style={styles.playerScore}>{p.score}đ</Text>
+        {/* Left: Live Leaderboard + Room Info */}
+        <View style={[styles.card, isWide && styles.sideCol, styles.leftColInner]}>
+          <View style={styles.sectionBlock}>
+            <Text style={styles.cardTitle}>Bảng xếp hạng</Text>
+            {players.map((p, idx) => (
+              <View key={p.id} style={styles.playerRow}>
+                <Text style={styles.playerName}>
+                  #{idx + 1} {p.name} {p.isHost ? '👑' : ''}
+                </Text>
+                <Text style={styles.playerScore}>{p.score}đ</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.roomMetaBox}>
+            <Text style={styles.roomMetaTitle}>Thông tin phòng</Text>
+            <View style={styles.roomMetaRow}>
+              <Text style={styles.roomMetaLabel}>Mã phòng</Text>
+              <Text style={styles.roomMetaValue}>{roomCode ?? '—'}</Text>
             </View>
-          ))}
+            <View style={styles.roomMetaRow}>
+              <Text style={styles.roomMetaLabel}>Số từ vựng</Text>
+              <Text style={styles.roomMetaValue}>{room?.cardCount ?? 0} từ</Text>
+            </View>
+            <View style={styles.roomMetaRow}>
+              <Text style={styles.roomMetaLabel}>Điểm thắng</Text>
+              <Text style={styles.roomMetaValue}>{room?.scoreLimit ?? 15} điểm</Text>
+            </View>
+          </View>
         </View>
 
         {/* Center: Question & Fast Answer */}
         <View style={[styles.card, isWide && styles.mainCol]}>
           {room?.status === 'lobby' ? (
             <View style={styles.centerBox}>
+              <CatFrame color="#A89A8E" />
               <Text style={styles.bigTitle}>Sẵn sàng thi đấu!</Text>
               <Text style={styles.subText}>
                 Chia sẻ mã phòng <Text style={styles.codeHighlight}>{roomCode}</Text> cho bạn bè cùng vào.
@@ -169,6 +198,7 @@ export default function KotobaLiveRoomScreen() {
             </View>
           ) : room?.status === 'finished' ? (
             <View style={styles.centerBox}>
+              <CatFrame color="#A89A8E" />
               <Text style={styles.bigTitle}>🏆 Trận đấu kết thúc!</Text>
               <Text style={styles.subText}>Người dẫn đầu: {players[0]?.name ?? '—'} ({players[0]?.score ?? 0}đ)</Text>
               <Pressable style={styles.primaryBtn} onPress={() => sendMsg({ type: 'start' })}>
@@ -176,21 +206,42 @@ export default function KotobaLiveRoomScreen() {
               </Pressable>
             </View>
           ) : question ? (
-            <View style={styles.centerBox}>
-              <View style={styles.qHeader}>
-                <Text style={styles.qBadge}>
-                  Câu #{question.index} · {question.direction === 'reading' ? 'Gõ cách đọc (Kana / Romaji)' : 'Gõ nghĩa tiếng Việt'}
-                </Text>
-                <Text style={styles.timerBadge}>{remainingSec}s</Text>
+            <View style={[styles.centerBox, styles.questionBox]}>
+              <CatFrame color="#A89A8E" />
+              <View style={styles.qTopWrap}>
+                <View style={styles.qHeader}>
+                  <Text style={styles.qBadge}>
+                    Câu #{question.index} · {question.direction === 'reading' ? 'Gõ cách đọc (Kana / Romaji)' : 'Gõ nghĩa tiếng Việt'}
+                  </Text>
+                  <Text style={[styles.timerBadge, isUrgent && styles.timerBadgeUrgent]}>{remainingSec}s</Text>
+                </View>
+                <View style={styles.timerTrack}>
+                  <View
+                    style={[
+                      styles.timerFill,
+                      { width: `${timerPct}%` },
+                      isUrgent && styles.timerFillUrgent,
+                    ]}
+                  />
+                </View>
               </View>
-              <Text style={styles.promptText}>{question.prompt}</Text>
-              {question.sinoVietnamese ? <Text style={styles.hintText}>Hán Việt: {question.sinoVietnamese}</Text> : null}
+
+              <View style={styles.promptCenter}>
+                <Text style={styles.promptText}>{question.prompt}</Text>
+                {question.sinoVietnamese ? (
+                  <View style={styles.hintPill}>
+                    <Text style={styles.hintText}>Hán Việt: {question.sinoVietnamese}</Text>
+                  </View>
+                ) : null}
+              </View>
+
               <Pressable style={styles.skipBtn} onPress={() => sendMsg({ type: 'skip' })}>
                 <Text style={styles.skipText}>Bỏ qua câu này</Text>
               </Pressable>
             </View>
           ) : (
             <View style={styles.centerBox}>
+              <CatFrame color="#A89A8E" />
               <Text style={styles.subText}>Đang chuẩn bị câu tiếp theo…</Text>
             </View>
           )}
@@ -198,9 +249,11 @@ export default function KotobaLiveRoomScreen() {
           {/* Answer / Chat Input */}
           <View style={styles.inputRow}>
             <TextInput
+              ref={inputRef}
               value={input}
               onChangeText={setInput}
               onSubmitEditing={handleSubmit}
+              blurOnSubmit={false}
               placeholder="Gõ đáp án (Romaji / Kana / Nghĩa) hoặc chat..."
               placeholderTextColor={nihongoTheme.colors.textMuted}
               style={styles.input}
@@ -214,7 +267,12 @@ export default function KotobaLiveRoomScreen() {
         {/* Right: Live Chat & Answer Feed */}
         <View style={[styles.card, isWide && styles.sideCol]}>
           <Text style={styles.cardTitle}>Diễn biến & Chat</Text>
-          <ScrollView style={styles.chatScroll} showsVerticalScrollIndicator>
+          <ScrollView
+            ref={chatScrollRef}
+            style={styles.chatScroll}
+            showsVerticalScrollIndicator
+            onContentSizeChange={() => chatScrollRef.current?.scrollToEnd({ animated: true })}
+          >
             {chat.map((c) => (
               <View
                 key={c.id}
@@ -258,6 +316,41 @@ const styles = StyleSheet.create({
   },
   sideCol: {
     flex: 0.85,
+  },
+  leftColInner: {
+    justifyContent: 'space-between',
+  },
+  sectionBlock: {
+    gap: 10,
+  },
+  roomMetaBox: {
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderRadius: nihongoTheme.radius.md,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 12,
+    gap: 8,
+  },
+  roomMetaTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  roomMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  roomMetaLabel: {
+    fontSize: 12,
+    color: nihongoTheme.colors.textMuted,
+  },
+  roomMetaValue: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
   },
   mainCol: {
     flex: 1.65,
@@ -305,6 +398,16 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     borderColor: '#C87D55',
     padding: 24,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  questionBox: {
+    justifyContent: 'space-between',
+    gap: 0,
+  },
+  qTopWrap: {
+    width: '100%',
+    gap: 10,
   },
   qHeader: {
     width: '100%',
@@ -326,21 +429,53 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: nihongoTheme.radius.pill,
   },
+  timerBadgeUrgent: {
+    backgroundColor: '#FEE2E2',
+    color: '#DC2626',
+  },
+  timerTrack: {
+    width: '100%',
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: '#EFE4D6',
+    overflow: 'hidden',
+  },
+  timerFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: nihongoTheme.colors.accent,
+  },
+  timerFillUrgent: {
+    backgroundColor: '#DC2626',
+  },
+  promptCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 16,
+  },
   bigTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: nihongoTheme.colors.textPrimary,
   },
   promptText: {
-    fontSize: 56,
+    fontSize: 64,
     fontWeight: '800',
     color: nihongoTheme.colors.textPrimary,
     textAlign: 'center',
   },
+  hintPill: {
+    backgroundColor: 'rgba(200, 125, 85, 0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: nihongoTheme.radius.pill,
+  },
   hintText: {
     fontSize: 12,
     fontWeight: '700',
-    color: nihongoTheme.colors.textMuted,
+    color: '#9A5B37',
   },
   subText: {
     fontSize: 14,
@@ -363,13 +498,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   skipBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: nihongoTheme.radius.pill,
+    borderWidth: 1,
+    borderColor: '#E5D5C3',
+    backgroundColor: '#FFFFFF',
   },
   skipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: nihongoTheme.colors.textMuted,
+    color: nihongoTheme.colors.textSecondary,
   },
   inputRow: {
     flexDirection: 'row',
