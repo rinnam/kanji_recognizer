@@ -110,15 +110,15 @@ export function ShadowingToolbar({
           </Pressable>
 
           <Pressable style={styles.btn} onPress={onPrevLine}>
-            <Text style={styles.btnText}>⏮️</Text>
+            <PrevIcon size={16} color="#4A3E35" />
           </Pressable>
 
           <Pressable style={[styles.btn, styles.playBtn]} onPress={onTogglePlay}>
-            <Text style={styles.playBtnText}>{isPlaying ? '⏸️' : '▶️'}</Text>
+            {isPlaying ? <PauseIcon size={18} color="#FFFFFF" /> : <PlayIcon size={18} color="#FFFFFF" />}
           </Pressable>
 
           <Pressable style={styles.btn} onPress={onNextLine}>
-            <Text style={styles.btnText}>⏭️</Text>
+            <NextIcon size={16} color="#4A3E35" />
           </Pressable>
 
           <Pressable style={styles.btn} onPress={() => onSeekRelative(5)}>

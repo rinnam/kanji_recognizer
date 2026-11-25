@@ -9,6 +9,7 @@ import { parseCsv } from '../../src/import-parser';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { CatFrame } from '../../src/CatFrame';
+import { BulbIcon, ClockIcon, ResetIcon, ShuffleIcon, VolumeIcon } from '../../src/components/AppIcons';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { sampleLibrary } from '../../src/sample-library';
 import {
@@ -1104,17 +1105,17 @@ export default function FlashcardQuizPracticeScreen() {
                   }}
                   accessibilityLabel="Xáo trộn câu hỏi"
                 >
-                  <Text style={[styles.toolIconText, quizShuffled && styles.toolIconTextActive]}>🔀</Text>
+                  <ShuffleIcon size={16} color={quizShuffled ? '#A64B24' : '#4A3E35'} />
                 </Pressable>
                 <Pressable
                   style={styles.toolIconBtn}
                   onPress={handleResetQuiz}
                   accessibilityLabel="Reset Quiz"
                 >
-                  <Text style={styles.toolIconText}>↺</Text>
+                  <ResetIcon size={16} color="#4A3E35" />
                 </Pressable>
                 <View style={styles.timerBox}>
-                  <Text style={styles.timerIcon}>🕒</Text>
+                  <ClockIcon size={15} color="#6E6055" />
                   <TextInput
                     value={quizAutoSecInput}
                     onChangeText={(val) => setQuizAutoSecInput(val.replace(/[^0-9]/g, '').slice(0, 2))}
@@ -1132,11 +1133,13 @@ export default function FlashcardQuizPracticeScreen() {
                 Câu {(quizIndex % activeWords.length) + 1}/{activeWords.length} · {quizScore}đ
               </Text>
               <View style={styles.headerRight}>
-                <Pressable style={styles.ttsBtn} onPress={() => setShowHint((v) => !v)}>
-                  <Text style={styles.ttsText}>{isCompact ? '💡 Gợi ý' : '💡 Gợi ý Hán Việt'}</Text>
+                <Pressable style={styles.iconPillBtn} onPress={() => setShowHint((v) => !v)}>
+                  <BulbIcon size={14} color={nihongoTheme.colors.accentHover} />
+                  <Text style={styles.ttsText}>{isCompact ? 'Gợi ý' : 'Gợi ý Hán Việt'}</Text>
                 </Pressable>
-                <Pressable style={styles.ttsBtn} onPress={() => speak(currentQuiz.reading || currentQuiz.word)}>
-                  <Text style={styles.ttsText}>{isCompact ? '🔊' : '🔊 Nghe'}</Text>
+                <Pressable style={styles.iconPillBtn} onPress={() => speak(currentQuiz.reading || currentQuiz.word)}>
+                  <VolumeIcon size={14} color={nihongoTheme.colors.accentHover} />
+                  {!isCompact ? <Text style={styles.ttsText}>Nghe</Text> : null}
                 </Pressable>
               </View>
             </View>
@@ -1904,6 +1907,15 @@ const styles = StyleSheet.create({
     backgroundColor: nihongoTheme.colors.accentSoft,
     borderRadius: nihongoTheme.radius.pill,
     paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  iconPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 11,
     paddingVertical: 6,
   },
   ttsText: {
