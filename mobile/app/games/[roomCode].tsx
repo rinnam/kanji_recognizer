@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
@@ -51,11 +51,11 @@ export default function KotobaLiveRoomScreen() {
   const [chat, setChat] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState('');
   const [remainingSec, setRemainingSec] = useState(0);
-  const [totalSec, setTotalSec] = useState(20);
   const [wsError, setWsError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const chatScrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const inputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
+  const timerProgress = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     let active = true;
@@ -108,18 +108,32 @@ export default function KotobaLiveRoomScreen() {
   useEffect(() => {
     if (!question) {
       setRemainingSec(0);
+      timerProgress.stopAnimation();
+      timerProgress.setValue(0);
       return;
     }
-    const initial = Math.max(1, Math.ceil((question.deadlineMs - Date.now()) / 1000));
-    setTotalSec(initial);
+    const remainingMs = Math.max(0, question.deadlineMs - Date.now());
+    timerProgress.stopAnimation();
+    timerProgress.setValue(1);
+    const anim = Animated.timing(timerProgress, {
+      toValue: 0,
+      duration: remainingMs,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    });
+    anim.start();
+
     const tick = () => {
       const left = Math.max(0, Math.ceil((question.deadlineMs - Date.now()) / 1000));
       setRemainingSec(left);
     };
     tick();
     const t = setInterval(tick, 200);
-    return () => clearInterval(t);
-  }, [question]);
+    return () => {
+      clearInterval(t);
+      anim.stop();
+    };
+  }, [question, timerProgress]);
 
   const sendMsg = (payload: unknown) => {
     if (wsRef.current && wsRef.current.readyState === 1) {
@@ -134,7 +148,10 @@ export default function KotobaLiveRoomScreen() {
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
-  const timerPct = totalSec > 0 ? Math.max(0, Math.min(100, (remainingSec / totalSec) * 100)) : 0;
+  const timerWidth = timerProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
   const isUrgent = remainingSec > 0 && remainingSec <= 5;
 
   return (
@@ -222,10 +239,10 @@ export default function KotobaLiveRoomScreen() {
                   <Text style={[styles.timerBadge, isUrgent && styles.timerBadgeUrgent]}>{remainingSec}s</Text>
                 </View>
                 <View style={styles.timerTrack}>
-                  <View
+                  <Animated.View
                     style={[
                       styles.timerFill,
-                      { width: `${timerPct}%` },
+                      { width: timerWidth },
                       isUrgent && styles.timerFillUrgent,
                     ]}
                   />
