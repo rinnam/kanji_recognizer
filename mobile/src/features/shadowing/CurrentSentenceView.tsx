@@ -4,6 +4,7 @@ import { nihongoTheme } from '../../theme/nihongo-theme';
 import type { AnalyzedToken, ShadowingLine } from './types';
 import { speakJapanese } from '../../utils/speak-japanese';
 import { formatTimestamp } from './shadowing-api';
+import { ClockIcon, RepeatIcon, ResetIcon, VolumeIcon } from '../../components/AppIcons';
 
 interface CurrentSentenceViewProps {
   line: ShadowingLine | null;
@@ -46,26 +47,34 @@ export function CurrentSentenceView({
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.badgeRow}>
-          <Text style={styles.timeTag}>⏱️ {formatTimestamp(line.start)} - {formatTimestamp(line.start + line.duration)}</Text>
+          <View style={[styles.timeTag, { flexDirection: 'row', alignItems: 'center', gap: 5 }]}>
+            <ClockIcon size={13} color={nihongoTheme.colors.accentHover} />
+            <Text style={{ fontSize: 12, fontWeight: '700', color: nihongoTheme.colors.accentHover }}>
+              {formatTimestamp(line.start)} - {formatTimestamp(line.start + line.duration)}
+            </Text>
+          </View>
           <Text style={styles.tokenCountTag}>{line.tokens?.length ?? 0} từ</Text>
         </View>
 
         <View style={styles.actionIcons}>
           <Pressable
-            style={[styles.smallBtn, isLooping && styles.smallBtnActive]}
+            style={[styles.smallBtn, isLooping && styles.smallBtnActive, { flexDirection: 'row', alignItems: 'center', gap: 5 }]}
             onPress={onToggleLoop}
           >
+            <RepeatIcon size={13} color={isLooping ? '#FFFFFF' : '#6E6055'} />
             <Text style={[styles.smallBtnText, isLooping && styles.smallBtnTextActive]}>
-              {isLooping ? '🔁 Đang lặp' : '🔁 Lặp câu'}
+              {isLooping ? 'Đang lặp' : 'Lặp câu'}
             </Text>
           </Pressable>
 
-          <Pressable style={styles.smallBtn} onPress={onReplayLine}>
-            <Text style={styles.smallBtnText}>↩️ Nghe lại</Text>
+          <Pressable style={[styles.smallBtn, { flexDirection: 'row', alignItems: 'center', gap: 5 }]} onPress={onReplayLine}>
+            <ResetIcon size={13} color="#6E6055" />
+            <Text style={styles.smallBtnText}>Nghe lại</Text>
           </Pressable>
 
-          <Pressable style={styles.smallBtn} onPress={() => speakJapanese(line.text)}>
-            <Text style={styles.smallBtnText}>🔊 Đọc mẫu</Text>
+          <Pressable style={[styles.smallBtn, { flexDirection: 'row', alignItems: 'center', gap: 5 }]} onPress={() => speakJapanese(line.text)}>
+            <VolumeIcon size={13} color={nihongoTheme.colors.accentHover} />
+            <Text style={styles.smallBtnText}>Đọc mẫu</Text>
           </Pressable>
         </View>
       </View>
@@ -219,12 +228,14 @@ const styles = StyleSheet.create({
     borderColor: nihongoTheme.colors.borderWarm,
     minHeight: 80,
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   tokenRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'flex-end',
     gap: 4,
+    width: '100%',
   },
   tokenItem: {
     alignItems: 'center',
@@ -232,6 +243,8 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
     borderBottomWidth: 2,
     borderRadius: 4,
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   readingText: {
     fontSize: 11,

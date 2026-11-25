@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform, Alert } from 'react-native';
 import { nihongoTheme } from '../../theme/nihongo-theme';
-import { NextIcon, PauseIcon, PlayIcon, PrevIcon } from '../../components/AppIcons';
+import { MicIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, RepeatIcon, VolumeIcon } from '../../components/AppIcons';
 
 interface ShadowingToolbarProps {
   isPlaying: boolean;
@@ -146,37 +146,42 @@ export function ShadowingToolbar({
       {/* Shadowing Features: Auto-Pause & Loop & Voice Recorder */}
       <View style={styles.featureRow}>
         <Pressable
-          style={[styles.featureChip, autoPause && styles.featureChipActive]}
+          style={[styles.featureChip, autoPause && styles.featureChipActive, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
           onPress={onToggleAutoPause}
         >
+          <PauseIcon size={13} color={autoPause ? '#FFFFFF' : '#6E6055'} />
           <Text style={[styles.featureChipText, autoPause && styles.featureChipTextActive]}>
-            {autoPause ? '⏸️ Dừng mỗi câu: BẬT' : '⏸️ Dừng mỗi câu: TẮT'}
+            {autoPause ? 'Dừng mỗi câu: BẬT' : 'Dừng mỗi câu: TẮT'}
           </Text>
         </Pressable>
 
         <Pressable
-          style={[styles.featureChip, isLooping && styles.featureChipActive]}
+          style={[styles.featureChip, isLooping && styles.featureChipActive, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
           onPress={onToggleLoop}
         >
+          <RepeatIcon size={14} color={isLooping ? '#FFFFFF' : '#6E6055'} />
           <Text style={[styles.featureChipText, isLooping && styles.featureChipTextActive]}>
-            {isLooping ? '🔁 Lặp câu: BẬT' : '🔁 Lặp câu: TẮT'}
+            {isLooping ? 'Lặp câu: BẬT' : 'Lặp câu: TẮT'}
           </Text>
         </Pressable>
 
         {/* Voice recording button */}
         {!isRecording ? (
-          <Pressable style={styles.recordBtn} onPress={startRecording}>
-            <Text style={styles.recordBtnText}>🎙️ Ghi âm nhại giọng</Text>
+          <Pressable style={[styles.recordBtn, { flexDirection: 'row', alignItems: 'center', gap: 6 }]} onPress={startRecording}>
+            <MicIcon size={14} color="#991B1B" />
+            <Text style={styles.recordBtnText}>Ghi âm nhại giọng</Text>
           </Pressable>
         ) : (
-          <Pressable style={[styles.recordBtn, styles.recordingActive]} onPress={stopRecording}>
-            <Text style={styles.recordBtnText}>⏹️ Dừng ghi ({recordingSeconds}s)</Text>
+          <Pressable style={[styles.recordBtn, styles.recordingActive, { flexDirection: 'row', alignItems: 'center', gap: 6 }]} onPress={stopRecording}>
+            <MicIcon size={14} color="#FFFFFF" />
+            <Text style={styles.recordBtnText}>Dừng ghi ({recordingSeconds}s)</Text>
           </Pressable>
         )}
 
         {recordedUrl && !isRecording ? (
-          <Pressable style={styles.listenBackBtn} onPress={playRecordedAudio}>
-            <Text style={styles.listenBackText}>🎧 Nghe lại giọng mình</Text>
+          <Pressable style={[styles.listenBackBtn, { flexDirection: 'row', alignItems: 'center', gap: 6 }]} onPress={playRecordedAudio}>
+            <VolumeIcon size={14} color="#1B873F" />
+            <Text style={styles.listenBackText}>Nghe lại giọng mình</Text>
           </Pressable>
         ) : null}
       </View>
