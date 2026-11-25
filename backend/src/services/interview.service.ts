@@ -70,13 +70,10 @@ export interface TranscribedAudioResponse {
 }
 
 const GEMINI_MODEL_CHAIN = [
-  'gemini-flash-lite-latest',
-  'gemini-3.1-flash-lite',
-  'gemini-3.5-flash-lite',
-  'gemma-4-26b-a4b-it',
-  'gemini-3.5-flash',
+  'gemini-3.8-flash',
   'gemini-3.6-flash',
-  'gemini-flash-latest',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
 ] as const;
 
 /** Cooldown circuit breaker: skips models that recently hit 429 (30m) or 503/timeout (2m). */
