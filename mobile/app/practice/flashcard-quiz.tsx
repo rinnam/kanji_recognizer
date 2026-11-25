@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -51,6 +51,8 @@ const DEFAULT_OPTIONS: QuizletOptionsConfig = {
 type Mode = 'flashcard' | 'quiz' | 'library';
 
 export default function FlashcardQuizPracticeScreen() {
+  const { width } = useWindowDimensions();
+  const isCompact = width < 640;
   const [mode, setMode] = useState<Mode>('flashcard');
   const [folders, setFolders] = useState<FolderDto[]>(sampleLibrary.folders);
   const [words, setWords] = useState<VocabularyDto[]>(sampleLibrary.vocabularies);
@@ -656,11 +658,11 @@ export default function FlashcardQuizPracticeScreen() {
         title="Flashcard & Quiz"
         rightSlot={
           <View style={styles.headerRight}>
-            <Pressable style={styles.ttsBtn} onPress={() => setOptionsOpen(true)}>
-              <Text style={styles.ttsText}>⚙ Cài đặt</Text>
+            <Pressable style={styles.ttsBtn} onPress={() => setOptionsOpen(true)} accessibilityLabel="Cài đặt">
+              <Text style={styles.ttsText}>{isCompact ? '⚙' : '⚙ Cài đặt'}</Text>
             </Pressable>
-            <Pressable style={styles.ttsBtn} onPress={() => void fetchFromBackend()}>
-              <Text style={styles.ttsText}>↻ Đồng bộ</Text>
+            <Pressable style={styles.ttsBtn} onPress={() => void fetchFromBackend()} accessibilityLabel="Đồng bộ">
+              <Text style={styles.ttsText}>{isCompact ? '↻' : '↻ Đồng bộ'}</Text>
             </Pressable>
           </View>
         }
@@ -1058,7 +1060,7 @@ export default function FlashcardQuizPracticeScreen() {
       {/* MODE 2: TYPING QUIZ (3 modes + Sino-Vietnamese hint + CatFrame style) */}
       {mode === 'quiz' && currentQuiz ? (
         <View style={styles.section}>
-          <View style={styles.quizCatCard}>
+          <View style={[styles.quizCatCard, isCompact && styles.quizCatCardCompact]}>
             <View pointerEvents="none" style={styles.catFrameOverlay}>
               <CatFrame color="#A89A8E" />
             </View>
@@ -1068,8 +1070,8 @@ export default function FlashcardQuizPracticeScreen() {
                 {(
                   [
                     ['random', 'Ngẫu nhiên'],
-                    ['jp_to_vi', 'Dạng 1 (Nhật → Việt)'],
-                    ['vi_to_jp', 'Dạng 2 (Việt → Nhật)'],
+                    ['jp_to_vi', isCompact ? 'Nhật → Việt' : 'Dạng 1 (Nhật → Việt)'],
+                    ['vi_to_jp', isCompact ? 'Việt → Nhật' : 'Dạng 2 (Việt → Nhật)'],
                   ] as const
                 ).map(([key, label]) => {
                   const active = quizMode === key;
@@ -1127,14 +1129,14 @@ export default function FlashcardQuizPracticeScreen() {
 
             <View style={styles.cardTopRow}>
               <Text style={styles.progressText}>
-                Câu {(quizIndex % activeWords.length) + 1} / {activeWords.length} · Điểm: {quizScore}
+                Câu {(quizIndex % activeWords.length) + 1}/{activeWords.length} · {quizScore}đ
               </Text>
               <View style={styles.headerRight}>
                 <Pressable style={styles.ttsBtn} onPress={() => setShowHint((v) => !v)}>
-                  <Text style={styles.ttsText}>💡 Gợi ý Hán Việt</Text>
+                  <Text style={styles.ttsText}>{isCompact ? '💡 Gợi ý' : '💡 Gợi ý Hán Việt'}</Text>
                 </Pressable>
                 <Pressable style={styles.ttsBtn} onPress={() => speak(currentQuiz.reading || currentQuiz.word)}>
-                  <Text style={styles.ttsText}>🔊 Nghe</Text>
+                  <Text style={styles.ttsText}>{isCompact ? '🔊' : '🔊 Nghe'}</Text>
                 </Pressable>
               </View>
             </View>
@@ -2009,6 +2011,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     ...nihongoTheme.shadow.card,
+  },
+  quizCatCardCompact: {
+    minHeight: 235,
+    padding: 14,
+    gap: 8,
   },
   quizTopBar: {
     flexDirection: 'row',
