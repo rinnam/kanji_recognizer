@@ -30,7 +30,7 @@ export const nihongoTheme = {
     pill: 9999,
   },
   layout: {
-    maxWidth: 920,
+    maxWidth: 1180,
     dockBottomOffset: 16,
     contentBottomPadding: 112,
   },

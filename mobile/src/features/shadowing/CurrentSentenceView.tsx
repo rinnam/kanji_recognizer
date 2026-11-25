@@ -118,7 +118,7 @@ export function CurrentSentenceView({
                   key={`${index}-${token.surface}`}
                   style={[
                     styles.tokenItem,
-                    { borderBottomColor: posStyle.border },
+                    { borderBottomColor: posStyle.border, backgroundColor: posStyle.bg },
                   ]}
                   onPress={() => onSelectToken(token)}
                 >
@@ -270,10 +270,10 @@ const styles = StyleSheet.create({
   },
   tokenItem: {
     alignItems: 'center',
-    paddingHorizontal: 4,
-    paddingBottom: 2,
-    borderBottomWidth: 2,
-    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderBottomWidth: 3,
+    borderRadius: 6,
     maxWidth: '100%',
     flexShrink: 1,
   },

@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'transparent',
   },
   card: {
     width: '100%',
@@ -84,9 +84,9 @@ const styles = StyleSheet.create({
     borderRadius: nihongoTheme.radius.card,
     padding: 20,
     gap: 14,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: nihongoTheme.colors.borderWarm,
-    ...nihongoTheme.shadow.card,
+    ...nihongoTheme.shadow.dock,
   },
   header: {
     flexDirection: 'row',
