@@ -50,44 +50,65 @@ export default function ListeningScreen() {
 
   const playerRef = useRef<PlayerRef>(null);
   const lastPausedLineRef = useRef<number>(-1);
+  const linesRef = useRef(lines);
+  const isLoopingRef = useRef(isLooping);
+  const autoPauseRef = useRef(autoPause);
+  const currentIndexRef = useRef(currentIndex);
 
-  // Sync subtitle index from current video time
-  const handleTimeUpdate = useCallback(
-    (currentTime: number) => {
-      if (!lines || lines.length === 0) return;
+  linesRef.current = lines;
+  isLoopingRef.current = isLooping;
+  autoPauseRef.current = autoPause;
+  currentIndexRef.current = currentIndex;
 
-      let foundIdx = 0;
-      for (let i = lines.length - 1; i >= 0; i--) {
-        if (currentTime >= lines[i].start) {
-          foundIdx = i;
-          break;
-        }
-      }
+  // Sync subtitle index from current video time (ref-backed to avoid stale player closures)
+  const handleTimeUpdate = useCallback((currentTime: number) => {
+    const activeLines = linesRef.current;
+    if (!activeLines || activeLines.length === 0) return;
 
-      setCurrentIndex((prev) => (prev !== foundIdx ? foundIdx : prev));
+    const getEffectiveEnd = (idx: number) => {
+      const line = activeLines[idx];
+      const next = activeLines[idx + 1];
+      const rawEnd = line.start + Math.max(line.duration, 0.5);
+      return next ? Math.min(rawEnd, next.start) : rawEnd;
+    };
 
-      const curLine = lines[foundIdx];
-      if (!curLine) return;
-
-      const lineEnd = curLine.start + curLine.duration;
-
-      // Loop current line feature
-      if (isLooping && currentTime >= lineEnd - 0.15) {
-        playerRef.current?.seekTo(curLine.start);
+    // 1) If Looping is ON, lock strictly to currentIndexRef and seek back at effectiveEnd
+    if (isLoopingRef.current) {
+      const lockedIdx = Math.min(Math.max(currentIndexRef.current, 0), activeLines.length - 1);
+      const lockedLine = activeLines[lockedIdx];
+      const lockedEnd = getEffectiveEnd(lockedIdx);
+      if (currentTime >= lockedEnd - 0.15) {
+        playerRef.current?.seekTo(lockedLine.start);
         return;
       }
+      return;
+    }
 
-      // Auto-pause at end of current line (Shadowing training mode)
-      if (autoPause && currentTime >= lineEnd - 0.2) {
-        if (lastPausedLineRef.current !== foundIdx) {
-          lastPausedLineRef.current = foundIdx;
-          playerRef.current?.pause();
-          setIsPlaying(false);
-        }
+    // 2) If Auto-Pause is ON, pause as soon as the current line reaches its effectiveEnd
+    if (autoPauseRef.current) {
+      const activeIdx = Math.min(Math.max(currentIndexRef.current, 0), activeLines.length - 1);
+      const activeEnd = getEffectiveEnd(activeIdx);
+      if (currentTime >= activeEnd - 0.15 && lastPausedLineRef.current !== activeIdx) {
+        lastPausedLineRef.current = activeIdx;
+        playerRef.current?.pause();
+        setIsPlaying(false);
+        return;
       }
-    },
-    [lines, isLooping, autoPause],
-  );
+    }
+
+    let foundIdx = 0;
+    for (let i = activeLines.length - 1; i >= 0; i--) {
+      if (currentTime >= activeLines[i].start) {
+        foundIdx = i;
+        break;
+      }
+    }
+
+    if (foundIdx !== currentIndexRef.current) {
+      currentIndexRef.current = foundIdx;
+      setCurrentIndex(foundIdx);
+    }
+  }, []);
 
   const handlePlayerState = (state: number) => {
     // 1 = playing, 2 = paused
