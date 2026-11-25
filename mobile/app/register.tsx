@@ -72,15 +72,16 @@ export default function RegisterScreen() {
             <Text style={styles.linkText}>Đã có tài khoản? Đăng nhập</Text>
           </Pressable>
         </View>
-      </View>
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    paddingTop: 32,
+  centerShell: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
   },
   card: {
     width: '100%',
