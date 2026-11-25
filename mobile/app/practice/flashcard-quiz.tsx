@@ -903,9 +903,13 @@ export default function FlashcardQuizPracticeScreen() {
         </View>
       ) : null}
 
-      {/* MODE 2: TYPING QUIZ (3 modes + Sino-Vietnamese hint) */}
+      {/* MODE 2: TYPING QUIZ (3 modes + Sino-Vietnamese hint + CatFrame style) */}
       {mode === 'quiz' && currentQuiz ? (
-        <View style={styles.card}>
+        <View style={styles.quizCatCard}>
+          <View pointerEvents="none" style={styles.catFrameOverlay}>
+            <CatFrame color="#A89A8E" />
+          </View>
+
           <View style={styles.quizModeRow}>
             {(
               [
@@ -1719,6 +1723,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: nihongoTheme.colors.accentHover,
+  },
+  quizCatCard: {
+    minHeight: 360,
+    backgroundColor: '#FDF8F0',
+    borderRadius: 20,
+    borderWidth: 1.2,
+    borderColor: '#C87D55',
+    padding: 26,
+    gap: 16,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+    position: 'relative',
+    ...nihongoTheme.shadow.card,
   },
   quizModeRow: {
     flexDirection: 'row',
