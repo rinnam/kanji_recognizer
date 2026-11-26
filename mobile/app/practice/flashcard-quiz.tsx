@@ -5,6 +5,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import type { FolderDto, VocabularyDto } from '../../../packages/contracts/src/study';
 import { speakJapanese } from '../../src/utils/speak-japanese';
+import {
+  AiFlashcardModal,
+  type AiExtractedCard,
+} from '../../src/features/flashcards/AiFlashcardModal';
 import { parseCsv } from '../../src/import-parser';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
@@ -73,6 +77,11 @@ export default function FlashcardQuizPracticeScreen() {
   // Quick add / edit / bulk import word & library pagination state
   const [addWordOpen, setAddWordOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [mnemonicMap, setMnemonicMap] = useState<
+    Record<string, { radicalBreakdown: string; storyVi: string; usageTipVi: string }>
+  >({});
+  const [mnemonicLoading, setMnemonicLoading] = useState(false);
   const [importText, setImportText] = useState('');
   const [editingWordId, setEditingWordId] = useState<string | null>(null);
   const [newWord, setNewWord] = useState('');
@@ -554,6 +563,64 @@ export default function FlashcardQuizPracticeScreen() {
     }
   };
 
+  const handleImportAiCards = (aiCards: AiExtractedCard[]) => {
+    const targetFolderId = folderId;
+    const createdList: VocabularyDto[] = aiCards
+      .filter((c) => c.word.trim() && c.meaning.trim())
+      .map((c) => {
+        const lvl = (['N1', 'N2', 'N3', 'N4', 'N5'].includes(c.jlptLevel)
+          ? c.jlptLevel
+          : 'N3') as VocabularyDto['jlptLevel'];
+        return {
+          ...createLocalWord({ word: c.word, reading: c.reading, meaning: c.meaning, jlptLevel: lvl }, targetFolderId),
+          sinoVietnamese: c.sinoVietnamese || null,
+          example: c.example || null,
+          exampleMeaning: c.exampleMeaning || null,
+        };
+      });
+    if (createdList.length === 0) return;
+    setWords((prev) => [...createdList, ...prev]);
+    if (connected) {
+      const controller = new AbortController();
+      void pushLibrary({ folders: [], vocabularies: createdList }, controller.signal).catch(() => undefined);
+    }
+  };
+
+  const handleFetchMnemonic = async (card: VocabularyDto) => {
+    if (mnemonicMap[card.id] || mnemonicLoading) return;
+    setMnemonicLoading(true);
+    try {
+      const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+      const res = await fetch(`${base}/ai/flashcards/mnemonic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          word: card.word,
+          reading: card.reading,
+          meaning: card.meaning,
+        }),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        radicalBreakdown?: string;
+        storyVi?: string;
+        usageTipVi?: string;
+      };
+      setMnemonicMap((prev) => ({
+        ...prev,
+        [card.id]: {
+          radicalBreakdown: data.radicalBreakdown ?? '',
+          storyVi: data.storyVi ?? '',
+          usageTipVi: data.usageTipVi ?? '',
+        },
+      }));
+    } catch {
+      // ignore transient AI failure
+    } finally {
+      setMnemonicLoading(false);
+    }
+  };
+
   const speak = (text: string) => {
     void speakJapanese(text);
   };
@@ -655,7 +722,7 @@ export default function FlashcardQuizPracticeScreen() {
   // Web keyboard shortcuts (ported from frontend/src/features/flashcard & quiz keymaps)
   const keyStateRef = useRef({
     mode,
-    hasModal: folderModalOpen || optionsOpen || importOpen,
+    hasModal: folderModalOpen || optionsOpen || importOpen || aiModalOpen,
     currentCard,
     currentQuiz,
     quizResult,
@@ -666,7 +733,7 @@ export default function FlashcardQuizPracticeScreen() {
   });
   keyStateRef.current = {
     mode,
-    hasModal: folderModalOpen || optionsOpen || importOpen,
+    hasModal: folderModalOpen || optionsOpen || importOpen || aiModalOpen,
     currentCard,
     currentQuiz,
     quizResult,
@@ -1112,6 +1179,30 @@ export default function FlashcardQuizPracticeScreen() {
                           ) : null}
                         </View>
                       ) : null}
+                      {mnemonicMap[currentCard.id] ? (
+                        <View style={styles.exampleBox}>
+                          <Text style={styles.exampleLabel}>MẸO NHỚ KANJI (AI)</Text>
+                          {mnemonicMap[currentCard.id]!.radicalBreakdown ? (
+                            <Text style={styles.exampleJp}>{mnemonicMap[currentCard.id]!.radicalBreakdown}</Text>
+                          ) : null}
+                          <Text style={styles.exampleVi}>{mnemonicMap[currentCard.id]!.storyVi}</Text>
+                          {mnemonicMap[currentCard.id]!.usageTipVi ? (
+                            <Text style={styles.exampleVi}>{mnemonicMap[currentCard.id]!.usageTipVi}</Text>
+                          ) : null}
+                        </View>
+                      ) : (
+                        <Pressable
+                          style={[styles.modeToggle, { marginTop: 8 }]}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            void handleFetchMnemonic(currentCard);
+                          }}
+                        >
+                          <Text style={styles.modeToggleText}>
+                            {mnemonicLoading ? 'Đang tạo mẹo nhớ AI...' : 'Mẹo nhớ Kanji (AI)'}
+                          </Text>
+                        </Pressable>
+                      )}
                     </View>
                   ) : (
                     <Text style={styles.kanjiLarge}>
@@ -1327,7 +1418,19 @@ export default function FlashcardQuizPracticeScreen() {
                 setImportOpen((v) => !v);
               }}
             >
-              <Text style={styles.addWordTriggerText}>{importOpen ? '− Đóng Import' : '📥 Import hàng loạt'}</Text>
+              <Text style={styles.addWordTriggerText}>{importOpen ? '− Đóng Import' : 'Import CSV'}</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.addWordTrigger, { flex: 1, backgroundColor: nihongoTheme.colors.accentSoft }]}
+              onPress={() => {
+                setAddWordOpen(false);
+                setImportOpen(false);
+                setAiModalOpen(true);
+              }}
+            >
+              <Text style={[styles.addWordTriggerText, { color: nihongoTheme.colors.accentHover }]}>
+                Tạo bằng AI (Ảnh/Text)
+              </Text>
             </Pressable>
           </View>
 
@@ -1456,6 +1559,16 @@ export default function FlashcardQuizPracticeScreen() {
           })()}
         </View>
       ) : null}
+      <AiFlashcardModal
+        visible={aiModalOpen}
+        folderName={
+          folderId === null
+            ? 'Tất cả thư mục'
+            : folders.find((f) => f.id === folderId)?.name ?? 'Thư mục hiện tại'
+        }
+        onClose={() => setAiModalOpen(false)}
+        onImportCards={handleImportAiCards}
+      />
     </AppShell>
   );
 }

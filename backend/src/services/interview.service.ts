@@ -1,4 +1,5 @@
 import { env } from '../config/env.js';
+import { callGeminiJson } from './gemini-client.js';
 import { transcribeWithLocalWhisper } from './whisper.service.js';
 
 export type InterviewStage =
@@ -12,6 +13,7 @@ export type InterviewStage =
 
 export interface InterviewScenario {
   id: string;
+  category: 'interview' | 'roleplay';
   title: string;
   companyName: string;
   interviewerName: string;
@@ -69,34 +71,10 @@ export interface TranscribedAudioResponse {
   fillers: string[];
 }
 
-const GEMINI_MODEL_CHAIN = [
-  'gemini-3.8-flash',
-  'gemini-3.6-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-] as const;
-
-/** Cooldown circuit breaker: skips models that recently hit 429 (30m) or 503/timeout (2m). */
-const modelCooldownUntil = new Map<string, number>();
-
-function isModelOnCooldown(model: string): boolean {
-  const until = modelCooldownUntil.get(model);
-  if (!until) return false;
-  if (Date.now() >= until) {
-    modelCooldownUntil.delete(model);
-    return false;
-  }
-  return true;
-}
-
-function markModelCooldown(model: string, status: number): void {
-  const durationMs = status === 429 ? 30 * 60 * 1000 : 2 * 60 * 1000;
-  modelCooldownUntil.set(model, Date.now() + durationMs);
-}
-
 export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
   {
     id: 'it_engineer',
+    category: 'interview',
     title: 'Phỏng vấn Kỹ sư IT (ITエンジニア)',
     companyName: 'Mirai Tech Japan Inc.',
     interviewerName: 'Sato Yuki (佐藤 由紀)',
@@ -115,6 +93,7 @@ export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
   },
   {
     id: 'baito',
+    category: 'interview',
     title: 'Phỏng vấn làm thêm (アルバイト)',
     companyName: 'Sakura Coffee Tokyo',
     interviewerName: 'Tanaka Kenji (田中 健二)',
@@ -133,6 +112,7 @@ export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
   },
   {
     id: 'study_abroad',
+    category: 'interview',
     title: 'Phỏng vấn Du học / Trường Nhật ngữ',
     companyName: 'Học viện Nhật ngữ Kibou',
     interviewerName: 'Yamada Haruo (山田 春夫)',
@@ -148,6 +128,61 @@ export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
       'ほんじつはめんせつにごさんかいただきありがとうございます。にゅうしたんとうのやまだともうします。はじめに、じこしょうかいをおねがいいたします。',
     openingVi:
       'Cảm ơn bạn đã tham gia buổi phỏng vấn hôm nay. Tôi là Yamada phụ trách tuyển sinh. Trước hết, hãy tự giới thiệu về bản thân bạn nhé.',
+  },
+  // ─── #5 Roleplay Đời sống & Công sở 3D ───────────────────────────────────
+  {
+    id: 'roleplay_horenso',
+    category: 'roleplay',
+    title: 'Họp Horenso (報連相) với sếp Nhật',
+    companyName: 'Phòng Dự án IT · Tokyo',
+    interviewerName: 'Takahashi PM (高橋 マネージャー)',
+    interviewerRole: 'Quản lý dự án (PM)',
+    level: 'N3 – N2',
+    description:
+      'Luyện báo cáo tiến độ (報告), liên lạc sự cố trễ deadline (連絡) và xin ý kiến giải pháp (相談) chuẩn văn hóa công sở Nhật.',
+    defaultCv: 'Bối cảnh: Bạn là thành viên nhóm phát triển, cần báo cáo tiến độ task tuần này và trao đổi về một bug nhỏ có thể làm chậm 1 ngày.',
+    openingJa:
+      'お疲れ様です。今週のタスクの進捗はいかがですか。何か困っていることや相談したいことがあれば教えてください。',
+    openingReading:
+      'おつかれさまです。こんしゅうのたすくのしんちょくはいかがですか。なにかこまっていることやそうだんしたいことがあればおしえてください。',
+    openingVi:
+      'Vất vả cho bạn rồi. Tiến độ task tuần này thế nào? Nếu có khó khăn hay điều gì cần trao đổi thì báo mình nhé.',
+  },
+  {
+    id: 'roleplay_clinic',
+    category: 'roleplay',
+    title: 'Đi khám bệnh tại Nhật (病院での診察)',
+    companyName: 'Phòng khám Nội khoa Shinjuku',
+    interviewerName: 'Bác sĩ Kobayashi (小林 先生)',
+    interviewerRole: 'Bác sĩ nội khoa (医師)',
+    level: 'N4 – N3',
+    description:
+      'Luyện mô tả triệu chứng (sốt, đau đầu, ho), thời điểm bắt đầu, tiền sử dị ứng thuốc và hỏi cách uống thuốc tại phòng khám Nhật.',
+    defaultCv: 'Bối cảnh: Bạn bị cảm nhẹ / sốt 38 độ từ tối hôm qua, đau họng và hơi mệt nên đi khám bác sĩ.',
+    openingJa:
+      'こんにちは。今日はどうされましたか。いつ頃から、どんな症状がありますか。',
+    openingReading:
+      'こんにちは。きょうはどうされましたか。いつごろから、どんなしょうじょうがありますか。',
+    openingVi:
+      'Xin chào. Hôm nay bạn thấy trong người thế nào? Triệu chứng bắt đầu từ lúc nào và biểu hiện ra sao?',
+  },
+  {
+    id: 'roleplay_restaurant',
+    category: 'roleplay',
+    title: 'Gọi món & Xử lý tình huống tại Nhà hàng Nhật',
+    companyName: 'Nhà hàng Washoku Sakura',
+    interviewerName: 'Nhân viên Suzuki (鈴木 スタッフ)',
+    interviewerRole: 'Nhân viên phục vụ (ホール担当)',
+    level: 'N5 – N4',
+    description:
+      'Luyện giao tiếp tự nhiên khi đặt bàn, hỏi món gợi ý, báo dị ứng thực phẩm, gọi thêm đồ uống và thanh toán tại quán ăn Nhật.',
+    defaultCv: 'Bối cảnh: Bạn đi ăn tối cùng bạn bè tại quán ăn Nhật, muốn hỏi món đặc sản và lưu ý không ăn được đồ cay/hải sản.',
+    openingJa:
+      'いらっしゃいませ！何名様でしょうか。お席にご案内いたしますので、ご注文がお決まりになりましたらお呼びください。',
+    openingReading:
+      'いらっしゃいませ！なんめいさまでしょうか。おせきにごあんないいたしますので、ごちゅうもんがおきまりになりましたらおよびください。',
+    openingVi:
+      'Xin kính chào quý khách! Quý khách đi mấy người ạ? Tôi xin dẫn vào bàn, khi nào chọn xong món xin cứ gọi nhé.',
   },
 ];
 
@@ -214,63 +249,6 @@ function clampScore(v: unknown, fallback = 78): number {
   const n = Number(v);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.min(100, Math.round(n)));
-}
-
-async function callGeminiJson<T>(parts: Array<Record<string, unknown>>): Promise<T> {
-  if (!env.GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY is missing in backend/.env');
-  }
-  const activeModels = GEMINI_MODEL_CHAIN.filter((m) => !isModelOnCooldown(m));
-  const candidates = activeModels.length > 0 ? activeModels : [...GEMINI_MODEL_CHAIN];
-
-  let lastErr = 'Unknown Gemini error';
-  for (const model of candidates) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-    const generationConfig: Record<string, unknown> = {
-      temperature: 0.35,
-      maxOutputTokens: 1024,
-    };
-    if (model.startsWith('gemini-')) {
-      generationConfig.responseMimeType = 'application/json';
-    }
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-goog-api-key': env.GEMINI_API_KEY,
-        },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts }],
-          generationConfig,
-        }),
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        lastErr = `${model} HTTP ${res.status}: ${errText.slice(0, 160)}`;
-        if (res.status === 429 || res.status === 503 || res.status === 404 || res.status >= 500) {
-          markModelCooldown(model, res.status);
-          continue;
-        }
-        throw new Error(lastErr);
-      }
-      const data = (await res.json()) as {
-        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-      };
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
-      const cleaned = rawText
-        .replace(/^```json\s*/i, '')
-        .replace(/^```\s*/i, '')
-        .replace(/```$/i, '')
-        .trim();
-      return JSON.parse(cleaned) as T;
-    } catch (err) {
-      markModelCooldown(model, 503);
-      lastErr = err instanceof Error ? err.message : String(err);
-    }
-  }
-  throw new Error(`All Gemini models failed: ${lastErr}`);
 }
 
 /** Parses a real uploaded CV (PDF / Image / TXT) with Gemini Flash multimodal API. */
@@ -373,8 +351,11 @@ export async function runInterviewTurn(input: {
     ...new Set([...(input.fillersFromAudio ?? []), ...detectTextFillers(candidateText)]),
   ];
 
+  const isRoleplay = scenario.category === 'roleplay';
   const nextStage = getNextStage(input.stage);
-  const willFinish = input.stage === 'reverse_question' || input.stage === 'closing';
+  const willFinish = isRoleplay
+    ? input.stage === 'cv_q2' || input.stage === 'reverse_question' || input.stage === 'closing'
+    : input.stage === 'reverse_question' || input.stage === 'closing';
 
   if (!env.GEMINI_API_KEY) {
     return {
@@ -408,7 +389,11 @@ export async function runInterviewTurn(input: {
     };
   }
 
-  const stageInstruction = STAGE_INSTRUCTIONS[input.stage];
+  const stageInstruction = isRoleplay
+    ? willFinish
+      ? `Đây là lượt cuối của buổi Roleplay (${scenario.title}). Hãy phản hồi tự nhiên câu nói vừa rồi và chào kết thúc tình huống lịch sự bằng tiếng Nhật.`
+      : `Bạn đang nhập vai ${scenario.interviewerName} (${scenario.interviewerRole}) trong tình huống thực tế "${scenario.title}" tại Nhật Bản. Hãy phản hồi tự nhiên, thực tế (1-2 câu tiếng Nhật phù hợp trình độ ${scenario.level}) và hỏi tiếp một câu sát bối cảnh để người học luyện phản xạ.`
+    : STAGE_INSTRUCTIONS[input.stage];
   const frameworkSpec =
     framework === 'STAR'
       ? 'STAR: S (Bối cảnh - Situation), T (Nhiệm vụ - Task), A (Hành động của riêng ứng viên - Action), R (Kết quả cụ thể - Result)'

@@ -1,81 +1,402 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppShell } from '../../../src/components/AppShell';
 import { TopHeader } from '../../../src/components/TopHeader';
 import { nihongoTheme } from '../../../src/theme/nihongo-theme';
+import { libraryEndpoint } from '../../../src/library-source';
+import { speakJapanese } from '../../../src/utils/speak-japanese';
+
+interface WritingCorrection {
+  original: string;
+  fixed: string;
+  reasonVi: string;
+}
+
+interface GradedResult {
+  totalScore: number;
+  scores: {
+    grammar: number;
+    keigo: number;
+    vocabulary: number;
+    naturalness: number;
+  };
+  corrections: WritingCorrection[];
+  improvedJa: string;
+  improvedVi: string;
+  summaryVi: string;
+}
+
+interface SavedEntry {
+  id: string;
+  promptTitle: string;
+  style: string;
+  text: string;
+  savedAt: string;
+  grade?: GradedResult;
+}
+
+const DRAFTS_KEY = 'kanji_nest_writing_drafts_v1';
+const SUBMITTED_KEY = 'kanji_nest_writing_submitted_v1';
+
+const WRITING_PROMPTS = [
+  {
+    id: 'email_leave',
+    title: 'Email xin nghỉ phép (休暇申請メール)',
+    style: 'Kính ngữ công sở (ビジネス敬語)',
+    hint: 'Viết email gửi trưởng phòng xin nghỉ 1 ngày vì việc riêng / bị ốm, nêu rõ người bàn giao công việc.',
+  },
+  {
+    id: 'email_horenso',
+    title: 'Email báo cáo tiến độ dự án (進捗報告)',
+    style: 'Kính ngữ công sở (ビジネス敬語)',
+    hint: 'Báo cáo ngắn tiến độ tuần này, nêu 1 vấn đề đang gặp và đề xuất phương án xử lý.',
+  },
+  {
+    id: 'email_thanks',
+    title: 'Email cảm ơn sau phỏng vấn (面接お礼メール)',
+    style: 'Kính ngữ công sở (ビジネス敬語)',
+    hint: 'Cảm ơn nhà tuyển dụng đã dành thời gian phỏng vấn và nhấn mạnh lại mong muốn gia nhập công ty.',
+  },
+  {
+    id: 'diary',
+    title: 'Nhật ký cuối tuần (週末の日記)',
+    style: 'Lịch sự (です・ます)',
+    hint: 'Kể lại hoạt động cuối tuần vừa rồi của bạn và cảm nghĩ (khoảng 3–5 câu tiếng Nhật).',
+  },
+  {
+    id: 'free',
+    title: 'Tự do luyện viết tiếng Nhật',
+    style: 'Lịch sự (です・ます)',
+    hint: 'Viết bất kỳ đoạn văn, câu mẫu hoặc tin nhắn nào bạn muốn Sensei AI chấm và sửa lỗi.',
+  },
+] as const;
+
+const STYLES = [
+  'Kính ngữ công sở (ビジネス敬語)',
+  'Lịch sự (です・ます)',
+  'Thân mật (タメ口)',
+] as const;
 
 export default function WritingScreen() {
   const [tab, setTab] = useState<'prompts' | 'drafts' | 'submitted'>('prompts');
-  const [vertical, setVertical] = useState(false);
+  const [selectedPrompt, setSelectedPrompt] = useState<(typeof WRITING_PROMPTS)[number]>(WRITING_PROMPTS[0]);
+  const [style, setStyle] = useState<string>(WRITING_PROMPTS[0].style);
   const [text, setText] = useState('');
+  const [grading, setGrading] = useState(false);
+  const [result, setResult] = useState<GradedResult | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const [drafts, setDrafts] = useState<SavedEntry[]>([]);
+  const [submitted, setSubmitted] = useState<SavedEntry[]>([]);
+
+  useEffect(() => {
+    void AsyncStorage.getItem(DRAFTS_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        setDrafts(JSON.parse(raw) as SavedEntry[]);
+      } catch {
+        // ignore
+      }
+    });
+    void AsyncStorage.getItem(SUBMITTED_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        setSubmitted(JSON.parse(raw) as SavedEntry[]);
+      } catch {
+        // ignore
+      }
+    });
+  }, []);
+
+  const handleSaveDraft = () => {
+    if (!text.trim()) return;
+    const entry: SavedEntry = {
+      id: `draft-${Date.now()}`,
+      promptTitle: selectedPrompt.title,
+      style,
+      text: text.trim(),
+      savedAt: new Date().toLocaleString('vi-VN'),
+    };
+    const next = [entry, ...drafts].slice(0, 20);
+    setDrafts(next);
+    void AsyncStorage.setItem(DRAFTS_KEY, JSON.stringify(next));
+    setNotice('Đã lưu vào mục Bản nháp!');
+  };
+
+  const handleGrade = async () => {
+    if (!text.trim() || grading) return;
+    setGrading(true);
+    setErrorMsg(null);
+    setNotice(null);
+
+    try {
+      const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+      const res = await fetch(`${base}/ai/writing/grade`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          promptTitle: selectedPrompt.title,
+          style,
+          text: text.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const graded = (await res.json()) as GradedResult;
+      setResult(graded);
+
+      const entry: SavedEntry = {
+        id: `sub-${Date.now()}`,
+        promptTitle: selectedPrompt.title,
+        style,
+        text: text.trim(),
+        savedAt: new Date().toLocaleString('vi-VN'),
+        grade: graded,
+      };
+      const nextSub = [entry, ...submitted].slice(0, 20);
+      setSubmitted(nextSub);
+      void AsyncStorage.setItem(SUBMITTED_KEY, JSON.stringify(nextSub));
+    } catch {
+      setErrorMsg('Không gọi được Sensei AI chấm bài (có thể Google AI đang bận). Hãy thử lại sau vài giây.');
+    } finally {
+      setGrading(false);
+    }
+  };
 
   return (
     <AppShell>
       <TopHeader
         mode="subpage"
-        title="Luyện viết"
-        subtitle="Giấy ô vuông Genkouyoushi · Tiêu chí chấm 100 điểm"
-        rightSlot={
-          <Pressable style={styles.softPill} onPress={() => setVertical((v) => !v)}>
-            <Text style={styles.softPillText}>{vertical ? 'Chuyển sang viết ngang' : 'Chuyển sang viết dọc'}</Text>
-          </Pressable>
-        }
+        title="Luyện viết & Sửa Email AI"
+        subtitle="Sensei AI chấm thang 100 điểm · Sửa lỗi Keigo & ngữ pháp · Viết lại chuẩn người Nhật"
       />
 
       <View style={styles.tabsRow}>
         {(
           [
-            ['prompts', 'Bài tập'],
-            ['drafts', 'Bản nháp'],
-            ['submitted', 'Đã nộp'],
+            ['prompts', 'Viết bài'],
+            ['drafts', `Bản nháp (${drafts.length})`],
+            ['submitted', `Đã chấm (${submitted.length})`],
           ] as const
         ).map(([key, label]) => (
-          <Pressable key={key} style={[styles.tabPill, tab === key && styles.tabPillActive]} onPress={() => setTab(key)}>
+          <Pressable
+            key={key}
+            style={[styles.tabPill, tab === key && styles.tabPillActive]}
+            onPress={() => setTab(key)}
+          >
             <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
           </Pressable>
         ))}
       </View>
 
-      <View style={styles.card}>
-        <View style={styles.rowBetween}>
-          <Text style={styles.cardTitle}>Giấy làm bài ({vertical ? 'Viết dọc · Tategaki' : 'Viết ngang · Yokogaki'})</Text>
-          <Text style={styles.counter}>{text.length} ký tự</Text>
-        </View>
+      {tab === 'prompts' ? (
+        <View style={styles.sectionGap}>
+          {/* Prompt Picker */}
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>Chọn đề luyện viết</Text>
+            <View style={styles.chipsRow}>
+              {WRITING_PROMPTS.map((p) => {
+                const active = p.id === selectedPrompt.id;
+                return (
+                  <Pressable
+                    key={p.id}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => {
+                      setSelectedPrompt(p);
+                      setStyle(p.style);
+                    }}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{p.title}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.promptHint}>{selectedPrompt.hint}</Text>
 
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          multiline
-          placeholder="ここに書いてください。"
-          placeholderTextColor={nihongoTheme.colors.textMuted}
-          style={styles.editor}
-        />
+            <Text style={styles.sectionLabel}>Phong cách văn bản</Text>
+            <View style={styles.chipsRow}>
+              {STYLES.map((st) => (
+                <Pressable
+                  key={st}
+                  style={[styles.chip, style === st && styles.chipActive]}
+                  onPress={() => setStyle(st)}
+                >
+                  <Text style={[styles.chipText, style === st && styles.chipTextActive]}>{st}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
 
-        <View style={styles.footerRow}>
-          <Pressable style={styles.outlineBtn}>
-            <Text style={styles.outlineBtnText}>Lưu nháp</Text>
-          </Pressable>
-          <Pressable style={styles.primaryBtn}>
-            <Text style={styles.primaryBtnText}>Nộp bài</Text>
-          </Pressable>
+          {/* Editor */}
+          <View style={styles.card}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.cardTitle}>Bài viết tiếng Nhật của bạn</Text>
+              <Text style={styles.counter}>{text.length} ký tự</Text>
+            </View>
+
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              multiline
+              placeholder="Ví dụ: お疲れ様です。明日は体調が悪いため、お休みをいただいてもよろしいでしょうか..."
+              placeholderTextColor={nihongoTheme.colors.textMuted}
+              style={styles.editor}
+            />
+
+            {notice ? <Text style={styles.noticeText}>{notice}</Text> : null}
+            {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+
+            <View style={styles.footerRow}>
+              <Pressable style={styles.outlineBtn} onPress={handleSaveDraft}>
+                <Text style={styles.outlineBtnText}>Lưu nháp</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.primaryBtn, (grading || !text.trim()) && styles.btnDisabled]}
+                disabled={grading || !text.trim()}
+                onPress={() => void handleGrade()}
+              >
+                {grading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Chấm bài bằng Sensei AI →</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Sensei Grading Result */}
+          {result ? (
+            <View style={styles.resultCard}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.resultTitle}>Kết quả chấm của Sensei AI</Text>
+                <View style={styles.totalBadge}>
+                  <Text style={styles.totalBadgeText}>{result.totalScore} / 100đ</Text>
+                </View>
+              </View>
+
+              <View style={styles.scoreGrid}>
+                <View style={styles.scoreBox}>
+                  <Text style={styles.scoreVal}>{result.scores.grammar}</Text>
+                  <Text style={styles.scoreLbl}>Ngữ pháp</Text>
+                </View>
+                <View style={styles.scoreBox}>
+                  <Text style={styles.scoreVal}>{result.scores.keigo}</Text>
+                  <Text style={styles.scoreLbl}>Kính ngữ</Text>
+                </View>
+                <View style={styles.scoreBox}>
+                  <Text style={styles.scoreVal}>{result.scores.vocabulary}</Text>
+                  <Text style={styles.scoreLbl}>Từ vựng</Text>
+                </View>
+                <View style={styles.scoreBox}>
+                  <Text style={styles.scoreVal}>{result.scores.naturalness}</Text>
+                  <Text style={styles.scoreLbl}>Tự nhiên</Text>
+                </View>
+              </View>
+
+              <Text style={styles.summaryText}>{result.summaryVi}</Text>
+
+              {result.corrections.length > 0 ? (
+                <View style={styles.corrSection}>
+                  <Text style={styles.sectionLabel}>Chi tiết lỗi cần sửa ({result.corrections.length})</Text>
+                  {result.corrections.map((c, idx) => (
+                    <View key={idx} style={styles.corrItem}>
+                      <Text style={styles.corrOrig}>✗ {c.original}</Text>
+                      <Text style={styles.corrFixed}>✓ {c.fixed}</Text>
+                      <Text style={styles.corrReason}>{c.reasonVi}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              <View style={styles.improvedBox}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.improvedLabel}>Bản viết lại chuẩn người Nhật:</Text>
+                  <Pressable onPress={() => void speakJapanese(result.improvedJa)}>
+                    <Text style={styles.listenLink}>Nghe phát âm</Text>
+                  </Pressable>
+                </View>
+                <Text style={styles.improvedJa}>{result.improvedJa}</Text>
+                {result.improvedVi ? <Text style={styles.improvedVi}>{result.improvedVi}</Text> : null}
+              </View>
+            </View>
+          ) : null}
         </View>
-      </View>
+      ) : tab === 'drafts' ? (
+        <View style={styles.sectionGap}>
+          {drafts.length === 0 ? (
+            <View style={styles.card}>
+              <Text style={styles.promptHint}>Chưa có bản nháp nào được lưu.</Text>
+            </View>
+          ) : (
+            drafts.map((item) => (
+              <Pressable
+                key={item.id}
+                style={styles.card}
+                onPress={() => {
+                  setText(item.text);
+                  setStyle(item.style);
+                  setTab('prompts');
+                }}
+              >
+                <View style={styles.rowBetween}>
+                  <Text style={styles.cardTitle}>{item.promptTitle}</Text>
+                  <Text style={styles.counter}>{item.savedAt}</Text>
+                </View>
+                <Text style={styles.promptHint} numberOfLines={3}>
+                  {item.text}
+                </Text>
+              </Pressable>
+            ))
+          )}
+        </View>
+      ) : (
+        <View style={styles.sectionGap}>
+          {submitted.length === 0 ? (
+            <View style={styles.card}>
+              <Text style={styles.promptHint}>Chưa có bài viết nào được Sensei AI chấm.</Text>
+            </View>
+          ) : (
+            submitted.map((item) => (
+              <Pressable
+                key={item.id}
+                style={styles.card}
+                onPress={() => {
+                  setText(item.text);
+                  setStyle(item.style);
+                  setResult(item.grade ?? null);
+                  setTab('prompts');
+                }}
+              >
+                <View style={styles.rowBetween}>
+                  <Text style={styles.cardTitle}>{item.promptTitle}</Text>
+                  {item.grade ? (
+                    <View style={styles.totalBadge}>
+                      <Text style={styles.totalBadgeText}>{item.grade.totalScore}đ</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={styles.counter}>{item.savedAt} · {item.style}</Text>
+                <Text style={styles.promptHint} numberOfLines={3}>
+                  {item.text}
+                </Text>
+              </Pressable>
+            ))
+          )}
+        </View>
+      )}
     </AppShell>
   );
 }
 
 const styles = StyleSheet.create({
-  softPill: {
-    backgroundColor: nihongoTheme.colors.accentSoft,
-    borderRadius: nihongoTheme.radius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  softPillText: {
-    color: nihongoTheme.colors.accentHover,
-    fontWeight: '700',
-    fontSize: 12,
-  },
   tabsRow: {
     flexDirection: 'row',
     gap: 8,
@@ -94,26 +415,65 @@ const styles = StyleSheet.create({
     borderColor: nihongoTheme.colors.accent,
   },
   tabText: {
-    fontWeight: '700',
     fontSize: 13,
+    fontWeight: '700',
     color: nihongoTheme.colors.textSecondary,
   },
   tabTextActive: {
     color: '#FFFFFF',
+  },
+  sectionGap: {
+    gap: 14,
   },
   card: {
     backgroundColor: nihongoTheme.colors.surface,
     borderRadius: nihongoTheme.radius.card,
     borderWidth: 1,
     borderColor: nihongoTheme.colors.borderWarm,
-    padding: 18,
-    gap: 12,
+    padding: 16,
+    gap: 10,
     ...nihongoTheme.shadow.card,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: nihongoTheme.radius.pill,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+  },
+  chipActive: {
+    backgroundColor: nihongoTheme.colors.accent,
+    borderColor: nihongoTheme.colors.accent,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  chipTextActive: {
+    color: '#FFFFFF',
+  },
+  promptHint: {
+    fontSize: 13,
+    color: nihongoTheme.colors.textSecondary,
+    lineHeight: 19,
   },
   rowBetween: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
   },
   cardTitle: {
     fontSize: 15,
@@ -122,45 +482,167 @@ const styles = StyleSheet.create({
   },
   counter: {
     fontSize: 12,
-    fontWeight: '700',
-    color: nihongoTheme.colors.accentHover,
+    color: nihongoTheme.colors.textMuted,
+    fontWeight: '600',
   },
   editor: {
-    minHeight: 200,
-    backgroundColor: nihongoTheme.colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
+    minHeight: 150,
+    backgroundColor: '#FDF8F0',
+    borderWidth: 1.2,
+    borderColor: '#E5D5C3',
     borderRadius: nihongoTheme.radius.md,
     padding: 14,
-    fontSize: 16,
-    textAlignVertical: 'top',
+    fontSize: 15,
+    lineHeight: 24,
     color: nihongoTheme.colors.textPrimary,
+    textAlignVertical: 'top',
+  },
+  noticeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  errorText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
   },
   footerRow: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     gap: 10,
   },
   outlineBtn: {
-    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: nihongoTheme.radius.button,
     borderWidth: 1,
     borderColor: nihongoTheme.colors.borderWarm,
-    borderRadius: nihongoTheme.radius.button,
-    paddingVertical: 12,
-    alignItems: 'center',
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
   },
   outlineBtnText: {
+    fontSize: 13,
     fontWeight: '700',
-    color: nihongoTheme.colors.textPrimary,
+    color: nihongoTheme.colors.textSecondary,
   },
   primaryBtn: {
-    flex: 1,
     backgroundColor: nihongoTheme.colors.accent,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
     borderRadius: nihongoTheme.radius.button,
-    paddingVertical: 12,
-    alignItems: 'center',
+  },
+  btnDisabled: {
+    opacity: 0.6,
   },
   primaryBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
     color: '#FFFFFF',
+  },
+  resultCard: {
+    backgroundColor: '#FDF8F0',
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1.2,
+    borderColor: '#C87D55',
+    padding: 18,
+    gap: 12,
+  },
+  resultTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  totalBadge: {
+    backgroundColor: nihongoTheme.colors.accent,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: nihongoTheme.radius.pill,
+  },
+  totalBadgeText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  scoreGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  scoreBox: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: nihongoTheme.radius.md,
+    borderWidth: 1,
+    borderColor: '#E5D5C3',
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  scoreVal: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  scoreLbl: {
+    fontSize: 11,
     fontWeight: '700',
+    color: nihongoTheme.colors.textMuted,
+  },
+  summaryText: {
+    fontSize: 13,
+    color: nihongoTheme.colors.textSecondary,
+    lineHeight: 20,
+  },
+  corrSection: {
+    gap: 8,
+  },
+  corrItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: nihongoTheme.radius.md,
+    borderWidth: 1,
+    borderColor: '#E5D5C3',
+    padding: 11,
+    gap: 3,
+  },
+  corrOrig: {
+    fontSize: 13,
+    color: '#DC2626',
+    fontWeight: '700',
+  },
+  corrFixed: {
+    fontSize: 13,
+    color: '#15803D',
+    fontWeight: '800',
+  },
+  corrReason: {
+    fontSize: 12,
+    color: nihongoTheme.colors.textSecondary,
+  },
+  improvedBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: nihongoTheme.radius.md,
+    borderWidth: 1,
+    borderColor: '#C87D55',
+    padding: 14,
+    gap: 6,
+  },
+  improvedLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#9A5B37',
+  },
+  listenLink: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  improvedJa: {
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 24,
+    color: nihongoTheme.colors.textPrimary,
+  },
+  improvedVi: {
+    fontSize: 13,
+    color: nihongoTheme.colors.textSecondary,
+    lineHeight: 20,
   },
 });

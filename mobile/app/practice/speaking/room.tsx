@@ -59,6 +59,7 @@ type FlowStep =
 
 interface ScenarioInfo {
   id: string;
+  category?: 'interview' | 'roleplay';
   title: string;
   companyName: string;
   interviewerName: string;
@@ -191,13 +192,27 @@ export default function Interview3DRoomScreen() {
         const picked = list.find((s) => s.id === scenarioId) ?? list[0];
         if (!picked) return;
         setScenario(picked);
-        setLogs([
-          {
-            id: 'init',
-            role: 'manner',
-            text: `Bắt đầu quy trình chuẩn Nhật tại ${picked.companyName}. Bước 1: Gõ cửa 3D đúng 3 lần.`,
-          },
-        ]);
+        if (picked.category === 'roleplay') {
+          setFlowStep('qa_interview');
+          setScenePhase('seated');
+          setQaStage('jikoshokai');
+          setCurrentJa(picked.openingJa);
+          setCurrentReading(picked.openingReading);
+          setCurrentVi(picked.openingVi);
+          setLogs([{ id: 'open', role: 'interviewer', text: picked.openingJa }]);
+          setMood('speaking');
+          void speakJapanese(picked.openingJa).finally(() => {
+            setMood((prev) => (prev === 'speaking' ? 'idle' : prev));
+          });
+        } else {
+          setLogs([
+            {
+              id: 'init',
+              role: 'manner',
+              text: `Bắt đầu quy trình chuẩn Nhật tại ${picked.companyName}. Bước 1: Gõ cửa 3D đúng 3 lần.`,
+            },
+          ]);
+        }
       })
       .catch(() => setErrorMsg('Không tải được kịch bản phỏng vấn từ Backend.'));
   }, [scenarioId]);
@@ -458,14 +473,20 @@ export default function Interview3DRoomScreen() {
       setQaStage(data.nextStage);
 
       if (data.finished) {
-        setTimeout(() => {
-          setFlowStep('exit_stand');
-          setScenePhase('exit_standing');
-          addMannerNote(
-            'Phần hỏi đáp đã kết thúc! Giờ hãy làm đúng quy trình Ra về: Đứng dậy cạnh ghế → nói "本日はありがとうございました" → Cúi chào 45° (最敬礼).',
-            0,
-          );
-        }, 3500);
+        if (scenario.category === 'roleplay') {
+          setTimeout(() => {
+            setFlowStep('completed');
+          }, 2500);
+        } else {
+          setTimeout(() => {
+            setFlowStep('exit_stand');
+            setScenePhase('exit_standing');
+            addMannerNote(
+              'Phần hỏi đáp đã kết thúc! Giờ hãy làm đúng quy trình Ra về: Đứng dậy cạnh ghế → nói "本日はありがとうございました" → Cúi chào 45° (最敬礼).',
+              0,
+            );
+          }, 3500);
+        }
       }
     } catch {
       setLogs((prev) => prev.filter((item) => item.id !== placeholderId));

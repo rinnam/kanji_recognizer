@@ -21,6 +21,7 @@ export const INTERVIEW_CV_STORAGE_KEY = 'kanji_nest_interview_cv_v1';
 
 interface ScenarioItem {
   id: string;
+  category?: 'interview' | 'roleplay';
   title: string;
   companyName: string;
   interviewerName: string;
@@ -33,6 +34,7 @@ interface ScenarioItem {
 const FALLBACK_SCENARIOS: ScenarioItem[] = [
   {
     id: 'it_engineer',
+    category: 'interview',
     title: 'Phỏng vấn Kỹ sư IT (ITエンジニア)',
     companyName: 'Mirai Tech Japan Inc.',
     interviewerName: 'Sato Yuki (佐藤 由紀)',
@@ -45,6 +47,7 @@ const FALLBACK_SCENARIOS: ScenarioItem[] = [
   },
   {
     id: 'baito',
+    category: 'interview',
     title: 'Phỏng vấn làm thêm (アルバイト)',
     companyName: 'Sakura Coffee Tokyo',
     interviewerName: 'Tanaka Kenji (田中 健二)',
@@ -57,6 +60,7 @@ const FALLBACK_SCENARIOS: ScenarioItem[] = [
   },
   {
     id: 'study_abroad',
+    category: 'interview',
     title: 'Phỏng vấn Du học / Trường Nhật ngữ',
     companyName: 'Học viện Nhật ngữ Kibou',
     interviewerName: 'Yamada Haruo (山田 春夫)',
@@ -66,6 +70,42 @@ const FALLBACK_SCENARIOS: ScenarioItem[] = [
       'Đủ 6 chặng: 自己紹介 → 自己PR → 3 câu hỏi về hồ sơ học tập, kế hoạch tài chính & mục tiêu tại Nhật → 逆質問.',
     defaultCv:
       'Tốt nghiệp THPT loại Giỏi, đã học tiếng Nhật 1 năm (đạt N4, đang ôn N3). Gia đình hỗ trợ tài chính ổn định. Mục tiêu: Học trường Nhật ngữ 1.5 năm đạt N2, sau đó thi vào đại học chuyên ngành Kinh tế hoặc CNTT tại Nhật.',
+  },
+  {
+    id: 'roleplay_horenso',
+    category: 'roleplay',
+    title: 'Họp Horenso (報連相) với sếp Nhật',
+    companyName: 'Phòng Dự án IT · Tokyo',
+    interviewerName: 'Takahashi PM (高橋 マネージャー)',
+    interviewerRole: 'Quản lý dự án (PM)',
+    level: 'N3 – N2',
+    description:
+      'Luyện báo cáo tiến độ (報告), liên lạc sự cố trễ deadline (連絡) và xin ý kiến giải pháp (相談) chuẩn văn hóa công sở Nhật.',
+    defaultCv: 'Bối cảnh: Báo cáo tiến độ task tuần này và trao đổi về một bug nhỏ có thể làm chậm 1 ngày.',
+  },
+  {
+    id: 'roleplay_clinic',
+    category: 'roleplay',
+    title: 'Đi khám bệnh tại Nhật (病院での診察)',
+    companyName: 'Phòng khám Nội khoa Shinjuku',
+    interviewerName: 'Bác sĩ Kobayashi (小林 先生)',
+    interviewerRole: 'Bác sĩ nội khoa (医師)',
+    level: 'N4 – N3',
+    description:
+      'Luyện mô tả triệu chứng (sốt, đau đầu, ho), thời điểm bắt đầu, tiền sử dị ứng thuốc và hỏi cách uống thuốc.',
+    defaultCv: 'Bối cảnh: Bị sốt 38 độ từ tối hôm qua, đau họng và mệt nên đi khám bác sĩ.',
+  },
+  {
+    id: 'roleplay_restaurant',
+    category: 'roleplay',
+    title: 'Gọi món & Xử lý tình huống tại Nhà hàng Nhật',
+    companyName: 'Nhà hàng Washoku Sakura',
+    interviewerName: 'Nhân viên Suzuki (鈴木 スタッフ)',
+    interviewerRole: 'Nhân viên phục vụ (ホール担当)',
+    level: 'N5 – N4',
+    description:
+      'Luyện giao tiếp tự nhiên khi đặt bàn, hỏi món gợi ý, báo dị ứng thực phẩm và thanh toán tại quán ăn Nhật.',
+    defaultCv: 'Bối cảnh: Đi ăn tối tại quán ăn Nhật, muốn hỏi món đặc sản và báo không ăn được đồ cay.',
   },
 ];
 
@@ -90,6 +130,7 @@ async function assetToBase64(uri: string): Promise<string> {
 export default function SpeakingLobbyScreen() {
   const router = useRouter();
   const [scenarios, setScenarios] = useState<ScenarioItem[]>(FALLBACK_SCENARIOS);
+  const [categoryTab, setCategoryTab] = useState<'interview' | 'roleplay'>('interview');
   const [selectedId, setSelectedId] = useState<string>('it_engineer');
   const [cvText, setCvText] = useState<string>(FALLBACK_SCENARIOS[0]!.defaultCv);
   const [cvFileName, setCvFileName] = useState<string | null>(null);
@@ -97,6 +138,21 @@ export default function SpeakingLobbyScreen() {
   const [parsingCv, setParsingCv] = useState(false);
   const [cvError, setCvError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const visibleScenarios = scenarios.filter(
+    (s) => (s.category ?? 'interview') === categoryTab,
+  );
+
+  const handleSwitchCategory = (nextCat: 'interview' | 'roleplay') => {
+    setCategoryTab(nextCat);
+    const first = scenarios.find((s) => (s.category ?? 'interview') === nextCat);
+    if (first) {
+      setSelectedId(first.id);
+      if (nextCat === 'roleplay' || !cvFileName) {
+        setCvText(first.defaultCv);
+      }
+    }
+  };
 
   useEffect(() => {
     const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
@@ -171,14 +227,39 @@ export default function SpeakingLobbyScreen() {
     <AppShell>
       <TopHeader
         mode="subpage"
-        title="Phỏng vấn 3D cùng AI"
-        subtitle="Tải lên CV thật (PDF/Ảnh) · Đủ quy trình 3D · Chấm điểm PREP / STAR & phát hiện ấp úng (フィラー)"
+        title="Phỏng vấn & Roleplay 3D cùng AI"
+        subtitle="Phỏng vấn chuẩn Nhật (đủ gõ cửa 3 lần + CV) & Roleplay đời sống/công sở · Whisper offline"
       />
 
+      <View style={styles.catTabsRow}>
+        <Pressable
+          style={[styles.catTab, categoryTab === 'interview' && styles.catTabActive]}
+          onPress={() => handleSwitchCategory('interview')}
+        >
+          <Text style={[styles.catTabText, categoryTab === 'interview' && styles.catTabTextActive]}>
+            Phỏng vấn xin việc (3D)
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.catTab, categoryTab === 'roleplay' && styles.catTabActive]}
+          onPress={() => handleSwitchCategory('roleplay')}
+        >
+          <Text style={[styles.catTabText, categoryTab === 'roleplay' && styles.catTabTextActive]}>
+            Roleplay Đời sống &amp; Công sở (3D)
+          </Text>
+        </Pressable>
+      </View>
+
       <View style={styles.bannerCard}>
-        <Text style={styles.bannerTitle}>Lộ trình đầy đủ buổi phỏng vấn chuẩn Nhật</Text>
+        <Text style={styles.bannerTitle}>
+          {categoryTab === 'interview'
+            ? 'Lộ trình đầy đủ buổi phỏng vấn chuẩn Nhật'
+            : 'Hội thoại nhập vai thực chiến tại Nhật (3D + Whisper offline)'}
+        </Text>
         <Text style={styles.bannerSteps}>
-          ① Gõ cửa 3D (3 lần) &amp; 失礼いたします → ② Đứng cạnh ghế chào 30° &amp; Ngồi xuống → ③ 自己紹介 → ④ 自己PR → ⑤ 3 câu hỏi xoáy trực tiếp vào CV thật của bạn → ⑥ 逆質問 → ⑦ Cúi chào 45° &amp; Ra về
+          {categoryTab === 'interview'
+            ? '① Gõ cửa 3D (3 lần) & 失礼いたします → ② Đứng cạnh ghế chào 30° & Ngồi xuống → ③ 自己紹介 → ④ 自己PR → ⑤ 3 câu hỏi xoáy trực tiếp vào CV thật của bạn → ⑥ 逆質問 → ⑦ Cúi chào 45° & Ra về'
+            : 'Vào thẳng bối cảnh 3D (Họp Horenso với sếp Nhật · Khám bệnh · Nhà hàng) → Nói tiếng Nhật qua Mic (Whisper offline 0 token) → AI phản hồi giọng Nhật, chấm Keigo & sửa câu nói tự nhiên.'}
         </Text>
       </View>
 
@@ -190,7 +271,7 @@ export default function SpeakingLobbyScreen() {
         <View style={styles.sectionGap}>
           {/* Scenario Cards */}
           <View style={styles.grid}>
-            {scenarios.map((item) => {
+            {visibleScenarios.map((item) => {
               const active = item.id === selectedId;
               return (
                 <Pressable
@@ -219,34 +300,40 @@ export default function SpeakingLobbyScreen() {
             })}
           </View>
 
-          {/* Real CV Upload + Editable Summary */}
+          {/* Real CV Upload (Interview) or Situation Notes (Roleplay) */}
           <View style={styles.cvCard}>
             <View style={styles.cvHeader}>
-              <Text style={styles.cvTitle}>Hồ sơ ứng tuyển / CV thật (履歴書)</Text>
-              <View style={styles.cvHeaderActions}>
-                <Pressable
-                  style={styles.uploadBtn}
-                  disabled={parsingCv}
-                  onPress={() => void handleUploadRealCv()}
-                >
-                  {parsingCv ? (
-                    <ActivityIndicator size="small" color={nihongoTheme.colors.accentHover} />
-                  ) : (
-                    <Text style={styles.uploadBtnText}>+ Tải lên CV (PDF / Ảnh / TXT)</Text>
-                  )}
-                </Pressable>
-                {selectedScenario ? (
+              <Text style={styles.cvTitle}>
+                {categoryTab === 'interview'
+                  ? 'Hồ sơ ứng tuyển / CV thật (履歴書)'
+                  : 'Ghi chú bối cảnh Roleplay (tùy chỉnh)'}
+              </Text>
+              {categoryTab === 'interview' ? (
+                <View style={styles.cvHeaderActions}>
                   <Pressable
-                    onPress={() => {
-                      setCvFileName(null);
-                      setCvFocusTopics([]);
-                      setCvText(selectedScenario.defaultCv);
-                    }}
+                    style={styles.uploadBtn}
+                    disabled={parsingCv}
+                    onPress={() => void handleUploadRealCv()}
                   >
-                    <Text style={styles.resetCvText}>CV mẫu</Text>
+                    {parsingCv ? (
+                      <ActivityIndicator size="small" color={nihongoTheme.colors.accentHover} />
+                    ) : (
+                      <Text style={styles.uploadBtnText}>+ Tải lên CV (PDF / Ảnh / TXT)</Text>
+                    )}
                   </Pressable>
-                ) : null}
-              </View>
+                  {selectedScenario ? (
+                    <Pressable
+                      onPress={() => {
+                        setCvFileName(null);
+                        setCvFocusTopics([]);
+                        setCvText(selectedScenario.defaultCv);
+                      }}
+                    >
+                      <Text style={styles.resetCvText}>CV mẫu</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
             </View>
 
             {cvFileName ? (
@@ -296,6 +383,32 @@ export default function SpeakingLobbyScreen() {
 }
 
 const styles = StyleSheet.create({
+  catTabsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
+  },
+  catTab: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: nihongoTheme.radius.pill,
+    backgroundColor: nihongoTheme.colors.surface,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+  },
+  catTabActive: {
+    backgroundColor: nihongoTheme.colors.accent,
+    borderColor: nihongoTheme.colors.accent,
+  },
+  catTabText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  catTabTextActive: {
+    color: '#FFFFFF',
+  },
   bannerCard: {
     backgroundColor: '#FDF8F0',
     borderRadius: nihongoTheme.radius.card,
