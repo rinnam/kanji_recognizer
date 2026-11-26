@@ -36,7 +36,29 @@ export async function fetchTranscriptApi(
   const base = libraryEndpoint || (Platform.OS === 'web' ? '/api' : 'http://localhost:3000/api');
   const url = `${base.replace(/\/+$/, '')}/transcript?id=${encodeURIComponent(videoId)}`;
 
-  const response = await fetch(url, { signal });
+  let response: Response | null = null;
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      response = await fetch(url, { signal });
+      break;
+    } catch (err) {
+      lastErr = err;
+      if (signal?.aborted || attempt === 1) break;
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+  }
+
+  if (!response) {
+    const rawMsg = lastErr instanceof Error ? lastErr.message : '';
+    if (/failed to fetch|networkerror|load failed/i.test(rawMsg)) {
+      throw new Error(
+        `Không kết nối được tới máy chủ backend (${base}). Hãy kiểm tra backend đang chạy (npm run dev) rồi bấm thử lại.`,
+      );
+    }
+    throw lastErr instanceof Error ? lastErr : new Error('Không kết nối được tới máy chủ backend.');
+  }
+
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(err.message || `Lỗi tải phụ đề (HTTP ${response.status})`);

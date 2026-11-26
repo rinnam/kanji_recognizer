@@ -346,44 +346,19 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
   };
 }
 
-/** Transcribes spoken Japanese audio 100% locally via faster-whisper (0 Gemini tokens!). */
+/** Transcribes spoken Japanese audio strictly 100% offline via local faster-whisper (guaranteed 0 Gemini tokens). */
 export async function transcribeInterviewAudio(input: {
   mimeType: string;
   base64Data: string;
   scenarioId?: string | undefined;
   contextHint?: string | undefined;
 }): Promise<TranscribedAudioResponse> {
-  try {
-    const transcript = await transcribeWithLocalWhisper(input.base64Data, input.mimeType, {
-      scenarioId: input.scenarioId,
-      contextHint: input.contextHint,
-    });
-    const fillers = detectTextFillers(transcript);
-    return { transcript, fillers };
-  } catch {
-    // Fallback to Gemini Audio only if local Python faster-whisper is not installed
-    const prompt = `Hãy chép lời (transcribe) chính xác đoạn ghi âm tiếng Nhật sau đây (bối cảnh: ${input.scenarioId || 'interview'}).
-Lưu ý chọn đúng chữ Kanji theo ngữ cảnh nếu có từ đồng âm (vd quán ăn: 鮭定食 chứ không phải 酒定食; bệnh viện: 症状 chứ không phải 賞状).
-Giữ nguyên từ đệm nếu có (えーと, あのー, うーん, そのー, まあ).
-CHỈ TRẢ VỀ JSON HỢP LỆ: { "transcript": "string", "fillers": ["string"] }`;
-
-    const parsed = await callGeminiJson<Partial<TranscribedAudioResponse>>([
-      { text: prompt },
-      {
-        inlineData: {
-          mimeType: input.mimeType || 'audio/webm',
-          data: input.base64Data,
-        },
-      },
-    ]);
-
-    const transcript = parsed.transcript?.trim() || '';
-    const aiFillers = Array.isArray(parsed.fillers)
-      ? parsed.fillers.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
-      : [];
-    const fillers = [...new Set([...aiFillers, ...detectTextFillers(transcript)])];
-    return { transcript, fillers };
-  }
+  const transcript = await transcribeWithLocalWhisper(input.base64Data, input.mimeType, {
+    scenarioId: input.scenarioId,
+    contextHint: input.contextHint,
+  });
+  const fillers = detectTextFillers(transcript);
+  return { transcript, fillers };
 }
 
 export async function runInterviewTurn(input: {

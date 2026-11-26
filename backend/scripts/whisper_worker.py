@@ -1,7 +1,22 @@
 import json
 import sys
 import traceback
+import av
 from faster_whisper import WhisperModel
+
+# PyAV 17+/19+ removed the `metadata_errors` kwarg that faster-whisper 1.2.x passes to av.open().
+_orig_av_open = av.open
+
+
+def _compat_av_open(*args, **kwargs):
+    try:
+        return _orig_av_open(*args, **kwargs)
+    except TypeError:
+        kwargs.pop("metadata_errors", None)
+        return _orig_av_open(*args, **kwargs)
+
+
+av.open = _compat_av_open
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stdin.reconfigure(encoding="utf-8")
@@ -29,7 +44,7 @@ def main() -> None:
             hotwords = str(payload.get("hotwords") or "").strip() or None
             transcribe_kwargs = {
                 "language": "ja",
-                "beam_size": 3,
+                "beam_size": 2,
                 "vad_filter": True,
                 "initial_prompt": initial_prompt,
             }
