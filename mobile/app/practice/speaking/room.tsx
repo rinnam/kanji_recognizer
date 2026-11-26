@@ -15,6 +15,7 @@ import { AppShell } from '../../../src/components/AppShell';
 import { TopHeader } from '../../../src/components/TopHeader';
 import { nihongoTheme } from '../../../src/theme/nihongo-theme';
 import { libraryEndpoint } from '../../../src/library-source';
+import { useIsMobilePhone } from '../../../src/utils/device';
 import { speakJapanese } from '../../../src/utils/speak-japanese';
 import {
   InterviewScene3D,
@@ -837,6 +838,29 @@ export default function Interview3DRoomScreen() {
               : flowStep === 'exit_door'
                 ? 'Quay lại hội đồng nói "失礼いたします"...'
                 : 'Nói câu trả lời tiếng Nhật qua Mic hoặc gõ...';
+
+  const isPhone = useIsMobilePhone();
+
+  if (isPhone) {
+    return (
+      <AppShell>
+        <TopHeader
+          mode="subpage"
+          title="Phỏng vấn & Roleplay 3D"
+          subtitle="Tính năng dành riêng cho trình duyệt máy tính"
+        />
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>🔒 Đã khóa trên điện thoại</Text>
+          <Text style={styles.summaryScore}>
+            Hãy mở Kanji Nest trên trình duyệt máy tính (Web PC) để trải nghiệm không gian 3D và hội thoại cùng AI.
+          </Text>
+          <Pressable style={styles.primaryBtn} onPress={() => router.replace('/practice')}>
+            <Text style={styles.primaryBtnText}>← Quay lại mục Luyện tập</Text>
+          </Pressable>
+        </View>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>

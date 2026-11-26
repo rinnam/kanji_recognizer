@@ -1,12 +1,24 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { AppShell } from '../src/components/AppShell';
 import { TopHeader } from '../src/components/TopHeader';
 import { nihongoTheme } from '../src/theme/nihongo-theme';
+import {
+  DEFAULT_PROFILE,
+  readLearningProfile,
+  type LearningProfile,
+} from '../src/features/profile/profile-store';
 
 export default function PlanScreen() {
   const router = useRouter();
+  const [profile, setProfile] = useState<LearningProfile>(DEFAULT_PROFILE);
+
+  useFocusEffect(
+    useCallback(() => {
+      void readLearningProfile().then(setProfile);
+    }, []),
+  );
 
   return (
     <AppShell>
@@ -14,9 +26,9 @@ export default function PlanScreen() {
 
       <View style={styles.card}>
         <Text style={styles.title}>Thiết lập hiện tại</Text>
-        <Text style={styles.line}>Trình độ: N3 · Trung cấp</Text>
-        <Text style={styles.line}>Mục tiêu: Ôn thi JLPT</Text>
-        <Text style={styles.line}>Thời lượng: 30 phút/ngày</Text>
+        <Text style={styles.line}>Trình độ: {profile.jlptLevel}</Text>
+        <Text style={styles.line}>Mục tiêu: {profile.primaryGoal}</Text>
+        <Text style={styles.line}>Thời lượng: {profile.dailyMinutes} phút/ngày</Text>
 
         <View style={styles.actions}>
           <Pressable style={styles.primaryBtn} onPress={() => router.push('/profile/learning')}>

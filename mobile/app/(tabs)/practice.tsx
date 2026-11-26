@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
+import { useIsMobilePhone } from '../../src/utils/device';
 
 const VOCAB_PILLS = [
   { label: 'Bài học từ vựng', route: '/lessons' as const },
@@ -12,14 +13,16 @@ const VOCAB_PILLS = [
 ];
 
 const SKILLS = [
-  { title: 'Nghe', desc: 'Luyện nghe & Shadowing', icon: '🎧', route: '/practice/listening' as const },
-  { title: 'Nói', desc: 'Hội thoại cùng AI', icon: '🎙️', route: '/practice/speaking' as const },
-  { title: 'Đọc', desc: 'Thư viện bài đọc JLPT', icon: '📖', route: '/practice/reading' as const },
-  { title: 'Viết', desc: 'Luyện viết trên giấy ô vuông', icon: '✍️', route: '/practice/writing' as const },
+  { key: 'listening', title: 'Nghe', desc: 'Luyện nghe & Shadowing', icon: '🎧', route: '/practice/listening' as const },
+  { key: 'speaking', title: 'Nói', desc: 'Hội thoại cùng AI', icon: '🎙️', route: '/practice/speaking' as const },
+  { key: 'reading', title: 'Đọc', desc: 'Thư viện bài đọc JLPT', icon: '📖', route: '/practice/reading' as const },
+  { key: 'writing', title: 'Viết', desc: 'Luyện viết trên giấy ô vuông', icon: '✍️', route: '/practice/writing' as const },
 ];
 
 export default function PracticeScreen() {
   const router = useRouter();
+  const isPhone = useIsMobilePhone();
+  const [phoneLockNotice, setPhoneLockNotice] = useState(false);
 
   return (
     <AppShell>
@@ -28,23 +31,61 @@ export default function PracticeScreen() {
       <Text style={styles.sectionTitle}>Từ vựng</Text>
       <View style={styles.pillRow}>
         {VOCAB_PILLS.map((item) => (
-          <Pressable key={item.label} style={styles.pillCard} onPress={() => router.push(item.route)}>
+          <Pressable
+            key={item.label}
+            style={[styles.pillCard, isPhone && styles.pillCardPhone]}
+            onPress={() => router.push(item.route)}
+          >
             <Text style={styles.pillText}>{item.label}</Text>
           </Pressable>
         ))}
       </View>
 
       <Text style={styles.sectionTitle}>Kỹ năng</Text>
+      {phoneLockNotice ? (
+        <View style={styles.lockNoticeBox}>
+          <Text style={styles.lockNoticeText}>
+            🔒 Luyện nói &amp; Phỏng vấn 3D cùng AI hiện chỉ hỗ trợ trên trình duyệt máy tính (Web PC).
+          </Text>
+        </View>
+      ) : null}
+
       <View style={styles.grid}>
-        {SKILLS.map((skill) => (
-          <Pressable key={skill.title} style={styles.skillCard} onPress={() => router.push(skill.route)}>
-            <View style={styles.iconCircle}>
-              <Text style={styles.icon}>{skill.icon}</Text>
-            </View>
-            <Text style={styles.skillTitle}>{skill.title}</Text>
-            <Text style={styles.skillDesc}>{skill.desc}</Text>
-          </Pressable>
-        ))}
+        {SKILLS.map((skill) => {
+          const lockedOnPhone = isPhone && skill.key === 'speaking';
+          return (
+            <Pressable
+              key={skill.title}
+              style={[
+                styles.skillCard,
+                isPhone && styles.skillCardPhone,
+                lockedOnPhone && styles.skillCardLocked,
+              ]}
+              onPress={() => {
+                if (lockedOnPhone) {
+                  setPhoneLockNotice(true);
+                  return;
+                }
+                router.push(skill.route);
+              }}
+            >
+              <View style={styles.cardTopRow}>
+                <View style={styles.iconCircle}>
+                  <Text style={styles.icon}>{lockedOnPhone ? '🔒' : skill.icon}</Text>
+                </View>
+                {lockedOnPhone ? (
+                  <View style={styles.webOnlyPill}>
+                    <Text style={styles.webOnlyPillText}>Chỉ trên Web</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={styles.skillTitle}>{skill.title}</Text>
+              <Text style={styles.skillDesc}>
+                {lockedOnPhone ? 'Khóa trên điện thoại (mở trên Web PC)' : skill.desc}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
     </AppShell>
   );
@@ -118,5 +159,47 @@ const styles = StyleSheet.create({
   skillDesc: {
     fontSize: 13,
     color: nihongoTheme.colors.textSecondary,
+  },
+  pillCardPhone: {
+    minWidth: 108,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  skillCardPhone: {
+    minWidth: 140,
+    padding: 14,
+  },
+  skillCardLocked: {
+    opacity: 0.68,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+  },
+  webOnlyPill: {
+    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  webOnlyPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  lockNoticeBox: {
+    backgroundColor: nihongoTheme.colors.warningBg,
+    borderRadius: nihongoTheme.radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  lockNoticeText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: nihongoTheme.colors.warningText,
+    lineHeight: 18,
   },
 });

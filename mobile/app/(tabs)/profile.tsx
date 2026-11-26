@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { MomoAvatar } from '../../src/components/MomoAvatar';
@@ -21,10 +21,12 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<LearningProfile>(DEFAULT_PROFILE);
   const [session, setSession] = useState<AuthSession | null>(null);
 
-  useEffect(() => {
-    void readLearningProfile().then(setProfile);
-    void readAuthSession().then(setSession);
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      void readLearningProfile().then(setProfile);
+      void readAuthSession().then(setSession);
+    }, []),
+  );
 
   const handleLogout = async () => {
     await saveAuthSession(null);

@@ -5,6 +5,7 @@ import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { libraryEndpoint } from '../../src/library-source';
+import { useIsMobilePhone } from '../../src/utils/device';
 
 interface PublicRoomSummary {
   code: string;
@@ -18,6 +19,7 @@ interface PublicRoomSummary {
 
 export default function GamesHubScreen() {
   const router = useRouter();
+  const isPhone = useIsMobilePhone();
   const [roomCode, setRoomCode] = useState('');
   const [rooms, setRooms] = useState<PublicRoomSummary[]>([]);
 
@@ -51,7 +53,7 @@ export default function GamesHubScreen() {
         }
       />
 
-      <View style={styles.actionsRow}>
+      <View style={[styles.actionsRow, isPhone && styles.actionsRowPhone]}>
         <Pressable style={styles.primaryBtn} onPress={() => router.push('/games/create')}>
           <Text style={styles.primaryBtnText}>+ Tạo phòng đối kháng</Text>
         </Pressable>
@@ -122,6 +124,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     marginBottom: 14,
+  },
+  actionsRowPhone: {
+    flexDirection: 'column',
   },
   primaryBtn: {
     flex: 1,

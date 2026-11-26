@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
 import { nihongoTheme } from '../theme/nihongo-theme';
 import { DESKTOP_BREAKPOINT } from './AppShell';
@@ -14,6 +15,7 @@ const TABS = [
 
 export function FloatingBottomDock() {
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -29,7 +31,13 @@ export function FloatingBottomDock() {
   };
 
   return (
-    <View pointerEvents="box-none" style={styles.outer}>
+    <View
+      pointerEvents="box-none"
+      style={[
+        styles.outer,
+        { bottom: Math.max(nihongoTheme.layout.dockBottomOffset, insets.bottom + 8) },
+      ]}
+    >
       <View style={styles.dock} accessibilityRole="tablist">
         {TABS.map((tab) => {
           const active = isActive(tab.key);
@@ -42,7 +50,9 @@ export function FloatingBottomDock() {
               style={[styles.tabItem, active && styles.tabItemActive]}
             >
               <Text style={[styles.icon, active && styles.activeText]}>{tab.icon}</Text>
-              <Text style={[styles.label, active && styles.activeText]}>{tab.label}</Text>
+              <Text numberOfLines={1} style={[styles.label, active && styles.activeText]}>
+                {tab.label}
+              </Text>
               <View style={[styles.dot, active && styles.dotActive]} />
             </Pressable>
           );
@@ -59,39 +69,43 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: nihongoTheme.layout.dockBottomOffset,
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     zIndex: 25,
   },
   dock: {
+    width: '100%',
+    maxWidth: 460,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: nihongoTheme.colors.surface,
     borderRadius: nihongoTheme.radius.pill,
     borderWidth: 1,
     borderColor: nihongoTheme.colors.borderWarm,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 7,
+    gap: 2,
     ...nihongoTheme.shadow.dock,
   },
   tabItem: {
+    flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 4,
     paddingVertical: 6,
     borderRadius: nihongoTheme.radius.pill,
-    minWidth: 60,
   },
   tabItemActive: {
     backgroundColor: nihongoTheme.colors.accentSoft,
   },
   icon: {
-    fontSize: 17,
+    fontSize: 16,
     color: nihongoTheme.colors.textSecondary,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   label: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '600',
     color: nihongoTheme.colors.textSecondary,
   },

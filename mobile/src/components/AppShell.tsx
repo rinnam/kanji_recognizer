@@ -68,8 +68,9 @@ const styles = StyleSheet.create({
     paddingTop: 18,
   },
   scrollContentMobile: {
-    paddingHorizontal: 18,
-    paddingBottom: nihongoTheme.layout.contentBottomPadding,
+    paddingTop: 12,
+    paddingHorizontal: 14,
+    paddingBottom: nihongoTheme.layout.contentBottomPadding + 8,
   },
   scrollContentDesktop: {
     paddingHorizontal: 40,

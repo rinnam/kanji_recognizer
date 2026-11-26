@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { nihongoTheme } from '../theme/nihongo-theme';
 import { MomoAvatar } from './MomoAvatar';
 import { DESKTOP_BREAKPOINT } from './AppShell';
+import { useIsMobilePhone } from '../utils/device';
 
 interface TopHeaderProps {
   mode?: 'home' | 'subpage';
@@ -27,6 +28,7 @@ export function TopHeader({
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
+  const isPhone = useIsMobilePhone();
 
   const handleBack = () => {
     if (onBack) {
@@ -41,12 +43,12 @@ export function TopHeader({
   };
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, isPhone && styles.wrapperPhone]}>
       {!isDesktop || mode === 'home' ? (
         <View style={styles.brandRow}>
           {!isDesktop ? (
             <Pressable style={styles.brandLeft} onPress={() => router.push('/app')}>
-              <MomoAvatar size={34} />
+              <MomoAvatar size={isPhone ? 30 : 34} />
               <Text style={styles.brandText}>
                 <Text style={styles.brandDark}>Nihon</Text>
                 <Text style={styles.brandOrange}>GO</Text>
@@ -70,13 +72,13 @@ export function TopHeader({
       ) : null}
 
       {mode === 'subpage' && title ? (
-        <View style={styles.subHeaderRow}>
+        <View style={[styles.subHeaderRow, isPhone && styles.subHeaderRowPhone]}>
           <View style={styles.subHeaderLeft}>
             <Pressable style={styles.backButton} onPress={handleBack} accessibilityLabel="Quay lại">
               <Text style={styles.backIcon}>‹</Text>
             </Pressable>
-            <View>
-              <Text style={styles.pageTitle}>{title}</Text>
+            <View style={styles.titleCol}>
+              <Text style={[styles.pageTitle, isPhone && styles.pageTitlePhone]}>{title}</Text>
               {subtitle ? <Text style={styles.pageSubtitle}>{subtitle}</Text> : null}
             </View>
           </View>
@@ -180,5 +182,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  wrapperPhone: {
+    marginBottom: 14,
+    gap: 10,
+  },
+  subHeaderRowPhone: {
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  titleCol: {
+    flexShrink: 1,
+  },
+  pageTitlePhone: {
+    fontSize: 19,
   },
 });

@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { VocabularyDto } from '../../../packages/contracts/src/study';
 import { AppShell } from '../../src/components/AppShell';
@@ -15,11 +15,15 @@ import {
 import {
   formatMmSs,
   getLocalDateKey,
+  STREAK_MIN_SECONDS,
   useStudyTracker,
 } from '../../src/features/study-tracker/use-study-tracker';
 import { libraryEndpoint, loadLibrary } from '../../src/library-source';
 import { readServerCache } from '../../src/workspace-storage';
 import { hydrateQuizletStates } from '../../src/features/flashcards/quizlet-srs';
+import { useIsMobilePhone } from '../../src/utils/device';
+
+const DAILY_CHALLENGE_KEY = 'kanji_nest_daily_challenge_v1';
 
 const SKILLS = [
   { key: 'listening', title: 'Nghe', desc: 'Hội thoại và phát âm', badge: '🎧', route: '/practice/listening' as const },
@@ -36,12 +40,15 @@ interface DailyChallengeQuestion {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const isPhone = useIsMobilePhone();
+  const currentYear = new Date().getFullYear();
   const [query, setQuery] = useState('');
-  const [year, setYear] = useState(new Date().getFullYear());
+  const [year, setYear] = useState(currentYear);
   const [profile, setProfile] = useState<LearningProfile>(DEFAULT_PROFILE);
   const [words, setWords] = useState<VocabularyDto[]>([]);
   const [dueReviewCount, setDueReviewCount] = useState(0);
   const [dueNewCount, setDueNewCount] = useState(0);
+  const [phoneLockNotice, setPhoneLockNotice] = useState(false);
 
   // Daily 5-question challenge state
   const [challengeOpen, setChallengeOpen] = useState(false);
@@ -52,36 +59,63 @@ export default function HomeScreen() {
 
   const study = useStudyTracker(profile.dailyMinutes);
 
-  useEffect(() => {
-    void readLearningProfile().then(setProfile);
-    const loadSummary = async () => {
-      let liveWords: VocabularyDto[] = [];
-      if (libraryEndpoint) {
-        const cached = await readServerCache(libraryEndpoint).catch(() => undefined);
-        if (cached) liveWords = cached.vocabularies.filter((v) => !v.deletedAt);
-      }
-      if (liveWords.length === 0) {
-        const controller = new AbortController();
-        const pulled = await loadLibrary(controller.signal).catch(() => undefined);
-        if (pulled) liveWords = pulled.vocabularies.filter((v) => !v.deletedAt);
-      }
-      setWords(liveWords);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void readLearningProfile().then((p) => {
+        if (active) setProfile(p);
+      });
 
-      let savedLocal = {};
-      try {
-        const raw = await AsyncStorage.getItem('kanji_nest_quizlet_srs_session_v1');
-        if (raw) savedLocal = (JSON.parse(raw) as { states?: Record<string, never> }).states ?? {};
-      } catch {
-        // ignore
-      }
-      const states = hydrateQuizletStates(liveWords, savedLocal);
-      const rev = liveWords.filter((w) => states[w.id]?.stage === 'review' || states[w.id]?.stage === 'learning').length;
-      const nw = liveWords.filter((w) => !states[w.id] || states[w.id].stage === 'new').length;
-      setDueReviewCount(rev);
-      setDueNewCount(nw);
-    };
-    void loadSummary();
-  }, []);
+      const todayKey = getLocalDateKey();
+      void AsyncStorage.getItem(DAILY_CHALLENGE_KEY)
+        .then((raw) => {
+          if (!raw || !active) return;
+          const saved = JSON.parse(raw) as { date?: string; score?: number };
+          if (saved.date === todayKey) {
+            setChallengeDoneToday(true);
+            setChallengeScore(saved.score ?? 0);
+          } else {
+            setChallengeDoneToday(false);
+          }
+        })
+        .catch(() => undefined);
+
+      const loadSummary = async () => {
+        let liveWords: VocabularyDto[] = [];
+        if (libraryEndpoint) {
+          const cached = await readServerCache(libraryEndpoint).catch(() => undefined);
+          if (cached) liveWords = cached.vocabularies.filter((v) => !v.deletedAt);
+        }
+        if (liveWords.length === 0) {
+          const controller = new AbortController();
+          const pulled = await loadLibrary(controller.signal).catch(() => undefined);
+          if (pulled) liveWords = pulled.vocabularies.filter((v) => !v.deletedAt);
+        }
+        if (!active) return;
+        setWords(liveWords);
+
+        let savedLocal = {};
+        try {
+          const raw = await AsyncStorage.getItem('kanji_nest_quizlet_srs_session_v1');
+          if (raw) savedLocal = (JSON.parse(raw) as { states?: Record<string, never> }).states ?? {};
+        } catch {
+          // ignore
+        }
+        if (!active) return;
+        const states = hydrateQuizletStates(liveWords, savedLocal);
+        const rev = liveWords.filter(
+          (w) => states[w.id]?.stage === 'review' || states[w.id]?.stage === 'learning',
+        ).length;
+        const nw = liveWords.filter((w) => !states[w.id] || states[w.id].stage === 'new').length;
+        setDueReviewCount(rev);
+        setDueNewCount(nw);
+      };
+      void loadSummary();
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   const challengeQuestions = useMemo<DailyChallengeQuestion[]>(() => {
     if (words.length < 4) return [];
@@ -98,19 +132,27 @@ export default function HomeScreen() {
   }, [words]);
 
   const heatmapCells = useMemo(() => {
-    // Last 26 weeks (182 days) ending today
+    // 26 weeks (182 days) anchored to today for currentYear, or Dec 31 for past years
     const cells: { key: string; level: number }[] = [];
-    const today = new Date();
+    const anchor = year === currentYear ? new Date() : new Date(year, 11, 31);
     for (let i = 181; i >= 0; i -= 1) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
+      const d = new Date(anchor);
+      d.setDate(anchor.getDate() - i);
       const k = getLocalDateKey(d);
-      const secs = study.logs[k]?.seconds ?? 0;
-      const level = secs >= 1800 ? 3 : secs >= 600 ? 2 : secs >= 60 ? 1 : 0;
+      const inSelectedYear = year === currentYear || d.getFullYear() === year;
+      const secs = inSelectedYear ? (study.logs[k]?.seconds ?? 0) : 0;
+      const level = secs >= 1800 ? 3 : secs >= 600 ? 2 : secs >= STREAK_MIN_SECONDS ? 1 : 0;
       cells.push({ key: k, level });
     }
     return cells;
-  }, [study.logs]);
+  }, [study.logs, year, currentYear]);
+
+  const displayedYearDays = useMemo(() => {
+    if (year === currentYear) return study.totalDays;
+    return Object.values(study.logs).filter(
+      (r) => r.seconds >= STREAK_MIN_SECONDS && r.date.startsWith(`${year}-`),
+    ).length;
+  }, [study.logs, study.totalDays, year, currentYear]);
 
   const handleSearch = () => {
     router.push({ pathname: '/lookup', params: query.trim() ? { q: query.trim(), kind: 'words' } : undefined });
@@ -136,11 +178,17 @@ export default function HomeScreen() {
     if (challengeIdx + 1 >= challengeQuestions.length) {
       setChallengeDoneToday(true);
       setChallengeOpen(false);
+      void AsyncStorage.setItem(
+        DAILY_CHALLENGE_KEY,
+        JSON.stringify({ date: getLocalDateKey(), score: challengeScore }),
+      ).catch(() => undefined);
       return;
     }
     setChallengeSelected(null);
     setChallengeIdx((i) => i + 1);
   };
+
+  const remainingStreakSecs = Math.max(0, STREAK_MIN_SECONDS - study.todaySeconds);
 
   return (
     <AppShell>
@@ -149,10 +197,12 @@ export default function HomeScreen() {
       {/* Hero Greeting */}
       <View style={styles.heroRow}>
         <View style={styles.heroTextCol}>
-          <Text style={styles.heroTitle}>Chào {profile.displayName}</Text>
+          <Text style={[styles.heroTitle, isPhone && styles.heroTitlePhone]} numberOfLines={1}>
+            Chào {profile.displayName}
+          </Text>
           <Text style={styles.heroSubtitle}>Một chút tiếng Nhật, mỗi ngày.</Text>
         </View>
-        <MomoAvatar size={64} />
+        <MomoAvatar size={isPhone ? 52 : 64} />
       </View>
 
       {/* Quick Search */}
@@ -163,7 +213,7 @@ export default function HomeScreen() {
             value={query}
             onChangeText={setQuery}
             onSubmitEditing={handleSearch}
-            placeholder="Tra từ Nhật, kana, romaji hoặc tiếng Việt"
+            placeholder={isPhone ? 'Tra từ Nhật, kana, nghĩa Việt...' : 'Tra từ Nhật, kana, romaji hoặc tiếng Việt'}
             placeholderTextColor={nihongoTheme.colors.textMuted}
             style={styles.searchInput}
           />
@@ -187,6 +237,11 @@ export default function HomeScreen() {
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${study.percent}%` }]} />
         </View>
+        <Text style={styles.streakHintText}>
+          {study.streakActiveToday
+            ? `Đã kích hoạt chuỗi hôm nay (${study.currentStreak} ngày liên tiếp)`
+            : `Học thêm ${remainingStreakSecs} giây nữa để kích hoạt chuỗi hôm nay`}
+        </Text>
       </View>
 
       {/* Annual Study Heatmap */}
@@ -194,38 +249,46 @@ export default function HomeScreen() {
         <View style={styles.rowBetween}>
           <View>
             <Text style={styles.cardTitle}>Lịch học</Text>
-            <Text style={styles.cardSubtitle}>Hoạt động trong năm</Text>
+            <Text style={styles.cardSubtitle}>
+              {year === currentYear ? '26 tuần gần nhất' : `Hoạt động năm ${year}`}
+            </Text>
           </View>
           <View style={styles.yearSwitch}>
             <Pressable style={styles.yearBtn} onPress={() => setYear((y) => y - 1)}>
               <Text style={styles.yearBtnText}>‹</Text>
             </Pressable>
             <Text style={styles.yearLabel}>{year}</Text>
-            <Pressable style={styles.yearBtn} onPress={() => setYear((y) => y + 1)}>
+            <Pressable
+              style={[styles.yearBtn, year >= currentYear && styles.yearBtnDisabled]}
+              disabled={year >= currentYear}
+              onPress={() => setYear((y) => Math.min(currentYear, y + 1))}
+            >
               <Text style={styles.yearBtnText}>›</Text>
             </Pressable>
           </View>
         </View>
 
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiBox}>
+        <View style={[styles.kpiRow, isPhone && styles.kpiRowPhone]}>
+          <View style={[styles.kpiBox, isPhone && styles.kpiBoxPhone]}>
             <Text style={styles.kpiValue}>{study.currentStreak}</Text>
-            <Text style={styles.kpiLabel}>Ngày liên tiếp</Text>
+            <Text style={[styles.kpiLabel, isPhone && styles.kpiLabelPhone]}>Ngày liên tiếp</Text>
           </View>
-          <View style={styles.kpiBox}>
-            <Text style={styles.kpiValue}>{study.totalDays}</Text>
-            <Text style={styles.kpiLabel}>Ngày đã học</Text>
+          <View style={[styles.kpiBox, isPhone && styles.kpiBoxPhone]}>
+            <Text style={styles.kpiValue}>{displayedYearDays}</Text>
+            <Text style={[styles.kpiLabel, isPhone && styles.kpiLabelPhone]}>
+              {year === currentYear ? 'Ngày đã học' : `Ngày học (${year})`}
+            </Text>
           </View>
-          <View style={styles.kpiBox}>
+          <View style={[styles.kpiBox, isPhone && styles.kpiBoxPhone]}>
             <Text style={styles.kpiValue}>{study.longestStreak}</Text>
-            <Text style={styles.kpiLabel}>Chuỗi dài nhất</Text>
+            <Text style={[styles.kpiLabel, isPhone && styles.kpiLabelPhone]}>Chuỗi dài nhất</Text>
           </View>
         </View>
 
         {/* Live 26-week Heatmap */}
         <View style={styles.heatmapPlaceholder}>
           {Array.from({ length: 7 }).map((_, rowIdx) => (
-            <View key={rowIdx} style={styles.heatmapRow}>
+            <View key={rowIdx} style={[styles.heatmapRow, isPhone && styles.heatmapRowPhone]}>
               {Array.from({ length: 26 }).map((__, colIdx) => {
                 const cell = heatmapCells[colIdx * 7 + rowIdx];
                 const bg =
@@ -290,16 +353,50 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
+      {phoneLockNotice ? (
+        <View style={styles.lockNoticeBox}>
+          <Text style={styles.lockNoticeText}>
+            🔒 Tính năng Luyện nói &amp; Phỏng vấn 3D cùng AI hiện chỉ mở trên trình duyệt máy tính (Web PC).
+          </Text>
+        </View>
+      ) : null}
+
       <View style={styles.skillGrid}>
-        {SKILLS.map((skill) => (
-          <Pressable key={skill.key} style={styles.skillCard} onPress={() => router.push(skill.route)}>
-            <View style={styles.skillBadge}>
-              <Text style={styles.skillEmoji}>{skill.badge}</Text>
-            </View>
-            <Text style={styles.skillTitle}>{skill.title}</Text>
-            <Text style={styles.skillDesc}>{skill.desc}</Text>
-          </Pressable>
-        ))}
+        {SKILLS.map((skill) => {
+          const lockedOnPhone = isPhone && skill.key === 'speaking';
+          return (
+            <Pressable
+              key={skill.key}
+              style={[
+                styles.skillCard,
+                isPhone && styles.skillCardPhone,
+                lockedOnPhone && styles.skillCardLocked,
+              ]}
+              onPress={() => {
+                if (lockedOnPhone) {
+                  setPhoneLockNotice(true);
+                  return;
+                }
+                router.push(skill.route);
+              }}
+            >
+              <View style={styles.rowBetween}>
+                <View style={styles.skillBadge}>
+                  <Text style={styles.skillEmoji}>{lockedOnPhone ? '🔒' : skill.badge}</Text>
+                </View>
+                {lockedOnPhone ? (
+                  <View style={styles.webOnlyPill}>
+                    <Text style={styles.webOnlyPillText}>Chỉ trên Web</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={styles.skillTitle}>{skill.title}</Text>
+              <Text style={styles.skillDesc}>
+                {lockedOnPhone ? 'Khóa trên điện thoại (mở trên Web PC)' : skill.desc}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {/* Study Plan Banner */}
@@ -699,5 +796,62 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: nihongoTheme.colors.textPrimary,
+  },
+  heroTitlePhone: {
+    fontSize: 22,
+  },
+  streakHintText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  yearBtnDisabled: {
+    opacity: 0.35,
+  },
+  kpiRowPhone: {
+    gap: 6,
+  },
+  kpiBoxPhone: {
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+  },
+  kpiLabelPhone: {
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  heatmapRowPhone: {
+    gap: 2.5,
+  },
+  skillCardPhone: {
+    minWidth: 140,
+    padding: 14,
+  },
+  skillCardLocked: {
+    opacity: 0.68,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+  },
+  webOnlyPill: {
+    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  webOnlyPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  lockNoticeBox: {
+    backgroundColor: nihongoTheme.colors.warningBg,
+    borderRadius: nihongoTheme.radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  lockNoticeText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: nihongoTheme.colors.warningText,
+    lineHeight: 18,
   },
 });

@@ -16,6 +16,7 @@ import { AppShell } from '../../../src/components/AppShell';
 import { TopHeader } from '../../../src/components/TopHeader';
 import { nihongoTheme } from '../../../src/theme/nihongo-theme';
 import { libraryEndpoint } from '../../../src/library-source';
+import { useIsMobilePhone } from '../../../src/utils/device';
 
 export const INTERVIEW_CV_STORAGE_KEY = 'kanji_nest_interview_cv_v1';
 
@@ -221,7 +222,29 @@ export default function SpeakingLobbyScreen() {
     });
   };
 
+  const isPhone = useIsMobilePhone();
   const selectedScenario = scenarios.find((s) => s.id === selectedId) ?? scenarios[0];
+
+  if (isPhone) {
+    return (
+      <AppShell>
+        <TopHeader
+          mode="subpage"
+          title="Luyện nói & Phỏng vấn 3D"
+          subtitle="Tính năng dành riêng cho trình duyệt máy tính"
+        />
+        <View style={styles.cvCard}>
+          <Text style={styles.cardTitle}>🔒 Đã khóa trên giao diện điện thoại</Text>
+          <Text style={styles.cardDesc}>
+            Không gian Phỏng vấn &amp; Roleplay 3D cùng AI yêu cầu màn hình rộng và âm thanh trình duyệt máy tính để thao tác với bối cảnh 3D chuẩn Nhật. Hãy mở Kanji Nest trên máy tính (Web PC) để luyện tập tính năng này nhé!
+          </Text>
+          <Pressable style={styles.startBtn} onPress={() => router.replace('/practice')}>
+            <Text style={styles.startBtnText}>← Quay lại mục Luyện tập</Text>
+          </Pressable>
+        </View>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>

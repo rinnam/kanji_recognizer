@@ -4,18 +4,30 @@ import { Stack, usePathname, useRouter } from 'expo-router';
 import { FloatingBottomDock } from '../src/components/FloatingBottomDock';
 import { FloatingUtilityDock } from '../src/components/FloatingUtilityDock';
 import { readAuthSession } from '../src/features/auth/auth-store';
+import { DEFAULT_PROFILE, readLearningProfile } from '../src/features/profile/profile-store';
+import {
+  markStudyInteraction,
+  useGlobalStudyTimer,
+} from '../src/features/study-tracker/use-study-tracker';
 
 export default function RootLayout() {
   const pathname = usePathname();
   const router = useRouter();
   const [checked, setChecked] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
+  const [dailyMinutes, setDailyMinutes] = useState(DEFAULT_PROFILE.dailyMinutes);
 
   const isAuthPage = pathname === '/login' || pathname === '/register';
+  const isOnboardingPage = pathname === '/onboarding';
 
   useEffect(() => {
     let active = true;
+    void readLearningProfile().then((p) => {
+      if (active) setDailyMinutes(p.dailyMinutes);
+    });
     void readAuthSession().then((session) => {
       if (!active) return;
+      setHasSession(Boolean(session));
       if (!session && !isAuthPage) {
         router.replace('/login');
       }
@@ -26,8 +38,14 @@ export default function RootLayout() {
     };
   }, [pathname, isAuthPage, router]);
 
+  useGlobalStudyTimer({
+    enabled: checked && hasSession && !isAuthPage && !isOnboardingPage,
+    pathname,
+    goalSeconds: Math.max(1, dailyMinutes) * 60,
+  });
+
   return (
-    <View style={styles.root}>
+    <View style={styles.root} onTouchStart={markStudyInteraction}>
       <Stack screenOptions={{ headerShown: false }} />
       {checked && !isAuthPage ? <FloatingBottomDock /> : null}
       {!isAuthPage ? <FloatingUtilityDock /> : null}

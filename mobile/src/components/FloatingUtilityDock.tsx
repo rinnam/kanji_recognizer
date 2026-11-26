@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { nihongoTheme } from '../theme/nihongo-theme';
+import { useIsMobilePhone } from '../utils/device';
 
 export function FloatingUtilityDock() {
+  const isPhone = useIsMobilePhone();
   const [collapsed, setCollapsed] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+
+  // Hide floating corner pill on mobile phones so it never overlaps bottom dock or action buttons
+  if (isPhone) return null;
 
   if (collapsed) {
     return (
@@ -32,14 +37,16 @@ export function FloatingUtilityDock() {
       <Modal visible={helpOpen} transparent animationType="fade" onRequestClose={() => setHelpOpen(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.stepBadge}>Hướng dẫn nhanh</Text>
-            <Text style={styles.modalTitle}>Khám phá NihonGO Clone</Text>
+            <Text style={styles.stepBadge}>Mẹo sử dụng nhanh</Text>
+            <Text style={styles.modalTitle}>Phím tắt &amp; Mẹo học Kanji Nest</Text>
             <Text style={styles.modalBody}>
-              Giao diện đang ở chế độ khung rỗng (chưa đổ dữ liệu) để kiểm tra bố cục, màu sắc và luồng điều hướng đa nền tảng.
+              • Trong Flashcard: nhấn Space để lật thẻ, phím 1–4 để đánh giá độ nhớ, phím R để nghe phát âm.{'\n'}
+              • Trong Quiz: nhấn Enter để kiểm tra / qua câu, phím Shift để mở gợi ý.{'\n'}
+              • Học đủ tối thiểu 1 phút mỗi ngày để giữ chuỗi ngày liên tiếp!
             </Text>
-            <Text style={styles.modalHint}>Mở nút ? để xem lại hướng dẫn bất cứ lúc nào.</Text>
+            <Text style={styles.modalHint}>Mở nút ? để xem lại phím tắt bất cứ lúc nào.</Text>
             <Pressable style={styles.primaryBtn} onPress={() => setHelpOpen(false)}>
-              <Text style={styles.primaryBtnText}>Mình hiểu rồi</Text>
+              <Text style={styles.primaryBtnText}>Đã hiểu</Text>
             </Pressable>
           </View>
         </View>
