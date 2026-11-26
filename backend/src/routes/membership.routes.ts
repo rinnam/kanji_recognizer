@@ -4,6 +4,7 @@ import { extractBearerUser } from '../services/auth.service.js';
 import {
   activateDemoSubscription,
   claimDailyChallengeReward,
+  claimDailyGameReward,
   claimDailyGoalReward,
   claimStreakMilestoneReward,
   getMembershipSummary,
@@ -34,6 +35,12 @@ const challengeClaimSchema = z.object({
 
 const streakClaimSchema = z.object({
   milestone: z.union([z.literal(3), z.literal(7), z.literal(14), z.literal(30)]),
+  dateKey: z.string().optional(),
+});
+
+const gameRewardClaimSchema = z.object({
+  gameKey: z.enum(['grammar_star', 'grammar_blitz', 'momo_boss', 'sushi_match']),
+  score: z.number().int().min(1).max(100000),
   dateKey: z.string().optional(),
 });
 
@@ -98,6 +105,14 @@ export const membershipRoutes: FastifyPluginAsync = async (app) => {
     if (!user) return reply.status(401).send({ message: 'Vui lòng đăng nhập để nhận thưởng chuỗi.' });
     const parsed = streakClaimSchema.parse(req.body ?? {});
     const result = await claimStreakMilestoneReward(user.id, parsed.milestone, parsed.dateKey);
+    return reply.send(result);
+  });
+
+  app.post('/membership/claim-game-reward', async (req, reply) => {
+    const user = extractBearerUser(req.headers.authorization);
+    if (!user) return reply.status(401).send({ message: 'Vui lòng đăng nhập để nhận thưởng Xu KS.' });
+    const parsed = gameRewardClaimSchema.parse(req.body ?? {});
+    const result = await claimDailyGameReward(user.id, parsed.gameKey, parsed.score, parsed.dateKey);
     return reply.send(result);
   });
 

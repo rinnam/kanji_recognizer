@@ -24,7 +24,7 @@ const MAIN_NAV = [
 
 const VOCAB_NAV = [
   { label: 'Flashcard & Quiz', route: '/practice/flashcard-quiz' as const },
-  { label: 'Game từ vựng', route: '/games' as const },
+  { label: 'Trung tâm Game', route: '/games' as const },
 ];
 
 const QUICK_PRACTICE_NAV = [
@@ -32,6 +32,7 @@ const QUICK_PRACTICE_NAV = [
   { label: 'Luyện nói AI', route: '/practice/speaking' as const },
   { label: 'Luyện đọc', route: '/practice/reading' as const },
   { label: 'Luyện viết', route: '/practice/writing' as const },
+  { label: 'Ngữ pháp JLPT', route: '/practice/grammar' as const },
 ];
 
 export function DesktopSidebar() {

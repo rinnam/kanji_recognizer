@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import {
+  GrammarSkillIcon,
   HeadphonesSkillIcon,
   LockClosedIcon,
   ReadingSkillIcon,
@@ -16,14 +17,15 @@ import { useIsMobilePhone } from '../../src/utils/device';
 const VOCAB_PILLS = [
   { label: 'Bài học từ vựng', route: '/lessons' as const },
   { label: 'Flashcard & Quiz', route: '/practice/flashcard-quiz' as const },
-  { label: 'Game từ vựng', route: '/games' as const },
+  { label: 'Trung tâm Game (Sushi · Boss)', route: '/games' as const },
 ];
 
 const SKILLS = [
   { key: 'listening', title: 'Nghe', desc: 'Luyện nghe & Shadowing', Icon: HeadphonesSkillIcon, route: '/practice/listening' as const },
   { key: 'speaking', title: 'Nói', desc: 'Hội thoại cùng AI', Icon: SpeakingSkillIcon, route: '/practice/speaking' as const },
   { key: 'reading', title: 'Đọc', desc: 'Thư viện bài đọc JLPT', Icon: ReadingSkillIcon, route: '/practice/reading' as const },
-  { key: 'writing', title: 'Viết', desc: 'Luyện viết trên giấy ô vuông', Icon: WritingSkillIcon, route: '/practice/writing' as const },
+  { key: 'writing', title: 'Viết', desc: 'Luyện viết & sửa kính ngữ AI', Icon: WritingSkillIcon, route: '/practice/writing' as const },
+  { key: 'grammar', title: 'Ngữ pháp', desc: 'JLPT N5–N1 & Game ★', Icon: GrammarSkillIcon, route: '/practice/grammar' as const },
 ];
 
 export default function PracticeScreen() {

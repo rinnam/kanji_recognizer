@@ -1001,6 +1001,57 @@ export async function claimStreakMilestoneReward(
   return { ...result, summary };
 }
 
+export type GameRewardKey = 'grammar_star' | 'grammar_blitz' | 'momo_boss' | 'sushi_match';
+
+const GAME_REWARD_LABELS: Record<GameRewardKey, string> = {
+  grammar_star: 'Game Xếp câu Dấu Sao ★',
+  grammar_blitz: 'Game Bắn Trợ từ & Chia thể 60s',
+  momo_boss: 'Công thành Momo (Solo Boss)',
+  sushi_match: 'Quán Sushi Băng Chuyền',
+};
+
+export async function claimDailyGameReward(
+  userId: string,
+  gameKey: GameRewardKey,
+  scoreRaw: number,
+  dateKeyRaw?: string,
+) {
+  await ensureMembershipTables();
+  const dateKey = sanitizeDateKey(dateKeyRaw);
+  const score = Math.max(0, Math.round(Number(scoreRaw) || 0));
+  if (score < 1) {
+    throw new MembershipHttpError(
+      400,
+      'SCORE_TOO_LOW',
+      'Hãy ghi ít nhất 1 điểm hợp lệ trong màn chơi để nhận thưởng Xu KS!',
+    );
+  }
+
+  const client = await pool.connect();
+  let result: { applied: boolean; delta: number; balanceAfter: number };
+  try {
+    await client.query('BEGIN');
+    const sub = await resolveActiveTier(client, userId);
+    const award = Math.round(8 * PLAN_CATALOG[sub.tier].multiplier);
+    result = await appendLedgerEntry(client, {
+      userId,
+      delta: award,
+      reasonCode: `game:${gameKey}`,
+      description: `Thắng ${GAME_REWARD_LABELS[gameKey]} (${score}đ · ${dateKey})`,
+      idempotencyKey: `game_daily:${userId}:${gameKey}:${dateKey}`,
+    });
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  const summary = await getMembershipSummary(userId, dateKey);
+  return { ...result, summary };
+}
+
 export async function recordStudyHeartbeat(
   userId: string,
   payload: {

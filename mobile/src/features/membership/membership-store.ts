@@ -10,6 +10,7 @@ import {
 export type SubscriptionTier = 'free' | 'plus' | 'pro';
 export type BillingCycle = 'monthly' | 'yearly';
 export type ShopItemCode = 'ticket_life' | 'ticket_work' | 'pass_life_7d' | 'perm_life_weekly';
+export type GameRewardKey = 'grammar_star' | 'grammar_blitz' | 'momo_boss' | 'sushi_match';
 
 export interface PlanDefinitionDto {
   tier: SubscriptionTier;
@@ -368,6 +369,31 @@ export async function claimStreakMilestone(
     summary: MembershipSummaryDto;
   }>('/membership/claim-streak', 'POST', {
     milestone,
+    dateKey: getMembershipLocalDateKey(),
+  });
+  const uid = (await resolveSession())?.user.id ?? activeUid;
+  summariesByUser.set(uid, res.summary);
+  notifyListeners();
+  return res;
+}
+
+export async function claimDailyGameReward(
+  gameKey: GameRewardKey,
+  score: number,
+): Promise<{
+  applied: boolean;
+  delta: number;
+  balanceAfter: number;
+  summary: MembershipSummaryDto;
+}> {
+  const res = await authedRequest<{
+    applied: boolean;
+    delta: number;
+    balanceAfter: number;
+    summary: MembershipSummaryDto;
+  }>('/membership/claim-game-reward', 'POST', {
+    gameKey,
+    score: Math.max(1, Math.round(score)),
     dateKey: getMembershipLocalDateKey(),
   });
   const uid = (await resolveSession())?.user.id ?? activeUid;

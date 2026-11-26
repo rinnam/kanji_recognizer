@@ -362,3 +362,12 @@ export function ShieldCheckIcon({ size = 16, color = '#2F9E62' }: IconProps) {
     </Svg>
   );
 }
+
+export function GrammarSkillIcon({ size = 22, color = '#EA7A1E' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="4" width="16" height="16" rx="3" fill="rgba(244, 138, 52, 0.16)" stroke={color} strokeWidth={2} />
+      <Path d="M8 9h4M8 13h8M8 17h6M15.5 7.5l2 2-2 2" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}

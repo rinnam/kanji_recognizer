@@ -17,6 +17,30 @@ interface PublicRoomSummary {
   cardCount: number;
 }
 
+const FEATURED_SOLO_GAMES = [
+  {
+    key: 'momo_boss',
+    badge: 'Từ vựng SRS · RPG',
+    title: '⚔️ Công thành Momo (Solo Boss)',
+    desc: 'Hạ 3 Wave Boss bằng 3 kiểu phản xạ: Kanji → Nghĩa, Nghe âm thanh → Từ Nhật, Nghĩa → Kana.',
+    route: '/games/bot' as const,
+  },
+  {
+    key: 'sushi',
+    badge: 'Kanji tốc độ · Giải trí',
+    title: '🍣 Quán Sushi Băng Chuyền',
+    desc: 'Phục vụ đúng đĩa Sushi Kanji trên băng chuyền trước khi khách trượt mất đơn · Fever ×2 điểm.',
+    route: '/games/sushi' as const,
+  },
+  {
+    key: 'grammar_star',
+    badge: 'Ngữ pháp JLPT N5–N1',
+    title: '⭐ Xếp Câu Dấu Sao (★) & Blitz 60s',
+    desc: 'Luyện đúng dạng đề dấu sao ★ JLPT, bắn trợ từ (は/が/で/に) và chia thể động từ 60 giây.',
+    route: '/practice/grammar?tab=star' as const,
+  },
+] as const;
+
 export default function GamesHubScreen() {
   const router = useRouter();
   const isPhone = useIsMobilePhone();
@@ -44,8 +68,8 @@ export default function GamesHubScreen() {
     <AppShell>
       <TopHeader
         mode="subpage"
-        title="Đấu trường Kotoba"
-        subtitle="Thi đấu đối kháng từ vựng & Kanji real-time"
+        title="Trung tâm Game Học tập"
+        subtitle="Chơi luyện Từ vựng SRS, Kanji, Ngữ pháp JLPT & Đấu trường Kotoba"
         rightSlot={
           <Pressable style={styles.softPill} onPress={() => void loadRooms()}>
             <Text style={styles.softPillText}>↻ Làm mới</Text>
@@ -53,12 +77,33 @@ export default function GamesHubScreen() {
         }
       />
 
+      {/* Solo Vocab & Grammar Games */}
+      <Text style={styles.sectionTitle}>Chế độ Luyện Solo (Từ vựng &amp; Ngữ pháp · Thưởng Xu KS)</Text>
+      <View style={styles.soloGrid}>
+        {FEATURED_SOLO_GAMES.map((g) => (
+          <Pressable
+            key={g.key}
+            style={[styles.soloCard, isPhone && styles.soloCardPhone]}
+            onPress={() => router.push(g.route)}
+          >
+            <View style={styles.soloBadge}>
+              <Text style={styles.soloBadgeText}>{g.badge}</Text>
+            </View>
+            <Text style={styles.soloTitle}>{g.title}</Text>
+            <Text style={styles.soloDesc}>{g.desc}</Text>
+            <Text style={styles.soloPlayText}>Vào chơi ngay →</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {/* Kotoba PvP Arena */}
+      <Text style={styles.sectionTitle}>Đấu trường Kotoba (PvP Đối kháng Real-time)</Text>
       <View style={[styles.actionsRow, isPhone && styles.actionsRowPhone]}>
         <Pressable style={styles.primaryBtn} onPress={() => router.push('/games/create')}>
-          <Text style={styles.primaryBtnText}>+ Tạo phòng đối kháng</Text>
+          <Text style={styles.primaryBtnText}>+ Tạo phòng đối kháng Kotoba</Text>
         </Pressable>
-        <Pressable style={styles.outlineBtn} onPress={() => router.push('/games/bot')}>
-          <Text style={styles.outlineBtnText}>Công thành Momo (Solo)</Text>
+        <Pressable style={styles.outlineBtn} onPress={() => router.push('/practice/grammar?tab=blitz')}>
+          <Text style={styles.outlineBtnText}>⚡ Bắn Trợ từ &amp; Chia thể 60s</Text>
         </Pressable>
       </View>
 
@@ -81,12 +126,12 @@ export default function GamesHubScreen() {
         </Pressable>
       </View>
 
-      <Text style={styles.sectionTitle}>Phòng công khai đang mở ({rooms.length})</Text>
+      <Text style={styles.sectionTitle}>Phòng Kotoba công khai đang mở ({rooms.length})</Text>
       {rooms.length === 0 ? (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>Chưa có phòng công khai nào</Text>
           <Text style={styles.emptyDesc}>
-            Bấm "+ Tạo phòng đối kháng" để tạo phòng mới, chọn nhiều bộ từ và mời bạn bè vào đấu tốc độ!
+            Bấm "+ Tạo phòng đối kháng Kotoba" để tạo phòng đấu tốc độ cùng bạn bè hoặc chơi ngay 3 chế độ Solo ở trên!
           </Text>
         </View>
       ) : (
@@ -119,6 +164,55 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.accentHover,
     fontWeight: '700',
     fontSize: 12,
+  },
+  soloGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  soloCard: {
+    flex: 1,
+    minWidth: 230,
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 16,
+    gap: 8,
+    ...nihongoTheme.shadow.card,
+  },
+  soloCardPhone: {
+    minWidth: '100%',
+  },
+  soloBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  soloBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  soloTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  soloDesc: {
+    flex: 1,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: nihongoTheme.colors.textSecondary,
+  },
+  soloPlayText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accent,
+    marginTop: 4,
   },
   actionsRow: {
     flexDirection: 'row',

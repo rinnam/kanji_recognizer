@@ -495,9 +495,13 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Quick Vocabulary Bar */}
+      {/* Quick Vocabulary & Grammar Bars */}
       <Pressable style={styles.quickVocabBar} onPress={() => router.push('/lessons')}>
         <Text style={styles.quickVocabText}>Bài học từ vựng</Text>
+        <Text style={styles.quickVocabArrow}>→</Text>
+      </Pressable>
+      <Pressable style={styles.quickVocabBar} onPress={() => router.push('/practice/grammar')}>
+        <Text style={styles.quickVocabText}>Ngữ pháp JLPT &amp; Game Xếp câu ★</Text>
         <Text style={styles.quickVocabArrow}>→</Text>
       </Pressable>
 
@@ -505,7 +509,7 @@ export default function HomeScreen() {
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Luyện kỹ năng</Text>
         <Pressable style={styles.outlinePill} onPress={() => router.push('/games')}>
-          <Text style={styles.outlinePillText}>Game từ vựng</Text>
+          <Text style={styles.outlinePillText}>Trung tâm Game</Text>
         </Pressable>
       </View>
 
