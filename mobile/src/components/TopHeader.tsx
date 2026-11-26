@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { nihongoTheme } from '../theme/nihongo-theme';
 import { MomoAvatar } from './MomoAvatar';
 import { ChevronLeftIcon, CoinKsIcon } from './AppIcons';
@@ -28,11 +28,18 @@ export function TopHeader({
   onBack,
 }: TopHeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const isPhone = useIsMobilePhone();
   const { tier, ksBalance } = useMembership();
   const tierShort = tier === 'pro' ? 'Pro' : tier === 'plus' ? 'Plus' : 'Free';
+
+  const handleOpenBilling = () => {
+    if (pathname !== '/billing') {
+      router.push('/billing');
+    }
+  };
 
   const handleBack = () => {
     if (onBack) {
@@ -53,7 +60,7 @@ export function TopHeader({
           {!isDesktop ? (
             <Pressable style={styles.brandLeft} onPress={() => router.push('/app')}>
               <MomoAvatar size={isPhone ? 30 : 34} />
-              <Text style={styles.brandText}>
+              <Text style={[styles.brandText, isPhone && styles.brandTextPhone]}>
                 <Text style={styles.brandDark}>Kanji </Text>
                 <Text style={styles.brandOrange}>Smart</Text>
               </Text>
@@ -64,7 +71,7 @@ export function TopHeader({
 
           {mode === 'home' ? (
             <View style={styles.chipsRow}>
-              <Pressable style={styles.ksPill} onPress={() => router.push('/billing')}>
+              <Pressable style={styles.ksPill} onPress={handleOpenBilling}>
                 <CoinKsIcon size={13} color={nihongoTheme.colors.accentHover} />
                 <Text style={styles.ksPillText}>
                   {ksBalance.toLocaleString('vi-VN')} KS · {tierShort}
@@ -79,6 +86,13 @@ export function TopHeader({
                 </Pressable>
               ) : null}
             </View>
+          ) : !isDesktop ? (
+            <Pressable style={styles.ksPill} onPress={handleOpenBilling}>
+              <CoinKsIcon size={13} color={nihongoTheme.colors.accentHover} />
+              <Text style={styles.ksPillText}>
+                {ksBalance.toLocaleString('vi-VN')} KS · {tierShort}
+              </Text>
+            </Pressable>
           ) : null}
         </View>
       ) : null}
@@ -110,6 +124,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
   },
   brandLeft: {
     flexDirection: 'row',
@@ -120,6 +135,9 @@ const styles = StyleSheet.create({
     fontSize: 21,
     fontWeight: '800',
     letterSpacing: -0.3,
+  },
+  brandTextPhone: {
+    fontSize: 19,
   },
   brandDark: {
     color: nihongoTheme.colors.textPrimary,

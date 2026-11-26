@@ -366,8 +366,16 @@ export function ShieldCheckIcon({ size = 16, color = '#2F9E62' }: IconProps) {
 export function GrammarSkillIcon({ size = 22, color = '#EA7A1E' }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="4" width="16" height="16" rx="3" fill="rgba(244, 138, 52, 0.16)" stroke={color} strokeWidth={2} />
-      <Path d="M8 9h4M8 13h8M8 17h6M15.5 7.5l2 2-2 2" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="3" y="4" width="8" height="7" rx="2" fill="rgba(244, 138, 52, 0.18)" stroke={color} strokeWidth={2} />
+      <Rect x="13" y="4" width="8" height="7" rx="2" stroke={color} strokeWidth={2} />
+      <Rect x="3" y="13.5" width="7" height="6.5" rx="2" stroke={color} strokeWidth={2} />
+      <Polygon
+        points="16.5,12.5 17.8,15.3 20.8,15.7 18.6,17.8 19.2,20.8 16.5,19.3 13.8,20.8 14.4,17.8 12.2,15.7 15.2,15.3"
+        fill="rgba(244, 138, 52, 0.24)"
+        stroke={color}
+        strokeWidth={1.7}
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
