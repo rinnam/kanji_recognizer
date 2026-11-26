@@ -3,6 +3,7 @@ import { Animated, Platform, Pressable, StyleSheet, Switch, Text, TextInput, Vie
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams } from 'expo-router';
 import { AppShell } from '../../../src/components/AppShell';
+import { SmoothProgressBar } from '../../../src/components/SmoothProgressBar';
 import { TopHeader } from '../../../src/components/TopHeader';
 import {
   ClockIcon,
@@ -28,6 +29,8 @@ import {
 import { getUserScopedKey } from '../../../src/features/auth/auth-store';
 import { claimDailyGameReward } from '../../../src/features/membership/membership-store';
 import { recordMeaningfulStudyAction } from '../../../src/features/study-tracker/use-study-tracker';
+import { useIsMobilePhone } from '../../../src/utils/device';
+import { hapticCrit, hapticError, hapticSuccess, hapticTap } from '../../../src/utils/haptics';
 import { speakJapanese } from '../../../src/utils/speak-japanese';
 
 type GrammarTab = 'library' | 'star' | 'blitz';
@@ -65,6 +68,7 @@ function shuffleArray<T>(items: readonly T[]): T[] {
 }
 
 export default function GrammarPracticeScreen() {
+  const isPhone = useIsMobilePhone();
   const params = useLocalSearchParams<{ tab?: string }>();
   const [activeTab, setActiveTab] = useState<GrammarTab>(
     params.tab === 'star' ? 'star' : params.tab === 'blitz' ? 'blitz' : 'library',
@@ -322,6 +326,7 @@ export default function GrammarPracticeScreen() {
   // Star 25s reflex rAF loop
   const handleStarTimeout = () => {
     if (!currentStar || starChecked !== 'idle') return;
+    hapticError();
     setStarTimedOut(true);
     setStarChecked('wrong');
     setStarCombo(0);
@@ -355,7 +360,7 @@ export default function GrammarPracticeScreen() {
       starRatioRef.current = ratio;
       starTimerAnim.setValue(ratio);
 
-      if (now - lastHud >= 100 || ratio === 0) {
+      if (now - lastHud >= 220 || ratio === 0) {
         lastHud = now;
         setStarTimeRatio(ratio);
         setStarTimeLeftSec(Math.max(0, Math.ceil((limitMs - elapsed) / 1000)));
@@ -385,6 +390,7 @@ export default function GrammarPracticeScreen() {
     recordMeaningfulStudyAction('grammar_star_pick');
     const emptySlotIdx = starSlots.findIndex((s) => s === null);
     if (emptySlotIdx < 0) return;
+    hapticTap();
     const nextSlots = [...starSlots];
     nextSlots[emptySlotIdx] = chip;
     setStarSlots(nextSlots);
@@ -395,6 +401,7 @@ export default function GrammarPracticeScreen() {
     if (starChecked !== 'idle') return;
     const item = starSlots[slotIdx];
     if (!item) return;
+    hapticTap();
     const nextSlots = [...starSlots];
     nextSlots[slotIdx] = null;
     setStarSlots(nextSlots);
@@ -413,6 +420,8 @@ export default function GrammarPracticeScreen() {
 
     if (ok) {
       const fastBonus = starReflexMode && starRatioRef.current > 0.5 ? 10 : 0;
+      if (fastBonus > 0) hapticCrit();
+      else hapticSuccess();
       const pts = 20 + fastBonus;
       setStarScore((s) => s + pts);
       setStarCombo((c) => c + 1);
@@ -421,6 +430,7 @@ export default function GrammarPracticeScreen() {
       setStarFloatOk(true);
       triggerFloat(starFloatY, starFloatOpacity);
     } else {
+      hapticError();
       setStarCombo(0);
       setStarFloatText('✗ Chưa đúng');
       setStarFloatOk(false);
@@ -576,6 +586,8 @@ export default function GrammarPracticeScreen() {
       const nextCombo = blitzCombo + 1;
       const mult = nextCombo >= 6 ? 3 : nextCombo >= 3 ? 2 : 1;
       const fastBonus = blitzRatioRef.current > 0.56 ? 5 : 0;
+      if (fastBonus > 0 || nextCombo >= 3) hapticCrit();
+      else hapticSuccess();
       const pts = 10 * mult + fastBonus;
       nextScore = blitzScore + pts;
       setBlitzScore(nextScore);
@@ -587,6 +599,7 @@ export default function GrammarPracticeScreen() {
         `${fastBonus > 0 ? '⚡ Phản xạ nhanh (+5đ)! ' : ''}Chính xác! ${currentBlitz.tipVi}`,
       );
     } else {
+      hapticError();
       nextHearts = blitzHearts - 1;
       setBlitzHearts(nextHearts);
       setBlitzCombo(0);
@@ -605,6 +618,7 @@ export default function GrammarPracticeScreen() {
 
   const handleBlitzTimeout = () => {
     if (blitzPhase !== 'playing' || !currentBlitz || blitzPicked !== null) return;
+    hapticError();
     setBlitzPicked('__TIMEOUT__');
     const nextHearts = blitzHearts - 1;
     setBlitzHearts(nextHearts);
@@ -643,7 +657,7 @@ export default function GrammarPracticeScreen() {
       blitzRatioRef.current = ratio;
       blitzQTimerAnim.setValue(ratio);
 
-      if (now - lastHud >= 90 || ratio === 0) {
+      if (now - lastHud >= 220 || ratio === 0) {
         lastHud = now;
         setBlitzQTimeRatio(ratio);
         setBlitzQTimeLeftSec(Math.max(0, Number(((limitMs - elapsed) / 1000).toFixed(1))));
@@ -759,10 +773,11 @@ export default function GrammarPracticeScreen() {
   }, []);
 
   const starTimerColor = starTimeRatio > 0.5 ? '#1B873F' : starTimeRatio > 0.25 ? '#D97706' : '#DC2626';
-  const starTimerWidth = starTimerAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
 
   const blitzTimerColor = blitzQTimeRatio > 0.5 ? '#1B873F' : blitzQTimeRatio > 0.25 ? '#D97706' : '#DC2626';
-  const blitzTimerWidth = blitzQTimerAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+
+  const hidePhoneHeaderSubtitle =
+    isPhone && ((activeTab === 'star' && !starRoundDone) || (activeTab === 'blitz' && blitzPhase === 'playing'));
 
   const filterProgressPct =
     filteredPoints.length > 0
@@ -774,7 +789,11 @@ export default function GrammarPracticeScreen() {
       <TopHeader
         mode="subpage"
         title="Ngữ pháp JLPT & Game Thực chiến"
-        subtitle={`Full JLPT N3 (${levelCounts.N3} mẫu) · Xếp câu Dấu Sao ★ & Bắn Trợ từ 60s`}
+        subtitle={
+          hidePhoneHeaderSubtitle
+            ? undefined
+            : `Full JLPT N3 (${levelCounts.N3} mẫu) · Xếp câu Dấu Sao ★ & Bắn Trợ từ 60s`
+        }
       />
 
       {/* Mode Tabs */}
@@ -1064,6 +1083,7 @@ export default function GrammarPracticeScreen() {
             <Animated.View
               style={[
                 styles.card,
+                isPhone && styles.cardPhone,
                 {
                   opacity: starCardEnterAnim,
                   transform: [
@@ -1133,20 +1153,21 @@ export default function GrammarPracticeScreen() {
                       <Text style={styles.fastBonusHint}>Cửa sổ +10đ phản xạ nhanh</Text>
                     ) : null}
                   </View>
-                  <View style={styles.qTimerTrack}>
-                    <Animated.View
-                      style={[
-                        styles.qTimerFill,
-                        { width: starTimerWidth, backgroundColor: starTimerColor },
-                      ]}
-                    />
-                  </View>
+                  <SmoothProgressBar
+                    progress={starTimerAnim}
+                    color={starTimerColor}
+                    trackColor="#F2EBE3"
+                    height={7}
+                    borderRadius={5}
+                  />
                 </View>
               ) : null}
 
               <Text style={styles.starMeaning}>{currentStar.meaningVi}</Text>
               <Text style={styles.starInstruction}>
-                Chạm 4 mảnh bên dưới để xếp thành câu đúng (phím 1–4 chọn nhanh, Backspace hoàn tác, Enter kiểm tra):
+                {isPhone
+                  ? 'Chạm 4 mảnh bên dưới để xếp thành câu đúng:'
+                  : 'Chạm 4 mảnh bên dưới để xếp thành câu đúng (phím 1–4 chọn nhanh, Backspace hoàn tác, Enter kiểm tra):'}
               </Text>
 
               <View style={styles.sentenceFrame}>
@@ -1156,8 +1177,10 @@ export default function GrammarPracticeScreen() {
                   return (
                     <Pressable
                       key={sIdx}
+                      hitSlop={4}
                       style={[
                         styles.slotBox,
+                        isPhone && styles.slotBoxPhone,
                         isStarSlot && styles.slotBoxStar,
                         slot && styles.slotBoxFilled,
                         starChecked === 'correct' && styles.slotCorrect,
@@ -1178,10 +1201,15 @@ export default function GrammarPracticeScreen() {
                 {starOptions.map((chip, idx) => (
                   <Pressable
                     key={chip.id}
-                    style={({ pressed }) => [styles.bankChip, pressed && styles.chipPressed]}
+                    hitSlop={4}
+                    style={({ pressed }) => [
+                      styles.bankChip,
+                      isPhone && styles.bankChipPhone,
+                      pressed && styles.chipPressed,
+                    ]}
                     onPress={() => handlePickStarChip(chip)}
                   >
-                    <Text style={styles.bankKeyHint}>{idx + 1}</Text>
+                    {!isPhone ? <Text style={styles.bankKeyHint}>{idx + 1}</Text> : null}
                     <Text style={styles.bankChipText}>{chip.text}</Text>
                   </Pressable>
                 ))}
@@ -1283,6 +1311,7 @@ export default function GrammarPracticeScreen() {
             <Animated.View
               style={[
                 styles.card,
+                isPhone && styles.cardPhone,
                 {
                   opacity: blitzCardEnterAnim,
                   transform: [
@@ -1353,14 +1382,13 @@ export default function GrammarPracticeScreen() {
                     <Text style={styles.fastBonusHint}>Cửa sổ +5đ Siêu tốc</Text>
                   ) : null}
                 </View>
-                <View style={styles.qTimerTrack}>
-                  <Animated.View
-                    style={[
-                      styles.qTimerFill,
-                      { width: blitzTimerWidth, backgroundColor: blitzTimerColor },
-                    ]}
-                  />
-                </View>
+                <SmoothProgressBar
+                  progress={blitzQTimerAnim}
+                  color={blitzTimerColor}
+                  trackColor="#F2EBE3"
+                  height={7}
+                  borderRadius={5}
+                />
               </View>
 
               <View style={styles.levelTag}>
@@ -1381,8 +1409,10 @@ export default function GrammarPracticeScreen() {
                   return (
                     <Pressable
                       key={ch}
+                      hitSlop={4}
                       style={({ pressed }) => [
                         styles.blitzChoiceBtn,
+                        isPhone && styles.blitzChoiceBtnPhone,
                         showOk && styles.blitzChoiceOk,
                         showWrong && styles.blitzChoiceBad,
                         pressed && blitzPicked === null && styles.chipPressed,
@@ -1390,7 +1420,7 @@ export default function GrammarPracticeScreen() {
                       disabled={blitzPicked !== null}
                       onPress={() => handleBlitzAnswer(ch)}
                     >
-                      <Text style={styles.choiceNumHint}>{idx + 1}</Text>
+                      {!isPhone ? <Text style={styles.choiceNumHint}>{idx + 1}</Text> : null}
                       <Text style={styles.blitzChoiceText}>{ch}</Text>
                     </Pressable>
                   );
@@ -2163,5 +2193,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#DC2626',
     fontWeight: '600',
+  },
+  cardPhone: {
+    padding: 13,
+    gap: 10,
+    borderRadius: 18,
+  },
+  slotBoxPhone: {
+    minHeight: 44,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  bankChipPhone: {
+    minHeight: 48,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  blitzChoiceBtnPhone: {
+    minHeight: 52,
+    paddingVertical: 13,
+    paddingHorizontal: 12,
   },
 });

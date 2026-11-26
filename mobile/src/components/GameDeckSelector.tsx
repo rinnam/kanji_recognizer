@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { FolderDto, VocabularyDto } from '../../../packages/contracts/src/study';
 import { nihongoTheme } from '../theme/nihongo-theme';
+import { useIsMobilePhone } from '../utils/device';
 import { getUserScopedKey } from '../features/auth/auth-store';
 import {
   buildFolderDeckOptions,
@@ -69,7 +70,9 @@ export function GameDeckSelector({
   onChange,
   accentColor = nihongoTheme.colors.accent,
 }: GameDeckSelectorProps) {
+  const isPhone = useIsMobilePhone();
   const [folderQuery, setFolderQuery] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const folderOptions = useMemo(
     () => buildFolderDeckOptions(folders, words),
@@ -144,6 +147,17 @@ export function GameDeckSelector({
     updateSelection({ folderIds: nextIds });
   };
 
+  const useMobileModal = isPhone && folderOptions.length > 4;
+  const selectedNames = folderOptions
+    .filter((o) => value.folderIds.includes(o.id))
+    .map((o) => o.name);
+  const selectedFolderSummary =
+    selectedNames.length === 0
+      ? `Tất cả bộ từ (${allValidCount} từ)`
+      : selectedNames.length <= 2
+        ? selectedNames.join(', ')
+        : `${selectedNames[0]}, ${selectedNames[1]} +${selectedNames.length - 2} bộ`;
+
   return (
     <View style={styles.container}>
       {/* 1. Folder / Deck Selector */}
@@ -152,59 +166,152 @@ export function GameDeckSelector({
           1. Chọn bộ từ / Thư mục học ({value.folderIds.length === 0 ? 'Tất cả' : `${value.folderIds.length} bộ`})
         </Text>
 
-        {folderOptions.length > 6 ? (
-          <TextInput
-            value={folderQuery}
-            onChangeText={setFolderQuery}
-            placeholder="Tìm bộ từ / bài học..."
-            placeholderTextColor={nihongoTheme.colors.textMuted}
-            style={styles.searchInput}
-          />
-        ) : null}
-
-        <ScrollView
-          style={folderOptions.length > 6 ? styles.folderScroll : undefined}
-          nestedScrollEnabled
-          contentContainerStyle={styles.row}
-        >
+        {useMobileModal ? (
           <Pressable
-            style={[
-              styles.chip,
-              value.folderIds.length === 0 && { backgroundColor: accentColor },
-            ]}
-            onPress={() => updateSelection({ folderIds: [] })}
+            style={[styles.modalTriggerBtn, { borderColor: accentColor }]}
+            onPress={() => setPickerOpen(true)}
           >
-            <Text
-              style={[
-                styles.chipText,
-                value.folderIds.length === 0 && styles.chipTextActive,
-              ]}
-            >
-              Tất cả bộ từ ({allValidCount})
+            <Text style={styles.modalTriggerText} numberOfLines={1}>
+              {selectedFolderSummary}
             </Text>
+            <View style={[styles.modalTriggerPill, { backgroundColor: accentColor }]}>
+              <Text style={styles.modalTriggerPillText}>Chọn →</Text>
+            </View>
           </Pressable>
+        ) : (
+          <>
+            {folderOptions.length > 6 ? (
+              <TextInput
+                value={folderQuery}
+                onChangeText={setFolderQuery}
+                placeholder="Tìm bộ từ / bài học..."
+                placeholderTextColor={nihongoTheme.colors.textMuted}
+                style={styles.searchInput}
+              />
+            ) : null}
 
-          {filteredFolderOptions.map((opt) => {
-            const active = value.folderIds.includes(opt.id);
-            return (
+            <ScrollView
+              style={folderOptions.length > 6 ? styles.folderScroll : undefined}
+              nestedScrollEnabled
+              contentContainerStyle={styles.row}
+            >
               <Pressable
-                key={opt.id}
-                style={[styles.chip, active && { backgroundColor: accentColor }]}
-                onPress={() => toggleFolder(opt.id)}
+                style={[
+                  styles.chip,
+                  value.folderIds.length === 0 && { backgroundColor: accentColor },
+                ]}
+                onPress={() => updateSelection({ folderIds: [] })}
               >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                  {opt.fullPath} ({opt.count})
+                <Text
+                  style={[
+                    styles.chipText,
+                    value.folderIds.length === 0 && styles.chipTextActive,
+                  ]}
+                >
+                  Tất cả bộ từ ({allValidCount})
                 </Text>
               </Pressable>
-            );
-          })}
-        </ScrollView>
+
+              {filteredFolderOptions.map((opt) => {
+                const active = value.folderIds.includes(opt.id);
+                return (
+                  <Pressable
+                    key={opt.id}
+                    style={[styles.chip, active && { backgroundColor: accentColor }]}
+                    onPress={() => toggleFolder(opt.id)}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {opt.fullPath} ({opt.count})
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </>
+        )}
 
         {folderOptions.length === 0 ? (
           <Text style={styles.hintText}>
             Chưa có thư mục riêng — bạn có thể chia nhóm theo cấp JLPT và số lượng từ bên dưới.
           </Text>
         ) : null}
+
+        <Modal
+          visible={pickerOpen}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setPickerOpen(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalSheet}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Chọn bộ từ / Thư mục</Text>
+                <Pressable onPress={() => setPickerOpen(false)}>
+                  <Text style={[styles.modalDoneLink, { color: accentColor }]}>Xong</Text>
+                </Pressable>
+              </View>
+
+              <TextInput
+                value={folderQuery}
+                onChangeText={setFolderQuery}
+                placeholder="Tìm bộ từ / bài học..."
+                placeholderTextColor={nihongoTheme.colors.textMuted}
+                style={styles.searchInput}
+              />
+
+              <ScrollView style={styles.modalList} contentContainerStyle={styles.modalListContent}>
+                <Pressable
+                  style={[
+                    styles.modalRowItem,
+                    value.folderIds.length === 0 && {
+                      backgroundColor: '#FFF7ED',
+                      borderColor: accentColor,
+                    },
+                  ]}
+                  onPress={() => updateSelection({ folderIds: [] })}
+                >
+                  <Text style={styles.modalRowTitle}>Tất cả bộ từ</Text>
+                  <Text style={styles.modalRowCount}>
+                    {allValidCount} từ {value.folderIds.length === 0 ? '✓' : ''}
+                  </Text>
+                </Pressable>
+
+                {filteredFolderOptions.map((opt) => {
+                  const active = value.folderIds.includes(opt.id);
+                  return (
+                    <Pressable
+                      key={opt.id}
+                      style={[
+                        styles.modalRowItem,
+                        active && {
+                          backgroundColor: '#FFF7ED',
+                          borderColor: accentColor,
+                        },
+                      ]}
+                      onPress={() => toggleFolder(opt.id)}
+                    >
+                      <Text style={styles.modalRowTitle} numberOfLines={2}>
+                        {opt.fullPath}
+                      </Text>
+                      <Text style={[styles.modalRowCount, active && { color: accentColor }]}>
+                        {opt.count} từ {active ? '✓' : ''}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+
+              <Pressable
+                style={[styles.modalConfirmBtn, { backgroundColor: accentColor }]}
+                onPress={() => setPickerOpen(false)}
+              >
+                <Text style={styles.modalConfirmText}>
+                  Xác nhận ({value.folderIds.length === 0 ? 'Tất cả' : `${value.folderIds.length} bộ`})
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
       </View>
 
       {/* 2. JLPT Filter within selected folders */}
@@ -385,5 +492,99 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '800',
     color: '#B45309',
+  },
+  modalTriggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  modalTriggerText: {
+    flex: 1,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  modalTriggerPill: {
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  modalTriggerPillText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 18,
+    gap: 12,
+    maxHeight: '82%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  modalDoneLink: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  modalList: {
+    maxHeight: 360,
+  },
+  modalListContent: {
+    gap: 8,
+    paddingBottom: 6,
+  },
+  modalRowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderWidth: 1.2,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  modalRowTitle: {
+    flex: 1,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  modalRowCount: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  modalConfirmBtn: {
+    borderRadius: nihongoTheme.radius.button,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  modalConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

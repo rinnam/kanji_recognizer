@@ -18,6 +18,7 @@ import {
   loadSavedGameDeckSelection,
   saveGameDeckSelection,
 } from '../../src/components/GameDeckSelector';
+import { SmoothProgressBar } from '../../src/components/SmoothProgressBar';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { getUserScopedKey } from '../../src/features/auth/auth-store';
 import {
@@ -30,6 +31,8 @@ import {
 } from '../../src/features/games/use-game-vocab';
 import { claimDailyGameReward } from '../../src/features/membership/membership-store';
 import { recordMeaningfulStudyAction } from '../../src/features/study-tracker/use-study-tracker';
+import { useIsMobilePhone } from '../../src/utils/device';
+import { hapticCrit, hapticError, hapticSuccess, hapticTap } from '../../src/utils/haptics';
 import { speakJapanese } from '../../src/utils/speak-japanese';
 
 type Difficulty = 'Dễ' | 'Vừa' | 'Khó';
@@ -137,6 +140,7 @@ function buildBossQuestion(
 }
 
 export default function BotGameScreen() {
+  const isPhone = useIsMobilePhone();
   const { words, folders, loading } = useGameVocabulary();
   const [difficulty, setDifficulty] = useState<Difficulty>('Vừa');
   const [deckSelection, setDeckSelection] = useState<GameDeckSelection>(DEFAULT_GAME_DECK_SELECTION);
@@ -186,10 +190,10 @@ export default function BotGameScreen() {
   const qRatioRef = useRef<number>(1);
   const timeoutFiredRef = useRef(false);
 
-  // Animated values
+  // Animated values (0..1 normalized for UI-thread transform bars)
   const qTimerAnim = useRef(new Animated.Value(1)).current;
-  const playerHpAnim = useRef(new Animated.Value(100)).current;
-  const bossHpAnim = useRef(new Animated.Value(100)).current;
+  const playerHpAnim = useRef(new Animated.Value(1)).current;
+  const bossHpAnim = useRef(new Animated.Value(1)).current;
   const bossShakeAnim = useRef(new Animated.Value(0)).current;
   const playerShakeAnim = useRef(new Animated.Value(0)).current;
   const cardEnterAnim = useRef(new Animated.Value(1)).current;
@@ -260,14 +264,14 @@ export default function BotGameScreen() {
   const animateHpBars = (nextPlayer: number, nextBoss: number, maxBoss: number) => {
     Animated.parallel([
       Animated.timing(playerHpAnim, {
-        toValue: Math.max(0, Math.min(100, nextPlayer)),
-        duration: 260,
-        useNativeDriver: false,
+        toValue: Math.max(0, Math.min(1, nextPlayer / 100)),
+        duration: 240,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
       Animated.timing(bossHpAnim, {
-        toValue: Math.max(0, Math.min(100, (nextBoss / Math.max(1, maxBoss)) * 100)),
-        duration: 260,
-        useNativeDriver: false,
+        toValue: Math.max(0, Math.min(1, nextBoss / Math.max(1, maxBoss))),
+        duration: 240,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     ]).start();
   };
@@ -328,8 +332,8 @@ export default function BotGameScreen() {
     setBossMaxHp(hp1);
     setBossHp(hp1);
     setPlayerHp(100);
-    playerHpAnim.setValue(100);
-    bossHpAnim.setValue(100);
+    playerHpAnim.setValue(1);
+    bossHpAnim.setValue(1);
     setScore(0);
     setCombo(0);
     setCritCount(0);
@@ -341,6 +345,7 @@ export default function BotGameScreen() {
     setPickedOption(null);
     setMissedWords([]);
     setKsMsg(null);
+    hapticTap();
     setBattleLog(
       `Wave 1: ${BOSS_NAMES[0]} (${targets.length} từ trong bộ)! Trả lời trong ${getQuestionLimitSec(difficulty)}s để nổ Chí mạng.`,
     );
@@ -403,7 +408,7 @@ export default function BotGameScreen() {
         setWave(nextWave);
         setBossMaxHp(nextBossMax);
         setBossHp(nextBossMax);
-        bossHpAnim.setValue(100);
+        bossHpAnim.setValue(1);
         setBattleLog(`Hạ gục Wave ${nextWave - 1}! ${BOSS_NAMES[nextWave - 1]} tiến lên!`);
       }
 
@@ -424,21 +429,23 @@ export default function BotGameScreen() {
   const handleUseArrows = () => {
     if (!question || pickedOption !== null || arrowCooldown > 0 || hiddenIndices.length > 0) return;
     recordMeaningfulStudyAction('momo_boss_arrow');
+    hapticTap();
     const wrongIndices = question.options
       .map((opt, idx) => (opt !== question.correctOption ? idx : -1))
       .filter((idx) => idx >= 0);
     const toHide = shuffleItems(wrongIndices).slice(0, 2);
     setHiddenIndices(toHide);
     setArrowCooldown(3);
-    setBattleLog('Mưa tên [Q]: Đã loại bỏ 2 đáp án sai!');
+    setBattleLog('Mưa tên: Đã loại bỏ 2 đáp án sai!');
   };
 
   const handleUseShield = () => {
     if (pickedOption !== null || shieldActive || shieldCooldown > 0) return;
     recordMeaningfulStudyAction('momo_boss_shield');
+    hapticTap();
     setShieldActive(true);
     setShieldCooldown(4);
-    setBattleLog('Khiên Momo [E] đã bật — miễn nhiễm sát thương lượt này!');
+    setBattleLog('Khiên Momo đã bật — miễn nhiễm sát thương lượt này!');
   };
 
   const handleAnswer = (opt: string) => {
@@ -460,7 +467,12 @@ export default function BotGameScreen() {
       const dmg = Math.round(25 * comboMult * critMult);
       nextScore = score + dmg;
       nextBossHp = Math.max(0, bossHp - dmg);
-      if (isCrit) setCritCount((c) => c + 1);
+      if (isCrit) {
+        setCritCount((c) => c + 1);
+        hapticCrit();
+      } else {
+        hapticSuccess();
+      }
 
       triggerShake(bossShakeAnim);
       triggerFloatPopup(isCrit ? `-${dmg} CHÍ MẠNG!` : `-${dmg} HP`, isCrit ? 'crit' : 'hit');
@@ -474,9 +486,11 @@ export default function BotGameScreen() {
       nextCombo = 0;
       const incoming = difficulty === 'Dễ' ? 12 : difficulty === 'Khó' ? 24 : 18;
       if (shieldActive) {
+        hapticSuccess();
         triggerFloatPopup('🛡️ ĐỠ ĐÒN!', 'block');
         setBattleLog(`Khiên Momo đã đỡ trọn đòn phản công! Đáp án đúng: "${formatWordWithReading(question.word)}" = ${question.word.meaning}`);
       } else {
+        hapticError();
         nextPlayerHp = Math.max(0, playerHp - incoming);
         triggerShake(playerShakeAnim);
         triggerFloatPopup(`-${incoming} HP`, 'miss');
@@ -506,9 +520,11 @@ export default function BotGameScreen() {
     let nextPlayerHp = playerHp;
 
     if (shieldActive) {
+      hapticSuccess();
       triggerFloatPopup('🛡️ ĐỠ ĐÒN!', 'block');
       setBattleLog(`Hết giờ câu này! Khiên Momo đã chặn sát thương. Đáp án: "${formatWordWithReading(question.word)}" = ${question.word.meaning}`);
     } else {
+      hapticError();
       nextPlayerHp = Math.max(0, playerHp - incoming);
       triggerShake(playerShakeAnim);
       triggerFloatPopup(`HẾT GIỜ -${incoming} HP`, 'miss');
@@ -543,7 +559,7 @@ export default function BotGameScreen() {
       qRatioRef.current = ratio;
       qTimerAnim.setValue(ratio);
 
-      if (now - lastHudUpdateTs >= 90 || ratio === 0) {
+      if (now - lastHudUpdateTs >= 220 || ratio === 0) {
         lastHudUpdateTs = now;
         setQTimeRatio(ratio);
         setQTimeLeftSec(Math.max(0, Number(((limitMs - elapsed) / 1000).toFixed(1))));
@@ -613,16 +629,17 @@ export default function BotGameScreen() {
 
   const bossName = BOSS_NAMES[wave - 1] ?? BOSS_NAMES[0]!;
   const timerColor = qTimeRatio > 0.5 ? '#1B873F' : qTimeRatio > 0.25 ? '#D97706' : '#DC2626';
-  const playerHpWidth = playerHpAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
-  const bossHpWidth = bossHpAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
-  const qTimerWidth = qTimerAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
 
   return (
     <AppShell>
       <TopHeader
         mode="subpage"
         title="Công thành Momo"
-        subtitle={`Boss Raid phản xạ từ kho SRS (${words.length} từ) · Kỷ lục: ${bestScore}đ`}
+        subtitle={
+          isPhone && phase === 'battle'
+            ? `${activeDeckLabel} (${deck.length} từ)`
+            : `Boss Raid phản xạ từ kho SRS (${words.length} từ) · Kỷ lục: ${bestScore}đ`
+        }
         rightSlot={
           <View style={styles.headerBadge}>
             <BossSwordIcon size={15} color="#DC2626" />
@@ -673,9 +690,11 @@ export default function BotGameScreen() {
             <Text style={styles.rulesText}>
               • Mỗi câu có đồng hồ đếm ngược ({questionLimitSec}s). Trả lời trong 40% thời gian đầu nổ đòn ⚡ CHÍ MẠNG (+35% sát thương)! Hết giờ Boss tự động phản công.
             </Text>
-            <Text style={styles.rulesText}>
-              • Phím tắt web: 1–4 chọn đáp án · Q: Mưa tên (50/50) · E: Khiên Momo.
-            </Text>
+            {!isPhone ? (
+              <Text style={styles.rulesText}>
+                • Phím tắt web: 1–4 chọn đáp án · Q: Mưa tên (50/50) · E: Khiên Momo.
+              </Text>
+            ) : null}
           </View>
 
           <Pressable
@@ -693,17 +712,20 @@ export default function BotGameScreen() {
           </Pressable>
         </View>
       ) : phase === 'battle' && question ? (
-        <View style={styles.sectionGap}>
-          <View style={styles.broadNotice}>
-            <Text style={styles.broadNoticeText}>
-              Bộ từ: {activeDeckLabel} ({deck.length} từ đang luyện)
-            </Text>
-          </View>
+        <View style={[styles.sectionGap, isPhone && styles.sectionGapPhone]}>
+          {!isPhone ? (
+            <View style={styles.broadNotice}>
+              <Text style={styles.broadNoticeText}>
+                Bộ từ: {activeDeckLabel} ({deck.length} từ đang luyện)
+              </Text>
+            </View>
+          ) : null}
 
           {/* Battle HUD with shake & floating popup */}
           <Animated.View
             style={[
               styles.card,
+              isPhone && styles.cardPhone,
               { transform: [{ translateX: bossShakeAnim }] },
             ]}
           >
@@ -745,7 +767,7 @@ export default function BotGameScreen() {
                     </Text>
                   </View>
                 ))}
-                <Text style={styles.waveText}>{bossName}</Text>
+                <Text style={[styles.waveText, isPhone && styles.waveTextPhone]}>{bossName}</Text>
               </View>
               <View style={styles.hudClockGroup}>
                 <ClockIcon size={14} color={nihongoTheme.colors.accentHover} />
@@ -753,40 +775,53 @@ export default function BotGameScreen() {
               </View>
             </View>
 
-            <View style={styles.barsRow}>
-              <View style={styles.barCol}>
+            <View style={[styles.barsRow, isPhone && styles.barsRowPhone]}>
+              <View style={[styles.barCol, isPhone && styles.barColPhone]}>
                 <View style={styles.barHeaderRow}>
-                  <HeartIcon size={14} color="#1B873F" />
-                  <Text style={styles.barLabel}>HP của bạn: {playerHp}/100</Text>
+                  <HeartIcon size={13} color="#1B873F" />
+                  <Text style={styles.barLabel}>Bạn: {playerHp}/100</Text>
                 </View>
-                <View style={styles.hpTrack}>
-                  <Animated.View style={[styles.hpPlayerFill, { width: playerHpWidth }]} />
-                </View>
+                <SmoothProgressBar
+                  progress={playerHpAnim}
+                  color="#1B873F"
+                  trackColor={nihongoTheme.colors.chipNeutralBg}
+                  height={isPhone ? 8 : 11}
+                  borderRadius={6}
+                />
               </View>
-              <View style={styles.barCol}>
+              <View style={[styles.barCol, isPhone && styles.barColPhone]}>
                 <View style={styles.barHeaderRow}>
-                  <BossSwordIcon size={14} color="#DC2626" />
-                  <Text style={styles.barLabel}>HP Boss: {bossHp}/{bossMaxHp}</Text>
+                  <BossSwordIcon size={13} color="#DC2626" />
+                  <Text style={styles.barLabel}>Boss: {bossHp}/{bossMaxHp}</Text>
                 </View>
-                <View style={styles.hpTrack}>
-                  <Animated.View style={[styles.hpBossFill, { width: bossHpWidth }]} />
-                </View>
+                <SmoothProgressBar
+                  progress={bossHpAnim}
+                  color="#DC2626"
+                  trackColor={nihongoTheme.colors.chipNeutralBg}
+                  height={isPhone ? 8 : 11}
+                  borderRadius={6}
+                />
               </View>
             </View>
 
             <View style={styles.skillsRow}>
               <Pressable
-                style={[styles.skillBtn, arrowCooldown > 0 && styles.skillBtnCd]}
+                style={[
+                  styles.skillBtn,
+                  isPhone && styles.skillBtnPhone,
+                  arrowCooldown > 0 && styles.skillBtnCd,
+                ]}
                 disabled={arrowCooldown > 0 || pickedOption !== null}
                 onPress={handleUseArrows}
               >
                 <Text style={styles.skillBtnText}>
-                  Mưa tên [Q] {arrowCooldown > 0 ? `(Hồi ${arrowCooldown})` : '· Sẵn sàng'}
+                  Mưa tên{!isPhone ? ' [Q]' : ''} {arrowCooldown > 0 ? `(Hồi ${arrowCooldown})` : '· Sẵn sàng'}
                 </Text>
               </Pressable>
               <Pressable
                 style={[
                   styles.skillBtn,
+                  isPhone && styles.skillBtnPhone,
                   shieldActive && styles.skillBtnActive,
                   shieldCooldown > 0 && !shieldActive && styles.skillBtnCd,
                 ]}
@@ -798,18 +833,21 @@ export default function BotGameScreen() {
                   color={shieldActive ? '#1B873F' : nihongoTheme.colors.accentHover}
                 />
                 <Text style={[styles.skillBtnText, shieldActive && styles.skillTextActive]}>
-                  Khiên [E] {shieldActive ? 'Đang bật' : shieldCooldown > 0 ? `(Hồi ${shieldCooldown})` : '· Sẵn sàng'}
+                  Khiên{!isPhone ? ' [E]' : ''} {shieldActive ? 'Đang bật' : shieldCooldown > 0 ? `(Hồi ${shieldCooldown})` : '· Sẵn sàng'}
                 </Text>
               </Pressable>
             </View>
 
-            <Text style={styles.battleLog}>{battleLog}</Text>
+            <Text style={[styles.battleLog, isPhone && styles.battleLogPhone]} numberOfLines={isPhone ? 2 : undefined}>
+              {battleLog}
+            </Text>
           </Animated.View>
 
           {/* Question Card with per-question reflex timer + shake */}
           <Animated.View
             style={[
               styles.card,
+              isPhone && styles.cardPhone,
               {
                 opacity: cardEnterAnim,
                 transform: [
@@ -830,21 +868,20 @@ export default function BotGameScreen() {
                 <View style={styles.qTimerTitleRow}>
                   <LightningBoltIcon size={14} color={timerColor} />
                   <Text style={[styles.qTimerLabel, { color: timerColor }]}>
-                    Phản xạ câu này: {qTimeLeftSec.toFixed(1)}s
+                    Phản xạ: {qTimeLeftSec.toFixed(1)}s
                   </Text>
                 </View>
                 {qTimeRatio >= 0.6 && pickedOption === null ? (
-                  <Text style={styles.critHint}>Đang trong cửa sổ Chí mạng (+35%)</Text>
+                  <Text style={styles.critHint}>Chí mạng (+35%)</Text>
                 ) : null}
               </View>
-              <View style={styles.qTimerTrack}>
-                <Animated.View
-                  style={[
-                    styles.qTimerFill,
-                    { width: qTimerWidth, backgroundColor: timerColor },
-                  ]}
-                />
-              </View>
+              <SmoothProgressBar
+                progress={qTimerAnim}
+                color={timerColor}
+                trackColor={nihongoTheme.colors.chipNeutralBg}
+                height={isPhone ? 6 : 7}
+                borderRadius={5}
+              />
             </View>
 
             <View style={styles.hudTop}>
@@ -858,14 +895,14 @@ export default function BotGameScreen() {
 
             {question.kind === 'audio_to_word' ? (
               <Pressable
-                style={styles.audioPromptBtn}
+                style={[styles.audioPromptBtn, isPhone && styles.audioPromptBtnPhone]}
                 onPress={() => void speakJapanese(question.word.reading || question.word.word)}
               >
                 <VolumeIcon size={22} color={nihongoTheme.colors.accentHover} />
                 <Text style={styles.audioPromptText}>Bấm để nghe lại phát âm</Text>
               </Pressable>
             ) : (
-              <Text style={styles.qMain}>{question.promptMain}</Text>
+              <Text style={[styles.qMain, isPhone && styles.qMainPhone]}>{question.promptMain}</Text>
             )}
             <Text style={styles.qSub}>{question.promptSub}</Text>
 
@@ -879,8 +916,10 @@ export default function BotGameScreen() {
                 return (
                   <Pressable
                     key={`${opt}-${idx}`}
+                    hitSlop={4}
                     style={({ pressed }) => [
                       styles.optBtn,
+                      isPhone && styles.optBtnPhone,
                       isHidden && styles.optHidden,
                       showOk && styles.optOk,
                       showBad && styles.optBad,
@@ -889,7 +928,7 @@ export default function BotGameScreen() {
                     disabled={isHidden || pickedOption !== null}
                     onPress={() => handleAnswer(opt)}
                   >
-                    <Text style={styles.optNum}>{idx + 1}</Text>
+                    {!isPhone ? <Text style={styles.optNum}>{idx + 1}</Text> : null}
                     <Text style={styles.optText}>
                       {isHidden ? '— Đã loại bằng Mưa tên —' : opt}
                     </Text>
@@ -1406,5 +1445,47 @@ const styles = StyleSheet.create({
   missedMean: {
     fontSize: 12.5,
     color: '#DC2626',
+  },
+  sectionGapPhone: {
+    gap: 8,
+  },
+  cardPhone: {
+    padding: 12,
+    gap: 8,
+    borderRadius: 18,
+  },
+  waveTextPhone: {
+    fontSize: 13.5,
+  },
+  barsRowPhone: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  barColPhone: {
+    minWidth: 0,
+    flex: 1,
+    gap: 4,
+  },
+  skillBtnPhone: {
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    minWidth: 0,
+  },
+  battleLogPhone: {
+    fontSize: 11.5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  audioPromptBtnPhone: {
+    paddingVertical: 11,
+  },
+  qMainPhone: {
+    fontSize: 24,
+    paddingVertical: 2,
+  },
+  optBtnPhone: {
+    minHeight: 48,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
 });

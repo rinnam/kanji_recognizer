@@ -1,8 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  Animated,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { VocabularyDto } from '../../../packages/contracts/src/study';
 import { AppShell } from '../../src/components/AppShell';
+import { SmoothProgressBar } from '../../src/components/SmoothProgressBar';
 import { TopHeader } from '../../src/components/TopHeader';
 import { MomoAvatar } from '../../src/components/MomoAvatar';
 import {
@@ -30,6 +40,8 @@ import {
 } from '../../src/features/games/use-game-vocab';
 import { claimDailyGameReward } from '../../src/features/membership/membership-store';
 import { recordMeaningfulStudyAction } from '../../src/features/study-tracker/use-study-tracker';
+import { useIsMobilePhone } from '../../src/utils/device';
+import { hapticCrit, hapticError, hapticSuccess } from '../../src/utils/haptics';
 import { speakJapanese } from '../../src/utils/speak-japanese';
 
 type BeltSpeed = 'Chậm' | 'Vừa' | 'Nhanh';
@@ -68,6 +80,8 @@ function hasValidSino(s: string | null | undefined): s is string {
 
 export default function KaitenSushiScreen() {
   const { words, folders, loading } = useGameVocabulary();
+  const isPhone = useIsMobilePhone();
+  const { width: windowWidth } = useWindowDimensions();
   const [deckSelection, setDeckSelection] = useState<GameDeckSelection>(DEFAULT_GAME_DECK_SELECTION);
   const [speed, setSpeed] = useState<BeltSpeed>('Vừa');
   const [showKana, setShowKana] = useState(false);
@@ -105,6 +119,8 @@ export default function KaitenSushiScreen() {
   const heartsRef = useRef(3);
   const phaseRef = useRef<'setup' | 'playing' | 'summary'>('setup');
   const speedRef = useRef<BeltSpeed>(speed);
+  const isPhoneRef = useRef(isPhone);
+  const beltMeasuredRef = useRef(false);
   const beltWidthRef = useRef(760);
   const beltOffsetRef = useRef(0);
   const orderStartTsRef = useRef(0);
@@ -121,6 +137,12 @@ export default function KaitenSushiScreen() {
 
   phaseRef.current = phase;
   speedRef.current = speed;
+  isPhoneRef.current = isPhone;
+  if (!beltMeasuredRef.current) {
+    beltWidthRef.current = isPhone
+      ? Math.max(320, windowWidth - 40)
+      : Math.min(760, Math.max(320, windowWidth - 80));
+  }
 
   useEffect(() => {
     void getUserScopedKey(SUSHI_BEST_KEY)
@@ -312,7 +334,8 @@ export default function KaitenSushiScreen() {
       }
 
       const bw = Math.max(320, beltWidthRef.current);
-      const scale = Math.max(0.65, bw / 760);
+      const minGap = isPhoneRef.current ? 138 : MIN_PLATE_GAP_PX;
+      const scale = isPhoneRef.current ? Math.max(0.58, bw / 760) : Math.max(0.65, bw / 760);
       const speedPx = basePxPerSec * scale;
 
       // Scroll background conveyor slats cleanly
@@ -341,7 +364,7 @@ export default function KaitenSushiScreen() {
       orderRatioRef.current = orderRatio;
       orderTimerAnim.setValue(orderRatio);
 
-      if (now - lastHudUpdateTs >= 90 || orderRatio === 0) {
+      if (now - lastHudUpdateTs >= 220 || orderRatio === 0) {
         lastHudUpdateTs = now;
         setOrderTimeRatio(orderRatio);
         setOrderTimeLeftSec(Math.max(0, Number(((limitMs - orderElapsed) / 1000).toFixed(1))));
@@ -352,6 +375,7 @@ export default function KaitenSushiScreen() {
       const orderTimedOut = orderRatio <= 0;
 
       if (orderTimedOut || (targetExited && !targetStillOnBelt)) {
+        hapticError();
         const nextHearts = Math.max(0, heartsRef.current - 1);
         heartsRef.current = nextHearts;
         comboRef.current = 0;
@@ -398,8 +422,8 @@ export default function KaitenSushiScreen() {
         const lane: 0 | 1 = lane0MaxX <= lane1MaxX ? 0 : 1;
         const maxLaneX = lane === 0 ? lane0MaxX : lane1MaxX;
 
-        if (maxLaneX < bw - MIN_PLATE_GAP_PX || !hasActivePlateOnScreen) {
-          const spawnX = Math.max(bw + 10, maxLaneX + MIN_PLATE_GAP_PX);
+        if (maxLaneX < bw - minGap || !hasActivePlateOnScreen) {
+          const spawnX = Math.max(bw + 10, maxLaneX + minGap);
           if (spawnX <= bw + 260) {
             const wordToSpawn = !hasActivePlateOnScreen
               ? activeOrder
@@ -467,6 +491,8 @@ export default function KaitenSushiScreen() {
       const nextCombo = comboRef.current + 1;
       const fever = nextCombo >= 3;
       const isFast = orderRatioRef.current >= 0.55;
+      if (fever || isFast) hapticCrit();
+      else hapticSuccess();
       const pts = (fever ? 20 : 10) + (isFast ? 5 : 0);
       const nextScore = scoreRef.current + pts;
       comboRef.current = nextCombo;
@@ -497,10 +523,11 @@ export default function KaitenSushiScreen() {
       const hasNextOrd = remaining.some((p) => p.word.id === nextOrd.id && p.xPx > 40);
       if (!hasNextOrd) {
         const bw = Math.max(320, beltWidthRef.current);
+        const minGap = isPhoneRef.current ? 138 : MIN_PLATE_GAP_PX;
         const lane0Max = remaining.filter((p) => p.lane === 0).reduce((m, p) => Math.max(m, p.xPx), 0);
         const lane1Max = remaining.filter((p) => p.lane === 1).reduce((m, p) => Math.max(m, p.xPx), 0);
         const lane: 0 | 1 = lane0Max <= lane1Max ? 0 : 1;
-        const spawnX = Math.max(bw - 10, (lane === 0 ? lane0Max : lane1Max) + MIN_PLATE_GAP_PX);
+        const spawnX = Math.max(bw - 10, (lane === 0 ? lane0Max : lane1Max) + minGap);
         remaining.push({
           uid: `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
           word: nextOrd,
@@ -514,6 +541,7 @@ export default function KaitenSushiScreen() {
       platesRef.current = remaining;
       setPlates([...remaining]);
     } else {
+      hapticError();
       platesRef.current = remaining;
       setPlates([...remaining]);
 
@@ -535,15 +563,18 @@ export default function KaitenSushiScreen() {
   };
 
   const timerColor = orderTimeRatio > 0.5 ? '#1B873F' : orderTimeRatio > 0.25 ? '#D97706' : '#DC2626';
-  const orderTimerWidth = orderTimerAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
   const isFever = combo >= 3;
 
   return (
-    <AppShell>
+    <AppShell scroll={!isPhone || phase !== 'playing'}>
       <TopHeader
         mode="subpage"
         title="Quán Sushi Băng Chuyền"
-        subtitle={`Nhận diện nhanh Kanji từ kho SRS (${words.length} từ) · Kỷ lục: ${bestScore}đ`}
+        subtitle={
+          isPhone && phase === 'playing'
+            ? undefined
+            : `Nhận diện nhanh Kanji từ kho SRS (${words.length} từ) · Kỷ lục: ${bestScore}đ`
+        }
         rightSlot={
           <View style={styles.headerBadge}>
             <SushiPlateIcon size={15} color="#0D9488" />
@@ -616,17 +647,20 @@ export default function KaitenSushiScreen() {
           </Pressable>
         </View>
       ) : phase === 'playing' && orderWord ? (
-        <View style={styles.sectionGap}>
-          <View style={styles.broadNotice}>
-            <Text style={styles.broadNoticeText}>
-              Bộ từ: {activeDeckLabel} ({activeDeckCount} từ đang phục vụ)
-            </Text>
-          </View>
+        <View style={[styles.sectionGap, isPhone && styles.sectionGapPhone]}>
+          {!isPhone ? (
+            <View style={styles.broadNotice}>
+              <Text style={styles.broadNoticeText}>
+                Bộ từ: {activeDeckLabel} ({activeDeckCount} từ đang phục vụ)
+              </Text>
+            </View>
+          ) : null}
 
           {/* HUD & Customer Order with shake, floating score, and patience timer */}
           <Animated.View
             style={[
               styles.card,
+              isPhone && styles.cardPhone,
               isFever && styles.cardFever,
               { transform: [{ translateX: orderShakeAnim }] },
             ]}
@@ -674,8 +708,8 @@ export default function KaitenSushiScreen() {
               </Pressable>
             </View>
 
-            <View style={styles.orderBubble}>
-              <MomoAvatar size={48} />
+            <View style={[styles.orderBubble, isPhone && styles.orderBubblePhone]}>
+              <MomoAvatar size={isPhone ? 36 : 48} />
               <View style={{ flex: 1, gap: 4 }}>
                 <View style={styles.orderHeaderRow}>
                   <Text style={styles.orderEyebrow}>KHÁCH HÀNG MOMO GỌI MÓN:</Text>
@@ -686,40 +720,46 @@ export default function KaitenSushiScreen() {
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.orderMeaning}>{orderWord.meaning}</Text>
+                <Text style={[styles.orderMeaning, isPhone && styles.orderMeaningPhone]}>
+                  {orderWord.meaning}
+                </Text>
                 {hasValidSino(orderWord.sinoVietnamese) ? (
                   <Text style={styles.orderHint}>Âm Hán Việt: {orderWord.sinoVietnamese}</Text>
                 ) : null}
-                <View style={styles.orderTimerTrack}>
-                  <Animated.View
-                    style={[
-                      styles.orderTimerFill,
-                      { width: orderTimerWidth, backgroundColor: timerColor },
-                    ]}
-                  />
-                </View>
+                <SmoothProgressBar
+                  progress={orderTimerAnim}
+                  color={timerColor}
+                  trackColor="#FDEBD6"
+                  height={6}
+                  borderRadius={4}
+                  style={{ marginTop: 3 }}
+                />
               </View>
             </View>
           </Animated.View>
 
           {/* True 60fps Two-Lane Conveyor Belt */}
           <View
-            style={[styles.beltShell, isFever && styles.beltShellFever]}
+            style={[styles.beltShell, isPhone && styles.beltShellPhone, isFever && styles.beltShellFever]}
             onLayout={(e) => {
               const w = e.nativeEvent.layout.width;
-              if (w > 120) beltWidthRef.current = w;
+              if (w > 120) {
+                beltWidthRef.current = w;
+                beltMeasuredRef.current = true;
+              }
             }}
           >
             {([0, 1] as const).map((laneIdx) => (
-              <View key={laneIdx} style={styles.laneTrack}>
+              <View key={laneIdx} style={[styles.laneTrack, isPhone && styles.laneTrackPhone]}>
                 <View style={styles.beltLine}>
                   <Animated.View
                     style={[
                       styles.slatTrack,
+                      isPhone && styles.slatTrackPhone,
                       { transform: [{ translateX: beltSlatAnim }] },
                     ]}
                   >
-                    {Array.from({ length: 30 }).map((_, sIdx) => (
+                    {Array.from({ length: isPhone ? 16 : 24 }).map((_, sIdx) => (
                       <View key={sIdx} style={styles.beltSlat} />
                     ))}
                   </Animated.View>
@@ -731,19 +771,22 @@ export default function KaitenSushiScreen() {
                       key={p.uid}
                       style={[
                         styles.plateAnchor,
+                        isPhone && styles.plateAnchorPhone,
                         { transform: [{ translateX: p.animX }] },
                       ]}
                     >
                       <Pressable
+                        hitSlop={8}
                         style={({ pressed }) => [
                           styles.plateOuter,
+                          isPhone && styles.plateOuterPhone,
                           { borderColor: p.accent },
                           pressed && styles.platePressed,
                         ]}
                         onPress={() => handleTapPlate(p)}
                       >
-                        <View style={styles.plateInnerRing}>
-                          <Text style={styles.plateWord} numberOfLines={1}>
+                        <View style={[styles.plateInnerRing, isPhone && styles.plateInnerPhone]}>
+                          <Text style={[styles.plateWord, isPhone && styles.plateWordPhone]} numberOfLines={1}>
                             {p.word.word}
                           </Text>
                           {showKana && p.word.reading && p.word.reading !== p.word.word ? (
@@ -759,7 +802,12 @@ export default function KaitenSushiScreen() {
             ))}
           </View>
 
-          <Text style={styles.feedbackBar}>{feedback}</Text>
+          <Text
+            style={[styles.feedbackBar, isPhone && styles.feedbackBarPhone]}
+            numberOfLines={isPhone ? 2 : undefined}
+          >
+            {feedback}
+          </Text>
         </View>
       ) : (
         <View style={styles.card}>
@@ -1213,5 +1261,57 @@ const styles = StyleSheet.create({
   missedMean: {
     fontSize: 12.5,
     color: '#DC2626',
+  },
+  sectionGapPhone: {
+    gap: 8,
+  },
+  cardPhone: {
+    padding: 12,
+    gap: 8,
+    borderRadius: 18,
+  },
+  orderBubblePhone: {
+    padding: 9,
+    gap: 10,
+    borderRadius: 14,
+  },
+  orderMeaningPhone: {
+    fontSize: 17,
+  },
+  beltShellPhone: {
+    paddingVertical: 10,
+    gap: 10,
+    borderRadius: 18,
+  },
+  laneTrackPhone: {
+    height: 68,
+  },
+  slatTrackPhone: {
+    width: 768,
+  },
+  plateAnchorPhone: {
+    top: 5,
+  },
+  plateOuterPhone: {
+    minWidth: 92,
+    maxWidth: 126,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 3,
+    padding: 3,
+  },
+  plateInnerPhone: {
+    borderRadius: 24,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    minWidth: 80,
+  },
+  plateWordPhone: {
+    fontSize: 15,
+  },
+  feedbackBarPhone: {
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    fontSize: 12,
   },
 });

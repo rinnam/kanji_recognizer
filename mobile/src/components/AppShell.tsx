@@ -1,6 +1,6 @@
 import React from 'react';
 import { Platform, ScrollView, StyleSheet, useWindowDimensions, View, type ViewStyle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname } from 'expo-router';
 import { nihongoTheme } from '../theme/nihongo-theme';
 import { DesktopSidebar } from './DesktopSidebar';
@@ -15,6 +15,7 @@ export const DESKTOP_BREAKPOINT = 960;
 
 export function AppShell({ children, scroll = true, contentStyle }: AppShellProps) {
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const isAuthPage = pathname === '/login' || pathname === '/register';
   const isDesktop = width >= DESKTOP_BREAKPOINT && !isAuthPage;
@@ -27,6 +28,15 @@ export function AppShell({ children, scroll = true, contentStyle }: AppShellProp
         } as unknown as ViewStyle)
       : undefined;
 
+  const mobileBottomPad = !isDesktop ? Math.max(28, insets.bottom + 18) : 48;
+  const nonScrollPad: ViewStyle | undefined = !isDesktop
+    ? {
+        paddingTop: 10,
+        paddingHorizontal: 12,
+        paddingBottom: Math.max(12, insets.bottom + 8),
+      }
+    : undefined;
+
   return (
     <SafeAreaView style={[styles.root, webGradient]} edges={['top', 'left', 'right']}>
       <View style={styles.shellRow}>
@@ -38,6 +48,7 @@ export function AppShell({ children, scroll = true, contentStyle }: AppShellProp
             contentContainerStyle={[
               styles.scrollContent,
               isDesktop ? styles.scrollContentDesktop : styles.scrollContentMobile,
+              !isDesktop && { paddingBottom: mobileBottomPad },
               contentStyle,
             ]}
             showsVerticalScrollIndicator={false}
@@ -45,7 +56,7 @@ export function AppShell({ children, scroll = true, contentStyle }: AppShellProp
             <View style={styles.container}>{children}</View>
           </ScrollView>
         ) : (
-          <View style={[styles.flex, styles.container, contentStyle]}>{children}</View>
+          <View style={[styles.flex, styles.container, nonScrollPad, contentStyle]}>{children}</View>
         )}
       </View>
     </SafeAreaView>
