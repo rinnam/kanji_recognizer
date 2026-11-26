@@ -20,6 +20,7 @@ import {
   InterviewScene3D,
   type AvatarMood,
   type ScenePhase,
+  type SceneType,
 } from '../../../src/features/interview/InterviewScene3D';
 import { playDoorKnockSfx } from '../../../src/features/interview/interview-sfx';
 import {
@@ -45,6 +46,85 @@ const QA_STAGE_LABELS: Record<InterviewStage, string> = {
   cv_q3: 'Câu 5/6 · Hỏi sâu CV #3 (Tình huống)',
   reverse_question: 'Câu 6/6 · 逆質問 (Câu hỏi ngược cho công ty)',
   closing: 'Kết thúc hỏi đáp → Chuẩn bị Ra về',
+};
+
+function resolveSceneType(scenarioId?: string): SceneType {
+  if (scenarioId === 'roleplay_restaurant') return 'restaurant';
+  if (scenarioId === 'roleplay_clinic') return 'clinic';
+  if (scenarioId === 'roleplay_horenso') return 'horenso';
+  return 'interview';
+}
+
+const ROLEPLAY_STEP_META: Record<
+  Exclude<SceneType, 'interview'>,
+  {
+    partnerLabel: string;
+    badges: Array<{ stage: InterviewStage; label: string }>;
+    stageLabels: Partial<Record<InterviewStage, string>>;
+    quickPhrases: Array<{ label: string; text: string }>;
+    doneTitle: string;
+  }
+> = {
+  restaurant: {
+    partnerLabel: 'Nhân viên nhà hàng',
+    badges: [
+      { stage: 'jikoshokai', label: '1. Báo số người & Vào bàn' },
+      { stage: 'jiko_pr', label: '2. Xem Menu & Gọi món' },
+      { stage: 'cv_q1', label: '3. Dị ứng / Gọi thêm' },
+      { stage: 'cv_q2', label: '4. Thanh toán & Ra về' },
+    ],
+    stageLabels: {
+      jikoshokai: 'Bước 1/4 · 入店・案内 (Báo số người & chọn chỗ)',
+      jiko_pr: 'Bước 2/4 · 注文 (Hỏi gợi ý & gọi món)',
+      cv_q1: 'Bước 3/4 · 要望・アレルギー (Báo dị ứng / gọi thêm)',
+      cv_q2: 'Bước 4/4 · お会計 (Thanh toán & ごちそうさまでした)',
+    },
+    quickPhrases: [
+      { label: 'Gọi nhân viên (すみません！)', text: 'すみません、注文をお願いします。' },
+      { label: 'Thanh toán (お会計お願いします)', text: 'すみません、お会計をお願いします。ごちそうさまでした！' },
+    ],
+    doneTitle: 'Hoàn thành tình huống Gọi món tại Nhà hàng Nhật!',
+  },
+  clinic: {
+    partnerLabel: 'Bác sĩ Kobayashi',
+    badges: [
+      { stage: 'jikoshokai', label: '1. Kể triệu chứng' },
+      { stage: 'jiko_pr', label: '2. Bác sĩ hỏi bệnh' },
+      { stage: 'cv_q1', label: '3. Dị ứng thuốc' },
+      { stage: 'cv_q2', label: '4. Nhận đơn thuốc' },
+    ],
+    stageLabels: {
+      jikoshokai: 'Bước 1/4 · 症状の説明 (Kể triệu chứng hiện tại)',
+      jiko_pr: 'Bước 2/4 · 問診 (Trả lời chi tiết thời gian & cơn sốt)',
+      cv_q1: 'Bước 3/4 · アレルギー確認 (Báo tiền sử dị ứng thuốc)',
+      cv_q2: 'Bước 4/4 · 処方箋 (Hỏi cách uống thuốc & cảm ơn)',
+    },
+    quickPhrases: [
+      { label: 'Trình thẻ bảo hiểm (保険証)', text: 'はい、こちらが保険証です。昨日から熱と喉の痛みがあります。' },
+      { label: 'Hỏi cách uống thuốc', text: 'この薬は食後に飲めばいいですか。ありがとうございました。' },
+    ],
+    doneTitle: 'Hoàn thành buổi Khám bệnh tại Phòng khám Nhật!',
+  },
+  horenso: {
+    partnerLabel: 'Sếp Takahashi PM',
+    badges: [
+      { stage: 'jikoshokai', label: '1. 報告 (Báo tiến độ)' },
+      { stage: 'jiko_pr', label: '2. 連絡 (Báo rủi ro)' },
+      { stage: 'cv_q1', label: '3. 相談 (Xin ý kiến)' },
+      { stage: 'cv_q2', label: '4. Chốt kế hoạch' },
+    ],
+    stageLabels: {
+      jikoshokai: 'Bước 1/4 · 報告 (Báo cáo tiến độ công việc)',
+      jiko_pr: 'Bước 2/4 · 連絡 (Liên lạc sớm bug / rủi ro trễ hạn)',
+      cv_q1: 'Bước 3/4 · 相談 (Đề xuất giải pháp & xin ý kiến sếp)',
+      cv_q2: 'Bước 4/4 · 確認 (Chốt deadline mới & chào kết thúc)',
+    },
+    quickPhrases: [
+      { label: 'Chào sếp (お疲れ様です)', text: 'お疲れ様です。今週のタスクは8割ほど完了しています。' },
+      { label: 'Chốt hành động (承知いたしました)', text: '承知いたしました。明日の夕方までに修正して改めてご報告いたします。' },
+    ],
+    doneTitle: 'Hoàn thành buổi Họp Horenso (報連相) chuẩn công sở Nhật!',
+  },
 };
 
 type FlowStep =
@@ -595,58 +675,92 @@ export default function Interview3DRoomScreen() {
   const finalTotalScore = Math.round(mannerScore * 0.35 + avgLangScore * 0.65);
   const rank = finalTotalScore >= 90 ? 'S' : finalTotalScore >= 80 ? 'A' : finalTotalScore >= 65 ? 'B' : 'C';
 
+  const sceneType = resolveSceneType(scenario?.id ?? scenarioId);
+  const roleplayMeta = sceneType !== 'interview' ? ROLEPLAY_STEP_META[sceneType] : null;
   const currentBadgeIdx = FLOW_BADGES.findIndex((b) => b.steps.includes(flowStep));
+  const roleplayStageIdx = roleplayMeta
+    ? roleplayMeta.badges.findIndex((b) => b.stage === qaStage)
+    : -1;
 
   const micPlaceholder =
-    flowStep === 'enter_phrase'
-      ? 'Bấm Mic nói "失礼いたします" (Shitsurei itashimasu)...'
-      : flowStep === 'stand_greet'
-        ? 'Nói: "〇〇と申します。本日はよろしくお願いいたします。"'
-        : flowStep === 'sit_down'
-          ? 'Nói "失礼いたします" trước khi ngồi xuống...'
-          : flowStep === 'exit_stand'
-            ? 'Nói "本日はありがとうございました"...'
-            : flowStep === 'exit_door'
-              ? 'Quay lại hội đồng nói "失礼いたします"...'
-              : 'Nói câu trả lời tiếng Nhật qua Mic hoặc gõ...';
+    roleplayMeta
+      ? 'Nói câu tiếng Nhật của bạn qua Mic (Whisper offline) hoặc gõ...'
+      : flowStep === 'enter_phrase'
+        ? 'Bấm Mic nói "失礼いたします" (Shitsurei itashimasu)...'
+        : flowStep === 'stand_greet'
+          ? 'Nói: "〇〇と申します。本日はよろしくお願いいたします。"'
+          : flowStep === 'sit_down'
+            ? 'Nói "失礼いたします" trước khi ngồi xuống...'
+            : flowStep === 'exit_stand'
+              ? 'Nói "本日はありがとうございました"...'
+              : flowStep === 'exit_door'
+                ? 'Quay lại hội đồng nói "失礼いたします"...'
+                : 'Nói câu trả lời tiếng Nhật qua Mic hoặc gõ...';
 
   return (
     <AppShell>
       <TopHeader
         mode="subpage"
-        title={scenario?.title || 'Phòng Phỏng vấn 3D Chuẩn Nhật'}
+        title={scenario?.title || 'Không gian 3D Luyện nói Nhật'}
         subtitle={
           scenario
-            ? `${scenario.companyName} · Hội đồng: ${scenario.interviewerName} & Nhân sự`
-            : 'Đang chuẩn bị phòng phỏng vấn...'
+            ? roleplayMeta
+              ? `${scenario.companyName} · ${scenario.interviewerName} (${scenario.interviewerRole})`
+              : `${scenario.companyName} · Hội đồng: ${scenario.interviewerName} & Nhân sự`
+            : 'Đang chuẩn bị bối cảnh 3D...'
         }
       />
 
-      {/* 6-Phase Real Japanese Interview Progress */}
+      {/* Dynamic Progress Bar: 4-step Roleplay OR 6-step Real Japanese Interview */}
       <View style={styles.stageBar}>
-        {FLOW_BADGES.map((b, idx) => {
-          const active = idx === currentBadgeIdx;
-          const done = idx < currentBadgeIdx || flowStep === 'completed';
-          return (
-            <View
-              key={b.id}
-              style={[
-                styles.stagePill,
-                done && styles.stagePillDone,
-                active && styles.stagePillActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.stagePillText,
-                  (active || done) && styles.stagePillTextActive,
-                ]}
-              >
-                {b.label}
-              </Text>
-            </View>
-          );
-        })}
+        {roleplayMeta
+          ? roleplayMeta.badges.map((b, idx) => {
+              const active = idx === roleplayStageIdx && flowStep !== 'completed';
+              const done =
+                (roleplayStageIdx >= 0 && idx < roleplayStageIdx) || flowStep === 'completed';
+              return (
+                <View
+                  key={b.stage}
+                  style={[
+                    styles.stagePill,
+                    done && styles.stagePillDone,
+                    active && styles.stagePillActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.stagePillText,
+                      (active || done) && styles.stagePillTextActive,
+                    ]}
+                  >
+                    {b.label}
+                  </Text>
+                </View>
+              );
+            })
+          : FLOW_BADGES.map((b, idx) => {
+              const active = idx === currentBadgeIdx;
+              const done = idx < currentBadgeIdx || flowStep === 'completed';
+              return (
+                <View
+                  key={b.id}
+                  style={[
+                    styles.stagePill,
+                    done && styles.stagePillDone,
+                    active && styles.stagePillActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.stagePillText,
+                      (active || done) && styles.stagePillTextActive,
+                    ]}
+                  >
+                    {b.label}
+                  </Text>
+                </View>
+              );
+            })}
       </View>
 
       {errorMsg ? (
@@ -668,10 +782,11 @@ export default function Interview3DRoomScreen() {
         {/* Left: Interactive 3D Scene + Step-by-Step Controls */}
         <View style={[styles.leftCol, isWide && styles.leftColWide]}>
           <InterviewScene3D
+            sceneType={sceneType}
             phase={scenePhase}
             mood={mood}
             knockCount={knockCount}
-            interviewerName={scenario?.interviewerName || 'Nhà tuyển dụng'}
+            interviewerName={scenario?.interviewerName || 'Nhân vật 3D'}
             companyName={scenario?.companyName || 'Kanji Nest Japan'}
             onDoorClick={() => handleKnockDoor(false)}
           />
@@ -680,9 +795,11 @@ export default function Interview3DRoomScreen() {
           <View style={styles.subtitleCard}>
             <View style={styles.subtitleTop}>
               <Text style={styles.subtitleLabel}>
-                {flowStep === 'qa_interview'
-                  ? QA_STAGE_LABELS[qaStage]
-                  : 'Hướng dẫn quy trình chuẩn Nhật'}
+                {roleplayMeta
+                  ? roleplayMeta.stageLabels[qaStage] || 'Hội thoại nhập vai 3D'
+                  : flowStep === 'qa_interview'
+                    ? QA_STAGE_LABELS[qaStage]
+                    : 'Hướng dẫn quy trình chuẩn Nhật'}
               </Text>
               <View style={styles.subtitleActions}>
                 <Pressable style={styles.miniBtn} onPress={() => setShowVi((v) => !v)}>
@@ -717,9 +834,13 @@ export default function Interview3DRoomScreen() {
           {flowStep === 'completed' ? (
             <View style={styles.summaryCard}>
               <Text style={styles.summaryRank}>Xếp loại: {rank}</Text>
-              <Text style={styles.summaryTitle}>Hoàn thành 100% quy trình phỏng vấn Nhật Bản!</Text>
+              <Text style={styles.summaryTitle}>
+                {roleplayMeta ? roleplayMeta.doneTitle : 'Hoàn thành 100% quy trình phỏng vấn Nhật Bản!'}
+              </Text>
               <Text style={styles.summaryScore}>
-                Tổng điểm: {finalTotalScore}/100 (Tác phong: {mannerScore}đ · Tiếng Nhật: {avgLangScore}đ)
+                {roleplayMeta
+                  ? `Điểm giao tiếp trung bình: ${avgLangScore}/100`
+                  : `Tổng điểm: ${finalTotalScore}/100 (Tác phong: ${mannerScore}đ · Tiếng Nhật: ${avgLangScore}đ)`}
               </Text>
               <Pressable style={styles.primaryBtn} onPress={() => router.back()}>
                 <Text style={styles.primaryBtnText}>Quay lại chọn kịch bản khác</Text>
@@ -764,19 +885,34 @@ export default function Interview3DRoomScreen() {
                 ) : null}
 
                 {flowStep === 'qa_interview' ? (
-                  <Pressable
-                    style={styles.etiquetteBtn}
-                    onPress={() => {
-                      setFlowStep('exit_stand');
-                      setScenePhase('exit_standing');
-                      addMannerNote(
-                        'Chuyển sang bước Ra về: Đứng dậy cạnh ghế → nói "本日はありがとうございました" → Cúi chào 45°.',
-                        0,
-                      );
-                    }}
-                  >
-                    <Text style={styles.etiquetteText}>Chuyển sang bước Ra về (退室)</Text>
-                  </Pressable>
+                  roleplayMeta ? (
+                    <>
+                      {roleplayMeta.quickPhrases.map((qp, i) => (
+                        <Pressable
+                          key={i}
+                          style={styles.etiquetteBtn}
+                          disabled={submitting}
+                          onPress={() => mic.setTranscript(qp.text)}
+                        >
+                          <Text style={styles.etiquetteText}>{qp.label}</Text>
+                        </Pressable>
+                      ))}
+                    </>
+                  ) : (
+                    <Pressable
+                      style={styles.etiquetteBtn}
+                      onPress={() => {
+                        setFlowStep('exit_stand');
+                        setScenePhase('exit_standing');
+                        addMannerNote(
+                          'Chuyển sang bước Ra về: Đứng dậy cạnh ghế → nói "本日はありがとうございました" → Cúi chào 45°.',
+                          0,
+                        );
+                      }}
+                    >
+                      <Text style={styles.etiquetteText}>Chuyển sang bước Ra về (退室)</Text>
+                    </Pressable>
+                  )
                 ) : null}
 
                 {flowStep === 'exit_stand' ? (
@@ -922,7 +1058,9 @@ export default function Interview3DRoomScreen() {
               </>
             ) : (
               <Text style={styles.emptyHint}>
-                Hoàn thành các bước gõ cửa → chào vào phòng → cúi chào 30° → ngồi xuống, sau đó AI sẽ chấm 4 tiêu chí tiếng Nhật và sửa lỗi Keigo cho từng câu trả lời của bạn.
+                {roleplayMeta
+                  ? `Hãy bắt đầu đối thoại tiếng Nhật cùng ${roleplayMeta.partnerLabel} qua Mic (Whisper offline) hoặc gõ — AI sẽ chấm 4 tiêu chí, bắt từ đệm và gợi ý câu nói tự nhiên hơn ngay tại đây.`
+                  : 'Hoàn thành các bước gõ cửa → chào vào phòng → cúi chào 30° → ngồi xuống, sau đó AI sẽ chấm 4 tiêu chí tiếng Nhật và sửa lỗi Keigo cho từng câu trả lời của bạn.'}
               </Text>
             )}
 
@@ -939,7 +1077,9 @@ export default function Interview3DRoomScreen() {
           </View>
 
           <View style={styles.logCard}>
-            <Text style={styles.panelTitle}>Diễn biến buổi phỏng vấn</Text>
+            <Text style={styles.panelTitle}>
+              {roleplayMeta ? 'Lịch sử hội thoại' : 'Diễn biến buổi phỏng vấn'}
+            </Text>
             <ScrollView
               ref={scrollRef}
               style={styles.logScroll}
@@ -962,7 +1102,9 @@ export default function Interview3DRoomScreen() {
                       ? 'Bạn'
                       : item.role === 'manner'
                         ? 'Tác phong Nhật'
-                        : 'Nhà tuyển dụng'}
+                        : roleplayMeta
+                          ? roleplayMeta.partnerLabel
+                          : 'Nhà tuyển dụng'}
                   </Text>
                   <Text style={styles.logText}>{item.text}</Text>
                 </View>

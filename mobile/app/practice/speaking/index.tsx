@@ -290,7 +290,9 @@ export default function SpeakingLobbyScreen() {
                   <Text style={styles.cardDesc}>{item.description}</Text>
 
                   <View style={styles.interviewerBox}>
-                    <Text style={styles.interviewerLabel}>Hội đồng phỏng vấn:</Text>
+                    <Text style={styles.interviewerLabel}>
+                      {(item.category ?? 'interview') === 'roleplay' ? 'Nhân vật đối thoại:' : 'Hội đồng phỏng vấn:'}
+                    </Text>
                     <Text style={styles.interviewerValue}>
                       {item.interviewerName} · {item.interviewerRole}
                     </Text>
@@ -372,7 +374,9 @@ export default function SpeakingLobbyScreen() {
 
             <Pressable style={styles.startBtn} onPress={() => void handleStart()}>
               <Text style={styles.startBtnText}>
-                Vào phòng phỏng vấn 3D ({selectedScenario?.companyName}) →
+                {categoryTab === 'roleplay'
+                  ? `Vào bối cảnh Roleplay 3D (${selectedScenario?.companyName}) →`
+                  : `Vào phòng phỏng vấn 3D (${selectedScenario?.companyName}) →`}
               </Text>
             </Pressable>
           </View>

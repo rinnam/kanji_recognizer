@@ -389,10 +389,44 @@ export async function runInterviewTurn(input: {
     };
   }
 
+  const roleplayStepGuides: Record<string, Partial<Record<InterviewStage, string>>> = {
+    roleplay_restaurant: {
+      jikoshokai:
+        'Bước 1/4 (入店・案内): Khách vừa báo số người/chỗ ngồi. Hãy dẫn khách vào bàn lịch sự ("かしこまりました。こちらのお席へどうぞ"), đưa thực đơn và hỏi khách muốn gọi đồ uống hay món ăn gì.',
+      jiko_pr:
+        'Bước 2/4 (注文): Khách vừa gọi món hoặc hỏi món gợi ý. Hãy giới thiệu/xác nhận món rất thân thiện và hỏi khách có dị ứng thực phẩm hay yêu cầu đặc biệt gì không (cay/đá/dị ứng).',
+      cv_q1:
+        'Bước 3/4 (要望・食事後): Khách vừa báo yêu cầu đặc biệt hoặc gọi thêm. Hãy xác nhận chu đáo, mô phỏng đã phục vụ xong bữa ăn và hỏi khách có muốn gọi thêm món tráng miệng hay thanh toán (お会計) không.',
+      cv_q2:
+        'Bước 4/4 (お会計・退店): Khách vừa yêu cầu thanh toán hoặc nói ごちそうさまでした. Hãy báo tổng tiền lịch sự (vd 2,400円になります), cảm ơn và chào tạm biệt chuẩn quán Nhật ("ありがとうございました！またお越しくださいませ！").',
+    },
+    roleplay_clinic: {
+      jikoshokai:
+        'Bước 1/4 (症状の説明): Bệnh nhân vừa kể triệu chứng ban đầu. Hãy hỏi thăm ân cần và hỏi sâu thêm: sốt bao nhiêu độ, có đau họng/ho/chán ăn không.',
+      jiko_pr:
+        'Bước 2/4 (問診): Bệnh nhân vừa trả lời chi tiết triệu chứng. Hãy hỏi xem bệnh nhân có dị ứng thuốc (薬のアレルギー) hoặc đang uống loại thuốc nào khác không.',
+      cv_q1:
+        'Bước 3/4 (アレルギー確認・処方): Bệnh nhân vừa báo thông tin dị ứng. Hãy kết luận nhẹ nhàng (cảm cúm nhẹ / viêm họng), nói sẽ kê đơn thuốc (お薬を出しておきます) và hỏi bệnh nhân có thắc mắc gì về cách uống thuốc không.',
+      cv_q2:
+        'Bước 4/4 (処方箋・お大事に): Bệnh nhân vừa hỏi cách uống hoặc cảm ơn. Hãy dặn uống thuốc sau bữa ăn ngày 3 lần, nghỉ ngơi nhiều và chào tạm biệt chuẩn bác sĩ Nhật ("お大事になさってください。").',
+    },
+    roleplay_horenso: {
+      jikoshokai:
+        'Bước 1/4 (報告 - Báo cáo tiến độ): Nhân viên vừa báo cáo tiến độ task tuần này. Hãy ghi nhận ngắn gọn và hỏi xem có vấn đề kỹ thuật hay rủi ro nào ảnh hưởng đến deadline không.',
+      jiko_pr:
+        'Bước 2/4 (連絡 - Liên lạc sự cố): Nhân viên vừa báo sự cố/bug. Hãy đánh giá cao việc báo sớm (早めに連絡してくれてありがとう) và hỏi nhân viên đề xuất phương án giải quyết (相談) như thế nào.',
+      cv_q1:
+        'Bước 3/4 (相談 - Xin ý kiến giải pháp): Nhân viên vừa đưa ra phương án xử lý. Hãy góp ý ngắn gọn, đồng ý hướng xử lý và hỏi xác nhận thời điểm hoàn thành mới cụ thể.',
+      cv_q2:
+        'Bước 4/4 (確認・締め): Nhân viên vừa chốt lịch mới. Hãy xác nhận đồng ý, dặn báo lại khi xong và kết thúc cuộc họp Horenso ("承知しました。引き続きよろしくお願いします。お疲れ様でした。").',
+    },
+  };
+
   const stageInstruction = isRoleplay
-    ? willFinish
-      ? `Đây là lượt cuối của buổi Roleplay (${scenario.title}). Hãy phản hồi tự nhiên câu nói vừa rồi và chào kết thúc tình huống lịch sự bằng tiếng Nhật.`
-      : `Bạn đang nhập vai ${scenario.interviewerName} (${scenario.interviewerRole}) trong tình huống thực tế "${scenario.title}" tại Nhật Bản. Hãy phản hồi tự nhiên, thực tế (1-2 câu tiếng Nhật phù hợp trình độ ${scenario.level}) và hỏi tiếp một câu sát bối cảnh để người học luyện phản xạ.`
+    ? roleplayStepGuides[scenario.id]?.[input.stage] ||
+      (willFinish
+        ? `Đây là lượt cuối của buổi Roleplay (${scenario.title}). Hãy phản hồi tự nhiên và chào kết thúc lịch sự bằng tiếng Nhật.`
+        : `Bạn đang nhập vai ${scenario.interviewerName} trong tình huống "${scenario.title}". Hãy phản hồi tự nhiên (1-2 câu tiếng Nhật trình độ ${scenario.level}) và hỏi tiếp câu sát bối cảnh.`)
     : STAGE_INSTRUCTIONS[input.stage];
   const frameworkSpec =
     framework === 'STAR'
