@@ -320,3 +320,16 @@ CREATE TABLE IF NOT EXISTS user_study_sessions (
   updated_at        timestamptz NOT NULL DEFAULT now(),
   deleted_at        timestamptz
 );
+
+CREATE TABLE IF NOT EXISTS user_ai_jobs (
+  user_id       uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  feature_key   text NOT NULL CHECK (feature_key IN ('reading_ai', 'writing_ai')),
+  status        text NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'ready', 'failed')),
+  payload_meta  jsonb,
+  result_json   jsonb,
+  error_message text,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  deleted_at    timestamptz,
+  PRIMARY KEY (user_id, feature_key)
+);

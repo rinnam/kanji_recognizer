@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -49,6 +49,7 @@ interface SavedEntry {
 
 const DRAFTS_KEY = 'kanji_nest_writing_drafts_v1';
 const SUBMITTED_KEY = 'kanji_nest_writing_submitted_v1';
+const LIVE_DRAFT_KEY = 'kanji_smart_writing_live_text_v1';
 
 const WRITING_PROMPTS = [
   {
@@ -97,6 +98,7 @@ export default function WritingScreen() {
   const [style, setStyle] = useState<string>(WRITING_PROMPTS[0].style);
   const [text, setText] = useState('');
   const [grading, setGrading] = useState(false);
+  const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
   const [result, setResult] = useState<GradedResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [quotaBlocked, setQuotaBlocked] = useState(false);
@@ -104,12 +106,84 @@ export default function WritingScreen() {
 
   const [drafts, setDrafts] = useState<SavedEntry[]>([]);
   const [submitted, setSubmitted] = useState<SavedEntry[]>([]);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = () => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  };
+
+  const applyLatestGrade = (
+    graded: GradedResult,
+    meta?: { promptTitle?: string; style?: string; text?: string } | null,
+  ) => {
+    setResult(graded);
+    if (meta?.text) {
+      setText((prev) => (prev.trim() ? prev : meta.text || ''));
+    }
+    setSubmitted((prev) => {
+      if (prev.some((e) => e.grade?.improvedJa === graded.improvedJa)) return prev;
+      const entry: SavedEntry = {
+        id: `sub-${Date.now()}`,
+        promptTitle: meta?.promptTitle || selectedPrompt.title,
+        style: meta?.style || style,
+        text: (meta?.text || text).trim(),
+        savedAt: new Date().toLocaleString('vi-VN'),
+        grade: graded,
+      };
+      const nextSub = [entry, ...prev].slice(0, 20);
+      void getUserScopedKey(SUBMITTED_KEY).then((k) =>
+        AsyncStorage.setItem(k, JSON.stringify(nextSub)),
+      );
+      return nextSub;
+    });
+  };
+
+  const startPollingLatest = () => {
+    if (pollTimerRef.current) return;
+    pollTimerRef.current = setInterval(() => {
+      void (async () => {
+        try {
+          const session = await readAuthSession();
+          if (!session?.accessToken) return;
+          const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+          const res = await fetch(`${base}/ai/writing/latest`, {
+            headers: { Authorization: `Bearer ${session.accessToken}` },
+          });
+          if (!res.ok) return;
+          const job = (await res.json()) as {
+            status: 'none' | 'running' | 'ready' | 'failed';
+            payloadMeta?: { promptTitle?: string; style?: string; text?: string } | null;
+            result?: GradedResult | null;
+            errorMessage?: string | null;
+          };
+          if (job.status === 'ready' && job.result) {
+            stopPolling();
+            applyLatestGrade(job.result, job.payloadMeta);
+            setRecoveryNotice(null);
+            setGrading(false);
+            void refreshMembership();
+          } else if (job.status === 'failed') {
+            stopPolling();
+            setRecoveryNotice(null);
+            setGrading(false);
+            setErrorMsg(job.errorMessage || 'Không chấm được bài viết AI (bạn không bị trừ lượt).');
+          }
+        } catch {
+          // retry on next tick
+        }
+      })();
+    }, 2000);
+  };
 
   useEffect(() => {
+    let active = true;
     void getUserScopedKey(DRAFTS_KEY)
       .then((k) => AsyncStorage.getItem(k))
       .then((raw) => {
-        if (!raw) return;
+        if (!raw || !active) return;
         try {
           setDrafts(JSON.parse(raw) as SavedEntry[]);
         } catch {
@@ -119,13 +193,54 @@ export default function WritingScreen() {
     void getUserScopedKey(SUBMITTED_KEY)
       .then((k) => AsyncStorage.getItem(k))
       .then((raw) => {
-        if (!raw) return;
+        if (!raw || !active) return;
         try {
           setSubmitted(JSON.parse(raw) as SavedEntry[]);
         } catch {
           // ignore
         }
       });
+    void getUserScopedKey(LIVE_DRAFT_KEY)
+      .then((k) => AsyncStorage.getItem(k))
+      .then((raw) => {
+        if (raw && active) setText((prev) => (prev ? prev : raw));
+      });
+
+    void (async () => {
+      try {
+        const session = await readAuthSession();
+        if (!session?.accessToken || !active) return;
+        const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+        const res = await fetch(`${base}/ai/writing/latest`, {
+          headers: { Authorization: `Bearer ${session.accessToken}` },
+        });
+        if (!res.ok || !active) return;
+        const job = (await res.json()) as {
+          status: 'none' | 'running' | 'ready' | 'failed';
+          payloadMeta?: { promptTitle?: string; style?: string; text?: string } | null;
+          result?: GradedResult | null;
+          errorMessage?: string | null;
+        };
+        if (!active) return;
+        if (job.status === 'running') {
+          if (job.payloadMeta?.text) setText(job.payloadMeta.text);
+          setGrading(true);
+          setRecoveryNotice(
+            'Sensei AI đang hoàn tất bài chấm trước đó (F5 hoặc đổi tab sẽ không bị mất lượt)...',
+          );
+          startPollingLatest();
+        } else if (job.status === 'ready' && job.result) {
+          applyLatestGrade(job.result, job.payloadMeta);
+        }
+      } catch {
+        // offline
+      }
+    })();
+
+    return () => {
+      active = false;
+      stopPolling();
+    };
   }, []);
 
   const handleSaveDraft = () => {
@@ -146,7 +261,9 @@ export default function WritingScreen() {
   const handleGrade = async () => {
     if (!text.trim() || grading) return;
     recordMeaningfulStudyAction('writing_grade');
+    let keepPolling = false;
     setGrading(true);
+    setRecoveryNotice(null);
     setErrorMsg(null);
     setQuotaBlocked(false);
     setNotice(null);
@@ -165,6 +282,15 @@ export default function WritingScreen() {
           text: text.trim(),
         }),
       });
+      if (res.status === 202) {
+        const pending = (await res.json().catch(() => ({}))) as { message?: string };
+        keepPolling = true;
+        setRecoveryNotice(
+          pending.message || 'Sensei AI đang hoàn tất bài chấm trước đó (không mất lượt)...',
+        );
+        startPollingLatest();
+        return;
+      }
       if (!res.ok) {
         const errData = (await res.json().catch(() => ({}))) as { message?: string };
         if (res.status === 403) {
@@ -175,26 +301,12 @@ export default function WritingScreen() {
         throw new Error(`HTTP ${res.status}`);
       }
       const graded = (await res.json()) as GradedResult;
-      setResult(graded);
+      applyLatestGrade(graded, { promptTitle: selectedPrompt.title, style, text: text.trim() });
       void refreshMembership();
-
-      const entry: SavedEntry = {
-        id: `sub-${Date.now()}`,
-        promptTitle: selectedPrompt.title,
-        style,
-        text: text.trim(),
-        savedAt: new Date().toLocaleString('vi-VN'),
-        grade: graded,
-      };
-      const nextSub = [entry, ...submitted].slice(0, 20);
-      setSubmitted(nextSub);
-      void getUserScopedKey(SUBMITTED_KEY).then((k) =>
-        AsyncStorage.setItem(k, JSON.stringify(nextSub)),
-      );
     } catch {
       setErrorMsg('Không gọi được Sensei AI chấm bài (có thể Google AI đang bận). Hãy thử lại sau vài giây.');
     } finally {
-      setGrading(false);
+      if (!keepPolling) setGrading(false);
     }
   };
 
@@ -287,6 +399,9 @@ export default function WritingScreen() {
               onChangeText={(val) => {
                 recordMeaningfulStudyAction('writing_typing');
                 setText(val);
+                void getUserScopedKey(LIVE_DRAFT_KEY)
+                  .then((k) => AsyncStorage.setItem(k, val))
+                  .catch(() => undefined);
               }}
               multiline
               placeholder="Ví dụ: お疲れ様です。明日は体調が悪いため、お休みをいただいてもよろしいでしょうか..."
@@ -294,6 +409,12 @@ export default function WritingScreen() {
               style={styles.editor}
             />
 
+            {recoveryNotice ? (
+              <View style={styles.recoveryBanner}>
+                <ActivityIndicator size="small" color={nihongoTheme.colors.accentHover} />
+                <Text style={styles.recoveryText}>{recoveryNotice}</Text>
+              </View>
+            ) : null}
             {notice ? <Text style={styles.noticeText}>{notice}</Text> : null}
             {errorMsg ? (
               <View style={{ gap: 8 }}>
@@ -729,5 +850,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11.5,
     fontWeight: '800',
+  },
+  recoveryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  recoveryText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: nihongoTheme.colors.accentHover,
+    lineHeight: 18,
   },
 });

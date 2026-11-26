@@ -1,7 +1,14 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { extractBearerUser, verifyToken } from '../services/auth.service.js';
-import { assertFeatureQuota } from '../services/membership.service.js';
+import {
+  checkFeatureQuota,
+  completeAiJob,
+  consumeFeatureQuota,
+  failAiJob,
+  getLatestAiJob,
+  startAiJob,
+} from '../services/membership.service.js';
 import {
   extractFlashcardsWithAi,
   generateKanjiMnemonic,
@@ -40,6 +47,15 @@ const mnemonicSchema = z.object({
 });
 
 export const aiStudyRoutes: FastifyPluginAsync = async (app) => {
+  app.get('/ai/reading/latest', async (req, reply) => {
+    const user = extractBearerUser(req.headers.authorization);
+    if (!user?.id) {
+      return reply.status(401).send({ message: 'Vui lòng đăng nhập.' });
+    }
+    const job = await getLatestAiJob(user.id, 'reading_ai');
+    return reply.send(job);
+  });
+
   app.post('/ai/reading/generate', async (req, reply) => {
     const parsed = readingSchema.parse(req.body ?? {});
     let userId: string | undefined;
@@ -48,17 +64,45 @@ export const aiStudyRoutes: FastifyPluginAsync = async (app) => {
       const user = verifyToken(authHeader.slice(7).trim());
       if (user?.id) userId = user.id;
     }
-    let quota: { used: number; limit: number | null } | undefined;
+
     if (userId) {
-      quota = await assertFeatureQuota(userId, 'reading_ai');
+      await checkFeatureQuota(userId, 'reading_ai');
+      const job = await startAiJob(userId, 'reading_ai', {
+        level: parsed.level,
+        genre: parsed.genre,
+        folderId: parsed.folderId,
+      });
+      if (!job.started) {
+        return reply.status(202).send({
+          status: 'running',
+          message: 'AI đang sáng tác bài đọc bạn vừa yêu cầu...',
+        });
+      }
     }
-    const result = await generateSrsReading({
-      userId,
-      level: parsed.level,
-      genre: parsed.genre,
-      folderId: parsed.folderId,
-    });
-    return reply.send(quota ? { ...result, quota } : result);
+
+    try {
+      const result = await generateSrsReading({
+        userId,
+        level: parsed.level,
+        genre: parsed.genre,
+        folderId: parsed.folderId,
+      });
+      if (userId) {
+        await completeAiJob(userId, 'reading_ai', result);
+        const quota = await consumeFeatureQuota(userId, 'reading_ai');
+        return reply.send({ ...result, quota });
+      }
+      return reply.send(result);
+    } catch (err) {
+      if (userId) {
+        await failAiJob(
+          userId,
+          'reading_ai',
+          err instanceof Error ? err.message : 'Không tạo được bài đọc AI (không bị trừ lượt).',
+        ).catch(() => undefined);
+      }
+      throw err;
+    }
   });
 
   app.post('/ai/reading/complete-srs', async (req, reply) => {
@@ -76,15 +120,53 @@ export const aiStudyRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(result);
   });
 
+  app.get('/ai/writing/latest', async (req, reply) => {
+    const user = extractBearerUser(req.headers.authorization);
+    if (!user?.id) {
+      return reply.status(401).send({ message: 'Vui lòng đăng nhập.' });
+    }
+    const job = await getLatestAiJob(user.id, 'writing_ai');
+    return reply.send(job);
+  });
+
   app.post('/ai/writing/grade', async (req, reply) => {
     const parsed = writingSchema.parse(req.body ?? {});
     const user = extractBearerUser(req.headers.authorization);
-    let quota: { used: number; limit: number | null } | undefined;
-    if (user?.id) {
-      quota = await assertFeatureQuota(user.id, 'writing_ai');
+    const userId = user?.id;
+
+    if (userId) {
+      await checkFeatureQuota(userId, 'writing_ai');
+      const job = await startAiJob(userId, 'writing_ai', {
+        promptTitle: parsed.promptTitle,
+        style: parsed.style,
+        text: parsed.text,
+      });
+      if (!job.started) {
+        return reply.status(202).send({
+          status: 'running',
+          message: 'Sensei AI đang chấm bài bạn vừa gửi...',
+        });
+      }
     }
-    const result = await gradeJapaneseWriting(parsed);
-    return reply.send(quota ? { ...result, quota } : result);
+
+    try {
+      const result = await gradeJapaneseWriting(parsed);
+      if (userId) {
+        await completeAiJob(userId, 'writing_ai', result);
+        const quota = await consumeFeatureQuota(userId, 'writing_ai');
+        return reply.send({ ...result, quota });
+      }
+      return reply.send(result);
+    } catch (err) {
+      if (userId) {
+        await failAiJob(
+          userId,
+          'writing_ai',
+          err instanceof Error ? err.message : 'Không chấm được bài viết AI (không bị trừ lượt).',
+        ).catch(() => undefined);
+      }
+      throw err;
+    }
   });
 
   app.post(

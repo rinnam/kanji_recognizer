@@ -38,14 +38,15 @@ export async function fetchTranscriptApi(
 
   let response: Response | null = null;
   let lastErr: unknown = null;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  const retryDelays = [1200, 2500];
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       response = await fetch(url, { signal });
       break;
     } catch (err) {
       lastErr = err;
-      if (signal?.aborted || attempt === 1) break;
-      await new Promise((r) => setTimeout(r, 1200));
+      if (signal?.aborted || attempt === 2) break;
+      await new Promise((r) => setTimeout(r, retryDelays[attempt] ?? 2000));
     }
   }
 

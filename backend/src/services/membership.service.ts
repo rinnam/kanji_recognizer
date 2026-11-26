@@ -321,6 +321,20 @@ export function ensureMembershipTables(): Promise<void> {
           deleted_at        timestamptz
         );
       `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS user_ai_jobs (
+          user_id       uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          feature_key   text NOT NULL CHECK (feature_key IN ('reading_ai', 'writing_ai')),
+          status        text NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'ready', 'failed')),
+          payload_meta  jsonb,
+          result_json   jsonb,
+          error_message text,
+          created_at    timestamptz NOT NULL DEFAULT now(),
+          updated_at    timestamptz NOT NULL DEFAULT now(),
+          deleted_at    timestamptz,
+          PRIMARY KEY (user_id, feature_key)
+        );
+      `);
     })().catch((err) => {
       membershipTablesPromise = null;
       throw err;
@@ -1356,7 +1370,38 @@ export async function assertProForCvUpload(userId: string): Promise<void> {
   }
 }
 
-export async function assertFeatureQuota(
+export async function checkFeatureQuota(
+  userId: string,
+  feature: 'reading_ai' | 'writing_ai',
+  dateKeyRaw?: string,
+): Promise<{ used: number; limit: number | null; weekKey: string }> {
+  await ensureMembershipTables();
+  const dateKey = sanitizeDateKey(dateKeyRaw);
+  const weekKey = getIsoWeekKey(dateKey);
+
+  const sub = await resolveActiveTier(pool, userId);
+  const plan = PLAN_CATALOG[sub.tier];
+  const limit = feature === 'reading_ai' ? plan.readingPerWeek : plan.writingPerWeek;
+
+  const cur = await pool.query<{ used_count: number }>(
+    `SELECT used_count FROM user_feature_usage
+     WHERE user_id = $1 AND feature_key = $2 AND period_key = $3 AND deleted_at IS NULL`,
+    [userId, feature, weekKey],
+  );
+  const used = Number(cur.rows[0]?.used_count ?? 0);
+
+  if (limit !== null && used >= limit) {
+    const label = feature === 'reading_ai' ? 'Luyện đọc AI' : 'Chấm bài Luyện viết AI';
+    throw new MembershipHttpError(
+      403,
+      'QUOTA_EXCEEDED',
+      `Bạn đã dùng hết ${used}/${limit} lượt ${label} trong tuần này (${plan.name}). Nâng cấp gói Plus hoặc Pro AI để tiếp tục!`,
+    );
+  }
+  return { used, limit, weekKey };
+}
+
+export async function consumeFeatureQuota(
   userId: string,
   feature: 'reading_ai' | 'writing_ai',
   dateKeyRaw?: string,
@@ -1379,14 +1424,9 @@ export async function assertFeatureQuota(
       [userId, feature, weekKey],
     );
     const used = Number(cur.rows[0]?.used_count ?? 0);
-
     if (limit !== null && used >= limit) {
-      const label = feature === 'reading_ai' ? 'Luyện đọc AI' : 'Chấm bài Luyện viết AI';
-      throw new MembershipHttpError(
-        403,
-        'QUOTA_EXCEEDED',
-        `Bạn đã dùng hết ${used}/${limit} lượt ${label} trong tuần này (${plan.name}). Nâng cấp gói Plus hoặc Pro AI để tiếp tục!`,
-      );
+      await client.query('COMMIT');
+      return { used, limit };
     }
 
     const nextUsed = await incrementFeatureUsage(client, userId, feature, weekKey);
@@ -1398,6 +1438,144 @@ export async function assertFeatureQuota(
   } finally {
     client.release();
   }
+}
+
+export async function assertFeatureQuota(
+  userId: string,
+  feature: 'reading_ai' | 'writing_ai',
+  dateKeyRaw?: string,
+): Promise<{ used: number; limit: number | null }> {
+  await checkFeatureQuota(userId, feature, dateKeyRaw);
+  return consumeFeatureQuota(userId, feature, dateKeyRaw);
+}
+
+export async function startAiJob(
+  userId: string,
+  feature: 'reading_ai' | 'writing_ai',
+  payloadMeta: unknown,
+): Promise<{ started: boolean; alreadyRunning?: boolean }> {
+  await ensureMembershipTables();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`ai_job:${feature}:${userId}`]);
+    const existing = await client.query<{ status: string; updated_at: Date }>(
+      `SELECT status, updated_at
+       FROM user_ai_jobs
+       WHERE user_id = $1 AND feature_key = $2 AND deleted_at IS NULL
+       FOR UPDATE`,
+      [userId, feature],
+    );
+    const row = existing.rows[0];
+    if (row && row.status === 'running' && Date.now() - row.updated_at.getTime() < 45_000) {
+      await client.query('COMMIT');
+      return { started: false, alreadyRunning: true };
+    }
+
+    await client.query(
+      `INSERT INTO user_ai_jobs (user_id, feature_key, status, payload_meta, error_message, updated_at, deleted_at)
+       VALUES ($1, $2, 'running', $3::jsonb, NULL, now(), NULL)
+       ON CONFLICT (user_id, feature_key) DO UPDATE SET
+         status = 'running',
+         payload_meta = EXCLUDED.payload_meta,
+         error_message = NULL,
+         updated_at = now(),
+         deleted_at = NULL`,
+      [userId, feature, JSON.stringify(payloadMeta ?? {})],
+    );
+    await client.query('COMMIT');
+    return { started: true };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function completeAiJob(
+  userId: string,
+  feature: 'reading_ai' | 'writing_ai',
+  resultJson: unknown,
+): Promise<void> {
+  await ensureMembershipTables();
+  await pool.query(
+    `INSERT INTO user_ai_jobs (user_id, feature_key, status, result_json, error_message, updated_at, deleted_at)
+     VALUES ($1, $2, 'ready', $3::jsonb, NULL, now(), NULL)
+     ON CONFLICT (user_id, feature_key) DO UPDATE SET
+       status = 'ready',
+       result_json = EXCLUDED.result_json,
+       error_message = NULL,
+       updated_at = now(),
+       deleted_at = NULL`,
+    [userId, feature, JSON.stringify(resultJson)],
+  );
+}
+
+export async function failAiJob(
+  userId: string,
+  feature: 'reading_ai' | 'writing_ai',
+  errorMessage: string,
+): Promise<void> {
+  await ensureMembershipTables();
+  await pool.query(
+    `UPDATE user_ai_jobs
+     SET status = 'failed', error_message = $3, updated_at = now()
+     WHERE user_id = $1 AND feature_key = $2`,
+    [userId, feature, errorMessage],
+  );
+}
+
+export async function getLatestAiJob(
+  userId: string,
+  feature: 'reading_ai' | 'writing_ai',
+): Promise<{
+  status: 'none' | 'running' | 'ready' | 'failed';
+  payloadMeta: unknown;
+  result: unknown;
+  errorMessage: string | null;
+  updatedAt: string | null;
+}> {
+  await ensureMembershipTables();
+  const res = await pool.query<{
+    status: string;
+    payload_meta: unknown;
+    result_json: unknown;
+    error_message: string | null;
+    updated_at: Date;
+  }>(
+    `SELECT status, payload_meta, result_json, error_message, updated_at
+     FROM user_ai_jobs
+     WHERE user_id = $1 AND feature_key = $2 AND deleted_at IS NULL`,
+    [userId, feature],
+  );
+  const row = res.rows[0];
+  if (!row) {
+    return {
+      status: 'none',
+      payloadMeta: null,
+      result: null,
+      errorMessage: null,
+      updatedAt: null,
+    };
+  }
+  let status = row.status as 'running' | 'ready' | 'failed';
+  let errorMessage = row.error_message;
+  if (status === 'running' && Date.now() - row.updated_at.getTime() > 60_000) {
+    status = 'failed';
+    errorMessage = errorMessage || 'Quá thời gian chờ phản hồi AI (không bị trừ lượt).';
+    await pool.query(
+      `UPDATE user_ai_jobs SET status = 'failed', error_message = $3, updated_at = now() WHERE user_id = $1 AND feature_key = $2`,
+      [userId, feature, errorMessage],
+    );
+  }
+  return {
+    status,
+    payloadMeta: row.payload_meta ?? null,
+    result: row.result_json ?? null,
+    errorMessage,
+    updatedAt: row.updated_at.toISOString(),
+  };
 }
 
 export async function checkUserIsPro(userId: string): Promise<boolean> {

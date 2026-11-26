@@ -15,7 +15,13 @@ export function resolveLibraryEndpoint(platform: string, configured: string | un
   const explicit = configured?.trim().replace(/\/+$/, '');
   if (explicit) return explicit;
   if (!dev) return undefined;
-  if (platform === 'web') return 'http://localhost:3000/api';
+  if (platform === 'web') {
+    const webHost =
+      typeof window !== 'undefined' && window.location?.hostname
+        ? window.location.hostname
+        : 'localhost';
+    return `http://${webHost}:3000/api`;
+  }
   const host = hostUri?.replace(/^[a-z]+:\/\//i, '').split('/')[0]?.split(':')[0];
   return host ? `http://${host}:3000/api` : undefined;
 }

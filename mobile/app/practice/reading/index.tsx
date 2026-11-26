@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { AppShell } from '../../../src/components/AppShell';
 import { TopHeader } from '../../../src/components/TopHeader';
 import { nihongoTheme } from '../../../src/theme/nihongo-theme';
 import { libraryEndpoint } from '../../../src/library-source';
-import { readAuthSession } from '../../../src/features/auth/auth-store';
+import { getUserScopedKey, readAuthSession } from '../../../src/features/auth/auth-store';
 import { useMembership } from '../../../src/features/membership/membership-store';
 import { recordMeaningfulStudyAction } from '../../../src/features/study-tracker/use-study-tracker';
 import { speakJapanese } from '../../../src/utils/speak-japanese';
+
+const READING_PROGRESS_KEY = 'kanji_smart_reading_progress_v1';
 
 interface ReadingQuestion {
   questionJa: string;
@@ -38,6 +41,7 @@ export default function ReadingScreen() {
   const [level, setLevel] = useState<(typeof LEVELS)[number]>('N3');
   const [genre, setGenre] = useState<(typeof GENRES)[number]>('Đoản văn');
   const [loading, setLoading] = useState(false);
+  const [recoveryNotice, setRecoveryNotice] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [quotaBlocked, setQuotaBlocked] = useState(false);
   const [reading, setReading] = useState<GeneratedReading | null>(null);
@@ -52,6 +56,110 @@ export default function ReadingScreen() {
     Array<{ id: string; word: string; nextIntervalDays: number }>
   >([]);
   const [srsError, setSrsError] = useState<string | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = () => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  };
+
+  const applyRestoredReading = async (data: GeneratedReading) => {
+    setReading(data);
+    try {
+      const pKey = await getUserScopedKey(READING_PROGRESS_KEY);
+      const raw = await AsyncStorage.getItem(pKey);
+      if (raw) {
+        const saved = JSON.parse(raw) as {
+          titleJa?: string;
+          selectedAnswers?: Record<number, number>;
+          checked?: boolean;
+        };
+        if (saved.titleJa === data.titleJa) {
+          setSelectedAnswers(saved.selectedAnswers ?? {});
+          setChecked(Boolean(saved.checked));
+          return;
+        }
+      }
+    } catch {
+      // ignore local cache read error
+    }
+    setSelectedAnswers({});
+    setChecked(false);
+  };
+
+  const startPollingLatest = () => {
+    if (pollTimerRef.current) return;
+    pollTimerRef.current = setInterval(() => {
+      void (async () => {
+        try {
+          const session = await readAuthSession();
+          if (!session?.accessToken) return;
+          const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+          const res = await fetch(`${base}/ai/reading/latest`, {
+            headers: { Authorization: `Bearer ${session.accessToken}` },
+          });
+          if (!res.ok) return;
+          const job = (await res.json()) as {
+            status: 'none' | 'running' | 'ready' | 'failed';
+            result?: GeneratedReading | null;
+            errorMessage?: string | null;
+          };
+          if (job.status === 'ready' && job.result) {
+            stopPolling();
+            await applyRestoredReading(job.result);
+            setRecoveryNotice(null);
+            setLoading(false);
+            void refreshMembership();
+          } else if (job.status === 'failed') {
+            stopPolling();
+            setRecoveryNotice(null);
+            setLoading(false);
+            setErrorMsg(job.errorMessage || 'Không tạo được bài đọc AI (bạn không bị trừ lượt).');
+          }
+        } catch {
+          // retry on next tick
+        }
+      })();
+    }, 2000);
+  };
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const session = await readAuthSession();
+        if (!session?.accessToken || !active) return;
+        const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+        const res = await fetch(`${base}/ai/reading/latest`, {
+          headers: { Authorization: `Bearer ${session.accessToken}` },
+        });
+        if (!res.ok || !active) return;
+        const job = (await res.json()) as {
+          status: 'none' | 'running' | 'ready' | 'failed';
+          result?: GeneratedReading | null;
+          errorMessage?: string | null;
+        };
+        if (!active) return;
+        if (job.status === 'running') {
+          setLoading(true);
+          setRecoveryNotice(
+            'AI đang tiếp tục hoàn tất bài đọc bạn vừa yêu cầu (F5 hoặc đổi tab sẽ không bị mất lượt)...',
+          );
+          startPollingLatest();
+        } else if (job.status === 'ready' && job.result) {
+          await applyRestoredReading(job.result);
+        }
+      } catch {
+        // offline
+      }
+    })();
+    return () => {
+      active = false;
+      stopPolling();
+    };
+  }, []);
 
   const markTargetWordsReviewed = async (targetReading: GeneratedReading) => {
     const vocabIds = targetReading.targetWords
@@ -87,10 +195,27 @@ export default function ReadingScreen() {
     }
   };
 
+  const persistReadingProgress = (
+    titleJa: string,
+    answers: Record<number, number>,
+    isChecked: boolean,
+  ) => {
+    void getUserScopedKey(READING_PROGRESS_KEY)
+      .then((pKey) =>
+        AsyncStorage.setItem(
+          pKey,
+          JSON.stringify({ titleJa, selectedAnswers: answers, checked: isChecked }),
+        ),
+      )
+      .catch(() => undefined);
+  };
+
   const handleGenerate = async () => {
     if (loading) return;
     recordMeaningfulStudyAction('reading_generate');
+    let keepPolling = false;
     setLoading(true);
+    setRecoveryNotice(null);
     setErrorMsg(null);
     setQuotaBlocked(false);
     setSelectedAnswers({});
@@ -110,6 +235,15 @@ export default function ReadingScreen() {
         headers,
         body: JSON.stringify({ level, genre }),
       });
+      if (res.status === 202) {
+        const pending = (await res.json().catch(() => ({}))) as { message?: string };
+        keepPolling = true;
+        setRecoveryNotice(
+          pending.message || 'AI đang hoàn tất bài đọc trước đó (không tốn thêm lượt)...',
+        );
+        startPollingLatest();
+        return;
+      }
       if (!res.ok) {
         const errData = (await res.json().catch(() => ({}))) as { message?: string };
         if (res.status === 403) {
@@ -121,11 +255,12 @@ export default function ReadingScreen() {
       }
       const data = (await res.json()) as GeneratedReading;
       setReading(data);
+      persistReadingProgress(data.titleJa, {}, false);
       void refreshMembership();
     } catch {
       setErrorMsg('Không tạo được bài đọc AI (có thể Google AI đang bận). Hãy thử lại sau vài giây.');
     } finally {
-      setLoading(false);
+      if (!keepPolling) setLoading(false);
     }
   };
 
@@ -157,6 +292,13 @@ export default function ReadingScreen() {
           </Text>
         </Pressable>
       </View>
+
+      {recoveryNotice ? (
+        <View style={styles.recoveryBanner}>
+          <ActivityIndicator size="small" color={nihongoTheme.colors.accentHover} />
+          <Text style={styles.recoveryText}>{recoveryNotice}</Text>
+        </View>
+      ) : null}
 
       {/* Config Panel */}
       <View style={styles.card}>
@@ -340,7 +482,11 @@ export default function ReadingScreen() {
                           onPress={() => {
                             if (checked) return;
                             recordMeaningfulStudyAction('reading_answer');
-                            setSelectedAnswers((prev) => ({ ...prev, [qIdx]: oIdx }));
+                            setSelectedAnswers((prev) => {
+                              const next = { ...prev, [qIdx]: oIdx };
+                              if (reading) persistReadingProgress(reading.titleJa, next, false);
+                              return next;
+                            });
                           }}
                         >
                           <Text style={styles.optionText}>
@@ -363,6 +509,7 @@ export default function ReadingScreen() {
                 onPress={() => {
                   recordMeaningfulStudyAction('reading_grade');
                   setChecked(true);
+                  if (reading) persistReadingProgress(reading.titleJa, selectedAnswers, true);
                   const score = reading.questions.reduce(
                     (sum, q, idx) => sum + (selectedAnswers[idx] === q.correctIndex ? 1 : 0),
                     0,
@@ -790,5 +937,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11.5,
     fontWeight: '800',
+  },
+  recoveryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  recoveryText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: nihongoTheme.colors.accentHover,
+    lineHeight: 18,
   },
 });
