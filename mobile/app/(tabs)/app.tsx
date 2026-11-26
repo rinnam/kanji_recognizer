@@ -29,11 +29,12 @@ import {
   useStudyTracker,
 } from '../../src/features/study-tracker/use-study-tracker';
 import { libraryEndpoint, loadLibrary } from '../../src/library-source';
-import { readServerCache } from '../../src/workspace-storage';
+import { readServerCache, saveServerCache } from '../../src/workspace-storage';
 import { hydrateQuizletStates } from '../../src/features/flashcards/quizlet-srs';
+import { getUserScopedKey } from '../../src/features/auth/auth-store';
 import { useIsMobilePhone } from '../../src/utils/device';
 
-const DAILY_CHALLENGE_KEY = 'kanji_nest_daily_challenge_v1';
+const DAILY_CHALLENGE_KEY = 'kanji_nest_daily_challenge_v2';
 
 const SKILLS = [
   { key: 'listening', title: 'Nghe', desc: 'Hội thoại và phát âm', Icon: HeadphonesSkillIcon, route: '/practice/listening' as const },
@@ -77,15 +78,22 @@ export default function HomeScreen() {
       });
 
       const todayKey = getLocalDateKey();
-      void AsyncStorage.getItem(DAILY_CHALLENGE_KEY)
+      void getUserScopedKey(DAILY_CHALLENGE_KEY)
+        .then((cKey) => AsyncStorage.getItem(cKey))
         .then((raw) => {
-          if (!raw || !active) return;
+          if (!active) return;
+          if (!raw) {
+            setChallengeDoneToday(false);
+            setChallengeScore(0);
+            return;
+          }
           const saved = JSON.parse(raw) as { date?: string; score?: number };
           if (saved.date === todayKey) {
             setChallengeDoneToday(true);
             setChallengeScore(saved.score ?? 0);
           } else {
             setChallengeDoneToday(false);
+            setChallengeScore(0);
           }
         })
         .catch(() => undefined);
@@ -99,14 +107,20 @@ export default function HomeScreen() {
         if (liveWords.length === 0) {
           const controller = new AbortController();
           const pulled = await loadLibrary(controller.signal).catch(() => undefined);
-          if (pulled) liveWords = pulled.vocabularies.filter((v) => !v.deletedAt);
+          if (pulled) {
+            if (libraryEndpoint) {
+              void saveServerCache(libraryEndpoint, pulled).catch(() => undefined);
+            }
+            liveWords = pulled.vocabularies.filter((v) => !v.deletedAt);
+          }
         }
         if (!active) return;
         setWords(liveWords);
 
         let savedLocal = {};
         try {
-          const raw = await AsyncStorage.getItem('kanji_nest_quizlet_srs_session_v1');
+          const srsKey = await getUserScopedKey('kanji_nest_quizlet_srs_session_v1');
+          const raw = await AsyncStorage.getItem(srsKey);
           if (raw) savedLocal = (JSON.parse(raw) as { states?: Record<string, never> }).states ?? {};
         } catch {
           // ignore
@@ -188,10 +202,14 @@ export default function HomeScreen() {
     if (challengeIdx + 1 >= challengeQuestions.length) {
       setChallengeDoneToday(true);
       setChallengeOpen(false);
-      void AsyncStorage.setItem(
-        DAILY_CHALLENGE_KEY,
-        JSON.stringify({ date: getLocalDateKey(), score: challengeScore }),
-      ).catch(() => undefined);
+      void getUserScopedKey(DAILY_CHALLENGE_KEY)
+        .then((cKey) =>
+          AsyncStorage.setItem(
+            cKey,
+            JSON.stringify({ date: getLocalDateKey(), score: challengeScore }),
+          ),
+        )
+        .catch(() => undefined);
       return;
     }
     setChallengeSelected(null);

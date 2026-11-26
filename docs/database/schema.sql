@@ -231,3 +231,28 @@ CREATE INDEX IF NOT EXISTS idx_listening_videos_folder ON listening_videos(folde
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash text;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name text;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'user';
+
+-- ---------------------------------------------------------------------
+-- Per-user daily study timer, streak logs & learning profile
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS user_study_logs (
+  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  study_date   text NOT NULL,
+  seconds      integer NOT NULL DEFAULT 0 CHECK (seconds >= 0),
+  goal_seconds integer NOT NULL DEFAULT 1800 CHECK (goal_seconds > 0),
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  deleted_at   timestamptz,
+  PRIMARY KEY (user_id, study_date)
+);
+
+CREATE TABLE IF NOT EXISTS user_learning_profiles (
+  user_id       uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  display_name  text NOT NULL,
+  jlpt_level    text NOT NULL DEFAULT 'N3',
+  primary_goal  text NOT NULL DEFAULT 'Ôn thi JLPT',
+  daily_minutes integer NOT NULL DEFAULT 30 CHECK (daily_minutes > 0),
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  deleted_at    timestamptz
+);

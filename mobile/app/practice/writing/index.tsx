@@ -12,6 +12,7 @@ import { AppShell } from '../../../src/components/AppShell';
 import { TopHeader } from '../../../src/components/TopHeader';
 import { nihongoTheme } from '../../../src/theme/nihongo-theme';
 import { libraryEndpoint } from '../../../src/library-source';
+import { getUserScopedKey } from '../../../src/features/auth/auth-store';
 import { speakJapanese } from '../../../src/utils/speak-japanese';
 
 interface WritingCorrection {
@@ -99,22 +100,26 @@ export default function WritingScreen() {
   const [submitted, setSubmitted] = useState<SavedEntry[]>([]);
 
   useEffect(() => {
-    void AsyncStorage.getItem(DRAFTS_KEY).then((raw) => {
-      if (!raw) return;
-      try {
-        setDrafts(JSON.parse(raw) as SavedEntry[]);
-      } catch {
-        // ignore
-      }
-    });
-    void AsyncStorage.getItem(SUBMITTED_KEY).then((raw) => {
-      if (!raw) return;
-      try {
-        setSubmitted(JSON.parse(raw) as SavedEntry[]);
-      } catch {
-        // ignore
-      }
-    });
+    void getUserScopedKey(DRAFTS_KEY)
+      .then((k) => AsyncStorage.getItem(k))
+      .then((raw) => {
+        if (!raw) return;
+        try {
+          setDrafts(JSON.parse(raw) as SavedEntry[]);
+        } catch {
+          // ignore
+        }
+      });
+    void getUserScopedKey(SUBMITTED_KEY)
+      .then((k) => AsyncStorage.getItem(k))
+      .then((raw) => {
+        if (!raw) return;
+        try {
+          setSubmitted(JSON.parse(raw) as SavedEntry[]);
+        } catch {
+          // ignore
+        }
+      });
   }, []);
 
   const handleSaveDraft = () => {
@@ -128,7 +133,7 @@ export default function WritingScreen() {
     };
     const next = [entry, ...drafts].slice(0, 20);
     setDrafts(next);
-    void AsyncStorage.setItem(DRAFTS_KEY, JSON.stringify(next));
+    void getUserScopedKey(DRAFTS_KEY).then((k) => AsyncStorage.setItem(k, JSON.stringify(next)));
     setNotice('Đã lưu vào mục Bản nháp!');
   };
 
@@ -163,7 +168,9 @@ export default function WritingScreen() {
       };
       const nextSub = [entry, ...submitted].slice(0, 20);
       setSubmitted(nextSub);
-      void AsyncStorage.setItem(SUBMITTED_KEY, JSON.stringify(nextSub));
+      void getUserScopedKey(SUBMITTED_KEY).then((k) =>
+        AsyncStorage.setItem(k, JSON.stringify(nextSub)),
+      );
     } catch {
       setErrorMsg('Không gọi được Sensei AI chấm bài (có thể Google AI đang bận). Hãy thử lại sau vài giây.');
     } finally {

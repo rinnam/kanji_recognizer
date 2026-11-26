@@ -15,6 +15,24 @@ export interface AuthSession {
 
 const AUTH_KEY = 'kanji_nest_auth_session_v1';
 
+let cachedSession: AuthSession | null | undefined = undefined;
+const sessionListeners = new Set<(session: AuthSession | null) => void>();
+
+function notifySessionListeners(session: AuthSession | null) {
+  for (const fn of sessionListeners) fn(session);
+}
+
+export function getCachedAuthSession(): AuthSession | null {
+  return cachedSession ?? null;
+}
+
+export function subscribeAuthSession(fn: (session: AuthSession | null) => void): () => void {
+  sessionListeners.add(fn);
+  return () => {
+    sessionListeners.delete(fn);
+  };
+}
+
 function apiBase(): string {
   return (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
 }
@@ -22,14 +40,34 @@ function apiBase(): string {
 export async function readAuthSession(): Promise<AuthSession | null> {
   try {
     const raw = await AsyncStorage.getItem(AUTH_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as AuthSession;
+    if (!raw) {
+      if (cachedSession !== null) {
+        cachedSession = null;
+        notifySessionListeners(null);
+      }
+      return null;
+    }
+    const parsed = JSON.parse(raw) as AuthSession;
+    const prevId = cachedSession?.user.id ?? null;
+    cachedSession = parsed;
+    if (prevId !== parsed.user.id) {
+      notifySessionListeners(parsed);
+    }
+    return parsed;
   } catch {
+    cachedSession = null;
     return null;
   }
 }
 
+export async function getUserScopedKey(baseKey: string): Promise<string> {
+  const session = cachedSession !== undefined ? cachedSession : await readAuthSession();
+  const uid = session?.user.id || 'guest';
+  return `${baseKey}:${uid}`;
+}
+
 export async function saveAuthSession(session: AuthSession | null): Promise<void> {
+  cachedSession = session;
   try {
     if (!session) {
       await AsyncStorage.removeItem(AUTH_KEY);
@@ -39,6 +77,7 @@ export async function saveAuthSession(session: AuthSession | null): Promise<void
   } catch {
     // ignore
   }
+  notifySessionListeners(session);
 }
 
 export async function loginApi(email: string, password: string): Promise<AuthSession> {

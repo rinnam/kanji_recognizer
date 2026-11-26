@@ -16,7 +16,7 @@ import { TopHeader } from '../../src/components/TopHeader';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { HandwritingModal } from '../../src/features/handwriting/HandwritingModal';
 import { libraryEndpoint, loadLibrary } from '../../src/library-source';
-import { readAuthSession } from '../../src/features/auth/auth-store';
+import { getUserScopedKey, readAuthSession } from '../../src/features/auth/auth-store';
 import { speakJapanese } from '../../src/utils/speak-japanese';
 
 interface SimpleFolder {
@@ -75,17 +75,22 @@ export default function LookupScreen() {
   const [savingBusy, setSavingBusy] = useState(false);
 
   useEffect(() => {
-    void AsyncStorage.getItem(HISTORY_KEY).then((raw) => {
-      if (!raw) return;
-      try {
-        const parsed = JSON.parse(raw) as unknown;
-        if (Array.isArray(parsed)) {
-          setHistory(parsed.filter((x): x is string => typeof x === 'string').slice(0, 15));
+    void getUserScopedKey(HISTORY_KEY)
+      .then((hKey) => AsyncStorage.getItem(hKey))
+      .then((raw) => {
+        if (!raw) {
+          setHistory([]);
+          return;
         }
-      } catch {
-        // ignore
-      }
-    });
+        try {
+          const parsed = JSON.parse(raw) as unknown;
+          if (Array.isArray(parsed)) {
+            setHistory(parsed.filter((x): x is string => typeof x === 'string').slice(0, 15));
+          }
+        } catch {
+          // ignore
+        }
+      });
   }, []);
 
   const pushHistory = useCallback((term: string) => {
@@ -93,7 +98,9 @@ export default function LookupScreen() {
     if (!clean) return;
     setHistory((prev) => {
       const next = [clean, ...prev.filter((item) => item !== clean)].slice(0, 15);
-      void AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      void getUserScopedKey(HISTORY_KEY).then((hKey) =>
+        AsyncStorage.setItem(hKey, JSON.stringify(next)),
+      );
       return next;
     });
   }, []);
@@ -189,7 +196,7 @@ export default function LookupScreen() {
 
   const clearHistory = () => {
     setHistory([]);
-    void AsyncStorage.removeItem(HISTORY_KEY);
+    void getUserScopedKey(HISTORY_KEY).then((hKey) => AsyncStorage.removeItem(hKey));
   };
 
   return (

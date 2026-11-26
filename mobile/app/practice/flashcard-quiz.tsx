@@ -24,6 +24,7 @@ import {
   saveServerCache,
 } from '../../src/workspace-storage';
 import { libraryEndpoint, loadLibrary, pushLibrary } from '../../src/library-source';
+import { getUserScopedKey } from '../../src/features/auth/auth-store';
 import { deletionPreview, folderWrites, type FolderAction } from '../../src/folder-actions';
 import { overlayPending } from '../../src/sync-merge';
 import {
@@ -122,8 +123,9 @@ export default function FlashcardQuizPracticeScreen() {
       nextFolderId: string | null,
     ) => {
       try {
+        const sessionKey = await getUserScopedKey(SRS_SESSION_STORAGE_KEY);
         await AsyncStorage.setItem(
-          SRS_SESSION_STORAGE_KEY,
+          sessionKey,
           JSON.stringify({
             states: nextStates,
             batchNewCount: nextBatch,
@@ -146,7 +148,8 @@ export default function FlashcardQuizPracticeScreen() {
     let savedCurrentId: string | null = null;
     let savedFolderId: string | null = null;
     try {
-      const raw = await AsyncStorage.getItem(SRS_SESSION_STORAGE_KEY);
+      const sessionKey = await getUserScopedKey(SRS_SESSION_STORAGE_KEY);
+      const raw = await AsyncStorage.getItem(sessionKey);
       if (raw) {
         const parsed = JSON.parse(raw) as {
           states?: Record<string, QuizletCardState>;
@@ -212,7 +215,8 @@ export default function FlashcardQuizPracticeScreen() {
 
   useEffect(() => {
     void fetchFromBackend();
-    void AsyncStorage.getItem(SRS_OPTIONS_STORAGE_KEY)
+    void getUserScopedKey(SRS_OPTIONS_STORAGE_KEY)
+      .then((optKey) => AsyncStorage.getItem(optKey))
       .then((raw) => {
         if (!raw) return;
         const parsed = JSON.parse(raw) as Partial<QuizletOptionsConfig>;
@@ -226,7 +230,9 @@ export default function FlashcardQuizPracticeScreen() {
   const updateOptions = (patch: Partial<QuizletOptionsConfig>) => {
     setOptions((prev) => {
       const next = { ...prev, ...patch };
-      void AsyncStorage.setItem(SRS_OPTIONS_STORAGE_KEY, JSON.stringify(next)).catch(() => undefined);
+      void getUserScopedKey(SRS_OPTIONS_STORAGE_KEY)
+        .then((optKey) => AsyncStorage.setItem(optKey, JSON.stringify(next)))
+        .catch(() => undefined);
       return next;
     });
   };
