@@ -44,7 +44,7 @@ export async function callGeminiJson<T>(
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     const generationConfig: Record<string, unknown> = {
       temperature: options?.temperature ?? 0.35,
-      maxOutputTokens: options?.maxOutputTokens ?? 1536,
+      maxOutputTokens: options?.maxOutputTokens ?? 4096,
     };
     if (model.startsWith('gemini-')) {
       generationConfig.responseMimeType = 'application/json';
@@ -61,7 +61,7 @@ export async function callGeminiJson<T>(
           contents: [{ role: 'user', parts }],
           generationConfig,
         }),
-        signal: AbortSignal.timeout(options?.timeoutMs ?? 20000),
+        signal: AbortSignal.timeout(options?.timeoutMs ?? 25000),
       });
 
       if (!res.ok) {
@@ -75,18 +75,33 @@ export async function callGeminiJson<T>(
       }
 
       const data = (await res.json()) as {
-        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+        candidates?: Array<{
+          content?: { parts?: Array<{ text?: string; thought?: boolean }> };
+        }>;
       };
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
-      const cleaned = rawText
+      const allParts = data.candidates?.[0]?.content?.parts ?? [];
+      const answerParts = allParts.filter((p) => !p.thought && typeof p.text === 'string');
+      const rawText =
+        (answerParts.length > 0 ? answerParts : allParts)
+          .map((p) => p.text ?? '')
+          .join('')
+          .trim() || '{}';
+      let cleaned = rawText
         .replace(/^```json\s*/i, '')
         .replace(/^```\s*/i, '')
         .replace(/```$/i, '')
         .trim();
+      const firstBrace = cleaned.indexOf('{');
+      const lastBrace = cleaned.lastIndexOf('}');
+      if (firstBrace >= 0 && lastBrace > firstBrace) {
+        cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+      }
       return JSON.parse(cleaned) as T;
     } catch (err) {
-      markModelCooldown(model, 503);
       lastErr = err instanceof Error ? err.message : String(err);
+      if (/timeout|fetch|network|abort/i.test(lastErr)) {
+        markModelCooldown(model, 503);
+      }
     }
   }
 

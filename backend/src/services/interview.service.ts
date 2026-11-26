@@ -540,7 +540,7 @@ ${stageInstruction}
 NGUYÊN TẮC HỘI THOẠI TỰ NHIÊN:${antiMetagamingRule}
 - Chỉ nói ĐÚNG 1 hành động/phản hồi tự nhiên của ${aiRoleLabel} trong lượt này; TUYỆT ĐỐI KHÔNG tự tua thời gian hay tự biên tự diễn 2 cảnh trong cùng 1 câu (không viết kiểu "少々お待ちください……お待たせいたしました！").
 - Giữ logic thực tế đời thường (không nhận các yêu cầu mâu thuẫn vật lý như "cá hồi bỏ hải sản").
-- Trường "advanceStage": đặt true nếu ${learnerRoleLabel} đã hoàn thành mục tiêu của bước "${input.stage}"; đặt false NẾU ${learnerRoleLabel} mới chỉ hỏi thông tin trung gian (vd: "おすすめは何ですか？" khi chưa chốt món, xin nhắc lại câu hỏi "もう一度お願いします", đang đổi lại món do dị ứng, hoặc ở bước cuối nhà hàng gọi thêm tráng miệng thay vì gọi thanh toán お会計) để giữ nguyên bước hiện tại cho người học nói tiếp!
+- Trường "advanceStage": MẶC ĐỊNH LÀ true (khi ${learnerRoleLabel} đã thực hiện đúng hành động của bước "${input.stage}", ví dụ: đã báo số người ở bước 1, ĐÃ GỌI MÓN ở bước 2, đã trả lời dị ứng/yêu cầu ở bước 3, đã yêu cầu thanh toán ở bước 4 — BẮT BUỘC đặt advanceStage = true!). CHỈ đặt advanceStage = false khi người học CHƯA thực hiện hành động chính mà mới hỏi câu phụ trung gian (vd: ở bước gọi món mới hỏi "おすすめは何ですか？" chưa chốt món nào, xin nhắc lại câu hỏi "もう一度お願いします", hoặc ở bước 4 gọi thêm tráng miệng thay vì gọi thanh toán お会計).
 - Trường "replyVi" dịch bằng tiếng Việt tự nhiên, đời thường (vd: "set cơm cá hồi nướng" thay vì dịch cứng "suất cá hồi định thực").
 
 CHẤM ĐIỂM CÂU NÓI CỦA ${learnerRoleLabel.toUpperCase()} (KHÔNG chấm câu trả lời của ${aiRoleLabel}):

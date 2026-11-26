@@ -335,6 +335,10 @@ export default function SpeakingLobbyScreen() {
                     </Pressable>
                   ) : null}
                 </View>
+              ) : selectedScenario ? (
+                <Pressable onPress={() => setCvText(selectedScenario.defaultCv)}>
+                  <Text style={styles.resetCvText}>Bối cảnh mẫu</Text>
+                </Pressable>
               ) : null}
             </View>
 
@@ -369,7 +373,11 @@ export default function SpeakingLobbyScreen() {
               onChangeText={setCvText}
               multiline
               numberOfLines={5}
-              placeholder="Nội dung CV của bạn (hoặc bấm Tải lên CV ở trên để AI tự đọc)..."
+              placeholder={
+                categoryTab === 'interview'
+                  ? 'Nội dung CV của bạn (hoặc bấm Tải lên CV ở trên để AI tự đọc)...'
+                  : 'Nhập tình huống tùy chỉnh bạn muốn luyện (vd: trật cổ chân khi đá bóng, đi ăn chay 5 người, trễ deadline sprint)...'
+              }
               placeholderTextColor={nihongoTheme.colors.textMuted}
               style={styles.cvInput}
             />

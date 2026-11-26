@@ -368,7 +368,7 @@ export default function Interview3DRoomScreen() {
             {
               id: 'init',
               role: 'manner',
-              text: `Chuẩn bị vào bối cảnh ${picked.companyName}. Click cửa 3D hoặc bấm nút bên dưới để bắt đầu!`,
+              text: `Chuẩn bị vào bối cảnh ${picked.companyName.replace(/\.+$/, '')}. Click cửa 3D hoặc bấm nút bên dưới để bắt đầu!`,
             },
           ]);
         } else {
@@ -376,7 +376,7 @@ export default function Interview3DRoomScreen() {
             {
               id: 'init',
               role: 'manner',
-              text: `Bắt đầu quy trình chuẩn Nhật tại ${picked.companyName}. Bước 1: Gõ cửa 3D đúng 3 lần.`,
+              text: `Bắt đầu quy trình chuẩn Nhật tại ${picked.companyName.replace(/\.+$/, '')}. Bước 1: Gõ cửa 3D đúng 3 lần.`,
             },
           ]);
         }
@@ -759,7 +759,7 @@ export default function Interview3DRoomScreen() {
       return;
     }
     setHasExitFinalSpeech(true);
-    setMannerAlert('Chuẩn rồi! Bấm "Cúi chào & Ra khỏi phòng" để hoàn thành buổi phỏng vấn.');
+    setMannerAlert('Chuẩn rồi! Bấm "Cúi chào 30° & Mở cửa ra về" để hoàn thành buổi phỏng vấn.');
   };
 
   const handleFinishExit = () => {
@@ -811,8 +811,16 @@ export default function Interview3DRoomScreen() {
   const roleplayStageIdx = roleplayMeta
     ? roleplayMeta.badges.findIndex((b) => b.stage === qaStage)
     : -1;
+  const isCustomContext = Boolean(
+    cvSummary.trim() && scenario?.defaultCv && cvSummary.trim() !== scenario.defaultCv.trim(),
+  );
   const activeQuickPhrases = roleplayMeta
-    ? roleplayMeta.stagePhrases[qaStage] ?? roleplayMeta.quickPhrases
+    ? sceneType === 'clinic' && qaStage === 'jikoshokai' && isCustomContext
+      ? [
+          { label: 'Mở đầu khám (診察お願いします)', text: 'すみません、診察をお願いします。' },
+          { label: 'Mở Phiếu khám 問診票 xem mẫu câu', text: '先ほどから強い痛みがあって受診しました。' },
+        ]
+      : roleplayMeta.stagePhrases[qaStage] ?? roleplayMeta.quickPhrases
     : [];
 
   const micPlaceholder =

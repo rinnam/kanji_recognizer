@@ -51,7 +51,7 @@ export function ScenarioPropModal({
         <View style={styles.card}>
           <View style={styles.header}>
             <Text style={styles.title}>{title}</Text>
-            <Pressable onPress={onClose}>
+            <Pressable accessibilityRole="button" onPress={onClose}>
               <Text style={styles.closeText}>Đóng</Text>
             </Pressable>
           </View>
@@ -60,7 +60,7 @@ export function ScenarioPropModal({
             {kind === 'menu' ? (
               <View style={styles.listGap}>
                 <Text style={styles.hint}>
-                  Bấm vào món để nghe phát âm tiếng Nhật hoặc bấm &quot;Gọi món này&quot; để điền nhanh câu gọi món.
+                  Bấm vào món để nghe phát âm tiếng Nhật hoặc bấm &quot;Gọi món&quot; để điền nhanh câu gọi món.
                 </Text>
                 {WASHOKU_MENU.map((dish) => (
                   <View key={dish.id} style={styles.dishRow}>
