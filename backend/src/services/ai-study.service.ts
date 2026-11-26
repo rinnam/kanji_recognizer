@@ -149,10 +149,13 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
 export async function markReadingSrsReviewed(input: {
   userId?: string | undefined;
   vocabularyIds: string[];
-}): Promise<{ updatedCount: number }> {
+}): Promise<{
+  updatedCount: number;
+  updatedWords: Array<{ id: string; word: string; nextIntervalDays: number }>;
+}> {
   const ownerId = input.userId || DEFAULT_OWNER_ID;
   const ids = [...new Set(input.vocabularyIds)];
-  if (ids.length === 0) return { updatedCount: 0 };
+  if (ids.length === 0) return { updatedCount: 0, updatedWords: [] };
 
   const now = new Date();
   const DAY_MS = 24 * 60 * 60 * 1000;
@@ -160,11 +163,13 @@ export async function markReadingSrsReviewed(input: {
   return db.transaction().execute(async (trx) => {
     const rows = await trx
       .selectFrom('vocabularies')
-      .select(['id', 'srs_repetition', 'srs_interval', 'srs_ease_factor'])
+      .select(['id', 'word', 'srs_repetition', 'srs_interval', 'srs_ease_factor'])
       .where('owner_id', '=', ownerId)
       .where('deleted_at', 'is', null)
       .where('id', 'in', ids)
       .execute();
+
+    const updatedWords: Array<{ id: string; word: string; nextIntervalDays: number }> = [];
 
     for (const row of rows) {
       const rep = Number(row.srs_repetition ?? 0);
@@ -186,9 +191,11 @@ export async function markReadingSrsReviewed(input: {
         .where('id', '=', row.id)
         .where('owner_id', '=', ownerId)
         .execute();
+
+      updatedWords.push({ id: row.id, word: row.word, nextIntervalDays: nextInterval });
     }
 
-    return { updatedCount: rows.length };
+    return { updatedCount: rows.length, updatedWords };
   });
 }
 

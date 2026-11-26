@@ -12,11 +12,11 @@ import {
 const readingSchema = z.object({
   level: z.enum(['N5', 'N4', 'N3', 'N2', 'N1']).default('N3'),
   genre: z.string().min(1).default('Đoản văn'),
-  folderId: z.string().uuid().optional(),
+  folderId: z.string().min(1).optional(),
 });
 
 const completeReadingSrsSchema = z.object({
-  vocabularyIds: z.array(z.string().uuid()).min(1).max(20),
+  vocabularyIds: z.array(z.string().min(1)).min(1).max(20),
 });
 
 const writingSchema = z.object({

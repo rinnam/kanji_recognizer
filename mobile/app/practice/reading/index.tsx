@@ -42,6 +42,10 @@ export default function ReadingScreen() {
   const [checked, setChecked] = useState(false);
   const [srsUpdating, setSrsUpdating] = useState(false);
   const [srsDoneCount, setSrsDoneCount] = useState<number | null>(null);
+  const [srsUpdatedWords, setSrsUpdatedWords] = useState<
+    Array<{ id: string; word: string; nextIntervalDays: number }>
+  >([]);
+  const [srsError, setSrsError] = useState<string | null>(null);
 
   const markTargetWordsReviewed = async (targetReading: GeneratedReading) => {
     const vocabIds = targetReading.targetWords
@@ -49,6 +53,7 @@ export default function ReadingScreen() {
       .filter((id): id is string => typeof id === 'string' && id.length > 0);
     if (vocabIds.length === 0 || srsUpdating || srsDoneCount !== null) return;
     setSrsUpdating(true);
+    setSrsError(null);
     try {
       const session = await readAuthSession();
       const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
@@ -59,12 +64,18 @@ export default function ReadingScreen() {
         headers,
         body: JSON.stringify({ vocabularyIds: vocabIds }),
       });
-      if (res.ok) {
-        const data = (await res.json()) as { updatedCount?: number };
-        setSrsDoneCount(data.updatedCount ?? vocabIds.length);
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${errBody.slice(0, 120)}`);
       }
+      const data = (await res.json()) as {
+        updatedCount?: number;
+        updatedWords?: Array<{ id: string; word: string; nextIntervalDays: number }>;
+      };
+      setSrsDoneCount(data.updatedCount ?? vocabIds.length);
+      setSrsUpdatedWords(data.updatedWords ?? []);
     } catch {
-      // ignore transient error
+      setSrsError('Không cập nhật được SRS lên Backend. Hãy kiểm tra Backend cổng 3000 và thử lại.');
     } finally {
       setSrsUpdating(false);
     }
@@ -77,6 +88,8 @@ export default function ReadingScreen() {
     setSelectedAnswers({});
     setChecked(false);
     setSrsDoneCount(null);
+    setSrsUpdatedWords([]);
+    setSrsError(null);
 
     try {
       const session = await readAuthSession();
@@ -173,17 +186,23 @@ export default function ReadingScreen() {
           <View style={styles.card}>
             <Text style={styles.sectionLabel}>Từ vựng SRS đã lồng vào bài đọc ({reading.targetWords.length} từ)</Text>
             <View style={styles.wordsWrap}>
-              {reading.targetWords.map((w, idx) => (
-                <Pressable
-                  key={`${w.word}-${idx}`}
-                  style={styles.wordPill}
-                  onPress={() => void speakJapanese(w.reading || w.word)}
-                >
-                  <Text style={styles.wordPillMain}>{w.word}</Text>
-                  {w.reading ? <Text style={styles.wordPillSub}>({w.reading})</Text> : null}
-                  <Text style={styles.wordPillMean}>· {w.meaning}</Text>
-                </Pressable>
-              ))}
+              {reading.targetWords.map((w, idx) => {
+                const updated = srsUpdatedWords.find((u) => u.id === w.id);
+                return (
+                  <Pressable
+                    key={`${w.word}-${idx}`}
+                    style={[styles.wordPill, updated && styles.wordPillReviewed]}
+                    onPress={() => void speakJapanese(w.reading || w.word)}
+                  >
+                    {updated ? <Text style={styles.wordPillCheck}>✓</Text> : null}
+                    <Text style={styles.wordPillMain}>{w.word}</Text>
+                    {w.reading ? <Text style={styles.wordPillSub}>({w.reading})</Text> : null}
+                    <Text style={styles.wordPillMean}>
+                      {updated ? `· Đã ôn (+${updated.nextIntervalDays} ngày)` : `· ${w.meaning}`}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
 
@@ -312,21 +331,36 @@ export default function ReadingScreen() {
             ) : srsDoneCount !== null ? (
               <View style={styles.srsDoneBox}>
                 <Text style={styles.srsDoneText}>
-                  Đã cập nhật lịch ôn SRS cho {srsDoneCount} từ vựng trong bài! Bấm &quot;Tạo bài đọc mới&quot; để ôn 6 từ kế tiếp.
+                  ✓ Đã đánh dấu ôn xong &amp; đẩy lịch SRS cho {srsDoneCount} từ vựng!
                 </Text>
+                {srsUpdatedWords.length > 0 ? (
+                  <Text style={styles.srsScheduleDetail}>
+                    {srsUpdatedWords.map((u) => `${u.word} (+${u.nextIntervalDays} ngày)`).join(' · ')}
+                  </Text>
+                ) : null}
+                <Pressable
+                  style={[styles.primaryBtn, { marginTop: 8 }]}
+                  disabled={loading}
+                  onPress={() => void handleGenerate()}
+                >
+                  <Text style={styles.primaryBtnText}>Tạo bài đọc mới với 6 từ cần ôn tiếp theo →</Text>
+                </Pressable>
               </View>
             ) : reading.targetWords.some((w) => w.id) ? (
-              <Pressable
-                style={styles.srsManualBtn}
-                disabled={srsUpdating}
-                onPress={() => void markTargetWordsReviewed(reading)}
-              >
-                <Text style={styles.srsManualText}>
-                  {srsUpdating
-                    ? 'Đang cập nhật SRS...'
-                    : `Đánh dấu ${reading.targetWords.filter((w) => w.id).length} từ này đã ôn (SRS)`}
-                </Text>
-              </Pressable>
+              <View style={{ gap: 8 }}>
+                {srsError ? <Text style={styles.errorText}>{srsError}</Text> : null}
+                <Pressable
+                  style={styles.srsManualBtn}
+                  disabled={srsUpdating}
+                  onPress={() => void markTargetWordsReviewed(reading)}
+                >
+                  <Text style={styles.srsManualText}>
+                    {srsUpdating
+                      ? 'Đang cập nhật SRS...'
+                      : `Đánh dấu ${reading.targetWords.filter((w) => w.id).length} từ này đã ôn (SRS)`}
+                  </Text>
+                </Pressable>
+              </View>
             ) : null}
           </View>
         </View>
@@ -432,6 +466,15 @@ const styles = StyleSheet.create({
     borderRadius: nihongoTheme.radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 5,
+  },
+  wordPillReviewed: {
+    backgroundColor: nihongoTheme.colors.successBg,
+    borderColor: '#86EFAC',
+  },
+  wordPillCheck: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#15803D',
   },
   wordPillMain: {
     fontSize: 13,
@@ -633,6 +676,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#15803D',
     lineHeight: 19,
+  },
+  srsScheduleDetail: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#166534',
+    marginTop: 4,
+    lineHeight: 18,
   },
   srsManualBtn: {
     backgroundColor: '#FDF8F0',
