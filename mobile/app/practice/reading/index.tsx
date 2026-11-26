@@ -22,7 +22,7 @@ interface GeneratedReading {
   passageJa: string;
   readingKana: string;
   translationVi: string;
-  targetWords: Array<{ word: string; reading: string; meaning: string }>;
+  targetWords: Array<{ id?: string; word: string; reading: string; meaning: string }>;
   questions: ReadingQuestion[];
 }
 
@@ -40,6 +40,35 @@ export default function ReadingScreen() {
   const [showVi, setShowVi] = useState(false);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [checked, setChecked] = useState(false);
+  const [srsUpdating, setSrsUpdating] = useState(false);
+  const [srsDoneCount, setSrsDoneCount] = useState<number | null>(null);
+
+  const markTargetWordsReviewed = async (targetReading: GeneratedReading) => {
+    const vocabIds = targetReading.targetWords
+      .map((w) => w.id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    if (vocabIds.length === 0 || srsUpdating || srsDoneCount !== null) return;
+    setSrsUpdating(true);
+    try {
+      const session = await readAuthSession();
+      const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+      const res = await fetch(`${base}/ai/reading/complete-srs`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ vocabularyIds: vocabIds }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { updatedCount?: number };
+        setSrsDoneCount(data.updatedCount ?? vocabIds.length);
+      }
+    } catch {
+      // ignore transient error
+    } finally {
+      setSrsUpdating(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (loading) return;
@@ -47,6 +76,7 @@ export default function ReadingScreen() {
     setErrorMsg(null);
     setSelectedAnswers({});
     setChecked(false);
+    setSrsDoneCount(null);
 
     try {
       const session = await readAuthSession();
@@ -264,8 +294,38 @@ export default function ReadingScreen() {
             })}
 
             {!checked ? (
-              <Pressable style={styles.primaryBtn} onPress={() => setChecked(true)}>
+              <Pressable
+                style={styles.primaryBtn}
+                onPress={() => {
+                  setChecked(true);
+                  const score = reading.questions.reduce(
+                    (sum, q, idx) => sum + (selectedAnswers[idx] === q.correctIndex ? 1 : 0),
+                    0,
+                  );
+                  if (reading.questions.length > 0 && score === reading.questions.length) {
+                    void markTargetWordsReviewed(reading);
+                  }
+                }}
+              >
                 <Text style={styles.primaryBtnText}>Chấm điểm đọc hiểu</Text>
+              </Pressable>
+            ) : srsDoneCount !== null ? (
+              <View style={styles.srsDoneBox}>
+                <Text style={styles.srsDoneText}>
+                  Đã cập nhật lịch ôn SRS cho {srsDoneCount} từ vựng trong bài! Bấm &quot;Tạo bài đọc mới&quot; để ôn 6 từ kế tiếp.
+                </Text>
+              </View>
+            ) : reading.targetWords.some((w) => w.id) ? (
+              <Pressable
+                style={styles.srsManualBtn}
+                disabled={srsUpdating}
+                onPress={() => void markTargetWordsReviewed(reading)}
+              >
+                <Text style={styles.srsManualText}>
+                  {srsUpdating
+                    ? 'Đang cập nhật SRS...'
+                    : `Đánh dấu ${reading.targetWords.filter((w) => w.id).length} từ này đã ôn (SRS)`}
+                </Text>
               </Pressable>
             ) : null}
           </View>
@@ -560,6 +620,32 @@ const styles = StyleSheet.create({
     color: '#15803D',
     fontWeight: '600',
     lineHeight: 18,
+  },
+  srsDoneBox: {
+    backgroundColor: nihongoTheme.colors.successBg,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    borderRadius: nihongoTheme.radius.md,
+    padding: 12,
+  },
+  srsDoneText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#15803D',
+    lineHeight: 19,
+  },
+  srsManualBtn: {
+    backgroundColor: '#FDF8F0',
+    borderWidth: 1,
+    borderColor: '#C87D55',
+    borderRadius: nihongoTheme.radius.button,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  srsManualText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#9A5B37',
   },
   emptyCard: {
     backgroundColor: nihongoTheme.colors.surface,

@@ -20,7 +20,7 @@ export interface GeneratedReadingPassage {
   passageJa: string;
   readingKana: string;
   translationVi: string;
-  targetWords: Array<{ word: string; reading: string; meaning: string }>;
+  targetWords: Array<{ id?: string; word: string; reading: string; meaning: string }>;
   questions: ReadingQuestion[];
 }
 
@@ -37,6 +37,7 @@ export async function generateSrsReading(input: {
         .selectFrom('vocabularies')
         .innerJoin('vocabulary_folders', 'vocabulary_folders.vocabulary_id', 'vocabularies.id')
         .select([
+          'vocabularies.id',
           'vocabularies.word',
           'vocabularies.reading',
           'vocabularies.meaning',
@@ -52,7 +53,7 @@ export async function generateSrsReading(input: {
         .execute()
     : await db
         .selectFrom('vocabularies')
-        .select(['word', 'reading', 'meaning', 'srs_repetition', 'srs_next_review'])
+        .select(['id', 'word', 'reading', 'meaning', 'srs_repetition', 'srs_next_review'])
         .where('owner_id', '=', ownerId)
         .where('deleted_at', 'is', null)
         .orderBy('srs_next_review', 'asc')
@@ -63,6 +64,7 @@ export async function generateSrsReading(input: {
   const targetWords =
     rows.length > 0
       ? rows.map((r) => ({
+          id: r.id,
           word: r.word,
           reading: r.reading ?? '',
           meaning: r.meaning,
@@ -138,6 +140,56 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
     targetWords,
     questions,
   };
+}
+
+/**
+ * Marks the reading passage's SRS vocabularies as reviewed (SM-2 "good" grade)
+ * inside a DB transaction, pushing srs_next_review forward & bumping updated_at for sync.
+ */
+export async function markReadingSrsReviewed(input: {
+  userId?: string | undefined;
+  vocabularyIds: string[];
+}): Promise<{ updatedCount: number }> {
+  const ownerId = input.userId || DEFAULT_OWNER_ID;
+  const ids = [...new Set(input.vocabularyIds)];
+  if (ids.length === 0) return { updatedCount: 0 };
+
+  const now = new Date();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  return db.transaction().execute(async (trx) => {
+    const rows = await trx
+      .selectFrom('vocabularies')
+      .select(['id', 'srs_repetition', 'srs_interval', 'srs_ease_factor'])
+      .where('owner_id', '=', ownerId)
+      .where('deleted_at', 'is', null)
+      .where('id', 'in', ids)
+      .execute();
+
+    for (const row of rows) {
+      const rep = Number(row.srs_repetition ?? 0);
+      const ease = Math.max(1.3, Number(row.srs_ease_factor ?? 2.5));
+      const prevInterval = Math.max(0, Number(row.srs_interval ?? 0));
+      const nextRep = rep + 1;
+      const nextInterval =
+        nextRep === 1 ? 1 : nextRep === 2 ? 6 : Math.max(1, Math.round(prevInterval * ease));
+      const nextReview = new Date(now.getTime() + nextInterval * DAY_MS);
+
+      await trx
+        .updateTable('vocabularies')
+        .set({
+          srs_repetition: nextRep,
+          srs_interval: nextInterval,
+          srs_next_review: nextReview,
+          updated_at: now,
+        })
+        .where('id', '=', row.id)
+        .where('owner_id', '=', ownerId)
+        .execute();
+    }
+
+    return { updatedCount: rows.length };
+  });
 }
 
 // ─── #2 AI Writing & Business Email Sensei Grader ───────────────────────────

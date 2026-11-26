@@ -6,12 +6,17 @@ import {
   generateKanjiMnemonic,
   generateSrsReading,
   gradeJapaneseWriting,
+  markReadingSrsReviewed,
 } from '../services/ai-study.service.js';
 
 const readingSchema = z.object({
   level: z.enum(['N5', 'N4', 'N3', 'N2', 'N1']).default('N3'),
   genre: z.string().min(1).default('Đoản văn'),
   folderId: z.string().uuid().optional(),
+});
+
+const completeReadingSrsSchema = z.object({
+  vocabularyIds: z.array(z.string().uuid()).min(1).max(20),
 });
 
 const writingSchema = z.object({
@@ -47,6 +52,21 @@ export const aiStudyRoutes: FastifyPluginAsync = async (app) => {
       level: parsed.level,
       genre: parsed.genre,
       folderId: parsed.folderId,
+    });
+    return reply.send(result);
+  });
+
+  app.post('/ai/reading/complete-srs', async (req, reply) => {
+    const parsed = completeReadingSrsSchema.parse(req.body ?? {});
+    let userId: string | undefined;
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      const user = verifyToken(authHeader.slice(7).trim());
+      if (user?.id) userId = user.id;
+    }
+    const result = await markReadingSrsReviewed({
+      userId,
+      vocabularyIds: parsed.vocabularyIds,
     });
     return reply.send(result);
   });
