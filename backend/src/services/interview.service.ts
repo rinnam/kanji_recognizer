@@ -451,7 +451,7 @@ export async function runInterviewTurn(input: {
       jikoshokai:
         'Bước 1/4 (入店・案内): Khách vừa báo số người/chỗ ngồi hoặc yêu cầu đầu tiên (bám sát bối cảnh tùy chỉnh của khách nếu có). Hãy dẫn khách vào bàn lịch sự ("かしこまりました。こちらのお席へどうぞ"), đưa thực đơn お品書き và hỏi khách muốn gọi đồ uống hay món gì.',
       jiko_pr:
-        'Bước 2/4 (注文): Khách vừa gọi món hoặc hỏi món gợi ý (Menu quán có: 鮭定食 ¥1,100 [cá hồi nướng], カツ丼 ¥980 [thịt heo chiên xù trứng], 辛口味噌ラーメン ¥950 [mì cay], 海鮮天ぷら盛り合わせ ¥1,350 [tempura hải sản], 野菜天ぷら定食 ¥1,050 [tempura rau củ], ウーロン茶 ¥300, 生ビール ¥550, 抹茶アイス ¥420). Hãy xác nhận món thân thiện và hỏi khách có gọi thêm đồ uống hay có dị ứng thực phẩm/yêu cầu đặc biệt gì không. LƯU Ý LOGIC THỰC TẾ: Cá hồi (鮭) LÀ cá/hải sản — nếu khách báo không ăn hải sản nhưng lại gọi 鮭定食/海鮮天ぷら thì lịch sự hỏi xác nhận hoặc gợi ý đổi sang カツ丼 / 野菜天ぷら定食, TUYỆT ĐỐI KHÔNG nói câu vô lý như "cá hồi bỏ hải sản".',
+        'Bước 2/4 (注文): Khách vừa gọi món hoặc hỏi món gợi ý (Menu quán có: 鮭定食 ¥1,100 [cá hồi nướng], カツ丼 ¥980 [thịt heo chiên xù trứng], 辛口味噌ラーメン ¥950 [mì cay], 海鮮天ぷら盛り合わせ ¥1,350 [tempura hải sản], 野菜天ぷら定食 ¥1,050 [tempura rau củ], ウーロン茶 ¥300, 生ビール ¥550, 抹茶アイス ¥420). Hãy xác nhận món khách vừa gọi một cách thân thiện, rồi HỎI khách có gọi thêm đồ uống hay có dị ứng thực phẩm/món nào không ăn được không ("アレルギーや苦手な食材はございますか？"). LƯU Ý: CHỈ nhắc mâu thuẫn dị ứng (vd cá hồi là hải sản) NẾU TRONG LỊCH SỬ HỘI THOẠI KHÁCH ĐÃ THẬT SỰ NÓI LÀ DỊ ỨNG; nếu khách CHƯA nói dị ứng thì TUYỆT ĐỐI KHÔNG tự giả vờ khách đã báo!',
       cv_q1:
         'Bước 3/4 (注文確定): Khách vừa báo yêu cầu đặc biệt / dị ứng / đồ uống / xác nhận đơn. Hãy xác nhận lại đơn hàng chu đáo (kiểm tra logic nguyên liệu hợp lý) rồi nói ngắn gọn hẹn khách chờ bếp chuẩn bị (ví dụ: "かしこまりました。それではご用意いたしますので、少々お待ちくださいませ。"). TUYỆT ĐỐI KHÔNG tự tua thời gian kiểu "……お待たせいたしました！" và KHÔNG hỏi thanh toán (お会計) trong lượt này vì khách còn chưa ăn.',
       cv_q2:
@@ -495,13 +495,35 @@ export async function runInterviewTurn(input: {
   };
   const frameworkSpec = frameworkSpecMap[framework];
 
+  const aiRoleLabel =
+    scenario.id === 'roleplay_restaurant'
+      ? 'Nhân viên nhà hàng'
+      : scenario.id === 'roleplay_clinic'
+        ? 'Bác sĩ'
+        : scenario.id === 'roleplay_horenso'
+          ? 'Quản lý dự án (PM)'
+          : 'Nhà tuyển dụng';
+
+  const learnerRoleLabel =
+    scenario.id === 'roleplay_restaurant'
+      ? 'Khách hàng (Người học)'
+      : scenario.id === 'roleplay_clinic'
+        ? 'Bệnh nhân (Người học)'
+        : scenario.id === 'roleplay_horenso'
+          ? 'Nhân viên (Người học)'
+          : 'Ứng viên (Người học)';
+
   const roleDescriptor = isRoleplay
-    ? `Bạn đang nhập vai ${scenario.interviewerName} (${scenario.interviewerRole}) tại ${scenario.companyName} trong bối cảnh "${scenario.title}".`
-    : `Bạn là nhà tuyển dụng Nhật Bản tên ${scenario.interviewerName} (${scenario.interviewerRole}) tại ${scenario.companyName}.`;
+    ? `Bạn đang nhập vai ${aiRoleLabel}: ${scenario.interviewerName} (${scenario.interviewerRole}) tại ${scenario.companyName} trong bối cảnh "${scenario.title}". Người đối thoại với bạn là ${learnerRoleLabel}.`
+    : `Bạn là ${aiRoleLabel} tên ${scenario.interviewerName} (${scenario.interviewerRole}) tại ${scenario.companyName}. Người đối thoại với bạn là ${learnerRoleLabel}.`;
 
   const contextHeading = isRoleplay
-    ? 'Bối cảnh TÙY CHỈNH người dùng đặt ra (BẮT BUỘC bám sát 100%, không tự bịa kịch bản khác):'
+    ? 'Ghi chú bối cảnh / mục tiêu riêng của NGƯỜI HỌC (CHỈ để hiểu chủ đề chung — nhân vật AI KHÔNG ĐỌC ĐƯỢC SUY NGHĨ của người học):'
     : 'Nội dung CV / 履歴書 THẬT của ứng viên:';
+
+  const antiMetagamingRule = isRoleplay
+    ? `\n- QUY TẮC BẮT BUỘC (KHÔNG ĐỌC SUY NGHĨ / NO METAGAMING): ${aiRoleLabel} CHỈ biết những thông tin mà ${learnerRoleLabel} ĐÃ THẬT SỰ NÓI RA trong "Lịch sử hội thoại" hoặc câu vừa nói ở dưới. TUYỆT ĐỐI CẤM giả vờ người học đã báo dị ứng / triệu chứng / chi tiết từ phần "Ghi chú bối cảnh" ở trên nếu trong lịch sử hội thoại người học CHƯA HỀ NÓI câu nào về điều đó (không được nói kiểu "先ほど海鮮が苦手と伺いましたが..." khi khách chưa hề nhắc đến hải sản!). Hãy cứ phản hồi đúng những gì người học thực sự vừa nói và đặt câu hỏi mở tự nhiên để người học tự nói ra.`
+    : '';
 
   const systemPrompt = `${roleDescriptor}
 Trình độ mục tiêu: ${scenario.level}.
@@ -514,21 +536,18 @@ Lượt hiện tại thuộc bước: "${input.stage}".
 CHỈ DẪN BẮT BUỘC CHO LƯỢT NÀY:
 ${stageInstruction}
 
-NGUYÊN TẮC HỘI THOẠI TỰ NHIÊN:
-- Chỉ nói ĐÚNG 1 hành động/phản hồi tự nhiên của nhân vật trong lượt này; TUYỆT ĐỐI KHÔNG tự tua thời gian hay tự biên tự diễn 2 cảnh trong cùng 1 câu (không viết kiểu "少々お待ちください……お待たせいたしました！").
+NGUYÊN TẮC HỘI THOẠI TỰ NHIÊN:${antiMetagamingRule}
+- Chỉ nói ĐÚNG 1 hành động/phản hồi tự nhiên của ${aiRoleLabel} trong lượt này; TUYỆT ĐỐI KHÔNG tự tua thời gian hay tự biên tự diễn 2 cảnh trong cùng 1 câu (không viết kiểu "少々お待ちください……お待たせいたしました！").
 - Giữ logic thực tế đời thường (không nhận các yêu cầu mâu thuẫn vật lý như "cá hồi bỏ hải sản").
 - Trường "replyVi" dịch bằng tiếng Việt tự nhiên, đời thường (vd: "set cơm cá hồi nướng" thay vì dịch cứng "suất cá hồi định thực").
 
-CHẤM ĐIỂM PHÙ HỢP BỐI CẢNH:
-0. XỬ LÝ TỪ ĐỒNG ÂM TỪ NHẬN DIỆN GIỌNG NÓI (STT Homophone Disambiguation): Câu trả lời của người dùng được nhận diện từ giọng nói tiếng Nhật (Whisper), nên ĐÔI KHI bị đổi nhầm chữ Kanji đồng âm (ví dụ: nói "さけていしょく" = 鮭定食 nhưng máy ghi 酒定食; nói 症状 nhưng ghi 賞状; nói 故障 nhưng ghi 交渉; nói お箸 nhưng ghi お橋; nói 医師 nhưng ghi 意志). Khi thấy cụm từ đồng âm vô lý với bối cảnh nhưng đọc giống hệt từ đúng trong bối cảnh/thực đơn/chuyên ngành:
-   - Hãy TỰ HIỂU ĐÚNG Ý NGƯỜI NÓI theo ngữ cảnh và phản hồi hoàn toàn tự nhiên theo ý đúng đó.
-   - TUYỆT ĐỐI KHÔNG trừ điểm ngữ pháp/từ vựng/nội dung vì lỗi Kanji của máy STT.
-   - Ghi lại phiên bản đã sửa đúng Kanji vào trường "candidateTranscript" (nếu không có lỗi đồng âm thì giữ nguyên nguyên văn câu người dùng).
-1. Đánh giá theo khung **${framework}** (${frameworkSpec}): điền đúng 4 mục vào frameworkChecklist (met: true/false) và chấm structureScore (0-100). Với tình huống giao tiếp ngắn (như báo số người ở nhà hàng), hãy chấm công bằng theo độ rõ ràng & lịch sự của tình huống đó, KHÔNG đòi hỏi dài dòng kiểu phỏng vấn.
-2. Phát hiện từ đệm / ấp úng (フィラー như えーと, あのー, うーん, そのー, まあ, à, ờ) có trong câu nói (sơ bộ: ${JSON.stringify(detectedFillers)}). Viết fluencyNoteVi nhận xét ngắn gọn.
-3. Chấm keigoScore, grammarScore, naturalScore, contentScore (0-100).
-4. Viết betterJapanese: phiên bản nói tiếng Nhật tự nhiên & lịch sự hơn đúng bối cảnh (không có từ đệm).
-5. Viết feedbackVi: nhận xét & gợi ý cải thiện ngắn gọn 1-2 câu bằng tiếng Việt.
+CHẤM ĐIỂM CÂU NÓI CỦA ${learnerRoleLabel.toUpperCase()} (KHÔNG chấm câu trả lời của ${aiRoleLabel}):
+0. XỬ LÝ TỪ ĐỒNG ÂM TỪ NHẬN DIỆN GIỌNG NÓI (STT Homophone Disambiguation): Câu của ${learnerRoleLabel} có thể đến từ nhận diện giọng nói tiếng Nhật, nên đôi khi bị đổi nhầm chữ Kanji đồng âm (vd: "さけていしょく" = 鮭定食 nhưng ghi 酒定食; 症状 ghi 賞状; 故障 ghi 交渉; お箸 ghi お橋). Nếu gặp từ đồng âm vô lý với bối cảnh nhưng đọc giống hệt từ đúng: hãy tự hiểu đúng ý, KHÔNG trừ điểm ngữ pháp/nội dung vì lỗi Kanji của máy STT, và ghi bản đã sửa đúng Kanji vào "candidateTranscript".
+1. Đánh giá CÂU CỦA ${learnerRoleLabel} theo khung **${framework}** (${frameworkSpec}): điền đúng 4 mục vào frameworkChecklist (met: true/false) và chấm structureScore (0-100). Với câu giao tiếp ngắn (như báo số người / gọi món ở nhà hàng), chấm công bằng theo độ rõ ràng & lịch sự, KHÔNG đòi hỏi dài dòng kiểu phỏng vấn.
+2. Phát hiện từ đệm / ấp úng (フィラー như えーと, あのー, うーん, そのー, まあ, à, ờ) trong câu của ${learnerRoleLabel} (sơ bộ: ${JSON.stringify(detectedFillers)}). Viết fluencyNoteVi nhận xét ngắn gọn.
+3. Chấm keigoScore, grammarScore, naturalScore, contentScore (0-100) cho CÂU CỦA ${learnerRoleLabel}.
+4. Viết betterJapanese: phiên bản nói tiếng Nhật tự nhiên & lịch sự hơn CHO CHÍNH CÂU VỪA NÓI CỦA ${learnerRoleLabel} (tuyệt đối KHÔNG viết lời thoại của ${aiRoleLabel}!).
+5. Viết feedbackVi: nhận xét & gợi ý cải thiện ngắn gọn 1-2 câu bằng tiếng Việt CHO CÂU VỪA NÓI CỦA ${learnerRoleLabel} (tuyệt đối KHÔNG tự nhận xét hay tự khen lời thoại của ${aiRoleLabel}!).
 ${
   willFinish && isRoleplay
     ? '6. BẮT BUỘC điền trường "outcomeCard" tổng kết thực tế cuối buổi (vd: Hóa đơn 伝票 đúng các món vừa gọi + tổng Yên; hoặc Phiếu chẩn đoán & đơn thuốc 診断メモ đúng bệnh/chấn thương vừa khám; hoặc Biên bản chốt hành động Horenso).'
@@ -538,9 +557,9 @@ ${
 CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
 {
   "candidateTranscript": "string",
-  "replyJa": "string (1-3 câu tiếng Nhật tự nhiên)",
+  "replyJa": "string (1-3 câu tiếng Nhật của ${aiRoleLabel})",
   "replyReading": "string (hiragana/katakana)",
-  "replyVi": "string (dịch tiếng Việt)",
+  "replyVi": "string (dịch tiếng Việt tự nhiên)",
   "outcomeCard": ${
     willFinish && isRoleplay
       ? '{ "title": "string", "items": ["string"], "noteVi": "string" }'
@@ -558,20 +577,20 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
     ],
     "fillersDetected": ["string"],
     "fluencyNoteVi": "string",
-    "betterJapanese": "string",
-    "feedbackVi": "string"
+    "betterJapanese": "string (câu sửa lại cho ${learnerRoleLabel})",
+    "feedbackVi": "string (nhận xét câu của ${learnerRoleLabel})"
   }
 }`;
 
   const historyText = input.history
     .slice(-10)
-    .map((h) => `${h.role === 'interviewer' ? 'Nhà tuyển dụng' : 'Ứng viên'}: ${h.text}`)
+    .map((h) => `${h.role === 'interviewer' ? aiRoleLabel : learnerRoleLabel}: ${h.text}`)
     .join('\n');
 
   const hasAudio = Boolean(input.audioBase64 && input.audioBase64.length > 20);
   const userPrompt = hasAudio
-    ? `Lịch sử buổi phỏng vấn:\n${historyText || '(Mở đầu)'}\n\nỨng viên vừa trả lời trực tiếp bằng ĐOẠN GHI ÂM đính kèm. Hãy nghe kỹ giọng nói, phát hiện mọi từ đệm/ấp úng (えーと, あのー, うーん, à, ờ), chép lại vào candidateTranscript, chấm điểm và trả lời tiếp.`
-    : `Lịch sử buổi phỏng vấn:\n${historyText || '(Mở đầu)'}\n\nỨng viên vừa trả lời: ${candidateText}`;
+    ? `Lịch sử hội thoại:\n${historyText || '(Mở đầu)'}\n\n${learnerRoleLabel} vừa trả lời trực tiếp bằng ĐOẠN GHI ÂM đính kèm. Hãy nghe kỹ giọng nói, phát hiện mọi từ đệm/ấp úng, chép lại vào candidateTranscript, chấm điểm câu nói của ${learnerRoleLabel} và phản hồi tiếp với vai ${aiRoleLabel}.`
+    : `Lịch sử hội thoại:\n${historyText || '(Mở đầu)'}\n\n${learnerRoleLabel} vừa nói: ${candidateText}`;
 
   const parts: Array<Record<string, unknown>> = [{ text: `${systemPrompt}\n\n${userPrompt}` }];
   if (hasAudio && input.audioBase64) {
