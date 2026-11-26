@@ -214,7 +214,7 @@ export default function GamesHubScreen() {
         </View>
         <View style={styles.ksRewardPill}>
           <CoinKsIcon size={15} color={nihongoTheme.colors.accentHover} />
-          <Text style={styles.ksRewardText}>+8 Xu KS × hệ số gói / game mỗi ngày</Text>
+          <Text style={styles.ksRewardText}>+5 Xu KS × hệ số gói / game (tối đa 3 game/ngày)</Text>
         </View>
       </View>
 

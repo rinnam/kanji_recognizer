@@ -440,6 +440,8 @@ export default function GrammarPracticeScreen() {
           .then((res) => {
             if (res.applied) {
               setStarKsMsg(`Nhận thưởng lần đầu hôm nay: +${res.delta} Xu KS!`);
+            } else if (res.dailyGameCapReached) {
+              setStarKsMsg('Đã đạt trần thưởng 3 game/ngày hôm nay (quay lại ngày mai để nhận tiếp Xu KS).');
             } else {
               setStarKsMsg('Đã nhận thưởng Xu KS cho Game Xếp câu ★ hôm nay rồi.');
             }
@@ -516,6 +518,8 @@ export default function GrammarPracticeScreen() {
         .then((res) => {
           if (res.applied) {
             setBlitzKsMsg(`Nhận thưởng lần đầu hôm nay: +${res.delta} Xu KS!`);
+          } else if (res.dailyGameCapReached) {
+            setBlitzKsMsg('Đã đạt trần thưởng 3 game/ngày hôm nay (quay lại ngày mai để nhận tiếp Xu KS).');
           } else {
             setBlitzKsMsg('Đã nhận thưởng Xu KS cho Game Trợ từ & Chia thể hôm nay rồi.');
           }

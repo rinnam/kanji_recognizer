@@ -5,8 +5,11 @@ import { ensureStudyStateTables } from './study-state.service.js';
 
 export type SubscriptionTier = 'free' | 'plus' | 'pro';
 export type BillingCycle = 'monthly' | 'yearly';
-export type ShopItemCode = 'ticket_life' | 'ticket_work' | 'pass_life_7d' | 'perm_life_weekly';
+export type ShopItemCode = 'ticket_life' | 'ticket_work' | 'combo_life_4' | 'trial_plus_7d';
 export type SpeakingAccessMode = 'pro' | 'plus_quota' | 'free_ticket';
+
+export const GAME_REWARD_BASE_KS = 5;
+export const MAX_DAILY_GAME_REWARDS = 3;
 
 export const LIFE_SCENARIO_IDS = ['roleplay_restaurant', 'roleplay_clinic'] as const;
 export const WORK_SCENARIO_IDS = ['roleplay_horenso', 'baito', 'study_abroad'] as const;
@@ -20,9 +23,9 @@ export const ALL_SCENARIO_IDS = [
 export const GOAL_REWARD_MAP: Record<number, number> = {
   5: 5,
   10: 10,
-  15: 18,
-  30: 40,
-  60: 85,
+  15: 16,
+  30: 35,
+  60: 65,
 };
 
 export const STREAK_REWARD_MAP: Record<number, number> = {
@@ -132,8 +135,9 @@ export interface ShopItemDefinition {
   title: string;
   description: string;
   costKs: number;
-  unlockType: 'single_ticket' | 'pass_7d' | 'permanent_weekly';
-  category: 'life' | 'work';
+  unlockType: 'single_ticket' | 'plus_trial_7d';
+  usesCount: number;
+  category: 'life' | 'work' | 'plan';
   allowedScenarios: readonly string[];
   effortHint: string;
 }
@@ -143,41 +147,45 @@ export const SHOP_CATALOG: ShopItemDefinition[] = [
     code: 'ticket_life',
     title: 'Vé 1 lượt Nói 3D — Đời sống',
     description: 'Mở 1 phiên lẻ tình huống Nhà hàng Nhật hoặc Khám bệnh Shinjuku.',
-    costKs: 600,
+    costKs: 800,
     unlockType: 'single_ticket',
+    usesCount: 1,
     category: 'life',
     allowedScenarios: LIFE_SCENARIO_IDS,
-    effortHint: '~9 ngày học 30p/ngày + 5/5 câu',
+    effortHint: '~8 ngày cày full 60p/ngày (hoặc ~13 ngày học 30p/ngày)',
   },
   {
     code: 'ticket_work',
     title: 'Vé 1 lượt Nói 3D — Công sở / PV cơ bản',
     description: 'Mở 1 phiên lẻ Họp Horenso, Làm thêm Baito hoặc Phỏng vấn Du học.',
-    costKs: 1000,
+    costKs: 1400,
     unlockType: 'single_ticket',
+    usesCount: 1,
     category: 'work',
     allowedScenarios: WORK_SCENARIO_IDS,
-    effortHint: '~14 ngày học 30p/ngày + 5/5 câu',
+    effortHint: '~12–14 ngày cày full liên tục',
   },
   {
-    code: 'pass_life_7d',
-    title: 'Thẻ 7 ngày — 1 kịch bản Đời sống',
-    description: 'Mở khóa 1 kịch bản Đời sống (Nhà hàng/Khám bệnh) trong 7 ngày, tối đa 1 lượt/ngày.',
-    costKs: 2200,
-    unlockType: 'pass_7d',
+    code: 'combo_life_4',
+    title: 'Combo 4 Vé Nói 3D — Đời sống (Tiết kiệm 25%)',
+    description: 'Nhận ngay 4 lượt Nói Đời sống (600 KS/lượt), dùng bất cứ lúc nào không lo hết hạn.',
+    costKs: 2400,
+    unlockType: 'single_ticket',
+    usesCount: 4,
     category: 'life',
     allowedScenarios: LIFE_SCENARIO_IDS,
-    effortHint: '~1 tháng cày liên tục',
+    effortHint: '~3 tuần cày liên tục · Không giới hạn thời hạn dùng',
   },
   {
-    code: 'perm_life_weekly',
-    title: 'Mở khóa vĩnh viễn — 1 kịch bản Đời sống',
-    description: 'Mở lâu dài 1 kịch bản Đời sống (giới hạn 1 lượt/tuần, chấm cơ bản).',
-    costKs: 4500,
-    unlockType: 'permanent_weekly',
-    category: 'life',
-    allowedScenarios: LIFE_SCENARIO_IDS,
-    effortHint: '~2 tháng cày liên tục',
+    code: 'trial_plus_7d',
+    title: 'Thẻ Dùng Thử Gói Plus 7 ngày',
+    description: 'Mở toàn bộ đặc quyền Plus (3 lượt Nói Đời sống + 1 Công sở/ngày, 15 bài Đọc/Viết AI/tuần) trong 7 ngày.',
+    costKs: 5000,
+    unlockType: 'plus_trial_7d',
+    usesCount: 1,
+    category: 'plan',
+    allowedScenarios: [],
+    effortHint: '~1,5 tháng cày liên tục · Giới hạn 1 lần/tài khoản Free',
   },
 ];
 
@@ -590,6 +598,16 @@ export async function getMembershipSummary(userId: string, dateKeyRaw?: string) 
   const speakingWorkToday = usageMap.get(`speaking_work:${todayKey}`) ?? 0;
 
   const ledgerKeys = new Set(ledgerKeysRes.rows.map((r) => r.idempotency_key));
+  const trialPlusClaimed = ledgerKeys.has(`trial_plus_7d:${userId}`);
+  const gamePrefix = `game_daily:${userId}:`;
+  const gameSuffix = `:${todayKey}`;
+  let todayGameRewardsClaimed = 0;
+  for (const key of ledgerKeys) {
+    if (key.startsWith(gamePrefix) && key.endsWith(gameSuffix)) {
+      todayGameRewardsClaimed += 1;
+    }
+  }
+
   const goalSecs =
     Number(todayStudyRes.rows[0]?.goal_seconds) ||
     Math.max(5, Number(profileRes.rows[0]?.daily_minutes) || 30) * 60;
@@ -690,7 +708,7 @@ export async function getMembershipSummary(userId: string, dateKeyRaw?: string) 
         accessSource = 'free_ticket';
         badgeLabel = 'Mở khóa tuần (còn 1 lượt tuần)';
       } else if (sub.tier === 'free') {
-        badgeLabel = isLife ? 'Khóa · Đổi 600 KS hoặc Plus' : 'Khóa · Đổi 1.000 KS hoặc Plus';
+        badgeLabel = isLife ? 'Khóa · Đổi 800 KS hoặc Plus' : 'Khóa · Đổi 1.400 KS hoặc Plus';
       }
     } else if (!allowed && isProOnly) {
       badgeLabel = 'Độc quyền Pro AI (không đổi KS)';
@@ -720,6 +738,9 @@ export async function getMembershipSummary(userId: string, dateKeyRaw?: string) 
       multiplier: plan.multiplier,
     },
     ksBalance,
+    trialPlusClaimed,
+    todayGameRewardsClaimed,
+    dailyGameRewardCap: MAX_DAILY_GAME_REWARDS,
     usage: {
       readingUsedWeek,
       readingLimitWeek: plan.readingPerWeek,
@@ -802,7 +823,7 @@ export async function activateDemoSubscription(
 export async function redeemKsShopItem(
   userId: string,
   itemCode: ShopItemCode,
-  scenarioId: string,
+  scenarioId = '',
   dateKey?: string,
 ) {
   await ensureMembershipTables();
@@ -810,7 +831,7 @@ export async function redeemKsShopItem(
   if (!item) {
     throw new MembershipHttpError(400, 'INVALID_SHOP_ITEM', 'Vật phẩm đổi Xu KS không hợp lệ.');
   }
-  if (!item.allowedScenarios.includes(scenarioId)) {
+  if (item.unlockType !== 'plus_trial_7d' && !item.allowedScenarios.includes(scenarioId)) {
     throw new MembershipHttpError(
       400,
       'INVALID_SCENARIO_FOR_ITEM',
@@ -821,39 +842,71 @@ export async function redeemKsShopItem(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [userId]);
 
-    if (item.unlockType === 'permanent_weekly') {
-      const existingPerm = await client.query<{ id: string }>(
-        `SELECT id FROM user_speaking_unlocks
-         WHERE user_id = $1 AND scenario_id = $2 AND unlock_type = 'permanent_weekly' AND deleted_at IS NULL`,
-        [userId, scenarioId],
-      );
-      if (existingPerm.rows[0]) {
+    if (item.unlockType === 'plus_trial_7d') {
+      const sub = await resolveActiveTier(client, userId);
+      if (sub.tier !== 'free') {
         throw new MembershipHttpError(
           409,
-          'ALREADY_UNLOCKED',
-          'Bạn đã mở khóa vĩnh viễn kịch bản này rồi.',
+          'ALREADY_SUBSCRIBED',
+          'Tài khoản của bạn đang dùng gói Plus hoặc Pro rồi.',
         );
       }
+
+      const prevTrial = await client.query<{ id: string }>(
+        `SELECT id FROM user_point_ledger
+         WHERE user_id = $1
+           AND deleted_at IS NULL
+           AND (idempotency_key = $2 OR reason_code = 'shop:trial_plus_7d')
+         LIMIT 1`,
+        [userId, `trial_plus_7d:${userId}`],
+      );
+      if (prevTrial.rows[0]) {
+        throw new MembershipHttpError(
+          409,
+          'TRIAL_ALREADY_USED',
+          'Mỗi tài khoản chỉ được đổi Thẻ Dùng Thử Gói Plus 7 ngày 1 lần duy nhất.',
+        );
+      }
+
+      await appendLedgerEntry(client, {
+        userId,
+        delta: -item.costKs,
+        reasonCode: 'shop:trial_plus_7d',
+        description: 'Đổi Thẻ Dùng Thử Gói Plus 7 ngày',
+        idempotencyKey: `trial_plus_7d:${userId}`,
+      });
+
+      const expiresAt = new Date(Date.now() + 7 * 86_400_000);
+      await client.query(
+        `INSERT INTO user_subscriptions (user_id, tier, billing_cycle, started_at, expires_at, demo_order_code, updated_at, deleted_at)
+         VALUES ($1, 'plus', 'monthly', now(), $2, 'KS-TRIAL-7D', now(), NULL)
+         ON CONFLICT (user_id) DO UPDATE SET
+           tier = 'plus',
+           billing_cycle = 'monthly',
+           started_at = now(),
+           expires_at = EXCLUDED.expires_at,
+           demo_order_code = 'KS-TRIAL-7D',
+           updated_at = now(),
+           deleted_at = NULL`,
+        [userId, expiresAt],
+      );
+    } else {
+      await appendLedgerEntry(client, {
+        userId,
+        delta: -item.costKs,
+        reasonCode: `shop:${item.code}`,
+        description: `Đổi ${item.title} (${scenarioId})`,
+      });
+
+      const unlockId = `unlock_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+      await client.query(
+        `INSERT INTO user_speaking_unlocks (id, user_id, scenario_id, unlock_type, remaining_uses, expires_at, updated_at, deleted_at)
+         VALUES ($1, $2, $3, 'single_ticket', $4, NULL, now(), NULL)`,
+        [unlockId, userId, scenarioId, item.usesCount],
+      );
     }
-
-    await appendLedgerEntry(client, {
-      userId,
-      delta: -item.costKs,
-      reasonCode: `shop:${item.code}`,
-      description: `Đổi ${item.title} (${scenarioId})`,
-    });
-
-    const unlockId = `unlock_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-    const remainingUses = item.unlockType === 'single_ticket' ? 1 : null;
-    const expiresAt =
-      item.unlockType === 'pass_7d' ? new Date(Date.now() + 7 * 86_400_000) : null;
-
-    await client.query(
-      `INSERT INTO user_speaking_unlocks (id, user_id, scenario_id, unlock_type, remaining_uses, expires_at, updated_at, deleted_at)
-       VALUES ($1, $2, $3, $4, $5, $6, now(), NULL)`,
-      [unlockId, userId, scenarioId, item.unlockType, remainingUses, expiresAt],
-    );
 
     await client.query('COMMIT');
   } catch (err) {
@@ -927,7 +980,7 @@ export async function claimDailyChallengeReward(
     await client.query('BEGIN');
     const sub = await resolveActiveTier(client, userId);
     const mult = PLAN_CATALOG[sub.tier].multiplier;
-    const base = correctCount * 4 + (correctCount === 5 ? 10 : 0);
+    const base = correctCount * 3 + (correctCount === 5 ? 5 : 0);
     const award = Math.max(0, Math.round(base * mult));
     if (award <= 0) {
       await client.query('COMMIT');
@@ -1029,16 +1082,60 @@ export async function claimDailyGameReward(
 
   const client = await pool.connect();
   let result: { applied: boolean; delta: number; balanceAfter: number };
+  let dailyGameCapReached = false;
   try {
     await client.query('BEGIN');
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [userId]);
+
+    const idempotencyKey = `game_daily:${userId}:${gameKey}:${dateKey}`;
+    const dup = await client.query<{ delta: number }>(
+      `SELECT delta FROM user_point_ledger WHERE idempotency_key = $1 AND deleted_at IS NULL`,
+      [idempotencyKey],
+    );
+    if (dup.rows[0]) {
+      const balanceAfter = await getKsBalance(client, userId);
+      await client.query('COMMIT');
+      const summary = await getMembershipSummary(userId, dateKey);
+      return {
+        applied: false,
+        delta: Number(dup.rows[0].delta),
+        balanceAfter,
+        dailyGameCapReached: false,
+        summary,
+      };
+    }
+
+    const gameCountRes = await client.query<{ cnt: number }>(
+      `SELECT COUNT(*)::int AS cnt
+       FROM user_point_ledger
+       WHERE user_id = $1
+         AND deleted_at IS NULL
+         AND reason_code LIKE 'game:%'
+         AND idempotency_key LIKE $2`,
+      [userId, `game_daily:${userId}:%:${dateKey}`],
+    );
+    if (Number(gameCountRes.rows[0]?.cnt ?? 0) >= MAX_DAILY_GAME_REWARDS) {
+      dailyGameCapReached = true;
+      const balanceAfter = await getKsBalance(client, userId);
+      await client.query('COMMIT');
+      const summary = await getMembershipSummary(userId, dateKey);
+      return {
+        applied: false,
+        delta: 0,
+        balanceAfter,
+        dailyGameCapReached,
+        summary,
+      };
+    }
+
     const sub = await resolveActiveTier(client, userId);
-    const award = Math.round(8 * PLAN_CATALOG[sub.tier].multiplier);
+    const award = Math.round(GAME_REWARD_BASE_KS * PLAN_CATALOG[sub.tier].multiplier);
     result = await appendLedgerEntry(client, {
       userId,
       delta: award,
       reasonCode: `game:${gameKey}`,
       description: `Thắng ${GAME_REWARD_LABELS[gameKey]} (${score}đ · ${dateKey})`,
-      idempotencyKey: `game_daily:${userId}:${gameKey}:${dateKey}`,
+      idempotencyKey,
     });
     await client.query('COMMIT');
   } catch (err) {
@@ -1049,7 +1146,7 @@ export async function claimDailyGameReward(
   }
 
   const summary = await getMembershipSummary(userId, dateKey);
-  return { ...result, summary };
+  return { ...result, dailyGameCapReached, summary };
 }
 
 export async function recordStudyHeartbeat(
@@ -1375,7 +1472,7 @@ export async function consumeSpeakingSessionAccess(
         const msg =
           tier === 'plus'
             ? `Bạn đã dùng hết lượt nói hôm nay của gói Plus cho nhóm này. Nâng cấp Pro AI để nói không giới hạn hoặc đổi thêm vé bằng Xu KS!`
-            : `Kịch bản Luyện nói 3D AI đang khóa trên gói Miễn phí. Hãy nâng cấp gói Plus / Pro AI hoặc tích đủ ${isLife ? '600' : '1.000'} Xu KS để đổi vé lẻ!`;
+            : `Kịch bản Luyện nói 3D AI đang khóa trên gói Miễn phí. Hãy nâng cấp gói Plus / Pro AI hoặc tích đủ ${isLife ? '800' : '1.400'} Xu KS để đổi vé lẻ!`;
         throw new MembershipHttpError(403, 'SPEAKING_LOCKED', msg);
       }
     }

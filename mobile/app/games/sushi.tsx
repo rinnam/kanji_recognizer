@@ -243,6 +243,8 @@ export default function KaitenSushiScreen() {
         .then((res) => {
           if (res.applied) {
             setKsMsg(`Phần thưởng Quán Sushi lần đầu hôm nay: +${res.delta} Xu KS!`);
+          } else if (res.dailyGameCapReached) {
+            setKsMsg('Đã đạt trần thưởng 3 game/ngày hôm nay (quay lại ngày mai để nhận tiếp Xu KS).');
           } else {
             setKsMsg('Bạn đã nhận thưởng Xu KS Quán Sushi hôm nay rồi.');
           }

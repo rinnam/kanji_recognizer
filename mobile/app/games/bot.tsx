@@ -303,6 +303,8 @@ export default function BotGameScreen() {
         .then((res) => {
           if (res.applied) {
             setKsMsg(`Chiến tích lần đầu hôm nay: +${res.delta} Xu KS!`);
+          } else if (res.dailyGameCapReached) {
+            setKsMsg('Đã đạt trần thưởng 3 game/ngày hôm nay (quay lại ngày mai để nhận tiếp Xu KS).');
           } else {
             setKsMsg('Đã nhận thưởng Xu KS Công thành Momo hôm nay rồi.');
           }

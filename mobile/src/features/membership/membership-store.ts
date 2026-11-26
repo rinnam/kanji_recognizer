@@ -9,7 +9,7 @@ import {
 
 export type SubscriptionTier = 'free' | 'plus' | 'pro';
 export type BillingCycle = 'monthly' | 'yearly';
-export type ShopItemCode = 'ticket_life' | 'ticket_work' | 'pass_life_7d' | 'perm_life_weekly';
+export type ShopItemCode = 'ticket_life' | 'ticket_work' | 'combo_life_4' | 'trial_plus_7d';
 export type GameRewardKey = 'grammar_star' | 'grammar_blitz' | 'momo_boss' | 'sushi_match';
 
 export interface PlanDefinitionDto {
@@ -36,8 +36,9 @@ export interface ShopItemDto {
   title: string;
   description: string;
   costKs: number;
-  unlockType: 'single_ticket' | 'pass_7d' | 'permanent_weekly';
-  category: 'life' | 'work';
+  unlockType: 'single_ticket' | 'plus_trial_7d';
+  usesCount?: number;
+  category: 'life' | 'work' | 'plan';
   allowedScenarios: string[];
   effortHint: string;
 }
@@ -69,6 +70,9 @@ export interface MembershipSummaryDto {
     multiplier: number;
   };
   ksBalance: number;
+  trialPlusClaimed?: boolean;
+  todayGameRewardsClaimed?: number;
+  dailyGameRewardCap?: number;
   usage: {
     readingUsedWeek: number;
     readingLimitWeek: number | null;
@@ -155,6 +159,9 @@ const DEFAULT_FALLBACK_SUMMARY: MembershipSummaryDto = {
     multiplier: 1.0,
   },
   ksBalance: 0,
+  trialPlusClaimed: false,
+  todayGameRewardsClaimed: 0,
+  dailyGameRewardCap: 3,
   usage: {
     readingUsedWeek: 0,
     readingLimitWeek: 2,
@@ -171,7 +178,7 @@ const DEFAULT_FALLBACK_SUMMARY: MembershipSummaryDto = {
     todaySeconds: 0,
     goalSeconds: 1800,
     goalMinutes: 30,
-    rewardKs: 40,
+    rewardKs: 35,
     eligible: false,
     claimed: false,
   },
@@ -300,7 +307,7 @@ export async function demoCheckout(
 
 export async function redeemShopItem(
   itemCode: ShopItemCode,
-  scenarioId: string,
+  scenarioId = '',
 ): Promise<MembershipSummaryDto> {
   const res = await authedRequest<{ ok: boolean; summary: MembershipSummaryDto }>(
     '/membership/redeem',
@@ -384,12 +391,14 @@ export async function claimDailyGameReward(
   applied: boolean;
   delta: number;
   balanceAfter: number;
+  dailyGameCapReached?: boolean;
   summary: MembershipSummaryDto;
 }> {
   const res = await authedRequest<{
     applied: boolean;
     delta: number;
     balanceAfter: number;
+    dailyGameCapReached?: boolean;
     summary: MembershipSummaryDto;
   }>('/membership/claim-game-reward', 'POST', {
     gameKey,

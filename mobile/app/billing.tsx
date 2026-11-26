@@ -59,8 +59,7 @@ export default function BillingScreen() {
   const [selectedScenarios, setSelectedScenarios] = useState<Record<string, string>>({
     ticket_life: 'roleplay_restaurant',
     ticket_work: 'roleplay_horenso',
-    pass_life_7d: 'roleplay_restaurant',
-    perm_life_weekly: 'roleplay_restaurant',
+    combo_life_4: 'roleplay_restaurant',
   });
 
   useEffect(() => {
@@ -94,14 +93,19 @@ export default function BillingScreen() {
 
   const handleRedeem = async (item: ShopItemDto) => {
     if (busyAction) return;
-    const scenarioId = selectedScenarios[item.code] ?? item.allowedScenarios[0] ?? 'roleplay_restaurant';
+    const scenarioId =
+      item.allowedScenarios.length > 0
+        ? selectedScenarios[item.code] ?? item.allowedScenarios[0] ?? 'roleplay_restaurant'
+        : '';
     setBusyAction(true);
     setErrorMsg(null);
     setNotice(null);
     try {
       await redeemShopItem(item.code, scenarioId);
       setNotice(
-        `Đã đổi thành công "${item.title}" cho ${SCENARIO_LABELS[scenarioId] || scenarioId}! Vào Luyện nói 3D để sử dụng ngay.`,
+        item.unlockType === 'plus_trial_7d'
+          ? 'Kích hoạt thành công Thẻ Dùng Thử Gói Plus 7 ngày bằng Xu KS! Toàn bộ quyền lợi Plus đã mở.'
+          : `Đã đổi thành công "${item.title}" cho ${SCENARIO_LABELS[scenarioId] || scenarioId}! Vào Luyện nói 3D để sử dụng ngay.`,
       );
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Đổi Xu KS thất bại.');
@@ -362,7 +366,7 @@ export default function BillingScreen() {
               <View style={styles.earnBox}>
                 <Text style={styles.earnHeading}>1. Mục tiêu hôm nay ({summary.todayGoalStatus.goalMinutes} phút)</Text>
                 <Text style={styles.earnRule}>
-                  5p → 5 KS · 10p → 10 KS · 15p → 18 KS · 30p → 40 KS · 60p → 85 KS
+                  5p → 5 KS · 10p → 10 KS · 15p → 16 KS · 30p → 35 KS · 60p → 65 KS
                 </Text>
                 <Text style={styles.earnProgress}>
                   Hôm nay: {Math.floor(summary.todayGoalStatus.todaySeconds / 60)}/{summary.todayGoalStatus.goalMinutes} phút · Phần thưởng: +{summary.todayGoalStatus.rewardKs} KS
@@ -388,7 +392,7 @@ export default function BillingScreen() {
 
               <View style={styles.earnBox}>
                 <Text style={styles.earnHeading}>2. Thử thách hôm nay (5 câu)</Text>
-                <Text style={styles.earnRule}>+4 KS / câu đúng + thưởng 5/5 câu (+10 KS) → Tối đa 30 KS × hệ số</Text>
+                <Text style={styles.earnRule}>+3 KS / câu đúng + thưởng 5/5 câu (+5 KS) → Tối đa 20 KS × hệ số</Text>
                 <Text style={styles.earnProgress}>
                   Trạng thái hôm nay: {summary.todayChallengeClaimed ? '✓ Đã hoàn thành & nhận Xu' : 'Chưa làm hôm nay'}
                 </Text>
@@ -396,11 +400,24 @@ export default function BillingScreen() {
                   <Text style={styles.outlineSmallBtnText}>Về Trang chủ làm Thử thách →</Text>
                 </Pressable>
               </View>
+
+              <View style={styles.earnBox}>
+                <Text style={styles.earnHeading}>3. Game học tập (Tối đa 3 game/ngày)</Text>
+                <Text style={styles.earnRule}>
+                  +5 KS × hệ số / game thắng (Xếp câu ★, Blitz 60s, Công thành Momo, Sushi) → Trần 15 KS gốc/ngày
+                </Text>
+                <Text style={styles.earnProgress}>
+                  Đã nhận hôm nay: {summary.todayGameRewardsClaimed ?? 0}/{summary.dailyGameRewardCap ?? 3} lượt game
+                </Text>
+                <Pressable style={styles.outlineSmallBtn} onPress={() => router.push('/games')}>
+                  <Text style={styles.outlineSmallBtnText}>Vào Trung tâm Game →</Text>
+                </Pressable>
+              </View>
             </View>
 
             {/* Streak Milestones */}
             <Text style={[styles.earnHeading, { marginTop: 8 }]}>
-              3. Mốc chuỗi liên tiếp (Hiện tại: {summary.streakStatus.currentStreak} ngày)
+              4. Mốc chuỗi liên tiếp (Hiện tại: {summary.streakStatus.currentStreak} ngày)
             </Text>
             <View style={styles.milestoneRow}>
               {summary.streakStatus.milestones.map((m) => (
@@ -439,14 +456,24 @@ export default function BillingScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Cửa hàng Đổi Xu Kanji Smart (Mở khóa AI Speaking 3D)</Text>
             <Text style={styles.cardDesc}>
-              Người dùng Miễn phí có thể tích lũy Xu KS để đổi vé trải nghiệm các tình huống Nói 3D AI (điểm đổi được giữ ở mức cao để ưu tiên nâng cấp gói Plus / Pro).
+              Người dùng Miễn phí có thể tích lũy Xu KS để đổi vé lẻ, Combo 4 vé hoặc Dùng thử Plus 7 ngày (điểm đổi cân đối theo mốc 100 KS/ngày tối đa).
             </Text>
 
             <View style={[styles.shopGrid, isWide && styles.shopGridWide]}>
               {summary.shopItems.map((item) => {
+                const hasScenarios = item.allowedScenarios.length > 0;
                 const selectedScenario =
                   selectedScenarios[item.code] ?? item.allowedScenarios[0] ?? 'roleplay_restaurant';
                 const canAfford = ksBalance >= item.costKs;
+                const isTrial = item.code === 'trial_plus_7d';
+                const trialBlockedReason = isTrial
+                  ? summary.trialPlusClaimed
+                    ? '✓ Đã dùng suất 1 lần/tài khoản'
+                    : tier !== 'free'
+                      ? 'Bạn đang dùng gói Plus / Pro'
+                      : null
+                  : null;
+                const isDisabled = !canAfford || busyAction || Boolean(trialBlockedReason);
                 return (
                   <View key={item.code} style={[styles.shopCard, isWide && styles.shopCardWide]}>
                     <View style={styles.shopTop}>
@@ -459,38 +486,44 @@ export default function BillingScreen() {
                     <Text style={styles.shopDesc}>{item.description}</Text>
                     <Text style={styles.effortText}>Công sức ước tính: {item.effortHint}</Text>
 
-                    <Text style={styles.chooseLabel}>Chọn kịch bản áp dụng:</Text>
-                    <View style={styles.scenarioPickRow}>
-                      {item.allowedScenarios.map((sid) => {
-                        const active = selectedScenario === sid;
-                        return (
-                          <Pressable
-                            key={sid}
-                            style={[styles.pickChip, active && styles.pickChipActive]}
-                            onPress={() =>
-                              setSelectedScenarios((prev) => ({ ...prev, [item.code]: sid }))
-                            }
-                          >
-                            <Text style={[styles.pickChipText, active && styles.pickChipTextActive]}>
-                              {SCENARIO_LABELS[sid] || sid}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
+                    {hasScenarios ? (
+                      <>
+                        <Text style={styles.chooseLabel}>Chọn kịch bản áp dụng:</Text>
+                        <View style={styles.scenarioPickRow}>
+                          {item.allowedScenarios.map((sid) => {
+                            const active = selectedScenario === sid;
+                            return (
+                              <Pressable
+                                key={sid}
+                                style={[styles.pickChip, active && styles.pickChipActive]}
+                                onPress={() =>
+                                  setSelectedScenarios((prev) => ({ ...prev, [item.code]: sid }))
+                                }
+                              >
+                                <Text style={[styles.pickChipText, active && styles.pickChipTextActive]}>
+                                  {SCENARIO_LABELS[sid] || sid}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </>
+                    ) : null}
 
                     <Pressable
                       style={[
                         styles.redeemBtn,
-                        (!canAfford || busyAction) && styles.redeemBtnDisabled,
+                        isDisabled && styles.redeemBtnDisabled,
                       ]}
-                      disabled={!canAfford || busyAction}
+                      disabled={isDisabled}
                       onPress={() => void handleRedeem(item)}
                     >
                       <Text style={styles.redeemBtnText}>
-                        {canAfford
-                          ? `Đổi ${item.costKs.toLocaleString('vi-VN')} KS ngay`
-                          : `Thiếu ${(item.costKs - ksBalance).toLocaleString('vi-VN')} KS`}
+                        {trialBlockedReason
+                          ? trialBlockedReason
+                          : canAfford
+                            ? `Đổi ${item.costKs.toLocaleString('vi-VN')} KS ngay`
+                            : `Thiếu ${(item.costKs - ksBalance).toLocaleString('vi-VN')} KS`}
                       </Text>
                     </Pressable>
                   </View>

@@ -19,8 +19,8 @@ const demoCheckoutSchema = z.object({
 });
 
 const redeemSchema = z.object({
-  itemCode: z.enum(['ticket_life', 'ticket_work', 'pass_life_7d', 'perm_life_weekly']),
-  scenarioId: z.string().min(1),
+  itemCode: z.enum(['ticket_life', 'ticket_work', 'combo_life_4', 'trial_plus_7d']),
+  scenarioId: z.string().optional().default(''),
   dateKey: z.string().optional(),
 });
 
