@@ -126,3 +126,199 @@ export function MicIcon({ size = 15, color = '#991B1B' }: IconProps) {
     </Svg>
   );
 }
+
+interface NavIconProps extends IconProps {
+  active?: boolean;
+}
+
+export function HomeNavIcon({ size = 21, color = '#6E6E73', active = false }: NavIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 10.5L12 3l9 7.5V20a1.5 1.5 0 0 1-1.5 1.5H15v-6a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v6H4.5A1.5 1.5 0 0 1 3 20v-9.5z"
+        fill={active ? 'rgba(244, 138, 52, 0.16)' : 'none'}
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function PracticeNavIcon({ size = 21, color = '#6E6E73', active = false }: NavIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="3"
+        y="6"
+        width="14"
+        height="14"
+        rx="3"
+        fill={active ? 'rgba(244, 138, 52, 0.16)' : 'none'}
+        stroke={color}
+        strokeWidth={2}
+      />
+      <Path
+        d="M7 3h11a3 3 0 0 1 3 3v11"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M10 11l2 2 3.5-3.5"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function SearchNavIcon({ size = 21, color = '#6E6E73', active = false }: NavIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle
+        cx="11"
+        cy="11"
+        r="7"
+        fill={active ? 'rgba(244, 138, 52, 0.16)' : 'none'}
+        stroke={color}
+        strokeWidth={2}
+      />
+      <Path d="M20 20l-3.8-3.8" stroke={color} strokeWidth={2.2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function LessonsNavIcon({ size = 21, color = '#6E6E73', active = false }: NavIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M2 5.5A2.5 2.5 0 0 1 4.5 3H11a3 3 0 0 1 3 3v14.5a2.5 2.5 0 0 0-2.5-2.5H2V5.5z"
+        fill={active ? 'rgba(244, 138, 52, 0.16)' : 'none'}
+        stroke={color}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M22 5.5A2.5 2.5 0 0 0 19.5 3H13a3 3 0 0 0-3 3v14.5a2.5 2.5 0 0 1 2.5-2.5H22V5.5z"
+        fill={active ? 'rgba(244, 138, 52, 0.12)' : 'none'}
+        stroke={color}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function ProfileNavIcon({ size = 21, color = '#6E6E73', active = false }: NavIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle
+        cx="12"
+        cy="8"
+        r="4"
+        fill={active ? 'rgba(244, 138, 52, 0.18)' : 'none'}
+        stroke={color}
+        strokeWidth={2}
+      />
+      <Path
+        d="M4.5 20a7.5 7.5 0 0 1 15 0"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+export function HeadphonesSkillIcon({ size = 22, color = '#EA7A1E' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 13v-1a8 8 0 0 1 16 0v1"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      <Rect x="3" y="13" width="4" height="7" rx="2" fill="rgba(244, 138, 52, 0.18)" stroke={color} strokeWidth={2} />
+      <Rect x="17" y="13" width="4" height="7" rx="2" fill="rgba(244, 138, 52, 0.18)" stroke={color} strokeWidth={2} />
+    </Svg>
+  );
+}
+
+export function SpeakingSkillIcon({ size = 22, color = '#EA7A1E' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="9" y="2.5" width="6" height="11" rx="3" fill="rgba(244, 138, 52, 0.18)" stroke={color} strokeWidth={2} />
+      <Path d="M5.5 10.5a6.5 6.5 0 0 0 13 0M12 17v4M8.5 21h7" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function ReadingSkillIcon({ size = 22, color = '#EA7A1E' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="3" width="16" height="18" rx="2.5" fill="rgba(244, 138, 52, 0.14)" stroke={color} strokeWidth={2} />
+      <Path d="M8 8h8M8 12h8M8 16h5" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function WritingSkillIcon({ size = 22, color = '#EA7A1E' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4L16.5 3.5z"
+        fill="rgba(244, 138, 52, 0.18)"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M14.5 5.5l3 3M4 21h16" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function LockClosedIcon({ size = 20, color = '#8A8A8E' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="5" y="11" width="14" height="10" rx="2.5" fill="rgba(138, 138, 142, 0.15)" stroke={color} strokeWidth={2} />
+      <Path d="M8 11V7a4 4 0 0 1 8 0v4" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function ChevronLeftIcon({ size = 18, color = '#1E1E1E' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M15 18l-6-6 6-6" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function ChevronRightIcon({ size = 18, color = '#1E1E1E' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function FlameStreakIcon({ size = 15, color = '#F48A34' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 2c.5 3.5-2 5.5-2 8a3.5 3.5 0 0 0 7 0c0-1.8-.8-3.2-1.5-4.3C18.5 8 20 11 20 14a8 8 0 0 1-16 0c0-4.5 3.5-8.5 8-12z"
+        fill="rgba(244, 138, 52, 0.22)"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}

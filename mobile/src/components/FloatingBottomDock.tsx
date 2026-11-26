@@ -1,16 +1,23 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
 import { nihongoTheme } from '../theme/nihongo-theme';
 import { DESKTOP_BREAKPOINT } from './AppShell';
+import {
+  HomeNavIcon,
+  LessonsNavIcon,
+  PracticeNavIcon,
+  ProfileNavIcon,
+  SearchNavIcon,
+} from './AppIcons';
 
 const TABS = [
-  { key: 'app', label: 'Trang chủ', icon: '⌂', route: '/app' as const },
-  { key: 'practice', label: 'Luyện tập', icon: '✦', route: '/practice' as const },
-  { key: 'lookup', label: 'Tra cứu', icon: '⌕', route: '/lookup' as const },
-  { key: 'lessons', label: 'Bài học', icon: '▤', route: '/lessons' as const },
-  { key: 'profile', label: 'Cá nhân', icon: '◯', route: '/profile' as const },
+  { key: 'app', label: 'Trang chủ', Icon: HomeNavIcon, route: '/app' as const },
+  { key: 'practice', label: 'Luyện tập', Icon: PracticeNavIcon, route: '/practice' as const },
+  { key: 'lookup', label: 'Tra cứu', Icon: SearchNavIcon, route: '/lookup' as const },
+  { key: 'lessons', label: 'Bài học', Icon: LessonsNavIcon, route: '/lessons' as const },
+  { key: 'profile', label: 'Cá nhân', Icon: ProfileNavIcon, route: '/profile' as const },
 ];
 
 export function FloatingBottomDock() {
@@ -32,28 +39,30 @@ export function FloatingBottomDock() {
 
   return (
     <View
-      pointerEvents="box-none"
       style={[
-        styles.outer,
-        { bottom: Math.max(nihongoTheme.layout.dockBottomOffset, insets.bottom + 8) },
+        styles.barWrapper,
+        { paddingBottom: Math.max(insets.bottom, 8) },
       ]}
     >
-      <View style={styles.dock} accessibilityRole="tablist">
+      <View style={styles.barInner} accessibilityRole="tablist">
         {TABS.map((tab) => {
           const active = isActive(tab.key);
+          const color = active ? nihongoTheme.colors.accentHover : nihongoTheme.colors.textSecondary;
+          const IconComp = tab.Icon;
           return (
             <Pressable
               key={tab.key}
               accessibilityRole="tab"
               accessibilityState={active ? { selected: true } : {}}
               onPress={() => router.push(tab.route)}
-              style={[styles.tabItem, active && styles.tabItemActive]}
+              style={styles.tabItem}
             >
-              <Text style={[styles.icon, active && styles.activeText]}>{tab.icon}</Text>
+              <View style={[styles.iconPill, active && styles.iconPillActive]}>
+                <IconComp size={20} color={color} active={active} />
+              </View>
               <Text numberOfLines={1} style={[styles.label, active && styles.activeText]}>
                 {tab.label}
               </Text>
-              <View style={[styles.dot, active && styles.dotActive]} />
             </Pressable>
           );
         })}
@@ -62,47 +71,52 @@ export function FloatingBottomDock() {
   );
 }
 
-const styles = StyleSheet.create({
-  outer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: nihongoTheme.layout.dockBottomOffset,
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    zIndex: 25,
+const topBarShadow = Platform.select<ViewStyle>({
+  web: { boxShadow: '0 -4px 16px rgba(30, 30, 30, 0.06)' } as ViewStyle,
+  default: {
+    shadowColor: '#1E1E1E',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 12,
   },
-  dock: {
+}) as ViewStyle;
+
+const styles = StyleSheet.create({
+  barWrapper: {
     width: '100%',
-    maxWidth: 460,
+    backgroundColor: nihongoTheme.colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: nihongoTheme.colors.borderWarm,
+    paddingTop: 6,
+    paddingHorizontal: 6,
+    ...topBarShadow,
+  },
+  barInner: {
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: nihongoTheme.colors.surface,
-    borderRadius: nihongoTheme.radius.pill,
-    borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    paddingHorizontal: 6,
-    paddingVertical: 7,
-    gap: 2,
-    ...nihongoTheme.shadow.dock,
   },
   tabItem: {
     flex: 1,
     minWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 6,
+    paddingVertical: 2,
+    gap: 3,
+  },
+  iconPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
     borderRadius: nihongoTheme.radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  tabItemActive: {
+  iconPillActive: {
     backgroundColor: nihongoTheme.colors.accentSoft,
-  },
-  icon: {
-    fontSize: 16,
-    color: nihongoTheme.colors.textSecondary,
-    marginBottom: 1,
   },
   label: {
     fontSize: 10.5,
@@ -111,16 +125,6 @@ const styles = StyleSheet.create({
   },
   activeText: {
     color: nihongoTheme.colors.accentHover,
-    fontWeight: '700',
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    marginTop: 3,
-    backgroundColor: 'transparent',
-  },
-  dotActive: {
-    backgroundColor: nihongoTheme.colors.accent,
+    fontWeight: '800',
   },
 });

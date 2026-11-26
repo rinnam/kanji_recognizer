@@ -3,6 +3,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
+import {
+  HeadphonesSkillIcon,
+  LockClosedIcon,
+  ReadingSkillIcon,
+  SpeakingSkillIcon,
+  WritingSkillIcon,
+} from '../../src/components/AppIcons';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { useIsMobilePhone } from '../../src/utils/device';
 
@@ -13,10 +20,10 @@ const VOCAB_PILLS = [
 ];
 
 const SKILLS = [
-  { key: 'listening', title: 'Nghe', desc: 'Luyện nghe & Shadowing', icon: '🎧', route: '/practice/listening' as const },
-  { key: 'speaking', title: 'Nói', desc: 'Hội thoại cùng AI', icon: '🎙️', route: '/practice/speaking' as const },
-  { key: 'reading', title: 'Đọc', desc: 'Thư viện bài đọc JLPT', icon: '📖', route: '/practice/reading' as const },
-  { key: 'writing', title: 'Viết', desc: 'Luyện viết trên giấy ô vuông', icon: '✍️', route: '/practice/writing' as const },
+  { key: 'listening', title: 'Nghe', desc: 'Luyện nghe & Shadowing', Icon: HeadphonesSkillIcon, route: '/practice/listening' as const },
+  { key: 'speaking', title: 'Nói', desc: 'Hội thoại cùng AI', Icon: SpeakingSkillIcon, route: '/practice/speaking' as const },
+  { key: 'reading', title: 'Đọc', desc: 'Thư viện bài đọc JLPT', Icon: ReadingSkillIcon, route: '/practice/reading' as const },
+  { key: 'writing', title: 'Viết', desc: 'Luyện viết trên giấy ô vuông', Icon: WritingSkillIcon, route: '/practice/writing' as const },
 ];
 
 export default function PracticeScreen() {
@@ -44,8 +51,9 @@ export default function PracticeScreen() {
       <Text style={styles.sectionTitle}>Kỹ năng</Text>
       {phoneLockNotice ? (
         <View style={styles.lockNoticeBox}>
+          <LockClosedIcon size={16} color={nihongoTheme.colors.warningText} />
           <Text style={styles.lockNoticeText}>
-            🔒 Luyện nói &amp; Phỏng vấn 3D cùng AI hiện chỉ hỗ trợ trên trình duyệt máy tính (Web PC).
+            Luyện nói &amp; Phỏng vấn 3D cùng AI hiện chỉ hỗ trợ trên trình duyệt máy tính (Web PC).
           </Text>
         </View>
       ) : null}
@@ -53,6 +61,7 @@ export default function PracticeScreen() {
       <View style={styles.grid}>
         {SKILLS.map((skill) => {
           const lockedOnPhone = isPhone && skill.key === 'speaking';
+          const SkillIcon = skill.Icon;
           return (
             <Pressable
               key={skill.title}
@@ -71,7 +80,11 @@ export default function PracticeScreen() {
             >
               <View style={styles.cardTopRow}>
                 <View style={styles.iconCircle}>
-                  <Text style={styles.icon}>{lockedOnPhone ? '🔒' : skill.icon}</Text>
+                  {lockedOnPhone ? (
+                    <LockClosedIcon size={21} color={nihongoTheme.colors.textMuted} />
+                  ) : (
+                    <SkillIcon size={22} color={nihongoTheme.colors.accentHover} />
+                  )}
                 </View>
                 {lockedOnPhone ? (
                   <View style={styles.webOnlyPill}>
@@ -190,6 +203,9 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.textSecondary,
   },
   lockNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: nihongoTheme.colors.warningBg,
     borderRadius: nihongoTheme.radius.md,
     paddingHorizontal: 14,
@@ -197,6 +213,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   lockNoticeText: {
+    flex: 1,
     fontSize: 12.5,
     fontWeight: '700',
     color: nihongoTheme.colors.warningText,

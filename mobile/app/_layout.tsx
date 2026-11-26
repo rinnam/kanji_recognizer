@@ -46,7 +46,9 @@ export default function RootLayout() {
 
   return (
     <View style={styles.root} onTouchStart={markStudyInteraction}>
-      <Stack screenOptions={{ headerShown: false }} />
+      <View style={styles.contentArea}>
+        <Stack screenOptions={{ headerShown: false }} />
+      </View>
       {checked && !isAuthPage ? <FloatingBottomDock /> : null}
       {!isAuthPage ? <FloatingUtilityDock /> : null}
     </View>
@@ -56,5 +58,10 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  contentArea: {
+    flex: 1,
+    overflow: 'hidden',
   },
 });

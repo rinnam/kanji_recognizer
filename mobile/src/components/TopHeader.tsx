@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-na
 import { useRouter } from 'expo-router';
 import { nihongoTheme } from '../theme/nihongo-theme';
 import { MomoAvatar } from './MomoAvatar';
+import { ChevronLeftIcon } from './AppIcons';
 import { DESKTOP_BREAKPOINT } from './AppShell';
 import { useIsMobilePhone } from '../utils/device';
 
@@ -75,7 +76,7 @@ export function TopHeader({
         <View style={[styles.subHeaderRow, isPhone && styles.subHeaderRowPhone]}>
           <View style={styles.subHeaderLeft}>
             <Pressable style={styles.backButton} onPress={handleBack} accessibilityLabel="Quay lại">
-              <Text style={styles.backIcon}>‹</Text>
+              <ChevronLeftIcon size={20} color={nihongoTheme.colors.textPrimary} />
             </Pressable>
             <View style={styles.titleCol}>
               <Text style={[styles.pageTitle, isPhone && styles.pageTitlePhone]}>{title}</Text>

@@ -3,13 +3,20 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 import { nihongoTheme } from '../theme/nihongo-theme';
 import { MomoAvatar } from './MomoAvatar';
+import {
+  HomeNavIcon,
+  LessonsNavIcon,
+  PracticeNavIcon,
+  ProfileNavIcon,
+  SearchNavIcon,
+} from './AppIcons';
 
 const MAIN_NAV = [
-  { label: 'Trang chủ', icon: '⌂', route: '/app' as const },
-  { label: 'Luyện tập', icon: '📖', route: '/practice' as const },
-  { label: 'Tra cứu', icon: '⌕', route: '/lookup' as const },
-  { label: 'Bài học', icon: '▤', route: '/lessons' as const },
-  { label: 'Cá nhân', icon: '◯', route: '/profile' as const },
+  { label: 'Trang chủ', Icon: HomeNavIcon, route: '/app' as const },
+  { label: 'Luyện tập', Icon: PracticeNavIcon, route: '/practice' as const },
+  { label: 'Tra cứu', Icon: SearchNavIcon, route: '/lookup' as const },
+  { label: 'Bài học', Icon: LessonsNavIcon, route: '/lessons' as const },
+  { label: 'Cá nhân', Icon: ProfileNavIcon, route: '/profile' as const },
 ];
 
 const VOCAB_NAV = [
@@ -48,6 +55,8 @@ export function DesktopSidebar() {
         <View style={styles.group}>
           {MAIN_NAV.map((item) => {
             const active = isActive(item.route);
+            const IconComp = item.Icon;
+            const iconColor = active ? nihongoTheme.colors.accentHover : nihongoTheme.colors.textPrimary;
             return (
               <Pressable
                 key={item.route}
@@ -55,7 +64,9 @@ export function DesktopSidebar() {
                 onPress={() => router.push(item.route)}
               >
                 <View style={styles.navLeft}>
-                  <Text style={[styles.navIcon, active && styles.navTextActive]}>{item.icon}</Text>
+                  <View style={styles.navIconBox}>
+                    <IconComp size={18} color={iconColor} active={active} />
+                  </View>
                   <Text style={[styles.navText, active && styles.navTextActive]}>{item.label}</Text>
                 </View>
                 {active ? <View style={styles.activeDot} /> : null}
@@ -162,11 +173,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  navIcon: {
-    fontSize: 16,
+  navIconBox: {
     width: 20,
-    textAlign: 'center',
-    color: nihongoTheme.colors.textPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   navText: {
     fontSize: 14,

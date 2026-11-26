@@ -6,6 +6,16 @@ import type { VocabularyDto } from '../../../packages/contracts/src/study';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { MomoAvatar } from '../../src/components/MomoAvatar';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  FlameStreakIcon,
+  HeadphonesSkillIcon,
+  LockClosedIcon,
+  ReadingSkillIcon,
+  SpeakingSkillIcon,
+  WritingSkillIcon,
+} from '../../src/components/AppIcons';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import {
   DEFAULT_PROFILE,
@@ -26,10 +36,10 @@ import { useIsMobilePhone } from '../../src/utils/device';
 const DAILY_CHALLENGE_KEY = 'kanji_nest_daily_challenge_v1';
 
 const SKILLS = [
-  { key: 'listening', title: 'Nghe', desc: 'Hội thoại và phát âm', badge: '🎧', route: '/practice/listening' as const },
-  { key: 'speaking', title: 'Nói', desc: 'Luyện nói theo tình huống', badge: '🎙️', route: '/practice/speaking' as const },
-  { key: 'reading', title: 'Đọc', desc: 'Đoạn văn theo cấp độ', badge: '📖', route: '/practice/reading' as const },
-  { key: 'writing', title: 'Viết', desc: 'Kana, Kanji và viết câu', badge: '✍️', route: '/practice/writing' as const },
+  { key: 'listening', title: 'Nghe', desc: 'Hội thoại và phát âm', Icon: HeadphonesSkillIcon, route: '/practice/listening' as const },
+  { key: 'speaking', title: 'Nói', desc: 'Luyện nói theo tình huống', Icon: SpeakingSkillIcon, route: '/practice/speaking' as const },
+  { key: 'reading', title: 'Đọc', desc: 'Đoạn văn theo cấp độ', Icon: ReadingSkillIcon, route: '/practice/reading' as const },
+  { key: 'writing', title: 'Viết', desc: 'Kana, Kanji và viết câu', Icon: WritingSkillIcon, route: '/practice/writing' as const },
 ];
 
 interface DailyChallengeQuestion {
@@ -237,11 +247,17 @@ export default function HomeScreen() {
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${study.percent}%` }]} />
         </View>
-        <Text style={styles.streakHintText}>
-          {study.streakActiveToday
-            ? `Đã kích hoạt chuỗi hôm nay (${study.currentStreak} ngày liên tiếp)`
-            : `Học thêm ${remainingStreakSecs} giây nữa để kích hoạt chuỗi hôm nay`}
-        </Text>
+        <View style={styles.streakHintRow}>
+          <FlameStreakIcon
+            size={15}
+            color={study.streakActiveToday ? nihongoTheme.colors.accent : nihongoTheme.colors.textMuted}
+          />
+          <Text style={styles.streakHintText}>
+            {study.streakActiveToday
+              ? `Đã kích hoạt chuỗi hôm nay (${study.currentStreak} ngày liên tiếp)`
+              : `Học thêm ${remainingStreakSecs} giây nữa để kích hoạt chuỗi hôm nay`}
+          </Text>
+        </View>
       </View>
 
       {/* Annual Study Heatmap */}
@@ -255,7 +271,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.yearSwitch}>
             <Pressable style={styles.yearBtn} onPress={() => setYear((y) => y - 1)}>
-              <Text style={styles.yearBtnText}>‹</Text>
+              <ChevronLeftIcon size={15} color={nihongoTheme.colors.textPrimary} />
             </Pressable>
             <Text style={styles.yearLabel}>{year}</Text>
             <Pressable
@@ -263,7 +279,7 @@ export default function HomeScreen() {
               disabled={year >= currentYear}
               onPress={() => setYear((y) => Math.min(currentYear, y + 1))}
             >
-              <Text style={styles.yearBtnText}>›</Text>
+              <ChevronRightIcon size={15} color={nihongoTheme.colors.textPrimary} />
             </Pressable>
           </View>
         </View>
@@ -355,8 +371,9 @@ export default function HomeScreen() {
 
       {phoneLockNotice ? (
         <View style={styles.lockNoticeBox}>
+          <LockClosedIcon size={16} color={nihongoTheme.colors.warningText} />
           <Text style={styles.lockNoticeText}>
-            🔒 Tính năng Luyện nói &amp; Phỏng vấn 3D cùng AI hiện chỉ mở trên trình duyệt máy tính (Web PC).
+            Tính năng Luyện nói &amp; Phỏng vấn 3D cùng AI hiện chỉ mở trên trình duyệt máy tính (Web PC).
           </Text>
         </View>
       ) : null}
@@ -364,6 +381,7 @@ export default function HomeScreen() {
       <View style={styles.skillGrid}>
         {SKILLS.map((skill) => {
           const lockedOnPhone = isPhone && skill.key === 'speaking';
+          const SkillIcon = skill.Icon;
           return (
             <Pressable
               key={skill.key}
@@ -382,7 +400,11 @@ export default function HomeScreen() {
             >
               <View style={styles.rowBetween}>
                 <View style={styles.skillBadge}>
-                  <Text style={styles.skillEmoji}>{lockedOnPhone ? '🔒' : skill.badge}</Text>
+                  {lockedOnPhone ? (
+                    <LockClosedIcon size={20} color={nihongoTheme.colors.textMuted} />
+                  ) : (
+                    <SkillIcon size={22} color={nihongoTheme.colors.accentHover} />
+                  )}
                 </View>
                 {lockedOnPhone ? (
                   <View style={styles.webOnlyPill}>
@@ -800,6 +822,11 @@ const styles = StyleSheet.create({
   heroTitlePhone: {
     fontSize: 22,
   },
+  streakHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   streakHintText: {
     fontSize: 12,
     fontWeight: '600',
@@ -842,6 +869,9 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.textSecondary,
   },
   lockNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: nihongoTheme.colors.warningBg,
     borderRadius: nihongoTheme.radius.md,
     paddingHorizontal: 14,
@@ -849,6 +879,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   lockNoticeText: {
+    flex: 1,
     fontSize: 12.5,
     fontWeight: '700',
     color: nihongoTheme.colors.warningText,
