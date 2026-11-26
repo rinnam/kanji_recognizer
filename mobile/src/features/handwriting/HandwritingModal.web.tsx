@@ -225,7 +225,10 @@ export function HandwritingModal({
                   style={{
                     position: 'absolute',
                     pointerEvents: 'none',
-                    color: '#B0A8A0',
+                    color: '#8A8078',
+                    backgroundColor: 'rgba(255, 253, 249, 0.94)',
+                    padding: '4px 10px',
+                    borderRadius: '8px',
                     fontSize: '13px',
                     fontWeight: 500,
                   }}

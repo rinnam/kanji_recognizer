@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { libraryEndpoint } from '../../library-source';
 import {
   getCachedAuthSession,
@@ -200,6 +201,9 @@ const DEFAULT_FALLBACK_SUMMARY: MembershipSummaryDto = {
   shopItems: [],
 };
 
+const WEB_CACHE_PREFIX = 'kanji_smart_membership_cache_v1_';
+const WEB_AUTH_KEY = 'kanji_nest_auth_session_v1';
+
 const summariesByUser = new Map<string, MembershipSummaryDto>();
 const inflightRefresh = new Map<string, Promise<MembershipSummaryDto | null>>();
 let activeUid = 'guest';
@@ -207,6 +211,50 @@ const listeners = new Set<() => void>();
 
 function notifyListeners() {
   for (const fn of listeners) fn();
+}
+
+function readWebSessionUidSync(): string | null {
+  if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.localStorage) return null;
+  try {
+    const raw = window.localStorage.getItem(WEB_AUTH_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { user?: { id?: string } };
+    return typeof parsed?.user?.id === 'string' && parsed.user.id ? parsed.user.id : null;
+  } catch {
+    return null;
+  }
+}
+
+function readCachedSummarySync(uid: string): MembershipSummaryDto | null {
+  if (!uid || uid === 'guest') return null;
+  const inMem = summariesByUser.get(uid);
+  if (inMem) return inMem;
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const raw = window.localStorage.getItem(`${WEB_CACHE_PREFIX}${uid}`);
+      if (raw) {
+        const parsed = JSON.parse(raw) as MembershipSummaryDto;
+        if (parsed && typeof parsed.ksBalance === 'number' && parsed.subscription?.tier) {
+          summariesByUser.set(uid, parsed);
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
+
+function saveSummaryCache(uid: string, summary: MembershipSummaryDto): void {
+  summariesByUser.set(uid, summary);
+  if (uid && uid !== 'guest' && Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+    try {
+      window.localStorage.setItem(`${WEB_CACHE_PREFIX}${uid}`, JSON.stringify(summary));
+    } catch {
+      // ignore
+    }
+  }
 }
 
 async function resolveSession(): Promise<AuthSession | null> {
@@ -265,11 +313,11 @@ export async function refreshMembership(force = false): Promise<MembershipSummar
         `/membership/summary?dateKey=${dateKey}`,
         'GET',
       );
-      summariesByUser.set(uid, data);
+      saveSummaryCache(uid, data);
       notifyListeners();
       return data;
     } catch {
-      return summariesByUser.get(uid) ?? null;
+      return readCachedSummarySync(uid);
     } finally {
       inflightRefresh.delete(uid);
     }
@@ -300,7 +348,7 @@ export async function demoCheckout(
     { tier, billingCycle, dateKey: getMembershipLocalDateKey() },
   );
   const uid = (await resolveSession())?.user.id ?? activeUid;
-  summariesByUser.set(uid, res.summary);
+  saveSummaryCache(uid, res.summary);
   notifyListeners();
   return res.summary;
 }
@@ -315,7 +363,7 @@ export async function redeemShopItem(
     { itemCode, scenarioId, dateKey: getMembershipLocalDateKey() },
   );
   const uid = (await resolveSession())?.user.id ?? activeUid;
-  summariesByUser.set(uid, res.summary);
+  saveSummaryCache(uid, res.summary);
   notifyListeners();
   return res.summary;
 }
@@ -333,7 +381,7 @@ export async function claimDailyGoal(): Promise<{
     summary: MembershipSummaryDto;
   }>('/membership/claim-daily-goal', 'POST', { dateKey: getMembershipLocalDateKey() });
   const uid = (await resolveSession())?.user.id ?? activeUid;
-  summariesByUser.set(uid, res.summary);
+  saveSummaryCache(uid, res.summary);
   notifyListeners();
   return res;
 }
@@ -356,7 +404,7 @@ export async function claimDailyChallenge(
     dateKey: getMembershipLocalDateKey(),
   });
   const uid = (await resolveSession())?.user.id ?? activeUid;
-  summariesByUser.set(uid, res.summary);
+  saveSummaryCache(uid, res.summary);
   notifyListeners();
   return res;
 }
@@ -379,7 +427,7 @@ export async function claimStreakMilestone(
     dateKey: getMembershipLocalDateKey(),
   });
   const uid = (await resolveSession())?.user.id ?? activeUid;
-  summariesByUser.set(uid, res.summary);
+  saveSummaryCache(uid, res.summary);
   notifyListeners();
   return res;
 }
@@ -406,7 +454,7 @@ export async function claimDailyGameReward(
     dateKey: getMembershipLocalDateKey(),
   });
   const uid = (await resolveSession())?.user.id ?? activeUid;
-  summariesByUser.set(uid, res.summary);
+  saveSummaryCache(uid, res.summary);
   notifyListeners();
   return res;
 }
@@ -455,11 +503,12 @@ export function useMembership() {
     };
   }, []);
 
-  const uid = getCachedAuthSession()?.user.id ?? activeUid;
-  const summary = summariesByUser.get(uid) ?? DEFAULT_FALLBACK_SUMMARY;
+  const uid = getCachedAuthSession()?.user.id ?? readWebSessionUidSync() ?? activeUid;
+  const cachedSummary = readCachedSummarySync(uid);
+  const summary = cachedSummary ?? DEFAULT_FALLBACK_SUMMARY;
 
   return {
-    loaded: loaded || summariesByUser.has(uid),
+    loaded: loaded || Boolean(cachedSummary),
     summary,
     tier: summary.subscription.tier,
     ksBalance: summary.ksBalance,

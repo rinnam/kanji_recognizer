@@ -87,8 +87,8 @@ export default function GrammarPracticeScreen() {
   const [starReflexMode, setStarReflexMode] = useState(true);
   const [starRoundQuestions, setStarRoundQuestions] = useState<StarSentenceQuestion[]>([]);
   const [starIdx, setStarIdx] = useState(0);
-  const [starOptions, setStarOptions] = useState<Array<{ id: number; text: string }>>([]);
-  const [starSlots, setStarSlots] = useState<Array<{ id: number; text: string } | null>>([
+  const [starOptions, setStarOptions] = useState<Array<{ id: number; keyNum: number; text: string }>>([]);
+  const [starSlots, setStarSlots] = useState<Array<{ id: number; keyNum: number; text: string } | null>>([
     null,
     null,
     null,
@@ -119,6 +119,7 @@ export default function GrammarPracticeScreen() {
   // Tab 3: Grammar Blitz 60s + 8s per-question reflex timer
   const [blitzMode, setBlitzMode] = useState<'mixed' | 'particle' | 'conjugation'>('mixed');
   const [blitzPhase, setBlitzPhase] = useState<'setup' | 'playing' | 'summary'>('setup');
+  const [blitzEndReason, setBlitzEndReason] = useState<'timeout' | 'hearts' | 'manual'>('timeout');
   const [blitzDeck, setBlitzDeck] = useState<GrammarBlitzQuestion[]>([]);
   const [blitzIdx, setBlitzIdx] = useState(0);
   const [blitzChoices, setBlitzChoices] = useState<string[]>([]);
@@ -289,7 +290,10 @@ export default function GrammarPracticeScreen() {
   };
 
   const prepareStarQuestion = (q: StarSentenceQuestion) => {
-    const tokens = shuffleArray(q.parts.map((text, idx) => ({ id: idx, text })));
+    const tokens = shuffleArray(q.parts.map((text, idx) => ({ id: idx, text }))).map((item, idx) => ({
+      ...item,
+      keyNum: idx + 1,
+    }));
     setStarOptions(tokens);
     setStarSlots([null, null, null, null]);
     setStarChecked('idle');
@@ -385,7 +389,7 @@ export default function GrammarPracticeScreen() {
     };
   }, [activeTab, starReflexMode, starRoundDone, starIdx, starChecked, currentStar]);
 
-  const handlePickStarChip = (chip: { id: number; text: string }) => {
+  const handlePickStarChip = (chip: { id: number; keyNum: number; text: string }) => {
     if (!currentStar || starChecked !== 'idle') return;
     recordMeaningfulStudyAction('grammar_star_pick');
     const emptySlotIdx = starSlots.findIndex((s) => s === null);
@@ -405,7 +409,7 @@ export default function GrammarPracticeScreen() {
     const nextSlots = [...starSlots];
     nextSlots[slotIdx] = null;
     setStarSlots(nextSlots);
-    setStarOptions((prev) => [...prev, item]);
+    setStarOptions((prev) => [...prev, item].sort((a, b) => a.keyNum - b.keyNum));
   };
 
   const handleCheckStar = () => {
@@ -507,7 +511,11 @@ export default function GrammarPracticeScreen() {
     if (deck[0]) buildBlitzQuestion(deck[0]);
   };
 
-  const finishBlitz = (finalScore: number) => {
+  const finishBlitz = (
+    finalScore: number,
+    reason: 'timeout' | 'hearts' | 'manual' = 'timeout',
+  ) => {
+    setBlitzEndReason(reason);
     if (blitzFeedbackTimer.current) {
       clearTimeout(blitzFeedbackTimer.current);
       blitzFeedbackTimer.current = null;
@@ -554,7 +562,7 @@ export default function GrammarPracticeScreen() {
 
   useEffect(() => {
     if (blitzPhase === 'playing' && activeTab === 'blitz' && blitzTimeLeft === 0) {
-      finishBlitz(blitzScore);
+      finishBlitz(blitzScore, 'timeout');
     }
   }, [blitzPhase, activeTab, blitzTimeLeft]);
 
@@ -564,7 +572,7 @@ export default function GrammarPracticeScreen() {
     if (blitzFeedbackTimer.current) clearTimeout(blitzFeedbackTimer.current);
     blitzFeedbackTimer.current = setTimeout(() => {
       if (nextHearts <= 0) {
-        finishBlitz(nextScore);
+        finishBlitz(nextScore, 'hearts');
         return;
       }
       const nextIdx = (blitzIdx + 1) % Math.max(1, blitzDeck.length);
@@ -727,7 +735,7 @@ export default function GrammarPracticeScreen() {
       const s = keyboardStateRef.current;
       if (s.activeTab === 'star' && !s.starRoundDone && s.currentStar) {
         if (ev.key >= '1' && ev.key <= '4' && s.starChecked === 'idle') {
-          const chip = s.starOptions[Number(ev.key) - 1];
+          const chip = s.starOptions.find((o) => o.keyNum === Number(ev.key));
           if (chip) {
             ev.preventDefault();
             s.handlePickStarChip(chip);
@@ -1198,7 +1206,7 @@ export default function GrammarPracticeScreen() {
               </View>
 
               <View style={styles.bankWrap}>
-                {starOptions.map((chip, idx) => (
+                {starOptions.map((chip) => (
                   <Pressable
                     key={chip.id}
                     hitSlop={4}
@@ -1209,7 +1217,7 @@ export default function GrammarPracticeScreen() {
                     ]}
                     onPress={() => handlePickStarChip(chip)}
                   >
-                    {!isPhone ? <Text style={styles.bankKeyHint}>{idx + 1}</Text> : null}
+                    {!isPhone ? <Text style={styles.bankKeyHint}>{chip.keyNum}</Text> : null}
                     <Text style={styles.bankChipText}>{chip.text}</Text>
                   </Pressable>
                 ))}
@@ -1252,7 +1260,14 @@ export default function GrammarPracticeScreen() {
                       disabled={starSlots.some((s) => s === null)}
                       onPress={handleCheckStar}
                     >
-                      <Text style={styles.primaryBtnText}>Kiểm tra đáp án</Text>
+                      <Text
+                        style={[
+                          styles.primaryBtnText,
+                          starSlots.some((s) => s === null) && styles.primaryBtnTextDisabled,
+                        ]}
+                      >
+                        Kiểm tra đáp án
+                      </Text>
                     </Pressable>
                   </>
                 ) : (
@@ -1364,7 +1379,7 @@ export default function GrammarPracticeScreen() {
                     {blitzScore}đ {blitzCombo >= 2 ? `· Combo ×${blitzCombo}` : ''}
                   </Text>
                 </View>
-                <Pressable onPress={() => finishBlitz(blitzScore)}>
+                <Pressable onPress={() => finishBlitz(blitzScore, 'manual')}>
                   <Text style={styles.stopText}>Kết thúc</Text>
                 </Pressable>
               </View>
@@ -1435,7 +1450,14 @@ export default function GrammarPracticeScreen() {
             </Animated.View>
           ) : (
             <View style={styles.card}>
-              <Text style={styles.doneTitle}>Hết giờ! Tổng điểm: {blitzScore}</Text>
+              <Text style={styles.doneTitle}>
+                {blitzEndReason === 'hearts'
+                  ? 'Hết 3 tim!'
+                  : blitzEndReason === 'manual'
+                    ? 'Đã kết thúc lượt chơi!'
+                    : 'Hết 60 giây!'}{' '}
+                Tổng điểm: {blitzScore}
+              </Text>
               <Text style={styles.doneScore}>Kỷ lục cá nhân: {blitzBest} điểm</Text>
               {blitzKsMsg ? (
                 <View style={styles.ksBanner}>
@@ -2013,8 +2035,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
+  primaryBtnTextDisabled: {
+    color: '#7C6D60',
+  },
   btnDisabled: {
-    opacity: 0.45,
+    backgroundColor: '#E5DDD4',
+    opacity: 1,
   },
   outlineBtn: {
     flexDirection: 'row',

@@ -27,7 +27,14 @@ export function FloatingBottomDock() {
   const router = useRouter();
 
   if (width >= DESKTOP_BREAKPOINT) return null;
-  if (pathname === '/onboarding' || pathname === '/profile/learning') return null;
+  if (
+    pathname === '/onboarding' ||
+    pathname === '/profile/learning' ||
+    pathname === '/practice/speaking/room' ||
+    pathname.startsWith('/games/')
+  ) {
+    return null;
+  }
 
   const isActive = (key: string) => {
     if (key === 'app') return pathname === '/' || pathname === '/app' || pathname === '/plan';
@@ -54,7 +61,11 @@ export function FloatingBottomDock() {
               key={tab.key}
               accessibilityRole="tab"
               accessibilityState={active ? { selected: true } : {}}
-              onPress={() => router.push(tab.route)}
+              onPress={() => {
+                if (pathname !== tab.route) {
+                  router.replace(tab.route);
+                }
+              }}
               style={styles.tabItem}
             >
               <View style={[styles.iconPill, active && styles.iconPillActive]}>

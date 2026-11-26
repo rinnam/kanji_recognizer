@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -75,6 +75,10 @@ export default function LookupScreen() {
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
   const [savingBusy, setSavingBusy] = useState(false);
 
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const searchSeqRef = useRef(0);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     void getUserScopedKey(HISTORY_KEY)
       .then((hKey) => AsyncStorage.getItem(hKey))
@@ -92,6 +96,10 @@ export default function LookupScreen() {
           // ignore
         }
       });
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      searchAbortRef.current?.abort();
+    };
   }, []);
 
   const pushHistory = useCallback((term: string) => {
@@ -108,34 +116,56 @@ export default function LookupScreen() {
 
   const runSearch = useCallback(
     async (rawTerm: string) => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      searchAbortRef.current?.abort();
+
       const term = rawTerm.trim();
+      const seq = ++searchSeqRef.current;
+
       if (!term) {
+        searchAbortRef.current = null;
         setWords([]);
         setKanjiList([]);
         setErrorMsg(null);
+        setLoading(false);
         return;
       }
+
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
       setLoading(true);
       setErrorMsg(null);
       try {
         const session = await readAuthSession();
+        if (controller.signal.aborted || seq !== searchSeqRef.current) return;
         const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
         const headers: Record<string, string> = {};
         if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
-        const res = await fetch(`${base}/dictionary/search?q=${encodeURIComponent(term)}`, { headers });
+        const res = await fetch(`${base}/dictionary/search?q=${encodeURIComponent(term)}`, {
+          headers,
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = (await res.json()) as {
           words?: DictionaryWordEntry[];
           kanji?: DictionaryKanjiEntry[];
         };
+        if (controller.signal.aborted || seq !== searchSeqRef.current) return;
         setWords(data.words ?? []);
         setKanjiList(data.kanji ?? []);
         pushHistory(term);
         recordMeaningfulStudyAction('lookup_search');
-      } catch {
+      } catch (err) {
+        if (controller.signal.aborted || seq !== searchSeqRef.current) return;
+        if (err instanceof Error && err.name === 'AbortError') return;
         setErrorMsg('Không kết nối được máy chủ từ điển. Hãy kiểm tra Backend đang chạy ở cổng 3000.');
       } finally {
-        setLoading(false);
+        if (seq === searchSeqRef.current) {
+          setLoading(false);
+        }
       }
     },
     [pushHistory],
@@ -143,16 +173,29 @@ export default function LookupScreen() {
 
   useEffect(() => {
     const term = query.trim();
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
     if (!term) {
+      searchAbortRef.current?.abort();
+      searchSeqRef.current += 1;
       setWords([]);
       setKanjiList([]);
       setErrorMsg(null);
+      setLoading(false);
       return;
     }
-    const timer = setTimeout(() => {
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null;
       void runSearch(term);
     }, 350);
-    return () => clearTimeout(timer);
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    };
   }, [query, runSearch]);
 
   const openSaveModal = async (entry: DictionaryWordEntry) => {

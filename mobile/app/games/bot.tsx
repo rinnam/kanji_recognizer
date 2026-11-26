@@ -345,6 +345,11 @@ export default function BotGameScreen() {
     setPickedOption(null);
     setMissedWords([]);
     setKsMsg(null);
+    floatOpacity.stopAnimation();
+    floatOpacity.setValue(0);
+    floatY.stopAnimation();
+    floatY.setValue(0);
+    setFloatText('');
     hapticTap();
     setBattleLog(
       `Wave 1: ${BOSS_NAMES[0]} (${targets.length} từ trong bộ)! Trả lời trong ${getQuestionLimitSec(difficulty)}s để nổ Chí mạng.`,
@@ -1109,8 +1114,8 @@ const styles = StyleSheet.create({
   },
   floatPopup: {
     position: 'absolute',
-    right: 20,
-    top: 12,
+    alignSelf: 'center',
+    top: 8,
     zIndex: 20,
     backgroundColor: nihongoTheme.colors.accentHover,
     borderRadius: nihongoTheme.radius.pill,

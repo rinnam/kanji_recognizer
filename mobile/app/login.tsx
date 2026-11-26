@@ -8,16 +8,25 @@ import { loginApi } from '../src/features/auth/auth-store';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [email, setEmail] = useState('user1@gmail.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const handleLogin = async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Vui lòng nhập địa chỉ email hợp lệ.');
+      return;
+    }
+    if (!password) {
+      setError('Vui lòng nhập mật khẩu.');
+      return;
+    }
     setError(null);
     setBusy(true);
     try {
-      await loginApi(email, password);
+      await loginApi(trimmedEmail, password);
       router.replace('/app');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Đăng nhập thất bại.');
@@ -27,12 +36,12 @@ export default function LoginScreen() {
   };
 
   return (
-    <AppShell scroll={false} contentStyle={styles.centerShell}>
+    <AppShell scroll contentStyle={styles.centerShell}>
       <View style={styles.card}>
         <View style={styles.brand}>
           <MomoAvatar size={54} />
           <Text style={styles.title}>Đăng nhập Kanji Smart</Text>
-          <Text style={styles.subtitle}>Đồng bộ dữ liệu học & tham gia game đối kháng</Text>
+          <Text style={styles.subtitle}>Đồng bộ dữ liệu học &amp; tham gia game đối kháng</Text>
         </View>
 
         <TextInput
@@ -60,24 +69,6 @@ export default function LoginScreen() {
           <Text style={styles.primaryBtnText}>{busy ? 'Đang đăng nhập…' : 'Đăng nhập'}</Text>
         </Pressable>
 
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>hoặc</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        <Pressable
-          style={styles.googleBtn}
-          onPress={() => {
-            if (!process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID) {
-              setError('Cần cấu hình EXPO_PUBLIC_GOOGLE_CLIENT_ID (Google Cloud Console) trong mobile/.env để bật Google OAuth.');
-            }
-          }}
-        >
-          <Text style={styles.googleG}>G</Text>
-          <Text style={styles.googleText}>Tiếp tục với Google</Text>
-        </Pressable>
-
         <Pressable style={styles.linkBtn} onPress={() => router.push('/register')}>
           <Text style={styles.linkText}>Chưa có tài khoản? Đăng ký ngay</Text>
         </Pressable>
@@ -88,49 +79,12 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   centerShell: {
-    flex: 1,
+    flexGrow: 1,
     width: '100%',
     maxWidth: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginVertical: 2,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: nihongoTheme.colors.borderWarm,
-  },
-  dividerText: {
-    fontSize: 12,
-    color: nihongoTheme.colors.textMuted,
-    fontWeight: '600',
-  },
-  googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    borderRadius: nihongoTheme.radius.button,
-    paddingVertical: 12,
-  },
-  googleG: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#EA4335',
-  },
-  googleText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: nihongoTheme.colors.textPrimary,
   },
   card: {
     width: '100%',

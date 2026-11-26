@@ -15,10 +15,24 @@ export default function RegisterScreen() {
   const [busy, setBusy] = useState(false);
 
   const handleRegister = async () => {
+    const trimmedName = displayName.trim();
+    const trimmedEmail = email.trim();
+    if (trimmedName.length < 2) {
+      setError('Tên hiển thị cần ít nhất 2 ký tự.');
+      return;
+    }
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Vui lòng nhập địa chỉ email hợp lệ.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Mật khẩu cần tối thiểu 6 ký tự.');
+      return;
+    }
     setError(null);
     setBusy(true);
     try {
-      await registerApi(email, password, displayName);
+      await registerApi(trimmedEmail, password, trimmedName);
       router.replace('/app');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Đăng ký thất bại.');
@@ -28,7 +42,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <AppShell scroll={false} contentStyle={styles.centerShell}>
+    <AppShell scroll contentStyle={styles.centerShell}>
       <View style={styles.card}>
           <View style={styles.brand}>
             <MomoAvatar size={54} />
@@ -78,7 +92,7 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   centerShell: {
-    flex: 1,
+    flexGrow: 1,
     width: '100%',
     maxWidth: '100%',
     alignItems: 'center',

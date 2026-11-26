@@ -442,7 +442,14 @@ export default function WritingScreen() {
                 {grading ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.primaryBtnText}>Chấm bài bằng Sensei AI →</Text>
+                  <Text
+                    style={[
+                      styles.primaryBtnText,
+                      (grading || !text.trim()) && styles.primaryBtnTextDisabled,
+                    ]}
+                  >
+                    Chấm bài bằng Sensei AI →
+                  </Text>
                 )}
               </Pressable>
             </View>
@@ -687,6 +694,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 10,
+    paddingBottom: 14,
   },
   outlineBtn: {
     paddingHorizontal: 16,
@@ -708,12 +716,16 @@ const styles = StyleSheet.create({
     borderRadius: nihongoTheme.radius.button,
   },
   btnDisabled: {
-    opacity: 0.6,
+    backgroundColor: '#E5DDD4',
+    opacity: 1,
   },
   primaryBtnText: {
     fontSize: 13,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  primaryBtnTextDisabled: {
+    color: '#7C6D60',
   },
   resultCard: {
     backgroundColor: '#FDF8F0',

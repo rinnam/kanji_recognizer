@@ -5,7 +5,7 @@ import { useIsMobilePhone } from '../utils/device';
 
 export function FloatingUtilityDock() {
   const isPhone = useIsMobilePhone();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
 
   // Hide floating corner pill on mobile phones so it never overlaps bottom dock or action buttons
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     right: 16,
-    bottom: 84,
+    bottom: 16,
     zIndex: 30,
   },
   pill: {

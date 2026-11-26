@@ -44,12 +44,27 @@ export function DesktopSidebar() {
 
   const isActive = (route: string) => {
     if (route === '/app') return pathname === '/' || pathname === '/app';
+    if (route === '/practice') return pathname === '/practice';
+    if (route === '/practice/flashcard-quiz') {
+      return (
+        pathname === route ||
+        pathname.startsWith(`${route}/`) ||
+        pathname === '/flashcards' ||
+        pathname.startsWith('/flashcards/')
+      );
+    }
     return pathname === route || pathname.startsWith(`${route}/`);
+  };
+
+  const navigateIfNeeded = (route: Parameters<typeof router.push>[0]) => {
+    if (pathname !== route) {
+      router.push(route);
+    }
   };
 
   return (
     <View style={styles.sidebar}>
-      <Pressable style={styles.brand} onPress={() => router.push('/app')}>
+      <Pressable style={styles.brand} onPress={() => navigateIfNeeded('/app')}>
         <MomoAvatar size={36} />
         <Text style={styles.brandText}>
           <Text style={styles.brandDark}>Kanji </Text>
@@ -68,7 +83,7 @@ export function DesktopSidebar() {
               <Pressable
                 key={item.route}
                 style={[styles.navItem, active && styles.navItemActive]}
-                onPress={() => router.push(item.route)}
+                onPress={() => navigateIfNeeded(item.route)}
               >
                 <View style={styles.navLeft}>
                   <View style={styles.navIconBox}>
@@ -90,7 +105,7 @@ export function DesktopSidebar() {
               <Pressable
                 key={item.route}
                 style={[styles.subNavItem, active && styles.navItemActive]}
-                onPress={() => router.push(item.route)}
+                onPress={() => navigateIfNeeded(item.route)}
               >
                 <Text style={[styles.subNavText, active && styles.navTextActive]}>{item.label}</Text>
                 {active ? <View style={styles.activeDot} /> : null}
@@ -107,7 +122,7 @@ export function DesktopSidebar() {
               <Pressable
                 key={item.route}
                 style={[styles.subNavItem, active && styles.navItemActive]}
-                onPress={() => router.push(item.route)}
+                onPress={() => navigateIfNeeded(item.route)}
               >
                 <Text style={[styles.subNavText, active && styles.navTextActive]}>{item.label}</Text>
                 {active ? <View style={styles.activeDot} /> : null}
@@ -118,7 +133,7 @@ export function DesktopSidebar() {
 
         <Pressable
           style={[styles.billingCard, isActive('/billing') && styles.billingCardActive]}
-          onPress={() => router.push('/billing')}
+          onPress={() => navigateIfNeeded('/billing')}
         >
           <View style={styles.billingTop}>
             <View style={styles.billingBadgeRow}>

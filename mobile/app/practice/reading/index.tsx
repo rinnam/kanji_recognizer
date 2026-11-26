@@ -490,7 +490,7 @@ export default function ReadingScreen() {
                           }}
                         >
                           <Text style={styles.optionText}>
-                            {String.fromCharCode(65 + oIdx)}. {opt}
+                            {String.fromCharCode(65 + oIdx)}. {opt.replace(/^[A-D][.)]\s*/i, '')}
                           </Text>
                         </Pressable>
                       );

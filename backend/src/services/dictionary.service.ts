@@ -63,7 +63,7 @@ async function translateBatchEnToVi(lines: string[]): Promise<string[]> {
   try {
     const joined = lines.join('\n');
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=${encodeURIComponent(joined)}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(4500) });
     if (!res.ok) return lines;
     const data = (await res.json()) as unknown;
     if (!Array.isArray(data) || !Array.isArray(data[0])) return lines;
@@ -132,6 +132,7 @@ async function searchJishoWords(query: string): Promise<DictionaryWordEntry[]> {
     const url = `https://jisho.org/api/v1/search/words?keyword=${encodeURIComponent(query)}`;
     const res = await fetch(url, {
       headers: { 'User-Agent': 'KanjiNest/1.0' },
+      signal: AbortSignal.timeout(4500),
     });
     if (!res.ok) return [];
     const payload = (await res.json()) as JishoApiResponse;
@@ -189,7 +190,9 @@ async function fetchSingleKanji(char: string): Promise<DictionaryKanjiEntry | nu
   if (cached !== undefined) return cached;
 
   try {
-    const res = await fetch(`https://kanjiapi.dev/v1/kanji/${encodeURIComponent(char)}`);
+    const res = await fetch(`https://kanjiapi.dev/v1/kanji/${encodeURIComponent(char)}`, {
+      signal: AbortSignal.timeout(4500),
+    });
     if (!res.ok) {
       setCached(kanjiCache, char, null);
       return null;

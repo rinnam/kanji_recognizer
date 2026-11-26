@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { nihongoTheme } from '../../theme/nihongo-theme';
 
 export interface PlayerRef {
@@ -27,8 +27,11 @@ export const ShadowingPlayer = forwardRef<PlayerRef, ShadowingPlayerProps>(
   ({ videoId, onTimeUpdate, onStateChange }, ref) => {
     const containerId = useRef(`yt-player-${Math.random().toString(36).slice(2, 9)}`).current;
     const playerInstance = useRef<any>(null);
-    const intervalRef = useRef<any>(null);
-    const { width } = useWindowDimensions();
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const onTimeUpdateRef = useRef(onTimeUpdate);
+    const onStateChangeRef = useRef(onStateChange);
+    onTimeUpdateRef.current = onTimeUpdate;
+    onStateChangeRef.current = onStateChange;
 
     const seekTo = (seconds: number) => {
       if (playerInstance.current?.seekTo) {
@@ -73,35 +76,29 @@ export const ShadowingPlayer = forwardRef<PlayerRef, ShadowingPlayerProps>(
       let isMounted = true;
 
       const createPlayer = () => {
-        if (!window.YT?.Player || !document.getElementById(containerId)) return;
+        if (!isMounted || !window.YT?.Player) return;
+        const iframeEl = document.getElementById(containerId);
+        if (!iframeEl) return;
 
-        if (playerInstance.current) {
-          playerInstance.current.loadVideoById(videoId);
-          return;
+        try {
+          playerInstance.current?.destroy?.();
+        } catch {
+          // ignore
         }
-
         playerInstance.current = new window.YT.Player(containerId, {
-          width: '100%',
-          height: '100%',
-          videoId,
-          playerVars: {
-            autoplay: 0,
-            rel: 0,
-            modestbranding: 1,
-            playsinline: 1,
-          },
           events: {
             onReady: () => {
+              if (!isMounted) return;
               if (intervalRef.current) clearInterval(intervalRef.current);
               intervalRef.current = setInterval(() => {
                 if (playerInstance.current?.getCurrentTime) {
                   const t = playerInstance.current.getCurrentTime();
-                  onTimeUpdate?.(t);
+                  onTimeUpdateRef.current?.(t);
                 }
               }, 200);
             },
             onStateChange: (event: any) => {
-              onStateChange?.(event.data);
+              onStateChangeRef.current?.(event.data);
             },
           },
         });
@@ -126,13 +123,44 @@ export const ShadowingPlayer = forwardRef<PlayerRef, ShadowingPlayerProps>(
 
       return () => {
         isMounted = false;
-        if (intervalRef.current) clearInterval(intervalRef.current);
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        try {
+          playerInstance.current?.destroy?.();
+        } catch {
+          // ignore
+        }
+        playerInstance.current = null;
       };
-    }, [videoId]);
+    }, [containerId, videoId]);
+
+    const originParam =
+      typeof window !== 'undefined' && window.location?.origin
+        ? `&origin=${encodeURIComponent(window.location.origin)}`
+        : '';
+    const iframeSrc = `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1${originParam}`;
 
     return (
       <View style={styles.wrapper}>
-        <div id={containerId} style={{ width: '100%', height: '100%', borderRadius: 16 }} />
+        <iframe
+          key={videoId}
+          id={containerId}
+          src={iframeSrc}
+          title="YouTube Shadowing Player"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            border: 0,
+            borderRadius: 16,
+          }}
+        />
       </View>
     );
   },
@@ -143,7 +171,9 @@ ShadowingPlayer.displayName = 'ShadowingPlayer';
 const styles = StyleSheet.create({
   wrapper: {
     width: '100%',
+    minHeight: 200,
     aspectRatio: 16 / 9,
+    position: 'relative',
     backgroundColor: '#000000',
     borderRadius: nihongoTheme.radius.md,
     overflow: 'hidden',

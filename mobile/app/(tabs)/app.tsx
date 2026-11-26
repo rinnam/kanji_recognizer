@@ -457,32 +457,36 @@ export default function HomeScreen() {
       {/* 2-Column Action Cards */}
       <View style={styles.twoColRow}>
         <View style={[styles.card, styles.flexCard]}>
-          <Text style={styles.cardTitle}>Ôn tập hôm nay</Text>
-          <Text style={styles.cardSubtitle}>
-            {words.length > 0
-              ? `Bạn còn ${dueReviewCount} thẻ cần ôn · ${dueNewCount} thẻ mới (${words.length} từ trong thư viện)`
-              : 'Chưa có bộ thẻ nào đang học.'}
-          </Text>
+          <View style={styles.flexCardBody}>
+            <Text style={styles.cardTitle}>Ôn tập hôm nay</Text>
+            <Text style={styles.cardSubtitle}>
+              {words.length > 0
+                ? `Bạn còn ${dueReviewCount} thẻ cần ôn · ${dueNewCount} thẻ mới (${words.length} từ trong thư viện)`
+                : 'Chưa có bộ thẻ nào đang học.'}
+            </Text>
+          </View>
           <Pressable style={styles.primaryBtn} onPress={() => router.push('/practice/flashcard-quiz')}>
             <Text style={styles.primaryBtnText}>Tiếp tục flashcard</Text>
           </Pressable>
         </View>
 
         <View style={[styles.card, styles.flexCard]}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitle}>Thử thách hôm nay</Text>
-            <View style={styles.ksRewardBadge}>
-              <CoinKsIcon size={12} color={nihongoTheme.colors.accentHover} />
-              <Text style={styles.ksRewardBadgeText}>Tới 30+ KS</Text>
+          <View style={styles.flexCardBody}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.cardTitle}>Thử thách hôm nay</Text>
+              <View style={styles.ksRewardBadge}>
+                <CoinKsIcon size={12} color={nihongoTheme.colors.accentHover} />
+                <Text style={styles.ksRewardBadgeText}>Tới 30+ KS</Text>
+              </View>
             </View>
+            <Text style={styles.cardSubtitle}>
+              {challengeDoneToday
+                ? `Bạn đã hoàn thành thử thách hôm nay (${challengeScore}/${challengeQuestions.length} câu đúng)${
+                    membership.todayChallengeClaimed ? ' · ✓ Đã cộng Xu KS' : ''
+                  }!`
+                : '+4 KS / câu đúng · +10 KS thưởng hoàn hảo 5/5 câu từ kho từ của bạn.'}
+            </Text>
           </View>
-          <Text style={styles.cardSubtitle}>
-            {challengeDoneToday
-              ? `Bạn đã hoàn thành thử thách hôm nay (${challengeScore}/${challengeQuestions.length} câu đúng)${
-                  membership.todayChallengeClaimed ? ' · ✓ Đã cộng Xu KS' : ''
-                }!`
-              : '+4 KS / câu đúng · +10 KS thưởng hoàn hảo 5/5 câu từ kho từ của bạn.'}
-          </Text>
           <Pressable
             style={[styles.primaryBtn, challengeQuestions.length === 0 && styles.disabledBtn]}
             disabled={challengeQuestions.length === 0}
@@ -804,6 +808,10 @@ const styles = StyleSheet.create({
   flexCard: {
     flex: 1,
     minWidth: 260,
+    justifyContent: 'space-between',
+  },
+  flexCardBody: {
+    gap: 10,
   },
   quickVocabBar: {
     backgroundColor: nihongoTheme.colors.surface,

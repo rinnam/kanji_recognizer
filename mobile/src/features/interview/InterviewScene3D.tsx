@@ -1095,7 +1095,9 @@ export function InterviewScene3D({
                 ? 'Sếp PM đang lắng nghe báo cáo của bạn...'
                 : 'Click Bảng Kanban 3D sau lưng sếp để xem tiến độ Sprint'
           : phase === 'hallway'
-            ? `Ngoài hành lang · Click trực tiếp vào cánh cửa để gõ (${knockCount}/3 lần)`
+            ? knockCount >= 3
+              ? 'Đã gõ đủ 3 lần · Hãy nói 「失礼いたします」 và mở cửa vào phòng'
+              : `Ngoài hành lang · Click trực tiếp vào cánh cửa để gõ (${knockCount}/3 lần)`
             : phase === 'entering'
               ? 'Đang mở cửa bước vào phòng...'
               : phase === 'standing_by_chair'

@@ -1182,7 +1182,11 @@ export default function Interview3DRoomScreen() {
               </View>
             </View>
             <Text style={styles.jaText}>{currentJa}</Text>
-            {currentReading ? <Text style={styles.readingText}>{currentReading}</Text> : null}
+            {currentReading &&
+            /[\u4e00-\u9faf\u3400-\u4dbf々]/.test(currentJa) &&
+            currentReading.trim() !== currentJa.trim() ? (
+              <Text style={styles.readingText}>{currentReading}</Text>
+            ) : null}
             {showVi && currentVi ? <Text style={styles.viText}>{currentVi}</Text> : null}
           </View>
 
@@ -1357,7 +1361,14 @@ export default function Interview3DRoomScreen() {
                   {submitting ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
-                    <Text style={styles.sendText}>Gửi</Text>
+                    <Text
+                      style={[
+                        styles.sendText,
+                        (submitting || !mic.transcript.trim()) && styles.sendTextDisabled,
+                      ]}
+                    >
+                      Gửi
+                    </Text>
                   )}
                 </Pressable>
               </View>
@@ -1832,12 +1843,16 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   sendBtnDisabled: {
-    opacity: 0.55,
+    backgroundColor: '#E5DDD4',
+    opacity: 1,
   },
   sendText: {
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 13,
+  },
+  sendTextDisabled: {
+    color: '#7C6D60',
   },
   summaryCard: {
     backgroundColor: '#FDF8F0',

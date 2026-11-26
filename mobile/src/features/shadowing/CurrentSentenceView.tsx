@@ -117,6 +117,8 @@ export function CurrentSentenceView({
     );
   }
 
+  const visibleTokens = (line.tokens ?? []).filter((t) => t.surface.trim().length > 0);
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -127,7 +129,7 @@ export function CurrentSentenceView({
               {formatTimestamp(line.start)} - {formatTimestamp(line.start + line.duration)}
             </Text>
           </View>
-          <Text style={styles.tokenCountTag}>{line.tokens?.length ?? 0} từ</Text>
+          <Text style={styles.tokenCountTag}>{visibleTokens.length} từ</Text>
         </View>
 
         <View style={styles.actionIcons}>
@@ -165,8 +167,8 @@ export function CurrentSentenceView({
       {/* Main interactive sentence with furigana */}
       <View style={styles.sentenceBox}>
         <View style={styles.tokenRow}>
-          {line.tokens && line.tokens.length > 0 ? (
-            line.tokens.map((token, index) => {
+          {visibleTokens.length > 0 ? (
+            visibleTokens.map((token, index) => {
               const posStyle = POS_COLORS[token.pos] || POS_COLORS.other;
               const hasReading = token.reading && token.reading !== token.surface;
 
@@ -210,7 +212,7 @@ export function CurrentSentenceView({
       </View>
 
       {/* Morphological Analysis Table */}
-      {showTable && line.tokens && line.tokens.length > 0 ? (
+      {showTable && visibleTokens.length > 0 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tableScroll}>
           <View style={styles.table}>
             <View style={[styles.tableRow, styles.tableHeaderRow]}>
@@ -220,7 +222,7 @@ export function CurrentSentenceView({
               <Text style={[styles.tableCell, styles.cellBase]}>Dạng gốc</Text>
               <Text style={[styles.tableCell, styles.cellPos]}>Loại từ</Text>
             </View>
-            {line.tokens.map((token, idx) => {
+            {visibleTokens.map((token, idx) => {
               const posStyle = POS_COLORS[token.pos] || POS_COLORS.other;
               return (
                 <Pressable

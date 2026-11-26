@@ -1336,10 +1336,12 @@ export default function FlashcardQuizPracticeScreen() {
                   <BulbIcon size={14} color={nihongoTheme.colors.accentHover} />
                   <Text style={styles.ttsText}>{isCompact ? 'Gợi ý' : 'Gợi ý Hán Việt'}</Text>
                 </Pressable>
-                <Pressable style={styles.iconPillBtn} onPress={() => speak(currentQuiz.reading || currentQuiz.word)}>
-                  <VolumeIcon size={14} color={nihongoTheme.colors.accentHover} />
-                  {!isCompact ? <Text style={styles.ttsText}>Nghe</Text> : null}
-                </Pressable>
+                {currentQuizDirection === 'jp_to_vi' || quizResult !== 'idle' ? (
+                  <Pressable style={styles.iconPillBtn} onPress={() => speak(currentQuiz.reading || currentQuiz.word)}>
+                    <VolumeIcon size={14} color={nihongoTheme.colors.accentHover} />
+                    {!isCompact ? <Text style={styles.ttsText}>Nghe</Text> : null}
+                  </Pressable>
+                ) : null}
               </View>
             </View>
 

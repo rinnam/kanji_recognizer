@@ -236,7 +236,7 @@ export default function BillingScreen() {
           onPress={() => setActiveTab('shop')}
         >
           <Text style={[styles.tabText, activeTab === 'shop' && styles.tabTextActive]}>
-            Kiếm &amp; Đổi Xu KS ({ksBalance} KS)
+            Kiếm &amp; Đổi Xu KS ({ksBalance.toLocaleString('vi-VN')} KS)
           </Text>
         </Pressable>
       </View>
@@ -380,7 +380,13 @@ export default function BillingScreen() {
                   disabled={!summary.todayGoalStatus.eligible || summary.todayGoalStatus.claimed || busyAction}
                   onPress={() => void handleClaimGoal()}
                 >
-                  <Text style={styles.claimSmallBtnText}>
+                  <Text
+                    style={[
+                      styles.claimSmallBtnText,
+                      (!summary.todayGoalStatus.eligible || summary.todayGoalStatus.claimed) &&
+                        styles.claimSmallBtnTextDisabled,
+                    ]}
+                  >
                     {summary.todayGoalStatus.claimed
                       ? '✓ Đã nhận thưởng hôm nay'
                       : summary.todayGoalStatus.eligible
@@ -392,19 +398,33 @@ export default function BillingScreen() {
 
               <View style={styles.earnBox}>
                 <Text style={styles.earnHeading}>2. Thử thách hôm nay (5 câu)</Text>
-                <Text style={styles.earnRule}>+3 KS / câu đúng + thưởng 5/5 câu (+5 KS) → Tối đa 20 KS × hệ số</Text>
+                <Text style={styles.earnRule}>+4 KS / câu đúng + thưởng 5/5 câu (+10 KS) → Tối đa 30 KS × hệ số</Text>
                 <Text style={styles.earnProgress}>
                   Trạng thái hôm nay: {summary.todayChallengeClaimed ? '✓ Đã hoàn thành & nhận Xu' : 'Chưa làm hôm nay'}
                 </Text>
-                <Pressable style={styles.outlineSmallBtn} onPress={() => router.push('/app')}>
-                  <Text style={styles.outlineSmallBtnText}>Về Trang chủ làm Thử thách →</Text>
+                <Pressable
+                  style={[
+                    styles.outlineSmallBtn,
+                    summary.todayChallengeClaimed && styles.claimSmallBtnDisabled,
+                  ]}
+                  disabled={summary.todayChallengeClaimed}
+                  onPress={() => router.push('/app')}
+                >
+                  <Text
+                    style={[
+                      styles.outlineSmallBtnText,
+                      summary.todayChallengeClaimed && styles.claimSmallBtnTextDisabled,
+                    ]}
+                  >
+                    {summary.todayChallengeClaimed ? '✓ Đã hoàn thành hôm nay' : 'Về Trang chủ làm Thử thách →'}
+                  </Text>
                 </Pressable>
               </View>
 
               <View style={styles.earnBox}>
                 <Text style={styles.earnHeading}>3. Game học tập (Tối đa 3 game/ngày)</Text>
                 <Text style={styles.earnRule}>
-                  +5 KS × hệ số / game thắng (Xếp câu ★, Blitz 60s, Công thành Momo, Sushi) → Trần 15 KS gốc/ngày
+                  +8 KS × hệ số / game thắng (Xếp câu ★, Blitz 60s, Công thành Momo, Sushi) → Trần 24 KS gốc/ngày
                 </Text>
                 <Text style={styles.earnProgress}>
                   Đã nhận hôm nay: {summary.todayGameRewardsClaimed ?? 0}/{summary.dailyGameRewardCap ?? 3} lượt game
@@ -583,7 +603,8 @@ export default function BillingScreen() {
                     <View style={styles.txLeft}>
                       <Text style={styles.txTitle}>{tx.description}</Text>
                       <Text style={styles.txMeta}>
-                        {new Date(tx.createdAt).toLocaleString('vi-VN')} · Số dư sau: {tx.balanceAfter} KS
+                        {new Date(tx.createdAt).toLocaleString('vi-VN')} · Số dư sau:{' '}
+                        {tx.balanceAfter.toLocaleString('vi-VN')} KS
                       </Text>
                     </View>
                     <Text style={[styles.txDelta, tx.delta >= 0 ? styles.txPlus : styles.txMinus]}>
@@ -987,12 +1008,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   claimSmallBtnDisabled: {
-    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+    backgroundColor: '#E8E0D8',
   },
   claimSmallBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '800',
+  },
+  claimSmallBtnTextDisabled: {
+    color: '#6E6055',
   },
   outlineSmallBtn: {
     marginTop: 4,

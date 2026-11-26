@@ -9,6 +9,7 @@ import {
   Text,
   View,
   useWindowDimensions,
+  type GestureResponderEvent,
   type ViewStyle,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -94,6 +95,37 @@ function computeBeltSpeedPx(sp: BeltSpeed, bw: number, phone: boolean): number {
 
 function getPlateCurrentX(p: SushiPlate, now: number): number {
   return p.spawnX - p.speedPx * Math.max(0, (now - p.spawnTs) / 1000);
+}
+
+function extractLaneTapX(e: GestureResponderEvent): number | null {
+  const ne = e.nativeEvent as unknown as {
+    locationX?: number;
+    offsetX?: number;
+    clientX?: number;
+    touches?: Array<{ clientX?: number }>;
+    changedTouches?: Array<{ clientX?: number }>;
+  };
+  if (typeof ne?.locationX === 'number' && Number.isFinite(ne.locationX)) {
+    return ne.locationX;
+  }
+  if (Platform.OS === 'web') {
+    const clientX =
+      typeof ne?.clientX === 'number'
+        ? ne.clientX
+        : typeof ne?.touches?.[0]?.clientX === 'number'
+          ? ne.touches[0].clientX
+          : typeof ne?.changedTouches?.[0]?.clientX === 'number'
+            ? ne.changedTouches[0].clientX
+            : null;
+    const ct = e.currentTarget as unknown as { getBoundingClientRect?: () => DOMRect } | null;
+    if (clientX !== null && ct && typeof ct.getBoundingClientRect === 'function') {
+      return clientX - ct.getBoundingClientRect().left;
+    }
+    if (typeof ne?.offsetX === 'number' && Number.isFinite(ne.offsetX)) {
+      return ne.offsetX;
+    }
+  }
+  return null;
 }
 
 function hasValidSino(s: string | null | undefined): s is string {
@@ -584,6 +616,11 @@ export default function KaitenSushiScreen() {
     setSpeedBonusCount(0);
     setMissedWords([]);
     setKsMsg(null);
+    floatOpacity.stopAnimation();
+    floatOpacity.setValue(0);
+    floatY.stopAnimation();
+    floatY.setValue(0);
+    setFloatText('');
     setGameRunId((n) => n + 1);
     setFeedback(`Mở ca với ${targets.length} từ đang chọn! Chạm đúng đĩa khớp nghĩa khách gọi.`);
     phaseRef.current = 'playing';
@@ -1050,7 +1087,10 @@ export default function KaitenSushiScreen() {
               <Pressable
                 key={laneIdx}
                 style={[styles.laneTrack, isPhone && styles.laneTrackPhone, styles.lanePressable]}
-                onPressIn={(e) => handleLanePress(laneIdx, e.nativeEvent.locationX)}
+                onPressIn={(e) => {
+                  const tapX = extractLaneTapX(e);
+                  if (tapX !== null) handleLanePress(laneIdx, tapX);
+                }}
               >
                 <View pointerEvents="none" style={styles.beltLine}>
                   <BeltSlats beltSlatAnim={beltSlatAnim} isPhone={isPhone} />
@@ -1252,7 +1292,7 @@ const styles = StyleSheet.create({
   },
   floatPopup: {
     position: 'absolute',
-    right: 18,
+    alignSelf: 'center',
     top: 10,
     zIndex: 20,
     backgroundColor: '#0D9488',

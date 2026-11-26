@@ -335,7 +335,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   hintText: {
-    color: '#B0A8A0',
+    color: '#8A8078',
+    backgroundColor: 'rgba(255, 253, 249, 0.94)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
     fontSize: 13,
     fontWeight: '500',
   },
