@@ -43,6 +43,8 @@ const parseCvSchema = z.object({
 const transcribeSchema = z.object({
   mimeType: z.string().min(1),
   base64Data: z.string().min(10),
+  scenarioId: z.string().optional(),
+  contextHint: z.string().optional(),
 });
 
 export const interviewRoutes: FastifyPluginAsync = async (app) => {

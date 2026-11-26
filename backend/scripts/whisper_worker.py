@@ -6,7 +6,7 @@ from faster_whisper import WhisperModel
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stdin.reconfigure(encoding="utf-8")
 
-INITIAL_PROMPT = (
+DEFAULT_INITIAL_PROMPT = (
     "本日はよろしくお願いいたします。失礼いたします。自己紹介をお願いいたします。"
     "えーと、あのー、うーん、そのー。"
 )
@@ -25,13 +25,17 @@ def main() -> None:
             payload = json.loads(line)
             req_id = str(payload.get("id", ""))
             audio_path = str(payload.get("path", ""))
-            segments, _info = model.transcribe(
-                audio_path,
-                language="ja",
-                beam_size=2,
-                vad_filter=True,
-                initial_prompt=INITIAL_PROMPT,
-            )
+            initial_prompt = str(payload.get("initial_prompt") or "").strip() or DEFAULT_INITIAL_PROMPT
+            hotwords = str(payload.get("hotwords") or "").strip() or None
+            transcribe_kwargs = {
+                "language": "ja",
+                "beam_size": 3,
+                "vad_filter": True,
+                "initial_prompt": initial_prompt,
+            }
+            if hotwords:
+                transcribe_kwargs["hotwords"] = hotwords
+            segments, _info = model.transcribe(audio_path, **transcribe_kwargs)
             text = "".join(seg.text for seg in segments).strip()
             print(
                 json.dumps({"id": req_id, "text": text}, ensure_ascii=False),

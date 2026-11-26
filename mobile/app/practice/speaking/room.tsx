@@ -277,6 +277,8 @@ export default function Interview3DRoomScreen() {
   const directAudioHandlerRef = useRef<(payload: RecordedAudioPayload) => void>(() => {});
   const mic = useJapaneseMic({
     directMode: false,
+    scenarioId: scenario?.id,
+    contextHint: cvSummary,
     onDirectAudio: (payload) => directAudioHandlerRef.current(payload),
   });
   const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
@@ -594,10 +596,15 @@ export default function Interview3DRoomScreen() {
         evaluation: EvaluationDto;
       };
 
-      if (directAudio && data.candidateTranscript) {
+      const correctedText = data.candidateTranscript?.trim();
+      if (correctedText && (directAudio || correctedText !== clean)) {
+        const displayBubble =
+          !directAudio && clean && correctedText !== clean
+            ? `${correctedText}\n（Tự hiểu đồng âm từ: ${clean}）`
+            : correctedText;
         setLogs((prev) =>
           prev.map((item) =>
-            item.id === placeholderId ? { ...item, text: data.candidateTranscript! } : item,
+            item.id === placeholderId ? { ...item, text: displayBubble } : item,
           ),
         );
       }

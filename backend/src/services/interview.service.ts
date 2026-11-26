@@ -350,14 +350,20 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
 export async function transcribeInterviewAudio(input: {
   mimeType: string;
   base64Data: string;
+  scenarioId?: string | undefined;
+  contextHint?: string | undefined;
 }): Promise<TranscribedAudioResponse> {
   try {
-    const transcript = await transcribeWithLocalWhisper(input.base64Data, input.mimeType);
+    const transcript = await transcribeWithLocalWhisper(input.base64Data, input.mimeType, {
+      scenarioId: input.scenarioId,
+      contextHint: input.contextHint,
+    });
     const fillers = detectTextFillers(transcript);
     return { transcript, fillers };
   } catch {
     // Fallback to Gemini Audio only if local Python faster-whisper is not installed
-    const prompt = `Hãy chép lời (transcribe) chính xác đoạn ghi âm tiếng Nhật phỏng vấn sau đây.
+    const prompt = `Hãy chép lời (transcribe) chính xác đoạn ghi âm tiếng Nhật sau đây (bối cảnh: ${input.scenarioId || 'interview'}).
+Lưu ý chọn đúng chữ Kanji theo ngữ cảnh nếu có từ đồng âm (vd quán ăn: 鮭定食 chứ không phải 酒定食; bệnh viện: 症状 chứ không phải 賞状).
 Giữ nguyên từ đệm nếu có (えーと, あのー, うーん, そのー, まあ).
 CHỈ TRẢ VỀ JSON HỢP LỆ: { "transcript": "string", "fillers": ["string"] }`;
 
@@ -509,6 +515,10 @@ CHỈ DẪN BẮT BUỘC CHO LƯỢT NÀY:
 ${stageInstruction}
 
 CHẤM ĐIỂM PHÙ HỢP BỐI CẢNH:
+0. XỬ LÝ TỪ ĐỒNG ÂM TỪ NHẬN DIỆN GIỌNG NÓI (STT Homophone Disambiguation): Câu trả lời của người dùng được nhận diện từ giọng nói tiếng Nhật (Whisper), nên ĐÔI KHI bị đổi nhầm chữ Kanji đồng âm (ví dụ: nói "さけていしょく" = 鮭定食 nhưng máy ghi 酒定食; nói 症状 nhưng ghi 賞状; nói 故障 nhưng ghi 交渉; nói お箸 nhưng ghi お橋; nói 医師 nhưng ghi 意志). Khi thấy cụm từ đồng âm vô lý với bối cảnh nhưng đọc giống hệt từ đúng trong bối cảnh/thực đơn/chuyên ngành:
+   - Hãy TỰ HIỂU ĐÚNG Ý NGƯỜI NÓI theo ngữ cảnh và phản hồi hoàn toàn tự nhiên theo ý đúng đó.
+   - TUYỆT ĐỐI KHÔNG trừ điểm ngữ pháp/từ vựng/nội dung vì lỗi Kanji của máy STT.
+   - Ghi lại phiên bản đã sửa đúng Kanji vào trường "candidateTranscript" (nếu không có lỗi đồng âm thì giữ nguyên nguyên văn câu người dùng).
 1. Đánh giá theo khung **${framework}** (${frameworkSpec}): điền đúng 4 mục vào frameworkChecklist (met: true/false) và chấm structureScore (0-100). Với tình huống giao tiếp ngắn (như báo số người ở nhà hàng), hãy chấm công bằng theo độ rõ ràng & lịch sự của tình huống đó, KHÔNG đòi hỏi dài dòng kiểu phỏng vấn.
 2. Phát hiện từ đệm / ấp úng (フィラー như えーと, あのー, うーん, そのー, まあ, à, ờ) có trong câu nói (sơ bộ: ${JSON.stringify(detectedFillers)}). Viết fluencyNoteVi nhận xét ngắn gọn.
 3. Chấm keigoScore, grammarScore, naturalScore, contentScore (0-100).

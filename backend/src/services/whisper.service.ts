@@ -105,12 +105,85 @@ function ensureWorker(): Promise<void> {
   return workerReadyPromise;
 }
 
+interface ScenarioSttProfile {
+  initialPrompt: string;
+  hotwords: string;
+  homophoneFixes: Array<[RegExp, string]>;
+}
+
+const DEFAULT_STT_PROFILE: ScenarioSttProfile = {
+  initialPrompt:
+    '本日はよろしくお願いいたします。失礼いたします。自己紹介、自己PR、志望動機、逆質問、履歴書、御社、弊社。えーと、あのー、うーん、そのー。',
+  hotwords:
+    '失礼いたします 自己紹介 自己PR 志望動機 逆質問 履歴書 エンジニア アルバイト 留学 日本語学校',
+  homophoneFixes: [],
+};
+
+const SCENARIO_STT_PROFILES: Record<string, ScenarioSttProfile> = {
+  roleplay_restaurant: {
+    initialPrompt:
+      'いらっしゃいませ。何名様でしょうか。お品書き、鮭定食、焼き鮭定食、カツ丼、辛口味噌ラーメン、海鮮天ぷら盛り合わせ、野菜天ぷら定食、ウーロン茶、生ビール、抹茶アイスをお願いします。アレルギーがあります。お箸、お会計お願いします。ごちそうさまでした。',
+    hotwords:
+      '鮭定食 焼き鮭 カツ丼 辛口味噌ラーメン 海鮮天ぷら盛り合わせ 野菜天ぷら定食 ウーロン茶 生ビール 抹茶アイス お会計 お箸 ごちそうさまでした アレルギー 何名様',
+    homophoneFixes: [
+      [/酒定食/g, '鮭定食'],
+      [/酒の定食/g, '鮭の定食'],
+      [/焼き?酒(定食)?/g, '焼き鮭$1'],
+      [/お橋/g, 'お箸'],
+    ],
+  },
+  roleplay_clinic: {
+    initialPrompt:
+      'こんにちは。問診票、保険証。熱があります。喉が痛くて咳が出ます。症状、骨折、捻挫、打撲、右足、左足、レントゲン、お腹が痛い、吐き気、薬のアレルギー、処方箋、痛み止め、医師。',
+    hotwords:
+      '問診票 保険証 症状 発熱 咳 喉 骨折 捻挫 打撲 レントゲン 腹痛 吐き気 アレルギー 処方箋 痛み止め 整形外科 内科',
+    homophoneFixes: [
+      [/賞状(が|は|を|について)/g, '症状$1'],
+      [/ほけんしょ(?![う])/g, '保険証'],
+    ],
+  },
+  roleplay_horenso: {
+    initialPrompt:
+      'お疲れ様です。進捗の報告、連絡、相談があります。報連相、ログイン画面、決済API、単体テスト、ステージング環境、タイムアウト、障害、故障、修正、納期、締め切り、リリース、レビュー。',
+    hotwords:
+      '報連相 進捗 報告 連絡 相談 決済API ログイン画面 単体テスト ステージング タイムアウト 障害 故障 修正 納期 締め切り リリース レビュー',
+    homophoneFixes: [],
+  },
+};
+
+function extractJapaneseTerms(text?: string): string[] {
+  if (!text) return [];
+  const matches = text.match(/[\u3040-\u30ff\u3400-\u9fffー]{2,12}/g) ?? [];
+  return [...new Set(matches)].slice(0, 12);
+}
+
+function buildSttHints(scenarioId?: string, contextHint?: string): {
+  initialPrompt: string;
+  hotwords: string;
+  homophoneFixes: Array<[RegExp, string]>;
+} {
+  const profile =
+    (scenarioId && SCENARIO_STT_PROFILES[scenarioId]) || DEFAULT_STT_PROFILE;
+  const extraJa = extractJapaneseTerms(contextHint);
+  if (extraJa.length === 0) {
+    return profile;
+  }
+  const extraStr = extraJa.join(' ');
+  return {
+    initialPrompt: `${profile.initialPrompt} ${extraStr}`,
+    hotwords: `${profile.hotwords} ${extraStr}`,
+    homophoneFixes: profile.homophoneFixes,
+  };
+}
+
 /**
  * Transcribes spoken Japanese audio 100% locally via faster-whisper (0 cloud tokens).
+ * Uses scenario-aware initial_prompt + hotwords to disambiguate Japanese homophones (e.g. 鮭定食 vs 酒定食).
  */
 export async function transcribeWithLocalWhisper(
   base64Data: string,
   mimeType: string,
+  options?: { scenarioId?: string | undefined; contextHint?: string | undefined },
 ): Promise<string> {
   await ensureWorker();
   if (!workerProc) {
@@ -121,17 +194,29 @@ export async function transcribeWithLocalWhisper(
   const tempFile = path.join(os.tmpdir(), `kanji-nest-stt-${crypto.randomUUID()}.${ext}`);
   await fs.writeFile(tempFile, Buffer.from(base64Data, 'base64'));
 
+  const hints = buildSttHints(options?.scenarioId, options?.contextHint);
   const id = crypto.randomUUID();
   try {
-    const text = await new Promise<string>((resolve, reject) => {
+    let text = await new Promise<string>((resolve, reject) => {
       const timer = setTimeout(() => {
         pendingJobs.delete(id);
         reject(new Error('Whisper transcription timeout'));
       }, 30000);
       pendingJobs.set(id, { resolve, reject, timer });
-      workerProc!.stdin.write(`${JSON.stringify({ id, path: tempFile })}\n`);
+      workerProc!.stdin.write(
+        `${JSON.stringify({
+          id,
+          path: tempFile,
+          initial_prompt: hints.initialPrompt,
+          hotwords: hints.hotwords,
+        })}\n`,
+      );
     });
-    return text.trim();
+    text = text.trim();
+    for (const [pattern, replacement] of hints.homophoneFixes) {
+      text = text.replace(pattern, replacement);
+    }
+    return text;
   } finally {
     await fs.unlink(tempFile).catch(() => {});
   }

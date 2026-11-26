@@ -28,6 +28,8 @@ export interface RecordedAudioPayload {
 export function useJapaneseMic(options?: {
   onDirectAudio?: (payload: RecordedAudioPayload) => void;
   directMode?: boolean;
+  scenarioId?: string;
+  contextHint?: string;
 }) {
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -42,9 +44,13 @@ export function useJapaneseMic(options?: {
   const chunksRef = useRef<Blob[]>([]);
   const directModeRef = useRef(Boolean(options?.directMode));
   const onDirectAudioRef = useRef(options?.onDirectAudio);
+  const scenarioIdRef = useRef(options?.scenarioId);
+  const contextHintRef = useRef(options?.contextHint);
 
   directModeRef.current = Boolean(options?.directMode);
   onDirectAudioRef.current = options?.onDirectAudio;
+  scenarioIdRef.current = options?.scenarioId;
+  contextHintRef.current = options?.contextHint;
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof navigator === 'undefined') return;
@@ -132,7 +138,12 @@ export function useJapaneseMic(options?: {
             const res = await fetch(`${base}/interview/transcribe-audio`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ mimeType: cleanMime, base64Data }),
+              body: JSON.stringify({
+                mimeType: cleanMime,
+                base64Data,
+                scenarioId: scenarioIdRef.current,
+                contextHint: contextHintRef.current,
+              }),
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = (await res.json()) as { transcript?: string; fillers?: string[] };
