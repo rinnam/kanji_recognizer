@@ -449,13 +449,13 @@ export async function runInterviewTurn(input: {
   const roleplayStepGuides: Record<string, Partial<Record<InterviewStage, string>>> = {
     roleplay_restaurant: {
       jikoshokai:
-        'Bước 1/4 (入店・案内): Khách vừa báo số người/chỗ ngồi hoặc yêu cầu đầu tiên (lưu ý bám sát bối cảnh tùy chỉnh của khách ở trên nếu có: vd đi nhóm, có trẻ em, ăn chay...). Hãy dẫn khách vào bàn lịch sự ("かしこまりました。こちらのお席へどうぞ"), đưa thực đơn お品書き và hỏi khách muốn gọi đồ uống hay món gì.',
+        'Bước 1/4 (入店・案内): Khách vừa báo số người/chỗ ngồi hoặc yêu cầu đầu tiên (bám sát bối cảnh tùy chỉnh của khách nếu có). Hãy dẫn khách vào bàn lịch sự ("かしこまりました。こちらのお席へどうぞ"), đưa thực đơn お品書き và hỏi khách muốn gọi đồ uống hay món gì.',
       jiko_pr:
-        'Bước 2/4 (注文): Khách vừa gọi món hoặc hỏi món gợi ý (Menu quán có: 鮭定食 ¥1,100, カツ丼 ¥980, 辛口味噌ラーメン ¥950, 海鮮天ぷら盛り合わせ ¥1,350, 野菜天ぷら定食 ¥1,050, ウーロン茶 ¥300, 生ビール ¥550, 抹茶アイス ¥420). Hãy xác nhận món thân thiện và hỏi khách có dị ứng thực phẩm hay yêu cầu đặc biệt gì không.',
+        'Bước 2/4 (注文): Khách vừa gọi món hoặc hỏi món gợi ý (Menu quán có: 鮭定食 ¥1,100 [cá hồi nướng], カツ丼 ¥980 [thịt heo chiên xù trứng], 辛口味噌ラーメン ¥950 [mì cay], 海鮮天ぷら盛り合わせ ¥1,350 [tempura hải sản], 野菜天ぷら定食 ¥1,050 [tempura rau củ], ウーロン茶 ¥300, 生ビール ¥550, 抹茶アイス ¥420). Hãy xác nhận món thân thiện và hỏi khách có gọi thêm đồ uống hay có dị ứng thực phẩm/yêu cầu đặc biệt gì không. LƯU Ý LOGIC THỰC TẾ: Cá hồi (鮭) LÀ cá/hải sản — nếu khách báo không ăn hải sản nhưng lại gọi 鮭定食/海鮮天ぷら thì lịch sự hỏi xác nhận hoặc gợi ý đổi sang カツ丼 / 野菜天ぷら定食, TUYỆT ĐỐI KHÔNG nói câu vô lý như "cá hồi bỏ hải sản".',
       cv_q1:
-        'Bước 3/4 (要望・食事後): Khách vừa báo yêu cầu đặc biệt / dị ứng / gọi thêm. Hãy xác nhận chu đáo, mô phỏng đã phục vụ món xong và hỏi khách có muốn gọi thêm gì hay thanh toán (お会計) không.',
+        'Bước 3/4 (注文確定): Khách vừa báo yêu cầu đặc biệt / dị ứng / đồ uống / xác nhận đơn. Hãy xác nhận lại đơn hàng chu đáo (kiểm tra logic nguyên liệu hợp lý) rồi nói ngắn gọn hẹn khách chờ bếp chuẩn bị (ví dụ: "かしこまりました。それではご用意いたしますので、少々お待ちくださいませ。"). TUYỆT ĐỐI KHÔNG tự tua thời gian kiểu "……お待たせいたしました！" và KHÔNG hỏi thanh toán (お会計) trong lượt này vì khách còn chưa ăn.',
       cv_q2:
-        'Bước 4/4 (お会計・退店): Khách vừa yêu cầu thanh toán hoặc nói ごちそうさまでした. Hãy tính tổng tiền ước lượng dựa trên ĐÚNG các món khách đã gọi trong lịch sử, chào cảm ơn chuẩn quán Nhật ("ありがとうございました！またお越しくださいませ！") VÀ điền trường outcomeCard dạng Hóa đơn (伝票).',
+        'Bước 4/4 (食後・お会計): Thời điểm lúc này là khách ĐÃ DÙNG BỮA XONG và vừa gọi thanh toán hoặc nói ごちそうさまでした (hoặc gọi thêm tráng miệng trước khi về). Hãy phản hồi lịch sự, tính tổng tiền dựa trên ĐÚNG các món khách đã gọi trong lịch sử, chào cảm ơn chuẩn quán Nhật ("ありがとうございました！またお越しくださいませ！") VÀ điền trường outcomeCard dạng Hóa đơn (伝票).',
     },
     roleplay_clinic: {
       jikoshokai:
@@ -513,6 +513,11 @@ ${cvText}
 Lượt hiện tại thuộc bước: "${input.stage}".
 CHỈ DẪN BẮT BUỘC CHO LƯỢT NÀY:
 ${stageInstruction}
+
+NGUYÊN TẮC HỘI THOẠI TỰ NHIÊN:
+- Chỉ nói ĐÚNG 1 hành động/phản hồi tự nhiên của nhân vật trong lượt này; TUYỆT ĐỐI KHÔNG tự tua thời gian hay tự biên tự diễn 2 cảnh trong cùng 1 câu (không viết kiểu "少々お待ちください……お待たせいたしました！").
+- Giữ logic thực tế đời thường (không nhận các yêu cầu mâu thuẫn vật lý như "cá hồi bỏ hải sản").
+- Trường "replyVi" dịch bằng tiếng Việt tự nhiên, đời thường (vd: "set cơm cá hồi nướng" thay vì dịch cứng "suất cá hồi định thực").
 
 CHẤM ĐIỂM PHÙ HỢP BỐI CẢNH:
 0. XỬ LÝ TỪ ĐỒNG ÂM TỪ NHẬN DIỆN GIỌNG NÓI (STT Homophone Disambiguation): Câu trả lời của người dùng được nhận diện từ giọng nói tiếng Nhật (Whisper), nên ĐÔI KHI bị đổi nhầm chữ Kanji đồng âm (ví dụ: nói "さけていしょく" = 鮭定食 nhưng máy ghi 酒定食; nói 症状 nhưng ghi 賞状; nói 故障 nhưng ghi 交渉; nói お箸 nhưng ghi お橋; nói 医師 nhưng ghi 意志). Khi thấy cụm từ đồng âm vô lý với bối cảnh nhưng đọc giống hệt từ đúng trong bối cảnh/thực đơn/chuyên ngành:

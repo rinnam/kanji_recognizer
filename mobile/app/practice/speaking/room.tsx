@@ -104,10 +104,10 @@ const ROLEPLAY_STEP_META: Record<
       { stage: 'cv_q2', label: '4. Nhận đơn thuốc' },
     ],
     stageLabels: {
-      jikoshokai: 'Bước 1/4 · 症状の説明 (Kể triệu chứng hiện tại)',
-      jiko_pr: 'Bước 2/4 · 問診 (Trả lời chi tiết thời gian & cơn sốt)',
+      jikoshokai: 'Bước 1/4 · 症状の説明 (Kể triệu chứng / chấn thương hiện tại)',
+      jiko_pr: 'Bước 2/4 · 問診 (Trả lời chi tiết thời điểm & mức độ)',
       cv_q1: 'Bước 3/4 · アレルギー確認 (Báo tiền sử dị ứng thuốc)',
-      cv_q2: 'Bước 4/4 · 処方箋 (Hỏi cách uống thuốc & cảm ơn)',
+      cv_q2: 'Bước 4/4 · 処方箋 (Hỏi cách chăm sóc / uống thuốc & cảm ơn)',
     },
     quickPhrases: [
       { label: 'Trình thẻ bảo hiểm (保険証)', text: 'はい、こちらが保険証です。昨日から熱と喉の痛みがあります。' },
@@ -616,6 +616,12 @@ export default function Interview3DRoomScreen() {
       setEvaluations((prev) => [...prev, data.evaluation]);
       speakInterviewer(data.replyJa, data.replyReading, data.replyVi);
       setQaStage(data.nextStage);
+
+      if (scenario.id === 'roleplay_restaurant' && data.nextStage === 'cv_q2' && !data.finished) {
+        setMannerAlert(
+          'Một lúc sau, nhân viên đã mang món ra và bạn đã dùng bữa xong! Hãy gọi thêm món tráng miệng hoặc bấm chuông / nói 「すみません、お会計をお願いします。ごちそうさまでした！」 để thanh toán.',
+        );
+      }
 
       if (data.finished) {
         if (scenario.category === 'roleplay') {
