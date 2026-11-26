@@ -8,11 +8,14 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import { AppShell } from '../../../src/components/AppShell';
 import { TopHeader } from '../../../src/components/TopHeader';
 import { nihongoTheme } from '../../../src/theme/nihongo-theme';
 import { libraryEndpoint } from '../../../src/library-source';
-import { getUserScopedKey } from '../../../src/features/auth/auth-store';
+import { getUserScopedKey, readAuthSession } from '../../../src/features/auth/auth-store';
+import { useMembership } from '../../../src/features/membership/membership-store';
+import { recordMeaningfulStudyAction } from '../../../src/features/study-tracker/use-study-tracker';
 import { speakJapanese } from '../../../src/utils/speak-japanese';
 
 interface WritingCorrection {
@@ -87,6 +90,8 @@ const STYLES = [
 ] as const;
 
 export default function WritingScreen() {
+  const router = useRouter();
+  const { summary, tier, refresh: refreshMembership } = useMembership();
   const [tab, setTab] = useState<'prompts' | 'drafts' | 'submitted'>('prompts');
   const [selectedPrompt, setSelectedPrompt] = useState<(typeof WRITING_PROMPTS)[number]>(WRITING_PROMPTS[0]);
   const [style, setStyle] = useState<string>(WRITING_PROMPTS[0].style);
@@ -94,6 +99,7 @@ export default function WritingScreen() {
   const [grading, setGrading] = useState(false);
   const [result, setResult] = useState<GradedResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [quotaBlocked, setQuotaBlocked] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const [drafts, setDrafts] = useState<SavedEntry[]>([]);
@@ -139,24 +145,38 @@ export default function WritingScreen() {
 
   const handleGrade = async () => {
     if (!text.trim() || grading) return;
+    recordMeaningfulStudyAction('writing_grade');
     setGrading(true);
     setErrorMsg(null);
+    setQuotaBlocked(false);
     setNotice(null);
 
     try {
+      const session = await readAuthSession();
       const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
       const res = await fetch(`${base}/ai/writing/grade`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           promptTitle: selectedPrompt.title,
           style,
           text: text.trim(),
         }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const errData = (await res.json().catch(() => ({}))) as { message?: string };
+        if (res.status === 403) {
+          setQuotaBlocked(true);
+          setErrorMsg(errData.message || 'Bạn đã dùng hết lượt chấm Luyện viết AI tuần này.');
+          return;
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
       const graded = (await res.json()) as GradedResult;
       setResult(graded);
+      void refreshMembership();
 
       const entry: SavedEntry = {
         id: `sub-${Date.now()}`,
@@ -185,6 +205,19 @@ export default function WritingScreen() {
         title="Luyện viết & Sửa Email AI"
         subtitle="Sensei AI chấm thang 100 điểm · Sửa lỗi Keigo & ngữ pháp · Viết lại chuẩn người Nhật"
       />
+
+      <View style={styles.quotaStrip}>
+        <Text style={styles.quotaText}>
+          {summary.usage.writingLimitWeek === null
+            ? `${summary.subscription.planName}: Không giới hạn chấm bài AI`
+            : `${summary.subscription.planName}: Đã dùng ${summary.usage.writingUsedWeek}/${summary.usage.writingLimitWeek} bài tuần này`}
+        </Text>
+        <Pressable style={styles.quotaUpgradeBtn} onPress={() => router.push('/billing?tab=plans')}>
+          <Text style={styles.quotaUpgradeText}>
+            {tier === 'pro' ? 'Xem gói' : 'Nâng cấp gói'}
+          </Text>
+        </Pressable>
+      </View>
 
       <View style={styles.tabsRow}>
         {(
@@ -251,7 +284,10 @@ export default function WritingScreen() {
 
             <TextInput
               value={text}
-              onChangeText={setText}
+              onChangeText={(val) => {
+                recordMeaningfulStudyAction('writing_typing');
+                setText(val);
+              }}
               multiline
               placeholder="Ví dụ: お疲れ様です。明日は体調が悪いため、お休みをいただいてもよろしいでしょうか..."
               placeholderTextColor={nihongoTheme.colors.textMuted}
@@ -259,7 +295,19 @@ export default function WritingScreen() {
             />
 
             {notice ? <Text style={styles.noticeText}>{notice}</Text> : null}
-            {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+            {errorMsg ? (
+              <View style={{ gap: 8 }}>
+                <Text style={styles.errorText}>{errorMsg}</Text>
+                {quotaBlocked ? (
+                  <Pressable
+                    style={styles.primaryBtn}
+                    onPress={() => router.push('/billing?tab=plans')}
+                  >
+                    <Text style={styles.primaryBtnText}>Nâng cấp gói Plus / Pro →</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
 
             <View style={styles.footerRow}>
               <Pressable style={styles.outlineBtn} onPress={handleSaveDraft}>
@@ -651,5 +699,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: nihongoTheme.colors.textSecondary,
     lineHeight: 20,
+  },
+  quotaStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  quotaText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  quotaUpgradeBtn: {
+    backgroundColor: nihongoTheme.colors.accent,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  quotaUpgradeText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '800',
   },
 });

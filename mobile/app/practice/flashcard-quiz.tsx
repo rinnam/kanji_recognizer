@@ -25,6 +25,7 @@ import {
 } from '../../src/workspace-storage';
 import { libraryEndpoint, loadLibrary, pushLibrary } from '../../src/library-source';
 import { getUserScopedKey } from '../../src/features/auth/auth-store';
+import { recordMeaningfulStudyAction } from '../../src/features/study-tracker/use-study-tracker';
 import { deletionPreview, folderWrites, type FolderAction } from '../../src/folder-actions';
 import { overlayPending } from '../../src/sync-merge';
 import {
@@ -640,6 +641,7 @@ export default function FlashcardQuizPracticeScreen() {
 
   const handleRate = (rating: QuizletRating) => {
     if (!currentCard || !currentCardState) return;
+    recordMeaningfulStudyAction(`flashcard_rate_${rating}`);
     const nowMs = Date.now();
     const { next, graduatedDays, feedback } = applyQuizletRating(currentCardState, rating, nowMs);
     const nextStates = { ...srsStates, [currentCard.id]: next };
@@ -686,6 +688,7 @@ export default function FlashcardQuizPracticeScreen() {
 
   const handleCheckQuiz = () => {
     if (!currentQuiz || !answer.trim()) return;
+    recordMeaningfulStudyAction('quiz_check');
     const normalized = answer.trim().toLowerCase();
     const targets =
       currentQuizDirection === 'jp_to_vi'
@@ -1135,7 +1138,13 @@ export default function FlashcardQuizPracticeScreen() {
             </View>
           ) : currentCard && currentCardState ? (
             <>
-              <Pressable style={styles.flashcard} onPress={() => setFlipped((v) => !v)}>
+              <Pressable
+                style={styles.flashcard}
+                onPress={() => {
+                  recordMeaningfulStudyAction('flashcard_flip');
+                  setFlipped((v) => !v);
+                }}
+              >
                 <View pointerEvents="none" style={styles.catFrameOverlay}>
                   <CatFrame color="#A89A8E" />
                 </View>

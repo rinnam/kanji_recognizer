@@ -1,0 +1,1320 @@
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { AppShell } from '../src/components/AppShell';
+import { TopHeader } from '../src/components/TopHeader';
+import { CoinKsIcon, CrownIcon, LockClosedIcon, ShieldCheckIcon } from '../src/components/AppIcons';
+import { nihongoTheme } from '../src/theme/nihongo-theme';
+import {
+  claimDailyGoal,
+  claimStreakMilestone,
+  demoCheckout,
+  redeemShopItem,
+  useMembership,
+  type BillingCycle,
+  type PlanDefinitionDto,
+  type ShopItemDto,
+  type SubscriptionTier,
+} from '../src/features/membership/membership-store';
+import { useIsMobilePhone } from '../src/utils/device';
+
+const SCENARIO_LABELS: Record<string, string> = {
+  roleplay_restaurant: 'Nhà hàng Nhật (N5–N4)',
+  roleplay_clinic: 'Khám bệnh Shinjuku (N4–N3)',
+  roleplay_horenso: 'Họp Horenso (N3–N2)',
+  baito: 'Phỏng vấn Baito (N4–N3)',
+  study_abroad: 'Phỏng vấn Du học (N4–N3)',
+  it_engineer: 'Phỏng vấn Kỹ sư IT (N3–N2)',
+};
+
+function formatVnd(amount: number): string {
+  if (amount <= 0) return '0đ';
+  return `${amount.toLocaleString('vi-VN')}đ`;
+}
+
+export default function BillingScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 900;
+  const isPhone = useIsMobilePhone();
+  const { summary, tier, ksBalance, refresh } = useMembership();
+
+  const [activeTab, setActiveTab] = useState<'plans' | 'shop'>(
+    params.tab === 'shop' ? 'shop' : 'plans',
+  );
+  const [cycle, setCycle] = useState<BillingCycle>('monthly');
+  const [checkoutTarget, setCheckoutTarget] = useState<PlanDefinitionDto | null>(null);
+  const [busyAction, setBusyAction] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [selectedScenarios, setSelectedScenarios] = useState<Record<string, string>>({
+    ticket_life: 'roleplay_restaurant',
+    ticket_work: 'roleplay_horenso',
+    pass_life_7d: 'roleplay_restaurant',
+    perm_life_weekly: 'roleplay_restaurant',
+  });
+
+  useEffect(() => {
+    if (params.tab === 'shop') setActiveTab('shop');
+    else if (params.tab === 'plans') setActiveTab('plans');
+  }, [params.tab]);
+
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  const handleConfirmDemoCheckout = async () => {
+    if (!checkoutTarget || busyAction) return;
+    setBusyAction(true);
+    setErrorMsg(null);
+    setNotice(null);
+    try {
+      const updated = await demoCheckout(checkoutTarget.tier, cycle);
+      setCheckoutTarget(null);
+      setNotice(
+        `Kích hoạt Demo thành công: Gói ${updated.subscription.planName}${
+          updated.subscription.demoOrderCode ? ` (Mã: ${updated.subscription.demoOrderCode})` : ''
+        }!`,
+      );
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Không kích hoạt được gói demo.');
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const handleResetToFree = async () => {
+    if (busyAction) return;
+    setBusyAction(true);
+    setErrorMsg(null);
+    setNotice(null);
+    try {
+      await demoCheckout('free', 'monthly');
+      setNotice('Đã đặt lại tài khoản về gói Miễn phí (Free) để test.');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Không thể đặt lại gói Free.');
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const handleRedeem = async (item: ShopItemDto) => {
+    if (busyAction) return;
+    const scenarioId = selectedScenarios[item.code] ?? item.allowedScenarios[0] ?? 'roleplay_restaurant';
+    setBusyAction(true);
+    setErrorMsg(null);
+    setNotice(null);
+    try {
+      await redeemShopItem(item.code, scenarioId);
+      setNotice(
+        `Đã đổi thành công "${item.title}" cho ${SCENARIO_LABELS[scenarioId] || scenarioId}! Vào Luyện nói 3D để sử dụng ngay.`,
+      );
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Đổi Xu KS thất bại.');
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const handleClaimGoal = async () => {
+    if (busyAction) return;
+    setBusyAction(true);
+    setErrorMsg(null);
+    setNotice(null);
+    try {
+      const res = await claimDailyGoal();
+      setNotice(
+        res.applied
+          ? `Tuyệt vời! Bạn đã nhận +${res.delta} Xu KS từ mục tiêu ${summary.todayGoalStatus.goalMinutes} phút hôm nay.`
+          : 'Bạn đã nhận thưởng mục tiêu hôm nay rồi.',
+      );
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Chưa đủ điều kiện nhận thưởng.');
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const handleClaimStreak = async (days: 3 | 7 | 14 | 30) => {
+    if (busyAction) return;
+    setBusyAction(true);
+    setErrorMsg(null);
+    setNotice(null);
+    try {
+      const res = await claimStreakMilestone(days);
+      setNotice(
+        res.applied
+          ? `Chúc mừng chuỗi ${days} ngày liên tiếp! Bạn nhận được +${res.delta} Xu KS.`
+          : 'Mốc chuỗi này đã được nhận trước đó.',
+      );
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Không nhận được thưởng chuỗi.');
+    } finally {
+      setBusyAction(false);
+    }
+  };
+
+  const tierColors: Record<SubscriptionTier, { bg: string; border: string; text: string }> = {
+    free: { bg: '#F7F3EE', border: nihongoTheme.colors.borderWarm, text: nihongoTheme.colors.textSecondary },
+    plus: { bg: '#FFF7ED', border: '#F59E0B', text: '#C25E00' },
+    pro: { bg: '#FFF0DF', border: nihongoTheme.colors.accent, text: nihongoTheme.colors.accentHover },
+  };
+
+  return (
+    <AppShell>
+      <TopHeader
+        mode="subpage"
+        title="Gói sử dụng & Xu Kanji Smart"
+        subtitle="Mở khóa toàn bộ Luyện nói 3D AI · Nạp Demo tức thì hoặc đổi Xu KS"
+      />
+
+      {/* Top Account Membership + Wallet Strip */}
+      <View style={[styles.summaryStrip, isPhone && styles.summaryStripPhone]}>
+        <View style={styles.summaryLeft}>
+          <View style={styles.tierRow}>
+            <View
+              style={[
+                styles.tierPill,
+                {
+                  backgroundColor: tierColors[tier].bg,
+                  borderColor: tierColors[tier].border,
+                },
+              ]}
+            >
+              <CrownIcon size={14} color={tierColors[tier].text} />
+              <Text style={[styles.tierPillText, { color: tierColors[tier].text }]}>
+                {summary.subscription.planName}
+              </Text>
+            </View>
+            <View style={styles.multPill}>
+              <Text style={styles.multPillText}>Hệ số Xu: ×{summary.subscription.multiplier}</Text>
+            </View>
+          </View>
+          <Text style={styles.summaryMeta}>
+            {tier === 'free'
+              ? 'Nâng cấp gói Plus hoặc Pro AI để mở Luyện nói 3D & tăng tốc tích Xu KS.'
+              : `Đang kích hoạt${summary.subscription.demoOrderCode ? ` · Mã ${summary.subscription.demoOrderCode}` : ''}${
+                  summary.subscription.expiresAt
+                    ? ` · Hạn ${new Date(summary.subscription.expiresAt).toLocaleDateString('vi-VN')}`
+                    : ''
+                }`}
+          </Text>
+        </View>
+
+        <View style={styles.walletBox}>
+          <View style={styles.walletValRow}>
+            <CoinKsIcon size={20} color={nihongoTheme.colors.accentHover} />
+            <Text style={styles.walletValue}>{ksBalance.toLocaleString('vi-VN')} KS</Text>
+          </View>
+          <Text style={styles.walletLabel}>Xu Kanji Smart</Text>
+          {tier !== 'free' ? (
+            <Pressable style={styles.resetDemoBtn} onPress={() => void handleResetToFree()} disabled={busyAction}>
+              <Text style={styles.resetDemoText}>Đặt lại Free (Demo)</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
+      {notice ? (
+        <View style={styles.noticeBox}>
+          <ShieldCheckIcon size={16} color={nihongoTheme.colors.successText} />
+          <Text style={styles.noticeText}>{notice}</Text>
+        </View>
+      ) : null}
+
+      {errorMsg ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{errorMsg}</Text>
+        </View>
+      ) : null}
+
+      {/* Main Switch Tabs */}
+      <View style={styles.tabsRow}>
+        <Pressable
+          style={[styles.tabBtn, activeTab === 'plans' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('plans')}
+        >
+          <Text style={[styles.tabText, activeTab === 'plans' && styles.tabTextActive]}>
+            Gói sử dụng (Free · Plus · Pro)
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.tabBtn, activeTab === 'shop' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('shop')}
+        >
+          <Text style={[styles.tabText, activeTab === 'shop' && styles.tabTextActive]}>
+            Kiếm &amp; Đổi Xu KS ({ksBalance} KS)
+          </Text>
+        </Pressable>
+      </View>
+
+      {activeTab === 'plans' ? (
+        <View style={styles.sectionGap}>
+          {/* Billing Cycle Toggle */}
+          <View style={styles.cycleRow}>
+            <Pressable
+              style={[styles.cycleBtn, cycle === 'monthly' && styles.cycleBtnActive]}
+              onPress={() => setCycle('monthly')}
+            >
+              <Text style={[styles.cycleText, cycle === 'monthly' && styles.cycleTextActive]}>
+                Theo tháng
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.cycleBtn, cycle === 'yearly' && styles.cycleBtnActive]}
+              onPress={() => setCycle('yearly')}
+            >
+              <Text style={[styles.cycleText, cycle === 'yearly' && styles.cycleTextActive]}>
+                Theo năm (Tiết kiệm 25%)
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* 3 Plan Cards */}
+          <View style={[styles.plansGrid, isWide && styles.plansGridWide]}>
+            {summary.plans.map((plan) => {
+              const isCurrent = plan.tier === tier;
+              const isPro = plan.tier === 'pro';
+              const displayPrice =
+                plan.tier === 'free'
+                  ? '0đ'
+                  : cycle === 'yearly'
+                    ? `${formatVnd(plan.yearlyPerMonthVnd)}/tháng`
+                    : `${formatVnd(plan.monthlyPriceVnd)}/tháng`;
+              const subPrice =
+                plan.tier === 'free'
+                  ? 'Miễn phí trọn đời'
+                  : cycle === 'yearly'
+                    ? `Thanh toán ${formatVnd(plan.yearlyPriceVnd)} / 12 tháng`
+                    : 'Gia hạn linh hoạt từng tháng (Demo)';
+
+              return (
+                <View
+                  key={plan.tier}
+                  style={[
+                    styles.planCard,
+                    isWide && styles.planCardWide,
+                    isPro && styles.planCardPro,
+                    isCurrent && styles.planCardCurrent,
+                  ]}
+                >
+                  <View style={styles.planTopRow}>
+                    <Text style={styles.planName}>{plan.name}</Text>
+                    {isPro ? (
+                      <View style={styles.proTag}>
+                        <Text style={styles.proTagText}>Full AI Speaking</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.planTagline}>{plan.tagline}</Text>
+
+                  <View style={styles.priceBox}>
+                    <Text style={styles.priceMain}>{displayPrice}</Text>
+                    <Text style={styles.priceSub}>{subPrice}</Text>
+                  </View>
+
+                  <View style={styles.highlightsList}>
+                    {plan.highlights.map((line) => (
+                      <View key={line} style={styles.highlightRow}>
+                        <Text style={styles.highlightBullet}>•</Text>
+                        <Text style={styles.highlightText}>{line}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  <Pressable
+                    style={[
+                      styles.planBtn,
+                      isPro && styles.planBtnPro,
+                      isCurrent && styles.planBtnDisabled,
+                    ]}
+                    disabled={isCurrent || busyAction}
+                    onPress={() => {
+                      if (plan.tier === 'free') {
+                        void handleResetToFree();
+                      } else {
+                        setCheckoutTarget(plan);
+                      }
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.planBtnText,
+                        isCurrent && styles.planBtnTextDisabled,
+                      ]}
+                    >
+                      {isCurrent
+                        ? 'Đang sử dụng gói này'
+                        : plan.tier === 'free'
+                          ? 'Chuyển về Miễn phí'
+                          : `Kích hoạt ${plan.name} (Demo)`}
+                    </Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      ) : (
+        <View style={styles.sectionGap}>
+          {/* Earn KS Section */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Cách kiếm Xu Kanji Smart (KS)</Text>
+            <Text style={styles.cardDesc}>
+              Mức thưởng tính đúng theo mốc mục tiêu thời gian học mỗi ngày bạn chọn và nhân theo hệ số gói (×{summary.subscription.multiplier}).
+            </Text>
+
+            <View style={styles.earnGrid}>
+              <View style={styles.earnBox}>
+                <Text style={styles.earnHeading}>1. Mục tiêu hôm nay ({summary.todayGoalStatus.goalMinutes} phút)</Text>
+                <Text style={styles.earnRule}>
+                  5p → 5 KS · 10p → 10 KS · 15p → 18 KS · 30p → 40 KS · 60p → 85 KS
+                </Text>
+                <Text style={styles.earnProgress}>
+                  Hôm nay: {Math.floor(summary.todayGoalStatus.todaySeconds / 60)}/{summary.todayGoalStatus.goalMinutes} phút · Phần thưởng: +{summary.todayGoalStatus.rewardKs} KS
+                </Text>
+                <Pressable
+                  style={[
+                    styles.claimSmallBtn,
+                    (!summary.todayGoalStatus.eligible || summary.todayGoalStatus.claimed) &&
+                      styles.claimSmallBtnDisabled,
+                  ]}
+                  disabled={!summary.todayGoalStatus.eligible || summary.todayGoalStatus.claimed || busyAction}
+                  onPress={() => void handleClaimGoal()}
+                >
+                  <Text style={styles.claimSmallBtnText}>
+                    {summary.todayGoalStatus.claimed
+                      ? '✓ Đã nhận thưởng hôm nay'
+                      : summary.todayGoalStatus.eligible
+                        ? `Nhận ngay +${summary.todayGoalStatus.rewardKs} KS`
+                        : 'Chưa đủ 100% thời gian học'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.earnBox}>
+                <Text style={styles.earnHeading}>2. Thử thách hôm nay (5 câu)</Text>
+                <Text style={styles.earnRule}>+4 KS / câu đúng + thưởng 5/5 câu (+10 KS) → Tối đa 30 KS × hệ số</Text>
+                <Text style={styles.earnProgress}>
+                  Trạng thái hôm nay: {summary.todayChallengeClaimed ? '✓ Đã hoàn thành & nhận Xu' : 'Chưa làm hôm nay'}
+                </Text>
+                <Pressable style={styles.outlineSmallBtn} onPress={() => router.push('/app')}>
+                  <Text style={styles.outlineSmallBtnText}>Về Trang chủ làm Thử thách →</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Streak Milestones */}
+            <Text style={[styles.earnHeading, { marginTop: 8 }]}>
+              3. Mốc chuỗi liên tiếp (Hiện tại: {summary.streakStatus.currentStreak} ngày)
+            </Text>
+            <View style={styles.milestoneRow}>
+              {summary.streakStatus.milestones.map((m) => (
+                <Pressable
+                  key={m.days}
+                  style={[
+                    styles.milestoneCard,
+                    m.status === 'claimable' && styles.milestoneClaimable,
+                    m.status === 'claimed' && styles.milestoneClaimed,
+                  ]}
+                  disabled={m.status !== 'claimable' || busyAction}
+                  onPress={() => void handleClaimStreak(m.days as 3 | 7 | 14 | 30)}
+                >
+                  <Text style={styles.milestoneDays}>{m.days} ngày</Text>
+                  <Text style={styles.milestoneReward}>+{m.rewardKs} KS</Text>
+                  <Text style={styles.milestoneState}>
+                    {m.status === 'claimed'
+                      ? '✓ Đã nhận'
+                      : m.status === 'claimable'
+                        ? 'Bấm nhận!'
+                        : 'Chưa đạt'}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.antiAfkNote}>
+              <ShieldCheckIcon size={15} color={nihongoTheme.colors.successText} />
+              <Text style={styles.antiAfkNoteText}>
+                Chống treo máy 4 lớp: Chỉ tính giờ ở màn hình học thật (Flashcard, Bài học, Tra cứu, Nghe/Đọc/Viết/Nói, Game); tự dừng sau 45s không tương tác hoặc 3 phút không có thao tác học; kiểm tra tỉnh táo mỗi 12 phút; đồng bộ nhịp 30s lên PostgreSQL.
+              </Text>
+            </View>
+          </View>
+
+          {/* Redeem Shop Section */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Cửa hàng Đổi Xu Kanji Smart (Mở khóa AI Speaking 3D)</Text>
+            <Text style={styles.cardDesc}>
+              Người dùng Miễn phí có thể tích lũy Xu KS để đổi vé trải nghiệm các tình huống Nói 3D AI (điểm đổi được giữ ở mức cao để ưu tiên nâng cấp gói Plus / Pro).
+            </Text>
+
+            <View style={[styles.shopGrid, isWide && styles.shopGridWide]}>
+              {summary.shopItems.map((item) => {
+                const selectedScenario =
+                  selectedScenarios[item.code] ?? item.allowedScenarios[0] ?? 'roleplay_restaurant';
+                const canAfford = ksBalance >= item.costKs;
+                return (
+                  <View key={item.code} style={[styles.shopCard, isWide && styles.shopCardWide]}>
+                    <View style={styles.shopTop}>
+                      <Text style={styles.shopTitle}>{item.title}</Text>
+                      <View style={styles.costBadge}>
+                        <CoinKsIcon size={13} color={nihongoTheme.colors.accentHover} />
+                        <Text style={styles.costText}>{item.costKs.toLocaleString('vi-VN')} KS</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.shopDesc}>{item.description}</Text>
+                    <Text style={styles.effortText}>Công sức ước tính: {item.effortHint}</Text>
+
+                    <Text style={styles.chooseLabel}>Chọn kịch bản áp dụng:</Text>
+                    <View style={styles.scenarioPickRow}>
+                      {item.allowedScenarios.map((sid) => {
+                        const active = selectedScenario === sid;
+                        return (
+                          <Pressable
+                            key={sid}
+                            style={[styles.pickChip, active && styles.pickChipActive]}
+                            onPress={() =>
+                              setSelectedScenarios((prev) => ({ ...prev, [item.code]: sid }))
+                            }
+                          >
+                            <Text style={[styles.pickChipText, active && styles.pickChipTextActive]}>
+                              {SCENARIO_LABELS[sid] || sid}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+
+                    <Pressable
+                      style={[
+                        styles.redeemBtn,
+                        (!canAfford || busyAction) && styles.redeemBtnDisabled,
+                      ]}
+                      disabled={!canAfford || busyAction}
+                      onPress={() => void handleRedeem(item)}
+                    >
+                      <Text style={styles.redeemBtnText}>
+                        {canAfford
+                          ? `Đổi ${item.costKs.toLocaleString('vi-VN')} KS ngay`
+                          : `Thiếu ${(item.costKs - ksBalance).toLocaleString('vi-VN')} KS`}
+                      </Text>
+                    </Pressable>
+                  </View>
+                );
+              })}
+
+              {/* Pro Exclusive Card */}
+              <View style={[styles.shopCard, isWide && styles.shopCardWide, styles.proLockedShopCard]}>
+                <View style={styles.shopTop}>
+                  <Text style={styles.shopTitle}>Phỏng vấn Kỹ sư IT 3D (6 chặng) + Upload CV thật</Text>
+                  <LockClosedIcon size={18} color={nihongoTheme.colors.accentHover} />
+                </View>
+                <Text style={styles.shopDesc}>
+                  Hội đồng hỏi xoáy CV PDF/Ảnh thật, chấm theo chuẩn PREP/STAR, bắt lỗi từ đệm tiếng Nhật &amp; mở không giới hạn mọi tình huống.
+                </Text>
+                <Text style={styles.proOnlyWarn}>
+                  Không mở bằng Xu KS — Độc quyền dành riêng cho thành viên gói Pro AI.
+                </Text>
+                <Pressable style={styles.proJumpBtn} onPress={() => setActiveTab('plans')}>
+                  <Text style={styles.proJumpBtnText}>Xem gói Pro AI →</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+
+          {/* Active Unlocks + Ledger History */}
+          {summary.unlocks.length > 0 ? (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Vé &amp; Quyền Nói 3D đang có</Text>
+              <View style={styles.listGap}>
+                {summary.unlocks.map((u) => (
+                  <View key={u.id} style={styles.txRow}>
+                    <Text style={styles.txTitle}>{SCENARIO_LABELS[u.scenarioId] || u.scenarioId}</Text>
+                    <Text style={styles.txMeta}>
+                      {u.unlockType === 'single_ticket'
+                        ? `Vé lẻ (${u.remainingUses ?? 1} lượt)`
+                        : u.unlockType === 'pass_7d'
+                          ? `Thẻ 7 ngày (đến ${u.expiresAt ? new Date(u.expiresAt).toLocaleDateString('vi-VN') : ''})`
+                          : 'Mở vĩnh viễn (1 lượt/tuần)'}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Lịch sử Xu Kanji Smart gần đây</Text>
+            {summary.recentTransactions.length === 0 ? (
+              <Text style={styles.cardDesc}>
+                Chưa có giao dịch Xu KS nào. Hoàn thành mục tiêu ngày, Thử thách hôm nay hoặc mốc Streak để nhận Xu đầu tiên!
+              </Text>
+            ) : (
+              <View style={styles.listGap}>
+                {summary.recentTransactions.map((tx) => (
+                  <View key={tx.id} style={styles.txRow}>
+                    <View style={styles.txLeft}>
+                      <Text style={styles.txTitle}>{tx.description}</Text>
+                      <Text style={styles.txMeta}>
+                        {new Date(tx.createdAt).toLocaleString('vi-VN')} · Số dư sau: {tx.balanceAfter} KS
+                      </Text>
+                    </View>
+                    <Text style={[styles.txDelta, tx.delta >= 0 ? styles.txPlus : styles.txMinus]}>
+                      {tx.delta >= 0 ? `+${tx.delta}` : tx.delta} KS
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Demo Payment Modal */}
+      <Modal
+        visible={Boolean(checkoutTarget)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCheckoutTarget(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalBadge}>Thanh toán Demo · Kanji Smart</Text>
+            <Text style={styles.modalTitle}>
+              Kích hoạt gói {checkoutTarget?.name}
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              Chu kỳ: {cycle === 'yearly' ? '12 tháng (Tiết kiệm 25%)' : '1 tháng'} · Số tiền:{' '}
+              <Text style={{ fontWeight: '800', color: nihongoTheme.colors.accentHover }}>
+                {checkoutTarget
+                  ? formatVnd(
+                      cycle === 'yearly'
+                        ? checkoutTarget.yearlyPriceVnd
+                        : checkoutTarget.monthlyPriceVnd,
+                    )
+                  : '0đ'}
+              </Text>
+            </Text>
+
+            <View style={styles.qrMockBox}>
+              <Text style={styles.qrMockTitle}>MÃ THANH TOÁN MÔ PHỎNG (DEMO)</Text>
+              <Text style={styles.qrMockCode}>KANJI-SMART-{checkoutTarget?.tier.toUpperCase()}-{cycle.toUpperCase()}</Text>
+              <Text style={styles.qrMockNote}>
+                Ở giai đoạn Demo, bấm xác nhận bên dưới sẽ ghi trực tiếp gói cước vào PostgreSQL cho tài khoản hiện tại (không thu tiền thật).
+              </Text>
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalCancelBtn}
+                disabled={busyAction}
+                onPress={() => setCheckoutTarget(null)}
+              >
+                <Text style={styles.modalCancelText}>Đóng</Text>
+              </Pressable>
+              <Pressable
+                style={styles.modalConfirmBtn}
+                disabled={busyAction}
+                onPress={() => void handleConfirmDemoCheckout()}
+              >
+                {busyAction ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Xác nhận thanh toán Demo</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </AppShell>
+  );
+}
+
+const styles = StyleSheet.create({
+  summaryStrip: {
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 18,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+    ...nihongoTheme.shadow.card,
+  },
+  summaryStripPhone: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  summaryLeft: {
+    flex: 1,
+    gap: 8,
+  },
+  tierRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tierPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  tierPillText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  multPill: {
+    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  multPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  summaryMeta: {
+    fontSize: 13,
+    color: nihongoTheme.colors.textSecondary,
+    lineHeight: 19,
+  },
+  walletBox: {
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'flex-end',
+    gap: 3,
+  },
+  walletValRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  walletValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  walletLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  resetDemoBtn: {
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+  },
+  resetDemoText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  noticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: nihongoTheme.colors.successBg,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.successText,
+  },
+  errorBox: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
+  },
+  tabBtn: {
+    backgroundColor: nihongoTheme.colors.surface,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  tabBtnActive: {
+    backgroundColor: nihongoTheme.colors.accent,
+    borderColor: nihongoTheme.colors.accent,
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+  },
+  sectionGap: {
+    gap: 14,
+  },
+  cycleRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  cycleBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: nihongoTheme.radius.pill,
+    backgroundColor: nihongoTheme.colors.surface,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+  },
+  cycleBtnActive: {
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderColor: nihongoTheme.colors.accent,
+  },
+  cycleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  cycleTextActive: {
+    color: nihongoTheme.colors.accentHover,
+  },
+  plansGrid: {
+    gap: 14,
+  },
+  plansGridWide: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  planCard: {
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 18,
+    gap: 10,
+    ...nihongoTheme.shadow.card,
+  },
+  planCardWide: {
+    flex: 1,
+  },
+  planCardPro: {
+    borderColor: nihongoTheme.colors.accent,
+    borderWidth: 2,
+  },
+  planCardCurrent: {
+    backgroundColor: '#FFFCF8',
+  },
+  planTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  planName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  proTag: {
+    backgroundColor: nihongoTheme.colors.accent,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  proTagText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  planTagline: {
+    fontSize: 13,
+    color: nihongoTheme.colors.textSecondary,
+  },
+  priceBox: {
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: nihongoTheme.colors.borderLight,
+  },
+  priceMain: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  priceSub: {
+    fontSize: 12,
+    color: nihongoTheme.colors.textMuted,
+    marginTop: 2,
+  },
+  highlightsList: {
+    gap: 6,
+    flex: 1,
+  },
+  highlightRow: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'flex-start',
+  },
+  highlightBullet: {
+    color: nihongoTheme.colors.accent,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  highlightText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+    color: nihongoTheme.colors.textPrimary,
+  },
+  planBtn: {
+    marginTop: 8,
+    backgroundColor: nihongoTheme.colors.textPrimary,
+    borderRadius: nihongoTheme.radius.button,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  planBtnPro: {
+    backgroundColor: nihongoTheme.colors.accent,
+  },
+  planBtnDisabled: {
+    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+  },
+  planBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  planBtnTextDisabled: {
+    color: nihongoTheme.colors.textMuted,
+  },
+  card: {
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 18,
+    gap: 12,
+    ...nihongoTheme.shadow.card,
+  },
+  cardTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  cardDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: nihongoTheme.colors.textSecondary,
+  },
+  earnGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  earnBox: {
+    flex: 1,
+    minWidth: 260,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 14,
+    gap: 7,
+  },
+  earnHeading: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  earnRule: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: nihongoTheme.colors.textSecondary,
+  },
+  earnProgress: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: nihongoTheme.colors.accentHover,
+  },
+  claimSmallBtn: {
+    marginTop: 4,
+    backgroundColor: nihongoTheme.colors.accent,
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  claimSmallBtnDisabled: {
+    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+  },
+  claimSmallBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  outlineSmallBtn: {
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  outlineSmallBtnText: {
+    color: nihongoTheme.colors.textPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  milestoneRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  milestoneCard: {
+    flex: 1,
+    minWidth: 110,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: 14,
+    padding: 10,
+    alignItems: 'center',
+    gap: 3,
+  },
+  milestoneClaimable: {
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderColor: nihongoTheme.colors.accent,
+  },
+  milestoneClaimed: {
+    backgroundColor: nihongoTheme.colors.successBg,
+    borderColor: nihongoTheme.colors.successText,
+  },
+  milestoneDays: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  milestoneReward: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  milestoneState: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  antiAfkNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: nihongoTheme.colors.successBg,
+    borderRadius: 12,
+    padding: 11,
+  },
+  antiAfkNoteText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    color: nihongoTheme.colors.successText,
+    fontWeight: '600',
+  },
+  shopGrid: {
+    gap: 12,
+  },
+  shopGridWide: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  shopCard: {
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: 16,
+    padding: 14,
+    gap: 8,
+  },
+  shopCardWide: {
+    width: '48.8%',
+  },
+  proLockedShopCard: {
+    backgroundColor: '#FFF7ED',
+    borderColor: nihongoTheme.colors.accent,
+  },
+  shopTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  shopTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  costBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.accent,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  costText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  shopDesc: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: nihongoTheme.colors.textSecondary,
+  },
+  effortText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textMuted,
+  },
+  chooseLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+    marginTop: 2,
+  },
+  scenarioPickRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  pickChip: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  pickChipActive: {
+    backgroundColor: nihongoTheme.colors.accent,
+    borderColor: nihongoTheme.colors.accent,
+  },
+  pickChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  pickChipTextActive: {
+    color: '#FFFFFF',
+  },
+  redeemBtn: {
+    marginTop: 4,
+    backgroundColor: nihongoTheme.colors.accent,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  redeemBtnDisabled: {
+    backgroundColor: '#D6CFC7',
+  },
+  redeemBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  proOnlyWarn: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: nihongoTheme.colors.accentHover,
+  },
+  proJumpBtn: {
+    marginTop: 'auto',
+    backgroundColor: nihongoTheme.colors.accent,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  proJumpBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  listGap: {
+    gap: 8,
+  },
+  txRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: nihongoTheme.colors.borderLight,
+  },
+  txLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  txTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  txMeta: {
+    fontSize: 11,
+    color: nihongoTheme.colors.textMuted,
+  },
+  txDelta: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  txPlus: {
+    color: nihongoTheme.colors.successText,
+  },
+  txMinus: {
+    color: '#DC2626',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(30, 30, 30, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 22,
+    gap: 12,
+    ...nihongoTheme.shadow.dock,
+  },
+  modalBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    color: nihongoTheme.colors.accentHover,
+    fontSize: 12,
+    fontWeight: '800',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: nihongoTheme.radius.pill,
+  },
+  modalTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: nihongoTheme.colors.textSecondary,
+  },
+  qrMockBox: {
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    gap: 8,
+  },
+  qrMockTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+    letterSpacing: 0.4,
+  },
+  qrMockCode: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.accent,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  qrMockNote: {
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  modalCancelBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: nihongoTheme.radius.button,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    backgroundColor: '#FFFFFF',
+  },
+  modalCancelText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  modalConfirmBtn: {
+    flex: 1,
+    backgroundColor: nihongoTheme.colors.accent,
+    borderRadius: nihongoTheme.radius.button,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+});

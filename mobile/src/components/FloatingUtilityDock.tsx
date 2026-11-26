@@ -38,7 +38,7 @@ export function FloatingUtilityDock() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.stepBadge}>Mẹo sử dụng nhanh</Text>
-            <Text style={styles.modalTitle}>Phím tắt &amp; Mẹo học Kanji Nest</Text>
+            <Text style={styles.modalTitle}>Phím tắt &amp; Mẹo học Kanji Smart</Text>
             <Text style={styles.modalBody}>
               • Trong Flashcard: nhấn Space để lật thẻ, phím 1–4 để đánh giá độ nhớ, phím R để nghe phát âm.{'\n'}
               • Trong Quiz: nhấn Enter để kiểm tra / qua câu, phím Shift để mở gợi ý.{'\n'}

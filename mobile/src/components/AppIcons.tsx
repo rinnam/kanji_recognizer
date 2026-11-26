@@ -322,3 +322,43 @@ export function FlameStreakIcon({ size = 15, color = '#F48A34' }: IconProps) {
     </Svg>
   );
 }
+
+export function CrownIcon({ size = 16, color = '#EA7A1E' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 18h18l-1.5-10-4.5 4-3-6-3 6-4.5-4L3 18zM4 21h16"
+        fill="rgba(244, 138, 52, 0.22)"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function CoinKsIcon({ size = 16, color = '#EA7A1E' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" fill="rgba(244, 138, 52, 0.2)" stroke={color} strokeWidth={2} />
+      <Path d="M12 7v10M9 10l3-3 3 3M9 14l3 3 3-3" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function ShieldCheckIcon({ size = 16, color = '#2F9E62' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z"
+        fill="rgba(47, 158, 98, 0.16)"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}

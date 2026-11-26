@@ -4,12 +4,15 @@ import { usePathname, useRouter } from 'expo-router';
 import { nihongoTheme } from '../theme/nihongo-theme';
 import { MomoAvatar } from './MomoAvatar';
 import {
+  CoinKsIcon,
+  CrownIcon,
   HomeNavIcon,
   LessonsNavIcon,
   PracticeNavIcon,
   ProfileNavIcon,
   SearchNavIcon,
 } from './AppIcons';
+import { useMembership } from '../features/membership/membership-store';
 
 const MAIN_NAV = [
   { label: 'Trang chủ', Icon: HomeNavIcon, route: '/app' as const },
@@ -34,6 +37,9 @@ const QUICK_PRACTICE_NAV = [
 export function DesktopSidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const { tier, ksBalance } = useMembership();
+
+  const tierLabel = tier === 'pro' ? 'PRO AI' : tier === 'plus' ? 'PLUS' : 'FREE';
 
   const isActive = (route: string) => {
     if (route === '/app') return pathname === '/' || pathname === '/app';
@@ -45,8 +51,8 @@ export function DesktopSidebar() {
       <Pressable style={styles.brand} onPress={() => router.push('/app')}>
         <MomoAvatar size={36} />
         <Text style={styles.brandText}>
-          <Text style={styles.brandDark}>Nihon</Text>
-          <Text style={styles.brandOrange}>GO</Text>
+          <Text style={styles.brandDark}>Kanji </Text>
+          <Text style={styles.brandOrange}>Smart</Text>
         </Text>
       </Pressable>
 
@@ -108,6 +114,23 @@ export function DesktopSidebar() {
             );
           })}
         </View>
+
+        <Pressable
+          style={[styles.billingCard, isActive('/billing') && styles.billingCardActive]}
+          onPress={() => router.push('/billing')}
+        >
+          <View style={styles.billingTop}>
+            <View style={styles.billingBadgeRow}>
+              <CrownIcon size={15} color={nihongoTheme.colors.accentHover} />
+              <Text style={styles.billingTierText}>{tierLabel}</Text>
+            </View>
+            <View style={styles.billingKsRow}>
+              <CoinKsIcon size={14} color={nihongoTheme.colors.accentHover} />
+              <Text style={styles.billingKsText}>{ksBalance.toLocaleString('vi-VN')} KS</Text>
+            </View>
+          </View>
+          <Text style={styles.billingSubText}>Gói cước &amp; Cửa hàng Xu KS →</Text>
+        </Pressable>
       </ScrollView>
     </View>
   );
@@ -205,5 +228,49 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: nihongoTheme.colors.accent,
+  },
+  billingCard: {
+    marginTop: 14,
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    gap: 5,
+  },
+  billingCardActive: {
+    borderColor: nihongoTheme.colors.accent,
+  },
+  billingTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  billingBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  billingTierText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  billingKsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  billingKsText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  billingSubText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: nihongoTheme.colors.textSecondary,
   },
 });

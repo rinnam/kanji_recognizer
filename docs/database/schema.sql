@@ -256,3 +256,67 @@ CREATE TABLE IF NOT EXISTS user_learning_profiles (
   updated_at    timestamptz NOT NULL DEFAULT now(),
   deleted_at    timestamptz
 );
+
+-- ---------------------------------------------------------------------
+-- Kanji Smart: Gói sử dụng, Xu KS (Ledger), Mở khóa Nói 3D, Quota & Anti-AFK
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS user_subscriptions (
+  user_id         uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  tier            text NOT NULL DEFAULT 'free' CHECK (tier IN ('free', 'plus', 'pro')),
+  billing_cycle   text NOT NULL DEFAULT 'monthly' CHECK (billing_cycle IN ('monthly', 'yearly')),
+  started_at      timestamptz NOT NULL DEFAULT now(),
+  expires_at      timestamptz,
+  demo_order_code text,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+  deleted_at      timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS user_point_ledger (
+  id              text PRIMARY KEY,
+  user_id         uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  delta           integer NOT NULL,
+  balance_after   integer NOT NULL CHECK (balance_after >= 0),
+  reason_code     text NOT NULL,
+  description     text NOT NULL,
+  idempotency_key text UNIQUE,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+  deleted_at      timestamptz
+);
+CREATE INDEX IF NOT EXISTS idx_user_point_ledger_user_created ON user_point_ledger(user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS user_speaking_unlocks (
+  id              text PRIMARY KEY,
+  user_id         uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  scenario_id     text NOT NULL,
+  unlock_type     text NOT NULL CHECK (unlock_type IN ('single_ticket', 'pass_7d', 'permanent_weekly')),
+  remaining_uses  integer,
+  expires_at      timestamptz,
+  last_used_week  text,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+  deleted_at      timestamptz
+);
+CREATE INDEX IF NOT EXISTS idx_user_speaking_unlocks_user_scenario ON user_speaking_unlocks(user_id, scenario_id);
+
+CREATE TABLE IF NOT EXISTS user_feature_usage (
+  user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  feature_key text NOT NULL,
+  period_key  text NOT NULL,
+  used_count  integer NOT NULL DEFAULT 0 CHECK (used_count >= 0),
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  deleted_at  timestamptz,
+  PRIMARY KEY (user_id, feature_key, period_key)
+);
+
+CREATE TABLE IF NOT EXISTS user_study_sessions (
+  user_id           uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  active_session_id text NOT NULL,
+  last_heartbeat_at timestamptz NOT NULL DEFAULT now(),
+  last_action_at    timestamptz NOT NULL DEFAULT now(),
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now(),
+  deleted_at        timestamptz
+);

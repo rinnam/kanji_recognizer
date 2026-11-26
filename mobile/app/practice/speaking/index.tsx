@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,11 +15,23 @@ import * as FileSystem from 'expo-file-system';
 import { useRouter } from 'expo-router';
 import { AppShell } from '../../../src/components/AppShell';
 import { TopHeader } from '../../../src/components/TopHeader';
+import { CoinKsIcon, CrownIcon, LockClosedIcon } from '../../../src/components/AppIcons';
 import { nihongoTheme } from '../../../src/theme/nihongo-theme';
 import { libraryEndpoint } from '../../../src/library-source';
+import {
+  getCachedAuthSession,
+  getUserScopedKey,
+  readAuthSession,
+} from '../../../src/features/auth/auth-store';
+import {
+  MembershipApiError,
+  startSpeakingSession,
+  useMembership,
+} from '../../../src/features/membership/membership-store';
 import { useIsMobilePhone } from '../../../src/utils/device';
 
 export const INTERVIEW_CV_STORAGE_KEY = 'kanji_nest_interview_cv_v1';
+export const SPEAKING_SESSION_STORAGE_KEY = 'kanji_smart_speaking_session_v1';
 
 interface ScenarioItem {
   id: string;
@@ -44,7 +57,7 @@ const FALLBACK_SCENARIOS: ScenarioItem[] = [
     description:
       'Đủ 6 chặng chuẩn Nhật: 自己紹介 → 自己PR → 3 câu hỏi đào sâu từ CV/Dự án → 逆質問 (hỏi ngược công ty) → Ra về.',
     defaultCv:
-      'Chuyên ngành: Công nghệ thông tin (Năm 4). Kỹ năng: TypeScript, React, Node.js, PostgreSQL. Dự án nổi bật: Xây dựng ứng dụng học tiếng Nhật Kanji Nest (Flashcard SRS, game đối kháng WebSocket). Chứng chỉ: JLPT N3. Điểm mạnh: Tự học nhanh, làm việc nhóm tốt.',
+      'Chuyên ngành: Công nghệ thông tin (Năm 4). Kỹ năng: TypeScript, React, Node.js, PostgreSQL. Dự án nổi bật: Xây dựng ứng dụng học tiếng Nhật Kanji Smart (Flashcard SRS, game đối kháng WebSocket). Chứng chỉ: JLPT N3. Điểm mạnh: Tự học nhanh, làm việc nhóm tốt.',
   },
   {
     id: 'baito',
@@ -130,6 +143,7 @@ async function assetToBase64(uri: string): Promise<string> {
 
 export default function SpeakingLobbyScreen() {
   const router = useRouter();
+  const { summary, tier, ksBalance, refresh: refreshMembership } = useMembership();
   const [scenarios, setScenarios] = useState<ScenarioItem[]>(FALLBACK_SCENARIOS);
   const [categoryTab, setCategoryTab] = useState<'interview' | 'roleplay'>('interview');
   const [selectedId, setSelectedId] = useState<string>('it_engineer');
@@ -137,8 +151,15 @@ export default function SpeakingLobbyScreen() {
   const [cvFileName, setCvFileName] = useState<string | null>(null);
   const [cvFocusTopics, setCvFocusTopics] = useState<string[]>([]);
   const [parsingCv, setParsingCv] = useState(false);
+  const [startingBusy, setStartingBusy] = useState(false);
   const [cvError, setCvError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [paywallModal, setPaywallModal] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    allowShop: boolean;
+  }>({ open: false, title: '', message: '', allowShop: false });
 
   const visibleScenarios = scenarios.filter(
     (s) => (s.category ?? 'interview') === categoryTab,
@@ -181,6 +202,16 @@ export default function SpeakingLobbyScreen() {
 
   const handleUploadRealCv = async () => {
     setCvError(null);
+    if (tier !== 'pro') {
+      setPaywallModal({
+        open: true,
+        title: 'Upload & phân tích CV thật (Độc quyền Pro AI)',
+        message:
+          'Tính năng đọc CV PDF/Ảnh thật để AI đặt 3 câu hỏi chuyên sâu chỉ mở cho gói Chuyên sâu (Pro AI). Hãy nâng cấp gói Pro để mở khóa!',
+        allowShop: false,
+      });
+      return;
+    }
     try {
       const res = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*', 'text/plain'],
@@ -191,16 +222,31 @@ export default function SpeakingLobbyScreen() {
       setParsingCv(true);
       const base64Data = await assetToBase64(asset.uri);
       const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+      const session = getCachedAuthSession() ?? (await readAuthSession());
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
       const resp = await fetch(`${base}/interview/parse-cv`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           fileName: asset.name || 'cv.pdf',
           mimeType: asset.mimeType || 'application/pdf',
           base64Data,
         }),
       });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (!resp.ok) {
+        const body = (await resp.json().catch(() => ({}))) as { message?: string };
+        if (resp.status === 403) {
+          setPaywallModal({
+            open: true,
+            title: 'Cần nâng cấp gói Pro AI',
+            message: body.message || 'Upload CV chỉ hỗ trợ ở gói Pro AI.',
+            allowShop: false,
+          });
+          return;
+        }
+        throw new Error(`HTTP ${resp.status}`);
+      }
       const parsed = (await resp.json()) as { summary?: string; focusTopics?: string[] };
       if (parsed.summary) {
         setCvText(parsed.summary);
@@ -215,11 +261,44 @@ export default function SpeakingLobbyScreen() {
   };
 
   const handleStart = async () => {
-    await AsyncStorage.setItem(INTERVIEW_CV_STORAGE_KEY, cvText.trim());
-    router.push({
-      pathname: '/practice/speaking/room',
-      params: { scenarioId: selectedId },
-    });
+    if (startingBusy) return;
+    setStartingBusy(true);
+    setCvError(null);
+    try {
+      const granted = await startSpeakingSession(selectedId);
+      const sessionKey = await getUserScopedKey(SPEAKING_SESSION_STORAGE_KEY);
+      await AsyncStorage.setItem(
+        sessionKey,
+        JSON.stringify({
+          scenarioId: selectedId,
+          speakingSessionToken: granted.speakingSessionToken,
+          accessMode: granted.accessMode,
+          fullRubric: granted.fullRubric,
+          viaDescription: granted.viaDescription,
+          savedAt: Date.now(),
+        }),
+      );
+      await AsyncStorage.setItem(INTERVIEW_CV_STORAGE_KEY, cvText.trim());
+      void refreshMembership();
+      router.push({
+        pathname: '/practice/speaking/room',
+        params: { scenarioId: selectedId },
+      });
+    } catch (err) {
+      const isItEngineer = selectedId === 'it_engineer';
+      const msg =
+        err instanceof MembershipApiError
+          ? err.message
+          : 'Bạn cần gói Plus / Pro AI hoặc vé Xu KS hợp lệ để vào phòng 3D.';
+      setPaywallModal({
+        open: true,
+        title: isItEngineer ? 'Độc quyền gói Pro AI' : 'Kịch bản Luyện nói 3D đang khóa',
+        message: msg,
+        allowShop: !isItEngineer,
+      });
+    } finally {
+      setStartingBusy(false);
+    }
   };
 
   const isPhone = useIsMobilePhone();
@@ -236,7 +315,7 @@ export default function SpeakingLobbyScreen() {
         <View style={styles.cvCard}>
           <Text style={styles.cardTitle}>🔒 Đã khóa trên giao diện điện thoại</Text>
           <Text style={styles.cardDesc}>
-            Không gian Phỏng vấn &amp; Roleplay 3D cùng AI yêu cầu màn hình rộng và âm thanh trình duyệt máy tính để thao tác với bối cảnh 3D chuẩn Nhật. Hãy mở Kanji Nest trên máy tính (Web PC) để luyện tập tính năng này nhé!
+            Không gian Phỏng vấn &amp; Roleplay 3D cùng AI yêu cầu màn hình rộng và âm thanh trình duyệt máy tính để thao tác với bối cảnh 3D chuẩn Nhật. Hãy mở Kanji Smart trên máy tính (Web PC) để luyện tập tính năng này nhé!
           </Text>
           <Pressable style={styles.startBtn} onPress={() => router.replace('/practice')}>
             <Text style={styles.startBtnText}>← Quay lại mục Luyện tập</Text>
@@ -253,6 +332,34 @@ export default function SpeakingLobbyScreen() {
         title="Phỏng vấn & Roleplay 3D cùng AI"
         subtitle="Phỏng vấn chuẩn Nhật (đủ gõ cửa 3 lần + CV) & Roleplay đời sống/công sở 3D"
       />
+
+      {/* Membership + KS Wallet Strip */}
+      <View style={styles.memberStrip}>
+        <View style={styles.memberLeft}>
+          <View style={styles.tierBadge}>
+            <CrownIcon size={14} color={nihongoTheme.colors.accentHover} />
+            <Text style={styles.tierBadgeText}>{summary.subscription.planName}</Text>
+          </View>
+          <Text style={styles.memberSubText}>
+            {tier === 'pro'
+              ? 'Full 6 kịch bản 3D · Upload CV · Chấm PREP/STAR không giới hạn'
+              : tier === 'plus'
+                ? `Plus: còn ${Math.max(0, 3 - summary.usage.speakingLifeToday)}/3 lượt Đời sống · ${Math.max(0, 1 - summary.usage.speakingWorkToday)}/1 lượt Công sở hôm nay`
+                : 'Miễn phí: Nói 3D AI đang khóa — nâng cấp Plus/Pro hoặc tích Xu KS đổi vé lẻ'}
+          </Text>
+        </View>
+        <View style={styles.memberActions}>
+          <Pressable style={styles.ksChipBtn} onPress={() => router.push('/billing?tab=shop')}>
+            <CoinKsIcon size={14} color={nihongoTheme.colors.accentHover} />
+            <Text style={styles.ksChipText}>{ksBalance.toLocaleString('vi-VN')} KS</Text>
+          </Pressable>
+          <Pressable style={styles.upgradeSmallBtn} onPress={() => router.push('/billing?tab=plans')}>
+            <Text style={styles.upgradeSmallText}>
+              {tier === 'pro' ? 'Quản lý gói' : 'Nâng cấp Pro'}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
 
       <View style={styles.catTabsRow}>
         <Pressable
@@ -296,15 +403,42 @@ export default function SpeakingLobbyScreen() {
           <View style={styles.grid}>
             {visibleScenarios.map((item) => {
               const active = item.id === selectedId;
+              const access = summary.scenarioAccess[item.id];
+              const isAllowed = access?.allowed ?? false;
+              const badgeText =
+                access?.badgeLabel ??
+                (item.id === 'it_engineer' ? 'Độc quyền Pro AI' : 'Cần gói Plus/Pro hoặc Xu KS');
               return (
                 <Pressable
                   key={item.id}
-                  style={[styles.scenarioCard, active && styles.scenarioCardActive]}
+                  style={[
+                    styles.scenarioCard,
+                    active && styles.scenarioCardActive,
+                    !isAllowed && styles.scenarioCardLocked,
+                  ]}
                   onPress={() => handleSelectScenario(item)}
                 >
                   <View style={styles.cardTop}>
-                    <View style={styles.levelBadge}>
-                      <Text style={styles.levelText}>{item.level}</Text>
+                    <View style={styles.cardTopLeft}>
+                      <View style={styles.levelBadge}>
+                        <Text style={styles.levelText}>{item.level}</Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.accessPill,
+                          isAllowed ? styles.accessPillOpen : styles.accessPillLocked,
+                        ]}
+                      >
+                        {!isAllowed ? <LockClosedIcon size={11} color={nihongoTheme.colors.warningText} /> : null}
+                        <Text
+                          style={[
+                            styles.accessPillText,
+                            isAllowed ? styles.accessTextOpen : styles.accessTextLocked,
+                          ]}
+                        >
+                          {badgeText}
+                        </Text>
+                      </View>
                     </View>
                     <Text style={styles.companyLabel}>{item.companyName}</Text>
                   </View>
@@ -336,14 +470,18 @@ export default function SpeakingLobbyScreen() {
               {categoryTab === 'interview' ? (
                 <View style={styles.cvHeaderActions}>
                   <Pressable
-                    style={styles.uploadBtn}
+                    style={[styles.uploadBtn, tier !== 'pro' && styles.uploadBtnLocked]}
                     disabled={parsingCv}
                     onPress={() => void handleUploadRealCv()}
                   >
                     {parsingCv ? (
                       <ActivityIndicator size="small" color={nihongoTheme.colors.accentHover} />
                     ) : (
-                      <Text style={styles.uploadBtnText}>+ Tải lên CV (PDF / Ảnh / TXT)</Text>
+                      <Text style={styles.uploadBtnText}>
+                        {tier === 'pro'
+                          ? '+ Tải lên CV (PDF / Ảnh / TXT)'
+                          : '🔒 Tải lên CV (Chỉ gói Pro AI)'}
+                      </Text>
                     )}
                   </Pressable>
                   {selectedScenario ? (
@@ -405,16 +543,72 @@ export default function SpeakingLobbyScreen() {
               style={styles.cvInput}
             />
 
-            <Pressable style={styles.startBtn} onPress={() => void handleStart()}>
-              <Text style={styles.startBtnText}>
-                {categoryTab === 'roleplay'
-                  ? `Vào bối cảnh Roleplay 3D (${selectedScenario?.companyName}) →`
-                  : `Vào phòng phỏng vấn 3D (${selectedScenario?.companyName}) →`}
-              </Text>
+            <Pressable
+              style={[styles.startBtn, startingBusy && styles.startBtnBusy]}
+              disabled={startingBusy}
+              onPress={() => void handleStart()}
+            >
+              {startingBusy ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.startBtnText}>
+                  {categoryTab === 'roleplay'
+                    ? `Vào bối cảnh Roleplay 3D (${selectedScenario?.companyName}) →`
+                    : `Vào phòng phỏng vấn 3D (${selectedScenario?.companyName}) →`}
+                </Text>
+              )}
             </Pressable>
           </View>
         </View>
       )}
+
+      {/* Paywall Upgrade / Redeem Modal */}
+      <Modal
+        visible={paywallModal.open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPaywallModal((p) => ({ ...p, open: false }))}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              <LockClosedIcon size={18} color={nihongoTheme.colors.accentHover} />
+              <Text style={styles.modalTitle}>{paywallModal.title}</Text>
+            </View>
+            <Text style={styles.modalBody}>{paywallModal.message}</Text>
+            <View style={styles.modalActionsCol}>
+              <Pressable
+                style={styles.startBtn}
+                onPress={() => {
+                  setPaywallModal((p) => ({ ...p, open: false }));
+                  router.push('/billing?tab=plans');
+                }}
+              >
+                <Text style={styles.startBtnText}>Nâng cấp gói Plus / Pro AI (Demo) →</Text>
+              </Pressable>
+              {paywallModal.allowShop ? (
+                <Pressable
+                  style={styles.shopModalBtn}
+                  onPress={() => {
+                    setPaywallModal((p) => ({ ...p, open: false }));
+                    router.push('/billing?tab=shop');
+                  }}
+                >
+                  <Text style={styles.shopModalBtnText}>
+                    Hoặc đổi vé bằng Xu KS (Hiện có {ksBalance} KS)
+                  </Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                style={styles.closeModalBtn}
+                onPress={() => setPaywallModal((p) => ({ ...p, open: false }))}
+              >
+                <Text style={styles.closeModalText}>Để sau</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </AppShell>
   );
 }
@@ -639,5 +833,177 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 14,
+  },
+  startBtnBusy: {
+    opacity: 0.7,
+  },
+  memberStrip: {
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 14,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 10,
+    ...nihongoTheme.shadow.card,
+  },
+  memberLeft: {
+    flex: 1,
+    minWidth: 240,
+    gap: 5,
+  },
+  tierBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  tierBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  memberSubText: {
+    fontSize: 12.5,
+    color: nihongoTheme.colors.textSecondary,
+    lineHeight: 18,
+  },
+  memberActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ksChipBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
+  ksChipText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  upgradeSmallBtn: {
+    backgroundColor: nihongoTheme.colors.accent,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+  },
+  upgradeSmallText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  scenarioCardLocked: {
+    opacity: 0.85,
+    backgroundColor: '#FAF7F3',
+  },
+  cardTopLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  accessPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  accessPillOpen: {
+    backgroundColor: nihongoTheme.colors.successBg,
+  },
+  accessPillLocked: {
+    backgroundColor: nihongoTheme.colors.warningBg,
+  },
+  accessPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  accessTextOpen: {
+    color: nihongoTheme.colors.successText,
+  },
+  accessTextLocked: {
+    color: nihongoTheme.colors.warningText,
+  },
+  uploadBtnLocked: {
+    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+    borderColor: nihongoTheme.colors.borderWarm,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(30, 30, 30, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 22,
+    gap: 12,
+    ...nihongoTheme.shadow.dock,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  modalBody: {
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: nihongoTheme.colors.textSecondary,
+  },
+  modalActionsCol: {
+    gap: 8,
+    marginTop: 4,
+  },
+  shopModalBtn: {
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.accent,
+    borderRadius: nihongoTheme.radius.button,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  shopModalBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  closeModalBtn: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+  },
+  closeModalText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textMuted,
   },
 });

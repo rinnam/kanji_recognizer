@@ -12,11 +12,13 @@ import { flashcardRoutes } from './routes/flashcard.routes.js';
 import { folderRoutes } from './routes/folder.routes.js';
 import { gameRoutes } from './routes/game.routes.js';
 import { interviewRoutes } from './routes/interview.routes.js';
+import { membershipRoutes } from './routes/membership.routes.js';
 import { quizRoutes } from './routes/quiz.routes.js';
 import { syncRoutes } from './routes/sync.routes.js';
 import { transcriptRoutes } from './routes/transcript.routes.js';
 import { ttsRoutes } from './routes/tts.routes.js';
 import { vocabularyRoutes } from './routes/vocabulary.routes.js';
+import { MembershipHttpError } from './services/membership.service.js';
 import {
   DuplicateError,
   NotFoundError,
@@ -45,6 +47,14 @@ export async function buildServer(): Promise<FastifyInstance> {
         error: 'ValidationError',
         message: 'Request validation failed',
         details: error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+      });
+      return;
+    }
+    if (error instanceof MembershipHttpError) {
+      void reply.code(error.statusCode).send({
+        error: error.code,
+        code: error.code,
+        message: error.message,
       });
       return;
     }
@@ -100,6 +110,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(dictionaryRoutes, { prefix: '/api' });
   await app.register(gameRoutes, { prefix: '/api' });
   await app.register(interviewRoutes, { prefix: '/api' });
+  await app.register(membershipRoutes, { prefix: '/api' });
   await app.register(transcriptRoutes, { prefix: '/api' });
 
   return app;

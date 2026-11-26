@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Kanji Nest",
-    "slug": "kanji-nest",
-    "scheme": "kanjinest",
+    "name": "Kanji Smart",
+    "slug": "kanji-smart",
+    "scheme": "kanjismart",
     "userInterfaceStyle": "automatic",
     "android": { "softwareKeyboardLayoutMode": "resize" },
     "plugins": ["expo-router"],

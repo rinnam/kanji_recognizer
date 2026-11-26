@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { libraryEndpoint } from '../../library-source';
+import { getCachedAuthSession, readAuthSession } from '../auth/auth-store';
+import { recordMeaningfulStudyAction } from '../study-tracker/use-study-tracker';
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -30,6 +32,7 @@ export function useJapaneseMic(options?: {
   directMode?: boolean;
   scenarioId?: string;
   contextHint?: string;
+  speakingSessionToken?: string | undefined;
 }) {
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -46,11 +49,13 @@ export function useJapaneseMic(options?: {
   const onDirectAudioRef = useRef(options?.onDirectAudio);
   const scenarioIdRef = useRef(options?.scenarioId);
   const contextHintRef = useRef(options?.contextHint);
+  const speakingSessionTokenRef = useRef(options?.speakingSessionToken);
 
   directModeRef.current = Boolean(options?.directMode);
   onDirectAudioRef.current = options?.onDirectAudio;
   scenarioIdRef.current = options?.scenarioId;
   contextHintRef.current = options?.contextHint;
+  speakingSessionTokenRef.current = options?.speakingSessionToken;
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof navigator === 'undefined') return;
@@ -117,6 +122,7 @@ export function useJapaneseMic(options?: {
           setListening(false);
           return;
         }
+        recordMeaningfulStudyAction('speaking_voice_record');
 
         // 1-Shot Direct Voice Turn: pass compact audio directly to /interview/turn (zero extra round-trip!)
         if (directModeRef.current && onDirectAudioRef.current) {
@@ -135,9 +141,15 @@ export function useJapaneseMic(options?: {
         void blobToBase64(blob)
           .then(async (base64Data) => {
             const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+            const session = getCachedAuthSession() ?? (await readAuthSession());
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+            if (speakingSessionTokenRef.current) {
+              headers['x-speaking-session'] = speakingSessionTokenRef.current;
+            }
             const res = await fetch(`${base}/interview/transcribe-audio`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers,
               body: JSON.stringify({
                 mimeType: cleanMime,
                 base64Data,

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Stack, usePathname, useRouter } from 'expo-router';
+import { AntiAfkPromptModal } from '../src/components/AntiAfkPromptModal';
 import { FloatingBottomDock } from '../src/components/FloatingBottomDock';
 import { FloatingUtilityDock } from '../src/components/FloatingUtilityDock';
 import { readAuthSession } from '../src/features/auth/auth-store';
@@ -19,6 +20,12 @@ export default function RootLayout() {
 
   const isAuthPage = pathname === '/login' || pathname === '/register';
   const isOnboardingPage = pathname === '/onboarding';
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.title = 'Kanji Smart';
+    }
+  }, [pathname]);
 
   useEffect(() => {
     let active = true;
@@ -51,6 +58,7 @@ export default function RootLayout() {
       </View>
       {checked && !isAuthPage ? <FloatingBottomDock /> : null}
       {!isAuthPage ? <FloatingUtilityDock /> : null}
+      <AntiAfkPromptModal />
     </View>
   );
 }

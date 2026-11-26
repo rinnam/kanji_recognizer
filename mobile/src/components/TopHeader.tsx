@@ -3,9 +3,10 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-na
 import { useRouter } from 'expo-router';
 import { nihongoTheme } from '../theme/nihongo-theme';
 import { MomoAvatar } from './MomoAvatar';
-import { ChevronLeftIcon } from './AppIcons';
+import { ChevronLeftIcon, CoinKsIcon } from './AppIcons';
 import { DESKTOP_BREAKPOINT } from './AppShell';
 import { useIsMobilePhone } from '../utils/device';
+import { useMembership } from '../features/membership/membership-store';
 
 interface TopHeaderProps {
   mode?: 'home' | 'subpage';
@@ -30,6 +31,8 @@ export function TopHeader({
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const isPhone = useIsMobilePhone();
+  const { tier, ksBalance } = useMembership();
+  const tierShort = tier === 'pro' ? 'Pro' : tier === 'plus' ? 'Plus' : 'Free';
 
   const handleBack = () => {
     if (onBack) {
@@ -51,8 +54,8 @@ export function TopHeader({
             <Pressable style={styles.brandLeft} onPress={() => router.push('/app')}>
               <MomoAvatar size={isPhone ? 30 : 34} />
               <Text style={styles.brandText}>
-                <Text style={styles.brandDark}>Nihon</Text>
-                <Text style={styles.brandOrange}>GO</Text>
+                <Text style={styles.brandDark}>Kanji </Text>
+                <Text style={styles.brandOrange}>Smart</Text>
               </Text>
             </Pressable>
           ) : (
@@ -61,12 +64,20 @@ export function TopHeader({
 
           {mode === 'home' ? (
             <View style={styles.chipsRow}>
+              <Pressable style={styles.ksPill} onPress={() => router.push('/billing')}>
+                <CoinKsIcon size={13} color={nihongoTheme.colors.accentHover} />
+                <Text style={styles.ksPillText}>
+                  {ksBalance.toLocaleString('vi-VN')} KS · {tierShort}
+                </Text>
+              </Pressable>
               <Pressable style={styles.pill} onPress={() => router.push('/plan')}>
                 <Text style={styles.pillAccentText}>{jlptLevel}</Text>
               </Pressable>
-              <Pressable style={styles.pill} onPress={() => router.push('/plan')}>
-                <Text style={styles.pillText}>{dailyMinutes} phút/ngày</Text>
-              </Pressable>
+              {!isPhone ? (
+                <Pressable style={styles.pill} onPress={() => router.push('/plan')}>
+                  <Text style={styles.pillText}>{dailyMinutes} phút/ngày</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
         </View>
@@ -119,7 +130,25 @@ const styles = StyleSheet.create({
   chipsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
+  },
+  ksPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.accent,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    ...nihongoTheme.shadow.card,
+  },
+  ksPillText: {
+    color: nihongoTheme.colors.accentHover,
+    fontSize: 12,
+    fontWeight: '800',
   },
   pill: {
     backgroundColor: nihongoTheme.colors.surface,

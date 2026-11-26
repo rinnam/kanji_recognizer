@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { MomoAvatar } from '../../src/components/MomoAvatar';
+import { CoinKsIcon, CrownIcon } from '../../src/components/AppIcons';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import {
   DEFAULT_PROFILE,
@@ -15,16 +16,19 @@ import {
   saveAuthSession,
   type AuthSession,
 } from '../../src/features/auth/auth-store';
+import { useMembership } from '../../src/features/membership/membership-store';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<LearningProfile>(DEFAULT_PROFILE);
   const [session, setSession] = useState<AuthSession | null>(null);
+  const { summary, tier, ksBalance, refresh } = useMembership();
 
   useFocusEffect(
     useCallback(() => {
       void readLearningProfile().then(setProfile);
       void readAuthSession().then(setSession);
+      void refresh();
     }, []),
   );
 
@@ -61,8 +65,45 @@ export default function ProfileScreen() {
         <MomoAvatar size={52} />
       </View>
 
-      {/* 2-Column Grid */}
+      {/* 3-Card Grid */}
       <View style={styles.grid}>
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Gói sử dụng &amp; Ví Xu KS</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Gói hiện tại</Text>
+            <View style={styles.accentPill}>
+              <Text style={styles.accentPillText}>{summary.subscription.planName}</Text>
+            </View>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Hệ số tích Xu KS</Text>
+            <Text style={styles.infoValue}>×{summary.subscription.multiplier}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Số dư ví</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <CoinKsIcon size={15} color={nihongoTheme.colors.accentHover} />
+              <Text style={[styles.infoValue, { color: nihongoTheme.colors.accentHover }]}>
+                {ksBalance.toLocaleString('vi-VN')} KS
+              </Text>
+            </View>
+          </View>
+          {tier !== 'free' && summary.subscription.expiresAt ? (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Hạn gói (Demo)</Text>
+              <Text style={styles.infoValue}>
+                {new Date(summary.subscription.expiresAt).toLocaleDateString('vi-VN')}
+              </Text>
+            </View>
+          ) : null}
+          <Pressable style={styles.primaryBtn} onPress={() => router.push('/billing')}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <CrownIcon size={15} color="#FFFFFF" />
+              <Text style={styles.primaryBtnText}>Quản lý gói &amp; Đổi Xu KS →</Text>
+            </View>
+          </Pressable>
+        </View>
+
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Thiết lập học tập</Text>
           <View style={styles.infoRow}>

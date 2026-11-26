@@ -17,6 +17,7 @@ import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { HandwritingModal } from '../../src/features/handwriting/HandwritingModal';
 import { libraryEndpoint, loadLibrary } from '../../src/library-source';
 import { getUserScopedKey, readAuthSession } from '../../src/features/auth/auth-store';
+import { recordMeaningfulStudyAction } from '../../src/features/study-tracker/use-study-tracker';
 import { speakJapanese } from '../../src/utils/speak-japanese';
 
 interface SimpleFolder {
@@ -130,6 +131,7 @@ export default function LookupScreen() {
         setWords(data.words ?? []);
         setKanjiList(data.kanji ?? []);
         pushHistory(term);
+        recordMeaningfulStudyAction('lookup_search');
       } catch {
         setErrorMsg('Không kết nối được máy chủ từ điển. Hãy kiểm tra Backend đang chạy ở cổng 3000.');
       } finally {

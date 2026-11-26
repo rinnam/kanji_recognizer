@@ -204,10 +204,10 @@ export function LibraryOverview({ library, error, status: syncStatus, busy, onRe
       <View style={[styles.header, !compact && styles.headerWide]}>
         {compact ? <View style={styles.headerWide}>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text accessibilityRole="header" style={styles.title}>Kanji Nest</Text>
+            <Text accessibilityRole="header" style={styles.title}>Kanji Smart</Text>
             <Text accessibilityLiveRegion="polite" style={styles.muted}>{status}</Text>
           </View>
-        </View> : <Text accessibilityRole="header" style={styles.title}>Kanji Nest</Text>}
+        </View> : <Text accessibilityRole="header" style={styles.title}>Kanji Smart</Text>}
         {showSearch && <View style={[styles.searchGroup, compact ? styles.searchCompact : styles.searchWide]}>
           <TextInput
             accessibilityLabel="Tìm từ, nghĩa, cách đọc"

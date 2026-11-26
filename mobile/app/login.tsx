@@ -31,7 +31,7 @@ export default function LoginScreen() {
       <View style={styles.card}>
         <View style={styles.brand}>
           <MomoAvatar size={54} />
-          <Text style={styles.title}>Đăng nhập NihonGO</Text>
+          <Text style={styles.title}>Đăng nhập Kanji Smart</Text>
           <Text style={styles.subtitle}>Đồng bộ dữ liệu học & tham gia game đối kháng</Text>
         </View>
 

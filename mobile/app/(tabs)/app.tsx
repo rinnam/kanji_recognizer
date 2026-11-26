@@ -9,10 +9,12 @@ import { MomoAvatar } from '../../src/components/MomoAvatar';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  CoinKsIcon,
   FlameStreakIcon,
   HeadphonesSkillIcon,
   LockClosedIcon,
   ReadingSkillIcon,
+  ShieldCheckIcon,
   SpeakingSkillIcon,
   WritingSkillIcon,
 } from '../../src/components/AppIcons';
@@ -25,9 +27,17 @@ import {
 import {
   formatMmSs,
   getLocalDateKey,
+  recordMeaningfulStudyAction,
+  setDailyChallengeActive,
   STREAK_MIN_SECONDS,
   useStudyTracker,
 } from '../../src/features/study-tracker/use-study-tracker';
+import {
+  claimDailyChallenge,
+  claimDailyGoal,
+  claimStreakMilestone,
+  useMembership,
+} from '../../src/features/membership/membership-store';
 import { libraryEndpoint, loadLibrary } from '../../src/library-source';
 import { readServerCache, saveServerCache } from '../../src/workspace-storage';
 import { hydrateQuizletStates } from '../../src/features/flashcards/quizlet-srs';
@@ -67,8 +77,11 @@ export default function HomeScreen() {
   const [challengeScore, setChallengeScore] = useState(0);
   const [challengeSelected, setChallengeSelected] = useState<string | null>(null);
   const [challengeDoneToday, setChallengeDoneToday] = useState(false);
+  const [ksFeedbackMsg, setKsFeedbackMsg] = useState<string | null>(null);
+  const [claimingKs, setClaimingKs] = useState(false);
 
   const study = useStudyTracker(profile.dailyMinutes);
+  const { summary: membership, refresh: refreshMem } = useMembership();
 
   useFocusEffect(
     useCallback(() => {
@@ -76,6 +89,7 @@ export default function HomeScreen() {
       void readLearningProfile().then((p) => {
         if (active) setProfile(p);
       });
+      void refreshMem();
 
       const todayKey = getLocalDateKey();
       void getUserScopedKey(DAILY_CHALLENGE_KEY)
@@ -187,10 +201,17 @@ export default function HomeScreen() {
     setChallengeScore(0);
     setChallengeSelected(null);
     setChallengeOpen(true);
+    setDailyChallengeActive(true);
+  };
+
+  const closeChallengeModal = () => {
+    setChallengeOpen(false);
+    setDailyChallengeActive(false);
   };
 
   const handlePickChoice = (choice: string) => {
     if (challengeSelected) return;
+    recordMeaningfulStudyAction('daily_challenge_answer');
     setChallengeSelected(choice);
     const q = challengeQuestions[challengeIdx];
     if (q && choice === q.correctAnswer) {
@@ -200,15 +221,25 @@ export default function HomeScreen() {
 
   const handleNextChallenge = () => {
     if (challengeIdx + 1 >= challengeQuestions.length) {
+      const finalScore = challengeScore;
       setChallengeDoneToday(true);
-      setChallengeOpen(false);
+      closeChallengeModal();
       void getUserScopedKey(DAILY_CHALLENGE_KEY)
         .then((cKey) =>
           AsyncStorage.setItem(
             cKey,
-            JSON.stringify({ date: getLocalDateKey(), score: challengeScore }),
+            JSON.stringify({ date: getLocalDateKey(), score: finalScore }),
           ),
         )
+        .catch(() => undefined);
+      void claimDailyChallenge(finalScore)
+        .then((res) => {
+          if (res.applied && res.delta > 0) {
+            setKsFeedbackMsg(
+              `Hoàn thành Thử thách (${finalScore}/${challengeQuestions.length}): Nhận +${res.delta} Xu KS!`,
+            );
+          }
+        })
         .catch(() => undefined);
       return;
     }
@@ -216,7 +247,40 @@ export default function HomeScreen() {
     setChallengeIdx((i) => i + 1);
   };
 
+  const handleClaimDailyGoalKs = async () => {
+    if (claimingKs) return;
+    setClaimingKs(true);
+    try {
+      const res = await claimDailyGoal();
+      if (res.applied) {
+        setKsFeedbackMsg(`Đạt mục tiêu ${profile.dailyMinutes} phút: Đã cộng +${res.delta} Xu KS!`);
+      }
+    } catch (err) {
+      setKsFeedbackMsg(err instanceof Error ? err.message : 'Chưa thể nhận Xu mục tiêu hôm nay.');
+    } finally {
+      setClaimingKs(false);
+    }
+  };
+
+  const handleClaimStreakKs = async (days: 3 | 7 | 14 | 30) => {
+    if (claimingKs) return;
+    setClaimingKs(true);
+    try {
+      const res = await claimStreakMilestone(days);
+      if (res.applied) {
+        setKsFeedbackMsg(`Mốc chuỗi ${days} ngày liên tiếp: Đã cộng +${res.delta} Xu KS!`);
+      }
+    } catch (err) {
+      setKsFeedbackMsg(err instanceof Error ? err.message : 'Không nhận được Xu mốc chuỗi.');
+    } finally {
+      setClaimingKs(false);
+    }
+  };
+
   const remainingStreakSecs = Math.max(0, STREAK_MIN_SECONDS - study.todaySeconds);
+  const claimableMilestone = membership.streakStatus.milestones.find((m) => m.status === 'claimable');
+  const goalReachedLocal = study.todaySeconds >= study.goalSeconds || membership.todayGoalStatus.eligible;
+  const canClaimGoalKs = goalReachedLocal && !membership.todayGoalStatus.claimed;
 
   return (
     <AppShell>
@@ -251,12 +315,25 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {ksFeedbackMsg ? (
+        <Pressable style={styles.ksNoticeBox} onPress={() => router.push('/billing?tab=shop')}>
+          <CoinKsIcon size={16} color={nihongoTheme.colors.accentHover} />
+          <Text style={styles.ksNoticeText}>{ksFeedbackMsg} Xem ví Xu →</Text>
+        </Pressable>
+      ) : null}
+
       {/* Live Daily Goal Card */}
       <View style={styles.card}>
         <View style={styles.rowBetween}>
           <Text style={styles.cardTitle}>Mục tiêu hôm nay</Text>
-          <View style={styles.softBadge}>
-            <Text style={styles.softBadgeText}>{study.percent}%</Text>
+          <View style={styles.goalBadgesRow}>
+            <View style={styles.ksRewardBadge}>
+              <CoinKsIcon size={12} color={nihongoTheme.colors.accentHover} />
+              <Text style={styles.ksRewardBadgeText}>+{membership.todayGoalStatus.rewardKs} KS</Text>
+            </View>
+            <View style={styles.softBadge}>
+              <Text style={styles.softBadgeText}>{study.percent}%</Text>
+            </View>
           </View>
         </View>
         <Text style={styles.goalTimer}>
@@ -276,6 +353,29 @@ export default function HomeScreen() {
               : `Học thêm ${remainingStreakSecs} giây nữa để kích hoạt chuỗi hôm nay`}
           </Text>
         </View>
+        <View style={styles.antiAfkStrip}>
+          <ShieldCheckIcon size={14} color={nihongoTheme.colors.successText} />
+          <Text style={styles.antiAfkText}>
+            {study.timerStatus === 'counting'
+              ? 'Đang tính giờ học hợp lệ (Anti-AFK bật)'
+              : 'Đang tạm dừng trên Trang chủ — vào Flashcard, Nghe, Đọc, Viết hoặc Thử thách để tính giờ thật.'}
+          </Text>
+        </View>
+        {canClaimGoalKs ? (
+          <Pressable
+            style={styles.claimKsBtn}
+            disabled={claimingKs}
+            onPress={() => void handleClaimDailyGoalKs()}
+          >
+            <Text style={styles.claimKsBtnText}>
+              {claimingKs ? 'Đang nhận Xu...' : `Nhận thưởng +${membership.todayGoalStatus.rewardKs} Xu KS`}
+            </Text>
+          </Pressable>
+        ) : membership.todayGoalStatus.claimed ? (
+          <Text style={styles.claimedKsLabel}>
+            ✓ Đã nhận +{membership.todayGoalStatus.rewardKs} Xu KS mục tiêu hôm nay
+          </Text>
+        ) : null}
       </View>
 
       {/* Annual Study Heatmap */}
@@ -319,6 +419,20 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {claimableMilestone ? (
+          <Pressable
+            style={styles.milestoneClaimBar}
+            disabled={claimingKs}
+            onPress={() =>
+              void handleClaimStreakKs(claimableMilestone.days as 3 | 7 | 14 | 30)
+            }
+          >
+            <Text style={styles.milestoneClaimText}>
+              🎉 Đạt mốc chuỗi {claimableMilestone.days} ngày liên tiếp — Bấm nhận +{claimableMilestone.rewardKs} Xu KS!
+            </Text>
+          </Pressable>
+        ) : null}
+
         {/* Live 26-week Heatmap */}
         <View style={styles.heatmapPlaceholder}>
           {Array.from({ length: 7 }).map((_, rowIdx) => (
@@ -355,11 +469,19 @@ export default function HomeScreen() {
         </View>
 
         <View style={[styles.card, styles.flexCard]}>
-          <Text style={styles.cardTitle}>Thử thách hôm nay</Text>
+          <View style={styles.rowBetween}>
+            <Text style={styles.cardTitle}>Thử thách hôm nay</Text>
+            <View style={styles.ksRewardBadge}>
+              <CoinKsIcon size={12} color={nihongoTheme.colors.accentHover} />
+              <Text style={styles.ksRewardBadgeText}>Tới 30+ KS</Text>
+            </View>
+          </View>
           <Text style={styles.cardSubtitle}>
             {challengeDoneToday
-              ? `Bạn đã hoàn thành thử thách hôm nay (${challengeScore}/${challengeQuestions.length} câu đúng)!`
-              : 'Mỗi ngày có tối đa 5 câu hỏi trắc nghiệm nhanh từ kho từ của bạn.'}
+              ? `Bạn đã hoàn thành thử thách hôm nay (${challengeScore}/${challengeQuestions.length} câu đúng)${
+                  membership.todayChallengeClaimed ? ' · ✓ Đã cộng Xu KS' : ''
+                }!`
+              : '+4 KS / câu đúng · +10 KS thưởng hoàn hảo 5/5 câu từ kho từ của bạn.'}
           </Text>
           <Pressable
             style={[styles.primaryBtn, challengeQuestions.length === 0 && styles.disabledBtn]}
@@ -449,14 +571,14 @@ export default function HomeScreen() {
       </Pressable>
 
       {/* Daily 5-Question Challenge Modal */}
-      <Modal visible={challengeOpen} transparent animationType="fade" onRequestClose={() => setChallengeOpen(false)}>
+      <Modal visible={challengeOpen} transparent animationType="fade" onRequestClose={closeChallengeModal}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.rowBetween}>
               <Text style={styles.cardTitle}>
                 Thử thách hôm nay ({challengeIdx + 1}/{challengeQuestions.length})
               </Text>
-              <Pressable onPress={() => setChallengeOpen(false)}>
+              <Pressable onPress={closeChallengeModal}>
                 <Text style={styles.closeText}>Đóng</Text>
               </Pressable>
             </View>
@@ -902,5 +1024,91 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: nihongoTheme.colors.warningText,
     lineHeight: 18,
+  },
+  ksNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.accent,
+    borderRadius: nihongoTheme.radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  ksNoticeText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  goalBadgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  ksRewardBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  ksRewardBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  antiAfkStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  antiAfkText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: nihongoTheme.colors.textSecondary,
+    lineHeight: 16,
+  },
+  claimKsBtn: {
+    backgroundColor: nihongoTheme.colors.accent,
+    borderRadius: nihongoTheme.radius.button,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  claimKsBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  claimedKsLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: nihongoTheme.colors.successText,
+  },
+  milestoneClaimBar: {
+    backgroundColor: nihongoTheme.colors.successBg,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.successText,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  milestoneClaimText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: nihongoTheme.colors.successText,
+    textAlign: 'center',
   },
 });

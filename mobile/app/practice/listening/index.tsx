@@ -27,6 +27,7 @@ import {
   type VideoFolder,
 } from '../../../src/features/shadowing/video-library-store';
 import { fetchTranscriptApi, parseYouTubeVideoId } from '../../../src/features/shadowing/shadowing-api';
+import { recordMeaningfulStudyAction } from '../../../src/features/study-tracker/use-study-tracker';
 import type { AnalyzedToken, ShadowingLine, SampleVideoItem } from '../../../src/features/shadowing/types';
 
 export default function ListeningScreen() {
@@ -159,6 +160,7 @@ export default function ListeningScreen() {
   };
 
   const handleTogglePlay = () => {
+    recordMeaningfulStudyAction('listening_play_toggle');
     if (isPlaying) {
       playerRef.current?.pause();
     } else {
@@ -167,6 +169,7 @@ export default function ListeningScreen() {
   };
 
   const handleSeekRelative = (seconds: number) => {
+    recordMeaningfulStudyAction('listening_seek');
     const cur = playerRef.current?.getCurrentTime() || 0;
     const target = Math.max(0, cur + seconds);
     playerRef.current?.seekTo(target);
@@ -174,6 +177,7 @@ export default function ListeningScreen() {
 
   const handleSelectLine = (index: number) => {
     if (index >= 0 && index < lines.length) {
+      recordMeaningfulStudyAction('listening_select_line');
       setCurrentIndex(index);
       lastPausedLineRef.current = -1;
       playerRef.current?.seekTo(lines[index].start);
@@ -495,8 +499,14 @@ export default function ListeningScreen() {
 
               <CurrentSentenceView
                 line={currentLine}
-                onSelectToken={(token) => setSelectedToken(token)}
-                onReplayLine={handleReplayCurrentLine}
+                onSelectToken={(token) => {
+                  recordMeaningfulStudyAction('listening_token');
+                  setSelectedToken(token);
+                }}
+                onReplayLine={() => {
+                  recordMeaningfulStudyAction('listening_replay');
+                  handleReplayCurrentLine();
+                }}
                 isLooping={isLooping}
                 onToggleLoop={() => setIsLooping((prev) => !prev)}
               />

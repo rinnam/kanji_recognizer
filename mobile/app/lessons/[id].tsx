@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
+import { recordMeaningfulStudyAction } from '../../src/features/study-tracker/use-study-tracker';
 
 export default function LessonDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,7 +28,10 @@ export default function LessonDetailScreen() {
         <Text style={styles.toggleLabel}>Ẩn nghĩa để tự ôn</Text>
         <Switch
           value={hideMeaning}
-          onValueChange={setHideMeaning}
+          onValueChange={(val) => {
+            recordMeaningfulStudyAction('lesson_toggle');
+            setHideMeaning(val);
+          }}
           trackColor={{ false: '#E5DDD4', true: nihongoTheme.colors.accent }}
         />
       </View>

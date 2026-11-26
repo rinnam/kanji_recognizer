@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { AppShell } from '../../../src/components/AppShell';
 import { TopHeader } from '../../../src/components/TopHeader';
 import { nihongoTheme } from '../../../src/theme/nihongo-theme';
 import { libraryEndpoint } from '../../../src/library-source';
 import { readAuthSession } from '../../../src/features/auth/auth-store';
+import { useMembership } from '../../../src/features/membership/membership-store';
+import { recordMeaningfulStudyAction } from '../../../src/features/study-tracker/use-study-tracker';
 import { speakJapanese } from '../../../src/utils/speak-japanese';
 
 interface ReadingQuestion {
@@ -30,10 +33,13 @@ const LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'] as const;
 const GENRES = ['Đoản văn', 'Email công sở', 'Tin tức ngắn', 'Hội thoại đời sống'] as const;
 
 export default function ReadingScreen() {
+  const router = useRouter();
+  const { summary, tier, refresh: refreshMembership } = useMembership();
   const [level, setLevel] = useState<(typeof LEVELS)[number]>('N3');
   const [genre, setGenre] = useState<(typeof GENRES)[number]>('Đoản văn');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [quotaBlocked, setQuotaBlocked] = useState(false);
   const [reading, setReading] = useState<GeneratedReading | null>(null);
 
   const [showKana, setShowKana] = useState(false);
@@ -83,8 +89,10 @@ export default function ReadingScreen() {
 
   const handleGenerate = async () => {
     if (loading) return;
+    recordMeaningfulStudyAction('reading_generate');
     setLoading(true);
     setErrorMsg(null);
+    setQuotaBlocked(false);
     setSelectedAnswers({});
     setChecked(false);
     setSrsDoneCount(null);
@@ -102,9 +110,18 @@ export default function ReadingScreen() {
         headers,
         body: JSON.stringify({ level, genre }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const errData = (await res.json().catch(() => ({}))) as { message?: string };
+        if (res.status === 403) {
+          setQuotaBlocked(true);
+          setErrorMsg(errData.message || 'Bạn đã dùng hết lượt Luyện đọc AI tuần này.');
+          return;
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
       const data = (await res.json()) as GeneratedReading;
       setReading(data);
+      void refreshMembership();
     } catch {
       setErrorMsg('Không tạo được bài đọc AI (có thể Google AI đang bận). Hãy thử lại sau vài giây.');
     } finally {
@@ -128,6 +145,19 @@ export default function ReadingScreen() {
         subtitle="AI tự lấy các từ bạn cần ôn trong Flashcard để sáng tác bài đọc hiểu JLPT kèm câu hỏi A–D"
       />
 
+      <View style={styles.quotaStrip}>
+        <Text style={styles.quotaText}>
+          {summary.usage.readingLimitWeek === null
+            ? `${summary.subscription.planName}: Không giới hạn bài đọc AI`
+            : `${summary.subscription.planName}: Đã dùng ${summary.usage.readingUsedWeek}/${summary.usage.readingLimitWeek} bài tuần này`}
+        </Text>
+        <Pressable style={styles.quotaUpgradeBtn} onPress={() => router.push('/billing?tab=plans')}>
+          <Text style={styles.quotaUpgradeText}>
+            {tier === 'pro' ? 'Xem gói' : 'Nâng cấp gói'}
+          </Text>
+        </Pressable>
+      </View>
+
       {/* Config Panel */}
       <View style={styles.card}>
         <Text style={styles.sectionLabel}>1. Chọn cấp độ JLPT</Text>
@@ -136,7 +166,10 @@ export default function ReadingScreen() {
             <Pressable
               key={lv}
               style={[styles.chip, level === lv && styles.chipActive]}
-              onPress={() => setLevel(lv)}
+              onPress={() => {
+                recordMeaningfulStudyAction('reading_level');
+                setLevel(lv);
+              }}
             >
               <Text style={[styles.chipText, level === lv && styles.chipTextActive]}>{lv}</Text>
             </Pressable>
@@ -149,7 +182,10 @@ export default function ReadingScreen() {
             <Pressable
               key={g}
               style={[styles.chip, genre === g && styles.chipActive]}
-              onPress={() => setGenre(g)}
+              onPress={() => {
+                recordMeaningfulStudyAction('reading_genre');
+                setGenre(g);
+              }}
             >
               <Text style={[styles.chipText, genre === g && styles.chipTextActive]}>{g}</Text>
             </Pressable>
@@ -177,6 +213,14 @@ export default function ReadingScreen() {
       {errorMsg ? (
         <View style={styles.errorCard}>
           <Text style={styles.errorText}>{errorMsg}</Text>
+          {quotaBlocked ? (
+            <Pressable
+              style={[styles.primaryBtn, { marginTop: 10 }]}
+              onPress={() => router.push('/billing?tab=plans')}
+            >
+              <Text style={styles.primaryBtnText}>Nâng cấp gói Plus / Pro →</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -295,6 +339,7 @@ export default function ReadingScreen() {
                           ]}
                           onPress={() => {
                             if (checked) return;
+                            recordMeaningfulStudyAction('reading_answer');
                             setSelectedAnswers((prev) => ({ ...prev, [qIdx]: oIdx }));
                           }}
                         >
@@ -316,6 +361,7 @@ export default function ReadingScreen() {
               <Pressable
                 style={styles.primaryBtn}
                 onPress={() => {
+                  recordMeaningfulStudyAction('reading_grade');
                   setChecked(true);
                   const score = reading.questions.reduce(
                     (sum, q, idx) => sum + (selectedAnswers[idx] === q.correctIndex ? 1 : 0),
@@ -714,5 +760,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: nihongoTheme.colors.textSecondary,
     lineHeight: 20,
+  },
+  quotaStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  quotaText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  quotaUpgradeBtn: {
+    backgroundColor: nihongoTheme.colors.accent,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  quotaUpgradeText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '800',
   },
 });

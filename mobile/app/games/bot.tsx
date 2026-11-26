@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
+import { recordMeaningfulStudyAction } from '../../src/features/study-tracker/use-study-tracker';
 
 export default function BotGameScreen() {
   const [difficulty, setDifficulty] = useState<'Dễ' | 'Vừa' | 'Khó'>('Vừa');
@@ -19,7 +20,10 @@ export default function BotGameScreen() {
             <Pressable
               key={d}
               style={[styles.chip, difficulty === d && styles.chipActive]}
-              onPress={() => setDifficulty(d)}
+              onPress={() => {
+                recordMeaningfulStudyAction('game_option');
+                setDifficulty(d);
+              }}
             >
               <Text style={[styles.chipText, difficulty === d && styles.chipTextActive]}>{d}</Text>
             </Pressable>
@@ -32,7 +36,10 @@ export default function BotGameScreen() {
             <Pressable
               key={lv}
               style={[styles.chip, level === lv && styles.chipActive]}
-              onPress={() => setLevel(lv)}
+              onPress={() => {
+                recordMeaningfulStudyAction('game_option');
+                setLevel(lv);
+              }}
             >
               <Text style={[styles.chipText, level === lv && styles.chipTextActive]}>{lv}</Text>
             </Pressable>

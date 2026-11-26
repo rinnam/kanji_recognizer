@@ -97,6 +97,19 @@ export async function getUserStudyState(userId: string): Promise<{
   return { logs, profile };
 }
 
+function getVietnamTodayKey(): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === 'year')?.value ?? '2026';
+  const m = parts.find((p) => p.type === 'month')?.value ?? '01';
+  const d = parts.find((p) => p.type === 'day')?.value ?? '01';
+  return `${y}-${m}-${d}`;
+}
+
 export async function saveUserStudyState(
   userId: string,
   payload: {
@@ -108,6 +121,7 @@ export async function saveUserStudyState(
   profile: LearningProfileDto | null;
 }> {
   await ensureStudyStateTables();
+  const serverTodayKey = getVietnamTodayKey();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -124,16 +138,32 @@ export async function saveUserStudyState(
       for (const item of entries) {
         const secs = Math.max(0, Math.round(item.seconds));
         const goalSecs = Math.max(60, Math.round(item.goalSeconds || 1800));
-        await client.query(
-          `INSERT INTO user_study_logs (user_id, study_date, seconds, goal_seconds, updated_at, deleted_at)
-           VALUES ($1, $2, $3, $4, now(), NULL)
-           ON CONFLICT (user_id, study_date) DO UPDATE SET
-             seconds = GREATEST(user_study_logs.seconds, EXCLUDED.seconds),
-             goal_seconds = EXCLUDED.goal_seconds,
-             updated_at = now(),
-             deleted_at = NULL`,
-          [userId, item.date, secs, goalSecs],
-        );
+        // Anti-AFK Layer 4: today/future seconds must grow via /api/study/heartbeat;
+        // PUT /api/auth/study-state caps any bump on today/future dates to +25s max.
+        if (item.date >= serverTodayKey) {
+          const cappedInitial = Math.min(secs, 25);
+          await client.query(
+            `INSERT INTO user_study_logs (user_id, study_date, seconds, goal_seconds, updated_at, deleted_at)
+             VALUES ($1, $2, $3, $4, now(), NULL)
+             ON CONFLICT (user_id, study_date) DO UPDATE SET
+               seconds = LEAST(GREATEST(user_study_logs.seconds, $5), user_study_logs.seconds + 25),
+               goal_seconds = EXCLUDED.goal_seconds,
+               updated_at = now(),
+               deleted_at = NULL`,
+            [userId, item.date, cappedInitial, goalSecs, secs],
+          );
+        } else {
+          await client.query(
+            `INSERT INTO user_study_logs (user_id, study_date, seconds, goal_seconds, updated_at, deleted_at)
+             VALUES ($1, $2, $3, $4, now(), NULL)
+             ON CONFLICT (user_id, study_date) DO UPDATE SET
+               seconds = GREATEST(user_study_logs.seconds, EXCLUDED.seconds),
+               goal_seconds = EXCLUDED.goal_seconds,
+               updated_at = now(),
+               deleted_at = NULL`,
+            [userId, item.date, secs, goalSecs],
+          );
+        }
       }
     }
 

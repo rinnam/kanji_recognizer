@@ -15,6 +15,16 @@ import { AppShell } from '../../../src/components/AppShell';
 import { TopHeader } from '../../../src/components/TopHeader';
 import { nihongoTheme } from '../../../src/theme/nihongo-theme';
 import { libraryEndpoint } from '../../../src/library-source';
+import {
+  getCachedAuthSession,
+  getUserScopedKey,
+  readAuthSession,
+} from '../../../src/features/auth/auth-store';
+import {
+  MembershipApiError,
+  startSpeakingSession,
+} from '../../../src/features/membership/membership-store';
+import { recordMeaningfulStudyAction } from '../../../src/features/study-tracker/use-study-tracker';
 import { useIsMobilePhone } from '../../../src/utils/device';
 import { speakJapanese } from '../../../src/utils/speak-japanese';
 import {
@@ -38,7 +48,7 @@ import {
   useJapaneseMic,
   type RecordedAudioPayload,
 } from '../../../src/features/interview/use-japanese-mic';
-import { INTERVIEW_CV_STORAGE_KEY } from './index';
+import { INTERVIEW_CV_STORAGE_KEY, SPEAKING_SESSION_STORAGE_KEY } from './index';
 
 type InterviewStage =
   | 'jikoshokai'
@@ -326,24 +336,89 @@ export default function Interview3DRoomScreen() {
   const [lastFailedText, setLastFailedText] = useState<string | null>(null);
   const [propModalKind, setPropModalKind] = useState<PropModalKind>(null);
   const [outcomeCard, setOutcomeCard] = useState<OutcomeCardData | null>(null);
+  const [speakingSessionToken, setSpeakingSessionToken] = useState<string | undefined>(undefined);
+  const [accessMode, setAccessMode] = useState<'pro' | 'plus_quota' | 'free_ticket' | null>(null);
+  const [viaLabel, setViaLabel] = useState<string | null>(null);
+  const [accessBlockedMsg, setAccessBlockedMsg] = useState<string | null>(null);
 
   const directAudioHandlerRef = useRef<(payload: RecordedAudioPayload) => void>(() => {});
   const mic = useJapaneseMic({
     directMode: false,
     scenarioId: scenario?.id,
     contextHint: cvSummary,
+    speakingSessionToken,
     onDirectAudio: (payload) => directAudioHandlerRef.current(payload),
   });
   const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
 
   useEffect(() => {
+    let active = true;
+    const targetScenario = scenarioId || 'it_engineer';
+    void getUserScopedKey(SPEAKING_SESSION_STORAGE_KEY)
+      .then((key) => AsyncStorage.getItem(key))
+      .then(async (raw) => {
+        if (!active) return;
+        let stored: {
+          scenarioId?: string;
+          speakingSessionToken?: string;
+          accessMode?: 'pro' | 'plus_quota' | 'free_ticket';
+          viaDescription?: string;
+          savedAt?: number;
+        } | null = null;
+        if (raw) {
+          try {
+            stored = JSON.parse(raw);
+          } catch {
+            stored = null;
+          }
+        }
+        const validStored =
+          stored?.speakingSessionToken &&
+          stored.scenarioId === targetScenario &&
+          stored.savedAt &&
+          Date.now() - stored.savedAt < 50 * 60_000;
+        if (validStored && stored) {
+          setSpeakingSessionToken(stored.speakingSessionToken);
+          setAccessMode(stored.accessMode ?? null);
+          setViaLabel(stored.viaDescription ?? null);
+          return;
+        }
+        // Direct navigation/refresh fallback: verify & consume access from backend
+        try {
+          const granted = await startSpeakingSession(targetScenario);
+          if (!active) return;
+          setSpeakingSessionToken(granted.speakingSessionToken);
+          setAccessMode(granted.accessMode);
+          setViaLabel(granted.viaDescription);
+          const sKey = await getUserScopedKey(SPEAKING_SESSION_STORAGE_KEY);
+          await AsyncStorage.setItem(
+            sKey,
+            JSON.stringify({
+              scenarioId: targetScenario,
+              speakingSessionToken: granted.speakingSessionToken,
+              accessMode: granted.accessMode,
+              viaDescription: granted.viaDescription,
+              savedAt: Date.now(),
+            }),
+          );
+        } catch (err) {
+          if (!active) return;
+          setAccessBlockedMsg(
+            err instanceof MembershipApiError
+              ? err.message
+              : 'Bạn chưa mở khóa kịch bản Luyện nói 3D này. Hãy nâng cấp gói Plus/Pro AI hoặc đổi vé Xu KS.',
+          );
+        }
+      });
+
     void AsyncStorage.getItem(INTERVIEW_CV_STORAGE_KEY).then((val) => {
-      if (val) setCvSummary(val);
+      if (active && val) setCvSummary(val);
     });
     const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
     void fetch(`${base}/interview/scenarios`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { scenarios?: ScenarioInfo[] } | null) => {
+        if (!active) return;
         const list = data?.scenarios ?? [];
         const picked = list.find((s) => s.id === scenarioId) ?? list[0];
         if (!picked) return;
@@ -382,7 +457,12 @@ export default function Interview3DRoomScreen() {
           ]);
         }
       })
-      .catch(() => setErrorMsg('Không tải được kịch bản từ Backend.'));
+      .catch(() => {
+        if (active) setErrorMsg('Không tải được kịch bản từ Backend.');
+      });
+    return () => {
+      active = false;
+    };
   }, [scenarioId]);
 
   useEffect(() => {
@@ -419,6 +499,7 @@ export default function Interview3DRoomScreen() {
 
   const handleRoleplayEnter = () => {
     if (!scenario || flowStep !== 'roleplay_entrance') return;
+    recordMeaningfulStudyAction('speaking_roleplay_enter');
     if (scenario.id === 'roleplay_restaurant') {
       playShopBellSfx();
       addLog('candidate', '（引き戸を開けて入店… カランコロン♪）');
@@ -440,6 +521,7 @@ export default function Interview3DRoomScreen() {
   // STEP 1: Knock on the 3D door (must be 3 times!)
   const handleKnockDoor = (fromButton = false) => {
     if (flowStep !== 'knock_door') return;
+    recordMeaningfulStudyAction('speaking_knock');
     if (fromButton) playDoorKnockSfx();
     const next = knockCount + 1;
     setKnockCount(next);
@@ -598,6 +680,7 @@ export default function Interview3DRoomScreen() {
   const handleQaTurn = async (rawText: string, directAudio?: RecordedAudioPayload) => {
     const clean = rawText.trim();
     if (!scenario || (!clean && !directAudio) || submitting) return;
+    recordMeaningfulStudyAction('speaking_turn');
     if (mic.listening) mic.stopListening();
     setSubmitting(true);
     setErrorMsg(null);
@@ -620,9 +703,13 @@ export default function Interview3DRoomScreen() {
 
     try {
       const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+      const session = getCachedAuthSession() ?? (await readAuthSession());
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+      if (speakingSessionToken) headers['x-speaking-session'] = speakingSessionToken;
       const res = await fetch(`${base}/interview/turn`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           scenarioId: scenario.id,
           stage: qaStage,
@@ -637,9 +724,19 @@ export default function Interview3DRoomScreen() {
           action: 'speak',
         }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const errBody = (await res.json().catch(() => ({}))) as { message?: string };
+        if (res.status === 403) {
+          setAccessBlockedMsg(
+            errBody.message || 'Phiên Luyện nói 3D chưa được mở khóa hoặc đã hết hạn.',
+          );
+          return;
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
       const data = (await res.json()) as {
         candidateTranscript?: string;
+        rubricLimited?: boolean;
         replyJa: string;
         replyReading: string;
         replyVi: string;
@@ -648,6 +745,9 @@ export default function Interview3DRoomScreen() {
         outcomeCard?: OutcomeCardData;
         evaluation: EvaluationDto;
       };
+      if (data.rubricLimited && !accessMode) {
+        setAccessMode('free_ticket');
+      }
 
       const correctedText = data.candidateTranscript?.trim();
       if (correctedText && (directAudio || correctedText !== clean)) {
@@ -852,11 +952,40 @@ export default function Interview3DRoomScreen() {
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>🔒 Đã khóa trên điện thoại</Text>
           <Text style={styles.summaryScore}>
-            Hãy mở Kanji Nest trên trình duyệt máy tính (Web PC) để trải nghiệm không gian 3D và hội thoại cùng AI.
+            Hãy mở Kanji Smart trên trình duyệt máy tính (Web PC) để trải nghiệm không gian 3D và hội thoại cùng AI.
           </Text>
           <Pressable style={styles.primaryBtn} onPress={() => router.replace('/practice')}>
             <Text style={styles.primaryBtnText}>← Quay lại mục Luyện tập</Text>
           </Pressable>
+        </View>
+      </AppShell>
+    );
+  }
+
+  if (accessBlockedMsg) {
+    return (
+      <AppShell>
+        <TopHeader
+          mode="subpage"
+          title="Phỏng vấn & Roleplay 3D"
+          subtitle="Tính năng yêu cầu gói Plus / Pro AI hoặc vé đổi bằng Xu KS"
+        />
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>🔒 Chưa mở khóa kịch bản này</Text>
+          <Text style={styles.summaryScore}>{accessBlockedMsg}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            <Pressable style={styles.primaryBtn} onPress={() => router.replace('/billing?tab=plans')}>
+              <Text style={styles.primaryBtnText}>Nâng cấp Plus / Pro AI (Demo) →</Text>
+            </Pressable>
+            {(scenarioId ?? '') !== 'it_engineer' ? (
+              <Pressable style={styles.retryBtn} onPress={() => router.replace('/billing?tab=shop')}>
+                <Text style={styles.retryBtnText}>Đổi vé bằng Xu KS</Text>
+              </Pressable>
+            ) : null}
+            <Pressable style={styles.retryBtn} onPress={() => router.replace('/practice/speaking')}>
+              <Text style={styles.retryBtnText}>Quay lại chọn kịch bản</Text>
+            </Pressable>
+          </View>
         </View>
       </AppShell>
     );
@@ -875,6 +1004,17 @@ export default function Interview3DRoomScreen() {
             : 'Đang chuẩn bị bối cảnh 3D...'
         }
       />
+
+      {accessMode === 'free_ticket' ? (
+        <View style={styles.ticketNoticeBar}>
+          <Text style={styles.ticketNoticeText}>
+            🎟️ {viaLabel || 'Đang dùng vé đổi từ Xu KS'} · Chế độ chấm cơ bản (nâng cấp Pro AI để mở trọn vẹn Rubric PREP/STAR &amp; không giới hạn lượt).
+          </Text>
+          <Pressable onPress={() => router.push('/billing?tab=plans')}>
+            <Text style={styles.ticketUpgradeLink}>Nâng cấp Pro →</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {/* Dynamic Progress Bar: 4-step Roleplay OR 6-step Real Japanese Interview */}
       <View style={styles.stageBar}>
@@ -952,7 +1092,7 @@ export default function Interview3DRoomScreen() {
             mood={mood}
             knockCount={knockCount}
             interviewerName={scenario?.interviewerName || 'Nhân vật 3D'}
-            companyName={scenario?.companyName || 'Kanji Nest Japan'}
+            companyName={scenario?.companyName || 'Kanji Smart Japan'}
             onDoorClick={() => {
               if (flowStep === 'roleplay_entrance') {
                 handleRoleplayEnter();
@@ -1950,5 +2090,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: nihongoTheme.colors.textPrimary,
+  },
+  ticketNoticeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    marginBottom: 12,
+  },
+  ticketNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    color: nihongoTheme.colors.accentHover,
+    lineHeight: 17,
+  },
+  ticketUpgradeLink: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accent,
   },
 });

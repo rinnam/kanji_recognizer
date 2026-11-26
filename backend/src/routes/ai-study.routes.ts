@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { verifyToken } from '../services/auth.service.js';
+import { extractBearerUser, verifyToken } from '../services/auth.service.js';
+import { assertFeatureQuota } from '../services/membership.service.js';
 import {
   extractFlashcardsWithAi,
   generateKanjiMnemonic,
@@ -47,13 +48,17 @@ export const aiStudyRoutes: FastifyPluginAsync = async (app) => {
       const user = verifyToken(authHeader.slice(7).trim());
       if (user?.id) userId = user.id;
     }
+    let quota: { used: number; limit: number | null } | undefined;
+    if (userId) {
+      quota = await assertFeatureQuota(userId, 'reading_ai');
+    }
     const result = await generateSrsReading({
       userId,
       level: parsed.level,
       genre: parsed.genre,
       folderId: parsed.folderId,
     });
-    return reply.send(result);
+    return reply.send(quota ? { ...result, quota } : result);
   });
 
   app.post('/ai/reading/complete-srs', async (req, reply) => {
@@ -73,8 +78,13 @@ export const aiStudyRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/ai/writing/grade', async (req, reply) => {
     const parsed = writingSchema.parse(req.body ?? {});
+    const user = extractBearerUser(req.headers.authorization);
+    let quota: { used: number; limit: number | null } | undefined;
+    if (user?.id) {
+      quota = await assertFeatureQuota(user.id, 'writing_ai');
+    }
     const result = await gradeJapaneseWriting(parsed);
-    return reply.send(result);
+    return reply.send(quota ? { ...result, quota } : result);
   });
 
   app.post(
