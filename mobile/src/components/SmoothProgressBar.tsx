@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { Animated, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 
 interface SmoothProgressBarProps {
@@ -10,9 +10,7 @@ interface SmoothProgressBarProps {
   style?: ViewStyle;
 }
 
-const USE_NATIVE_DRIVER = Platform.OS !== 'web';
-
-export function SmoothProgressBar({
+export const SmoothProgressBar = memo(function SmoothProgressBar({
   progress,
   color,
   trackColor = '#F4F2EF',
@@ -32,9 +30,6 @@ export function SmoothProgressBar({
     [progress, trackWidth],
   );
 
-  // Use native-driven transform when width is known, smooth GPU compositing
-  void USE_NATIVE_DRIVER;
-
   return (
     <View
       onLayout={(e) => {
@@ -50,6 +45,7 @@ export function SmoothProgressBar({
       ]}
     >
       <Animated.View
+        renderToHardwareTextureAndroid
         style={[
           styles.fill,
           {
@@ -61,7 +57,7 @@ export function SmoothProgressBar({
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   track: {
@@ -71,5 +67,6 @@ const styles = StyleSheet.create({
   fill: {
     width: '100%',
     height: '100%',
+    ...(Platform.OS === 'web' ? ({ willChange: 'transform' } as ViewStyle) : undefined),
   },
 });

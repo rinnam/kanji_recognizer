@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  Easing,
   Platform,
   Pressable,
   StyleSheet,
@@ -8,6 +9,7 @@ import {
   Text,
   View,
   useWindowDimensions,
+  type ViewStyle,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { VocabularyDto } from '../../../packages/contracts/src/study';
@@ -51,7 +53,10 @@ interface SushiPlate {
   uid: string;
   word: VocabularyDto;
   lane: 0 | 1;
-  xPx: number;
+  spawnX: number;
+  spawnTs: number;
+  speedPx: number;
+  widthPx: number;
   animX: Animated.Value;
   accent: string;
 }
@@ -60,6 +65,15 @@ const SUSHI_BEST_KEY = 'kanji_smart_sushi_best_v1';
 const PLATE_COLORS = ['#EA580C', '#E11D48', '#0D9488', '#D97706'];
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 const MIN_PLATE_GAP_PX = 195;
+const EXIT_X = -170;
+const WEB_GPU_LAYER: ViewStyle | undefined =
+  Platform.OS === 'web' ? ({ willChange: 'transform' } as ViewStyle) : undefined;
+
+function getNowMs(): number {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
+}
 
 function getOrderLimitSec(sp: BeltSpeed): number {
   if (sp === 'Chậm') return 14;
@@ -73,10 +87,266 @@ function getBaseSpeedPx(sp: BeltSpeed): number {
   return 140;
 }
 
+function computeBeltSpeedPx(sp: BeltSpeed, bw: number, phone: boolean): number {
+  const scale = phone ? Math.max(0.58, bw / 760) : Math.max(0.65, bw / 760);
+  return getBaseSpeedPx(sp) * scale;
+}
+
+function getPlateCurrentX(p: SushiPlate, now: number): number {
+  return p.spawnX - p.speedPx * Math.max(0, (now - p.spawnTs) / 1000);
+}
+
 function hasValidSino(s: string | null | undefined): s is string {
   const trimmed = s?.trim() ?? '';
   return trimmed.length > 0 && !['-', '—', '–', 'n/a'].includes(trimmed.toLowerCase());
 }
+
+const ShiftClock = memo(function ShiftClock({
+  running,
+  runId,
+  initialSec,
+  onExpire,
+}: {
+  running: boolean;
+  runId: number;
+  initialSec: number;
+  onExpire: () => void;
+}) {
+  const [clockState, setClockState] = useState({ runId, sec: initialSec });
+  const sec = clockState.runId === runId ? clockState.sec : initialSec;
+  const onExpireRef = useRef(onExpire);
+  const expiredForRunRef = useRef(-1);
+  onExpireRef.current = onExpire;
+
+  useEffect(() => {
+    setClockState({ runId, sec: initialSec });
+  }, [runId, initialSec]);
+
+  useEffect(() => {
+    if (!running) return;
+    const timer = setInterval(() => {
+      setClockState((prev) => {
+        const currentSec = prev.runId === runId ? prev.sec : initialSec;
+        if (currentSec <= 1) {
+          clearInterval(timer);
+          return { runId, sec: 0 };
+        }
+        return { runId, sec: currentSec - 1 };
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [running, runId, initialSec]);
+
+  useEffect(() => {
+    if (running && clockState.runId === runId && clockState.sec === 0 && expiredForRunRef.current !== runId) {
+      expiredForRunRef.current = runId;
+      onExpireRef.current();
+    }
+  }, [running, runId, clockState]);
+
+  return (
+    <View style={styles.hudClockGroup}>
+      <ClockIcon size={15} color={nihongoTheme.colors.textPrimary} />
+      <Text style={styles.hudStat}>{sec}s</Text>
+    </View>
+  );
+});
+
+const OrderCountdownBadge = memo(function OrderCountdownBadge({
+  running,
+  orderRunId,
+  limitSec,
+}: {
+  running: boolean;
+  orderRunId: number;
+  limitSec: number;
+}) {
+  const [badge, setBadge] = useState({ orderRunId, secLeft: limitSec });
+  const secLeft = badge.orderRunId === orderRunId ? badge.secLeft : limitSec;
+
+  useEffect(() => {
+    const startedAt = getNowMs();
+    setBadge({ orderRunId, secLeft: limitSec });
+    if (!running) return;
+    const timer = setInterval(() => {
+      const elapsedSec = (getNowMs() - startedAt) / 1000;
+      const remaining = Math.max(0, Number((limitSec - elapsedSec).toFixed(1)));
+      setBadge((prev) =>
+        prev.orderRunId === orderRunId && prev.secLeft === remaining
+          ? prev
+          : { orderRunId, secLeft: remaining },
+      );
+    }, 250);
+    return () => clearInterval(timer);
+  }, [running, orderRunId, limitSec]);
+
+  const ratio = limitSec > 0 ? secLeft / limitSec : 0;
+  const timerColor = ratio > 0.5 ? '#1B873F' : ratio > 0.25 ? '#D97706' : '#DC2626';
+
+  return (
+    <View style={styles.orderTimerTextWrap}>
+      <LightningBoltIcon size={12} color={timerColor} />
+      <Text style={[styles.orderTimerText, { color: timerColor }]}>{secLeft.toFixed(1)}s</Text>
+    </View>
+  );
+});
+
+const OrderProgressBar = memo(function OrderProgressBar({
+  running,
+  orderRunId,
+  limitSec,
+  orderTimerAnim,
+}: {
+  running: boolean;
+  orderRunId: number;
+  limitSec: number;
+  orderTimerAnim: Animated.Value;
+}) {
+  const [zone, setZone] = useState<'high' | 'mid' | 'low'>('high');
+
+  useEffect(() => {
+    setZone('high');
+    orderTimerAnim.stopAnimation();
+    orderTimerAnim.setValue(1);
+    if (!running) return;
+
+    const limitMs = Math.max(100, limitSec * 1000);
+    const anim = Animated.timing(orderTimerAnim, {
+      toValue: 0,
+      duration: limitMs,
+      easing: Easing.linear,
+      useNativeDriver: USE_NATIVE_DRIVER,
+    });
+    anim.start();
+
+    const tMid = setTimeout(() => setZone('mid'), limitMs * 0.5);
+    const tLow = setTimeout(() => setZone('low'), limitMs * 0.75);
+
+    return () => {
+      anim.stop();
+      clearTimeout(tMid);
+      clearTimeout(tLow);
+    };
+  }, [running, orderRunId, limitSec, orderTimerAnim]);
+
+  const barColor = zone === 'high' ? '#1B873F' : zone === 'mid' ? '#D97706' : '#DC2626';
+
+  return (
+    <SmoothProgressBar
+      progress={orderTimerAnim}
+      color={barColor}
+      trackColor="#FDEBD6"
+      height={6}
+      borderRadius={4}
+      style={{ marginTop: 3 }}
+    />
+  );
+});
+
+const BeltSlats = memo(function BeltSlats({
+  beltSlatAnim,
+  isPhone,
+}: {
+  beltSlatAnim: Animated.Value;
+  isPhone: boolean;
+}) {
+  const slats = useMemo(
+    () =>
+      Array.from({ length: isPhone ? 16 : 24 }).map((_, sIdx) => (
+        <View key={sIdx} style={styles.beltSlat} />
+      )),
+    [isPhone],
+  );
+
+  if (Platform.OS === 'web') {
+    return (
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.slatTrackWeb, { transform: [{ translateX: beltSlatAnim }] }]}
+      />
+    );
+  }
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      renderToHardwareTextureAndroid
+      shouldRasterizeIOS
+      style={[
+        styles.slatTrack,
+        isPhone && styles.slatTrackPhone,
+        { transform: [{ translateX: beltSlatAnim }] },
+      ]}
+    >
+      {slats}
+    </Animated.View>
+  );
+});
+
+const SushiPlateItem = memo(function SushiPlateItem({
+  plate,
+  isPhone,
+  showKana,
+}: {
+  plate: SushiPlate;
+  isPhone: boolean;
+  showKana: boolean;
+}) {
+  useEffect(() => {
+    const dist = Math.max(1, plate.spawnX - EXIT_X);
+    const duration = Math.max(120, Math.round((dist / plate.speedPx) * 1000));
+    plate.spawnTs = getNowMs();
+    plate.animX.stopAnimation();
+    plate.animX.setValue(plate.spawnX);
+    const anim = Animated.timing(plate.animX, {
+      toValue: EXIT_X,
+      duration,
+      easing: Easing.linear,
+      useNativeDriver: USE_NATIVE_DRIVER,
+    });
+    anim.start();
+    return () => {
+      anim.stop();
+    };
+  }, [plate]);
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      renderToHardwareTextureAndroid
+      shouldRasterizeIOS
+      onLayout={(e) => {
+        const w = e.nativeEvent.layout.width;
+        if (w > 40) plate.widthPx = w;
+      }}
+      style={[
+        styles.plateAnchor,
+        isPhone && styles.plateAnchorPhone,
+        WEB_GPU_LAYER,
+        { transform: [{ translateX: plate.animX }] },
+      ]}
+    >
+      <View
+        style={[
+          styles.plateOuter,
+          isPhone && styles.plateOuterPhone,
+          { borderColor: plate.accent },
+        ]}
+      >
+        <View style={[styles.plateInnerRing, isPhone && styles.plateInnerPhone]}>
+          <Text style={[styles.plateWord, isPhone && styles.plateWordPhone]} numberOfLines={1}>
+            {plate.word.word}
+          </Text>
+          {showKana && plate.word.reading && plate.word.reading !== plate.word.word ? (
+            <Text style={styles.plateReading} numberOfLines={1}>
+              {plate.word.reading}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+    </Animated.View>
+  );
+});
 
 export default function KaitenSushiScreen() {
   const { words, folders, loading } = useGameVocabulary();
@@ -93,7 +363,6 @@ export default function KaitenSushiScreen() {
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [hearts, setHearts] = useState(3);
-  const [timeLeft, setTimeLeft] = useState(90);
   const [servedCount, setServedCount] = useState(0);
   const [speedBonusCount, setSpeedBonusCount] = useState(0);
   const [orderWord, setOrderWord] = useState<VocabularyDto | null>(null);
@@ -101,10 +370,10 @@ export default function KaitenSushiScreen() {
   const [feedback, setFeedback] = useState<string>('Chạm đúng đĩa Sushi mang chữ Nhật khớp nghĩa khách gọi!');
   const [missedWords, setMissedWords] = useState<VocabularyDto[]>([]);
   const [ksMsg, setKsMsg] = useState<string | null>(null);
+  const [gameRunId, setGameRunId] = useState(0);
+  const [orderRunId, setOrderRunId] = useState(0);
 
   const orderLimitSec = getOrderLimitSec(speed);
-  const [orderTimeLeftSec, setOrderTimeLeftSec] = useState(orderLimitSec);
-  const [orderTimeRatio, setOrderTimeRatio] = useState(1);
 
   const [floatText, setFloatText] = useState('');
   const [floatTone, setFloatTone] = useState<FloatTone>('good');
@@ -122,10 +391,8 @@ export default function KaitenSushiScreen() {
   const isPhoneRef = useRef(isPhone);
   const beltMeasuredRef = useRef(false);
   const beltWidthRef = useRef(760);
-  const beltOffsetRef = useRef(0);
   const orderStartTsRef = useRef(0);
-  const orderRatioRef = useRef(1);
-  const rafRef = useRef<number | null>(null);
+  const logicIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Animations
   const beltSlatAnim = useRef(new Animated.Value(0)).current;
@@ -155,8 +422,9 @@ export default function KaitenSushiScreen() {
       });
     void loadSavedGameDeckSelection().then(setDeckSelection);
     return () => {
-      if (rafRef.current !== null && typeof cancelAnimationFrame !== 'undefined') {
-        cancelAnimationFrame(rafRef.current);
+      if (logicIntervalRef.current !== null) {
+        clearInterval(logicIntervalRef.current);
+        logicIntervalRef.current = null;
       }
     };
   }, []);
@@ -205,12 +473,9 @@ export default function KaitenSushiScreen() {
     ]).start();
   };
 
-  const resetOrderTimer = (limitSec: number) => {
-    orderStartTsRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    orderRatioRef.current = 1;
-    orderTimerAnim.setValue(1);
-    setOrderTimeRatio(1);
-    setOrderTimeLeftSec(limitSec);
+  const resetOrderTimer = () => {
+    orderStartTsRef.current = getNowMs();
+    setOrderRunId((n) => n + 1);
   };
 
   const pickNextOrder = (pool: readonly VocabularyDto[], avoidId?: string): VocabularyDto => {
@@ -224,6 +489,8 @@ export default function KaitenSushiScreen() {
     dPool: readonly VocabularyDto[],
     target: VocabularyDto,
     bw: number,
+    sp: BeltSpeed,
+    phone: boolean,
   ): SushiPlate[] => {
     const preferredOthers = targets.filter((w) => w.id !== target.id);
     const extraDecoys = dPool.filter(
@@ -233,14 +500,20 @@ export default function KaitenSushiScreen() {
     const selected = shuffleItems([target, ...distractors]);
     const width = Math.max(340, bw);
     const fractions = [0.22, 0.44, 0.67, 0.89];
+    const now = getNowMs();
+    const speedPx = computeBeltSpeedPx(sp, width, phone);
+    const widthPx = phone ? 112 : 146;
     return selected.map((w, i) => {
-      const xPx = Math.round(width * (fractions[i] ?? 0.9));
+      const spawnX = Math.round(width * (fractions[i] ?? 0.9));
       return {
         uid: `p_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}`,
         word: w,
         lane: (i % 2) as 0 | 1,
-        xPx,
-        animX: new Animated.Value(xPx),
+        spawnX,
+        spawnTs: now,
+        speedPx,
+        widthPx,
+        animX: new Animated.Value(spawnX),
         accent: PLATE_COLORS[i % PLATE_COLORS.length]!,
       };
     });
@@ -249,9 +522,9 @@ export default function KaitenSushiScreen() {
   const finishGame = (finalScore: number) => {
     if (phaseRef.current === 'summary') return;
     phaseRef.current = 'summary';
-    if (rafRef.current !== null && typeof cancelAnimationFrame !== 'undefined') {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
+    if (logicIntervalRef.current !== null) {
+      clearInterval(logicIntervalRef.current);
+      logicIntervalRef.current = null;
     }
     setPhase('summary');
     if (finalScore > bestScore) {
@@ -288,9 +561,16 @@ export default function KaitenSushiScreen() {
     const firstOrder = pickNextOrder(targets);
     orderRef.current = firstOrder;
     setOrderWord(firstOrder);
-    resetOrderTimer(getOrderLimitSec(speed));
+    resetOrderTimer();
 
-    const initPlates = makeInitialPlates(targets, distractorPool, firstOrder, beltWidthRef.current);
+    const initPlates = makeInitialPlates(
+      targets,
+      distractorPool,
+      firstOrder,
+      beltWidthRef.current,
+      speed,
+      isPhone,
+    );
     platesRef.current = initPlates;
     setPlates(initPlates);
 
@@ -300,57 +580,64 @@ export default function KaitenSushiScreen() {
     setScore(0);
     setCombo(0);
     setHearts(3);
-    setTimeLeft(90);
     setServedCount(0);
     setSpeedBonusCount(0);
     setMissedWords([]);
     setKsMsg(null);
+    setGameRunId((n) => n + 1);
     setFeedback(`Mở ca với ${targets.length} từ đang chọn! Chạm đúng đĩa khớp nghĩa khách gọi.`);
     phaseRef.current = 'playing';
     setPhase('playing');
   };
 
-  // True 60fps requestAnimationFrame loop: belt movement + slat scroll + per-order patience timer
+  // UI-thread conveyor belt slat loop
+  useEffect(() => {
+    if (phase !== 'playing') {
+      beltSlatAnim.stopAnimation();
+      beltSlatAnim.setValue(0);
+      return;
+    }
+    const speedPx = computeBeltSpeedPx(speed, Math.max(320, beltWidthRef.current), isPhone);
+    const loopDuration = Math.max(120, Math.round((48 / speedPx) * 1000));
+    beltSlatAnim.setValue(0);
+    const anim = Animated.loop(
+      Animated.timing(beltSlatAnim, {
+        toValue: -48,
+        duration: loopDuration,
+        easing: Easing.linear,
+        useNativeDriver: USE_NATIVE_DRIVER,
+      }),
+    );
+    anim.start();
+    return () => {
+      anim.stop();
+    };
+  }, [phase, speed, isPhone, beltSlatAnim]);
+
+  // Lightweight 200ms game logic loop (spawning, exit checks, order timeout; ZERO per-frame React re-renders)
   useEffect(() => {
     if (phase !== 'playing') return;
-    if (typeof requestAnimationFrame === 'undefined') return;
-
     const limitMs = getOrderLimitSec(speedRef.current) * 1000;
-    const basePxPerSec = getBaseSpeedPx(speedRef.current);
-    let lastTs = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    let lastHudUpdateTs = 0;
 
-    const tick = (now: number) => {
+    const runLogicTick = () => {
       if (phaseRef.current !== 'playing') return;
-      const dt = Math.min(0.05, Math.max(0.001, (now - lastTs) / 1000));
-      lastTs = now;
-
       const curOrder = orderRef.current;
       const targets = targetsRef.current;
       const dPool = distractorPoolRef.current;
-      if (!curOrder || targets.length === 0 || dPool.length === 0) {
-        rafRef.current = requestAnimationFrame(tick);
-        return;
-      }
+      if (!curOrder || targets.length === 0 || dPool.length === 0) return;
 
+      const now = getNowMs();
       const bw = Math.max(320, beltWidthRef.current);
       const minGap = isPhoneRef.current ? 138 : MIN_PLATE_GAP_PX;
-      const scale = isPhoneRef.current ? Math.max(0.58, bw / 760) : Math.max(0.65, bw / 760);
-      const speedPx = basePxPerSec * scale;
+      const speedPx = computeBeltSpeedPx(speedRef.current, bw, isPhoneRef.current);
+      const widthPx = isPhoneRef.current ? 112 : 146;
 
-      // Scroll background conveyor slats cleanly
-      beltOffsetRef.current = (beltOffsetRef.current + speedPx * dt) % 48;
-      beltSlatAnim.setValue(-beltOffsetRef.current);
-
-      // Update plate positions smoothly via Animated.Value (ZERO React re-render per frame)
       let structuralChange = false;
       const exited: SushiPlate[] = [];
       const remaining: SushiPlate[] = [];
 
       for (const p of platesRef.current) {
-        p.xPx -= speedPx * dt;
-        p.animX.setValue(p.xPx);
-        if (p.xPx < -170) {
+        if (getPlateCurrentX(p, now) <= EXIT_X + 6) {
           exited.push(p);
           structuralChange = true;
         } else {
@@ -358,21 +645,10 @@ export default function KaitenSushiScreen() {
         }
       }
 
-      // Check per-order reflex timer OR target slipping off belt
       const orderElapsed = now - orderStartTsRef.current;
-      const orderRatio = Math.max(0, Math.min(1, 1 - orderElapsed / limitMs));
-      orderRatioRef.current = orderRatio;
-      orderTimerAnim.setValue(orderRatio);
-
-      if (now - lastHudUpdateTs >= 220 || orderRatio === 0) {
-        lastHudUpdateTs = now;
-        setOrderTimeRatio(orderRatio);
-        setOrderTimeLeftSec(Math.max(0, Number(((limitMs - orderElapsed) / 1000).toFixed(1))));
-      }
-
+      const orderTimedOut = orderElapsed >= limitMs;
       const targetExited = exited.some((p) => p.word.id === curOrder.id);
       const targetStillOnBelt = remaining.some((p) => p.word.id === curOrder.id);
-      const orderTimedOut = orderRatio <= 0;
 
       if (orderTimedOut || (targetExited && !targetStillOnBelt)) {
         hapticError();
@@ -402,22 +678,22 @@ export default function KaitenSushiScreen() {
         const nextOrd = pickNextOrder(targets, curOrder.id);
         orderRef.current = nextOrd;
         setOrderWord(nextOrd);
-        resetOrderTimer(limitMs / 1000);
+        resetOrderTimer();
       }
 
       // Ensure 4–5 plates on belt and ensure active order dish is always reachable
       const activeOrder = orderRef.current!;
       const hasActivePlateOnScreen = remaining.some(
-        (p) => p.word.id === activeOrder.id && p.xPx > 20,
+        (p) => p.word.id === activeOrder.id && getPlateCurrentX(p, now) > 20,
       );
 
       if (remaining.length < 5) {
         const lane0MaxX = remaining
           .filter((p) => p.lane === 0)
-          .reduce((m, p) => Math.max(m, p.xPx), 0);
+          .reduce((m, p) => Math.max(m, getPlateCurrentX(p, now)), 0);
         const lane1MaxX = remaining
           .filter((p) => p.lane === 1)
-          .reduce((m, p) => Math.max(m, p.xPx), 0);
+          .reduce((m, p) => Math.max(m, getPlateCurrentX(p, now)), 0);
 
         const lane: 0 | 1 = lane0MaxX <= lane1MaxX ? 0 : 1;
         const maxLaneX = lane === 0 ? lane0MaxX : lane1MaxX;
@@ -432,7 +708,10 @@ export default function KaitenSushiScreen() {
               uid: `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
               word: wordToSpawn,
               lane,
-              xPx: spawnX,
+              spawnX,
+              spawnTs: now,
+              speedPx,
+              widthPx,
               animX: new Animated.Value(spawnX),
               accent: PLATE_COLORS[Math.floor(Math.random() * PLATE_COLORS.length)]!,
             });
@@ -445,39 +724,16 @@ export default function KaitenSushiScreen() {
       if (structuralChange) {
         setPlates([...remaining]);
       }
-
-      rafRef.current = requestAnimationFrame(tick);
     };
 
-    rafRef.current = requestAnimationFrame(tick);
+    logicIntervalRef.current = setInterval(runLogicTick, 200);
     return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
+      if (logicIntervalRef.current !== null) {
+        clearInterval(logicIntervalRef.current);
+        logicIntervalRef.current = null;
       }
     };
   }, [phase]);
-
-  // 90s shift countdown
-  useEffect(() => {
-    if (phase !== 'playing') return;
-    const t = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(t);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(t);
-  }, [phase]);
-
-  useEffect(() => {
-    if (phase === 'playing' && timeLeft === 0) {
-      finishGame(scoreRef.current);
-    }
-  }, [phase, timeLeft]);
 
   const handleTapPlate = (plate: SushiPlate) => {
     if (phaseRef.current !== 'playing' || !orderRef.current) return;
@@ -488,9 +744,12 @@ export default function KaitenSushiScreen() {
 
     if (plate.word.id === curOrder.id) {
       void speakJapanese(plate.word.reading || plate.word.word);
+      const now = getNowMs();
+      const limitMs = getOrderLimitSec(speedRef.current) * 1000;
+      const liveRatio = Math.max(0, Math.min(1, 1 - (now - orderStartTsRef.current) / limitMs));
       const nextCombo = comboRef.current + 1;
       const fever = nextCombo >= 3;
-      const isFast = orderRatioRef.current >= 0.55;
+      const isFast = liveRatio >= 0.55;
       if (fever || isFast) hapticCrit();
       else hapticSuccess();
       const pts = (fever ? 20 : 10) + (isFast ? 5 : 0);
@@ -517,22 +776,33 @@ export default function KaitenSushiScreen() {
       const nextOrd = pickNextOrder(targetsRef.current, curOrder.id);
       orderRef.current = nextOrd;
       setOrderWord(nextOrd);
-      resetOrderTimer(getOrderLimitSec(speedRef.current));
+      resetOrderTimer();
 
       // Ensure new order immediately exists on belt if not already present
-      const hasNextOrd = remaining.some((p) => p.word.id === nextOrd.id && p.xPx > 40);
+      const hasNextOrd = remaining.some(
+        (p) => p.word.id === nextOrd.id && getPlateCurrentX(p, now) > 40,
+      );
       if (!hasNextOrd) {
         const bw = Math.max(320, beltWidthRef.current);
         const minGap = isPhoneRef.current ? 138 : MIN_PLATE_GAP_PX;
-        const lane0Max = remaining.filter((p) => p.lane === 0).reduce((m, p) => Math.max(m, p.xPx), 0);
-        const lane1Max = remaining.filter((p) => p.lane === 1).reduce((m, p) => Math.max(m, p.xPx), 0);
+        const speedPx = computeBeltSpeedPx(speedRef.current, bw, isPhoneRef.current);
+        const widthPx = isPhoneRef.current ? 112 : 146;
+        const lane0Max = remaining
+          .filter((p) => p.lane === 0)
+          .reduce((m, p) => Math.max(m, getPlateCurrentX(p, now)), 0);
+        const lane1Max = remaining
+          .filter((p) => p.lane === 1)
+          .reduce((m, p) => Math.max(m, getPlateCurrentX(p, now)), 0);
         const lane: 0 | 1 = lane0Max <= lane1Max ? 0 : 1;
         const spawnX = Math.max(bw - 10, (lane === 0 ? lane0Max : lane1Max) + minGap);
         remaining.push({
           uid: `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
           word: nextOrd,
           lane,
-          xPx: spawnX,
+          spawnX,
+          spawnTs: now,
+          speedPx,
+          widthPx,
           animX: new Animated.Value(spawnX),
           accent: PLATE_COLORS[Math.floor(Math.random() * PLATE_COLORS.length)]!,
         });
@@ -562,7 +832,35 @@ export default function KaitenSushiScreen() {
     }
   };
 
-  const timerColor = orderTimeRatio > 0.5 ? '#1B873F' : orderTimeRatio > 0.25 ? '#D97706' : '#DC2626';
+  const handleLanePress = (laneIdx: 0 | 1, tapX: number) => {
+    if (phaseRef.current !== 'playing' || !orderRef.current || !Number.isFinite(tapX)) return;
+    const now = getNowMs();
+    const hitPad = isPhoneRef.current ? 16 : 12;
+    let bestPlate: SushiPlate | null = null;
+    let bestDist = Infinity;
+
+    for (const p of platesRef.current) {
+      if (p.lane !== laneIdx) continue;
+      const curX = getPlateCurrentX(p, now);
+      if (tapX >= curX - hitPad && tapX <= curX + p.widthPx + hitPad) {
+        const center = curX + p.widthPx / 2;
+        const dist = Math.abs(tapX - center);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestPlate = p;
+        }
+      }
+    }
+
+    if (bestPlate) {
+      handleTapPlate(bestPlate);
+    }
+  };
+
+  const finishShiftRef = useRef<() => void>(() => {});
+  finishShiftRef.current = () => finishGame(scoreRef.current);
+  const onShiftExpire = useRef(() => finishShiftRef.current()).current;
+
   const isFever = combo >= 3;
 
   return (
@@ -679,10 +977,12 @@ export default function KaitenSushiScreen() {
             </Animated.View>
 
             <View style={styles.hudRow}>
-              <View style={styles.hudClockGroup}>
-                <ClockIcon size={15} color={nihongoTheme.colors.textPrimary} />
-                <Text style={styles.hudStat}>{timeLeft}s</Text>
-              </View>
+              <ShiftClock
+                running={phase === 'playing'}
+                runId={gameRunId}
+                initialSec={90}
+                onExpire={onShiftExpire}
+              />
               <View style={styles.heartsRow}>
                 {[0, 1, 2].map((i) => (
                   <HeartIcon
@@ -713,12 +1013,11 @@ export default function KaitenSushiScreen() {
               <View style={{ flex: 1, gap: 4 }}>
                 <View style={styles.orderHeaderRow}>
                   <Text style={styles.orderEyebrow}>KHÁCH HÀNG MOMO GỌI MÓN:</Text>
-                  <View style={styles.orderTimerTextWrap}>
-                    <LightningBoltIcon size={12} color={timerColor} />
-                    <Text style={[styles.orderTimerText, { color: timerColor }]}>
-                      {orderTimeLeftSec.toFixed(1)}s
-                    </Text>
-                  </View>
+                  <OrderCountdownBadge
+                    running={phase === 'playing'}
+                    orderRunId={orderRunId}
+                    limitSec={orderLimitSec}
+                  />
                 </View>
                 <Text style={[styles.orderMeaning, isPhone && styles.orderMeaningPhone]}>
                   {orderWord.meaning}
@@ -726,19 +1025,17 @@ export default function KaitenSushiScreen() {
                 {hasValidSino(orderWord.sinoVietnamese) ? (
                   <Text style={styles.orderHint}>Âm Hán Việt: {orderWord.sinoVietnamese}</Text>
                 ) : null}
-                <SmoothProgressBar
-                  progress={orderTimerAnim}
-                  color={timerColor}
-                  trackColor="#FDEBD6"
-                  height={6}
-                  borderRadius={4}
-                  style={{ marginTop: 3 }}
+                <OrderProgressBar
+                  running={phase === 'playing'}
+                  orderRunId={orderRunId}
+                  limitSec={orderLimitSec}
+                  orderTimerAnim={orderTimerAnim}
                 />
               </View>
             </View>
           </Animated.View>
 
-          {/* True 60fps Two-Lane Conveyor Belt */}
+          {/* True UI-Thread Two-Lane Conveyor Belt */}
           <View
             style={[styles.beltShell, isPhone && styles.beltShellPhone, isFever && styles.beltShellFever]}
             onLayout={(e) => {
@@ -750,55 +1047,20 @@ export default function KaitenSushiScreen() {
             }}
           >
             {([0, 1] as const).map((laneIdx) => (
-              <View key={laneIdx} style={[styles.laneTrack, isPhone && styles.laneTrackPhone]}>
-                <View style={styles.beltLine}>
-                  <Animated.View
-                    style={[
-                      styles.slatTrack,
-                      isPhone && styles.slatTrackPhone,
-                      { transform: [{ translateX: beltSlatAnim }] },
-                    ]}
-                  >
-                    {Array.from({ length: isPhone ? 16 : 24 }).map((_, sIdx) => (
-                      <View key={sIdx} style={styles.beltSlat} />
-                    ))}
-                  </Animated.View>
+              <Pressable
+                key={laneIdx}
+                style={[styles.laneTrack, isPhone && styles.laneTrackPhone, styles.lanePressable]}
+                onPressIn={(e) => handleLanePress(laneIdx, e.nativeEvent.locationX)}
+              >
+                <View pointerEvents="none" style={styles.beltLine}>
+                  <BeltSlats beltSlatAnim={beltSlatAnim} isPhone={isPhone} />
                 </View>
                 {plates
                   .filter((p) => p.lane === laneIdx)
                   .map((p) => (
-                    <Animated.View
-                      key={p.uid}
-                      style={[
-                        styles.plateAnchor,
-                        isPhone && styles.plateAnchorPhone,
-                        { transform: [{ translateX: p.animX }] },
-                      ]}
-                    >
-                      <Pressable
-                        hitSlop={8}
-                        style={({ pressed }) => [
-                          styles.plateOuter,
-                          isPhone && styles.plateOuterPhone,
-                          { borderColor: p.accent },
-                          pressed && styles.platePressed,
-                        ]}
-                        onPress={() => handleTapPlate(p)}
-                      >
-                        <View style={[styles.plateInnerRing, isPhone && styles.plateInnerPhone]}>
-                          <Text style={[styles.plateWord, isPhone && styles.plateWordPhone]} numberOfLines={1}>
-                            {p.word.word}
-                          </Text>
-                          {showKana && p.word.reading && p.word.reading !== p.word.word ? (
-                            <Text style={styles.plateReading} numberOfLines={1}>
-                              {p.word.reading}
-                            </Text>
-                          ) : null}
-                        </View>
-                      </Pressable>
-                    </Animated.View>
+                    <SushiPlateItem key={p.uid} plate={p} isPhone={isPhone} showKana={showKana} />
                   ))}
-              </View>
+              </Pressable>
             ))}
           </View>
 
@@ -1136,6 +1398,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  lanePressable: Platform.OS === 'web'
+    ? ({ cursor: 'pointer', userSelect: 'none' } as ViewStyle)
+    : {},
   beltLine: {
     position: 'absolute',
     left: 0,
@@ -1154,6 +1419,18 @@ const styles = StyleSheet.create({
     width: 1440,
     height: '100%',
   },
+  slatTrackWeb: Platform.OS === 'web'
+    ? ({
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: -48,
+        backgroundImage:
+          'repeating-linear-gradient(90deg, transparent 0px, transparent 46px, rgba(160, 130, 100, 0.28) 46px, rgba(160, 130, 100, 0.28) 48px)',
+        willChange: 'transform',
+      } as ViewStyle)
+    : { display: 'none' },
   beltSlat: {
     width: 48,
     height: '100%',
@@ -1171,11 +1448,11 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     borderWidth: 4,
+    borderBottomWidth: 5,
     backgroundColor: '#FFFFFF',
     padding: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    ...nihongoTheme.shadow.card,
   },
   platePressed: {
     transform: [{ scale: 0.92 }],
@@ -1298,6 +1575,7 @@ const styles = StyleSheet.create({
     height: 58,
     borderRadius: 29,
     borderWidth: 3,
+    borderBottomWidth: 3,
     padding: 3,
   },
   plateInnerPhone: {
