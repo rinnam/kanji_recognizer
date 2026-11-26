@@ -92,21 +92,6 @@ export default function BillingScreen() {
     }
   };
 
-  const handleResetToFree = async () => {
-    if (busyAction) return;
-    setBusyAction(true);
-    setErrorMsg(null);
-    setNotice(null);
-    try {
-      await demoCheckout('free', 'monthly');
-      setNotice('Đã đặt lại tài khoản về gói Miễn phí (Free) để test.');
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Không thể đặt lại gói Free.');
-    } finally {
-      setBusyAction(false);
-    }
-  };
-
   const handleRedeem = async (item: ShopItemDto) => {
     if (busyAction) return;
     const scenarioId = selectedScenarios[item.code] ?? item.allowedScenarios[0] ?? 'roleplay_restaurant';
@@ -216,11 +201,6 @@ export default function BillingScreen() {
             <Text style={styles.walletValue}>{ksBalance.toLocaleString('vi-VN')} KS</Text>
           </View>
           <Text style={styles.walletLabel}>Xu Kanji Smart</Text>
-          {tier !== 'free' ? (
-            <Pressable style={styles.resetDemoBtn} onPress={() => void handleResetToFree()} disabled={busyAction}>
-              <Text style={styles.resetDemoText}>Đặt lại Free (Demo)</Text>
-            </Pressable>
-          ) : null}
         </View>
       </View>
 
@@ -335,13 +315,17 @@ export default function BillingScreen() {
                     style={[
                       styles.planBtn,
                       isPro && styles.planBtnPro,
-                      isCurrent && styles.planBtnDisabled,
+                      (isCurrent || plan.tier === 'free' || (tier === 'pro' && plan.tier === 'plus')) &&
+                        styles.planBtnDisabled,
                     ]}
-                    disabled={isCurrent || busyAction}
+                    disabled={
+                      isCurrent ||
+                      plan.tier === 'free' ||
+                      (tier === 'pro' && plan.tier === 'plus') ||
+                      busyAction
+                    }
                     onPress={() => {
-                      if (plan.tier === 'free') {
-                        void handleResetToFree();
-                      } else {
+                      if (plan.tier !== 'free') {
                         setCheckoutTarget(plan);
                       }
                     }}
@@ -349,13 +333,14 @@ export default function BillingScreen() {
                     <Text
                       style={[
                         styles.planBtnText,
-                        isCurrent && styles.planBtnTextDisabled,
+                        (isCurrent || plan.tier === 'free' || (tier === 'pro' && plan.tier === 'plus')) &&
+                          styles.planBtnTextDisabled,
                       ]}
                     >
                       {isCurrent
                         ? 'Đang sử dụng gói này'
-                        : plan.tier === 'free'
-                          ? 'Chuyển về Miễn phí'
+                        : plan.tier === 'free' || (tier === 'pro' && plan.tier === 'plus')
+                          ? 'Đã bao gồm trong gói hiện tại'
                           : `Kích hoạt ${plan.name} (Demo)`}
                     </Text>
                   </Pressable>
@@ -718,20 +703,6 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.accentHover,
   },
   walletLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: nihongoTheme.colors.textSecondary,
-  },
-  resetDemoBtn: {
-    marginTop: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-  },
-  resetDemoText: {
     fontSize: 11,
     fontWeight: '700',
     color: nihongoTheme.colors.textSecondary,
