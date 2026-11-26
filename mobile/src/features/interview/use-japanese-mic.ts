@@ -155,9 +155,7 @@ export function useJapaneseMic(options?: {
             setAudioFillers(Array.isArray(data.fillers) ? data.fillers : []);
           })
           .catch(() => {
-            setMicError(
-              'Không chép được giọng nói từ Whisper offline. Bạn có thể thử nói lại hoặc gõ trực tiếp vào ô bên cạnh.',
-            );
+            setMicError('Máy chủ AI đang bận. Bạn có thể bấm thử lại hoặc gõ trực tiếp vào ô bên cạnh.');
           })
           .finally(() => {
             setTranscribing(false);

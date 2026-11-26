@@ -44,7 +44,6 @@ function ensureWorker(): Promise<void> {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env, PYTHONIOENCODING: 'utf-8', HF_HUB_DISABLE_SYMLINKS_WARNING: '1' },
   });
-  proc.stderr.resume();
   workerProc = proc;
 
   const rl = readline.createInterface({ input: proc.stdout });
@@ -104,21 +103,6 @@ function ensureWorker(): Promise<void> {
   });
 
   return workerReadyPromise;
-}
-
-/**
- * Starts the local faster-whisper worker in the background on server boot
- * so the first voice recording does not suffer cold-start model loading delay.
- */
-export function prewarmWhisperWorker(): void {
-  void ensureWorker().catch(() => {
-    // Non-fatal: if Python/faster-whisper isn't available yet, error surfaces on actual STT call.
-  });
-}
-
-/** Cleanly terminates the local Whisper worker on server shutdown. */
-export function shutdownWhisperWorker(): void {
-  resetWorker('Server shutting down');
 }
 
 interface ScenarioSttProfile {

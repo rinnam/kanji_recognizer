@@ -17,7 +17,6 @@ import { syncRoutes } from './routes/sync.routes.js';
 import { transcriptRoutes } from './routes/transcript.routes.js';
 import { ttsRoutes } from './routes/tts.routes.js';
 import { vocabularyRoutes } from './routes/vocabulary.routes.js';
-import { prewarmWhisperWorker, shutdownWhisperWorker } from './services/whisper.service.js';
 import {
   DuplicateError,
   NotFoundError,
@@ -111,7 +110,6 @@ async function start(): Promise<void> {
 
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`Received ${signal}, shutting down...`);
-    shutdownWhisperWorker();
     try {
       await app.close();
       await db.destroy();
@@ -126,7 +124,6 @@ async function start(): Promise<void> {
 
   try {
     await app.listen({ host: env.HOST, port: env.PORT });
-    prewarmWhisperWorker();
   } catch (err) {
     app.log.error(err);
     await db.destroy().catch(() => undefined);
