@@ -61,11 +61,16 @@ function getBaseSpeedPx(sp: BeltSpeed): number {
   return 140;
 }
 
+function hasValidSino(s: string | null | undefined): s is string {
+  const trimmed = s?.trim() ?? '';
+  return trimmed.length > 0 && !['-', '—', '–', 'n/a'].includes(trimmed.toLowerCase());
+}
+
 export default function KaitenSushiScreen() {
   const { words, folders, loading } = useGameVocabulary();
   const [deckSelection, setDeckSelection] = useState<GameDeckSelection>(DEFAULT_GAME_DECK_SELECTION);
   const [speed, setSpeed] = useState<BeltSpeed>('Vừa');
-  const [showKana, setShowKana] = useState(true);
+  const [showKana, setShowKana] = useState(false);
   const [phase, setPhase] = useState<'setup' | 'playing' | 'summary'>('setup');
 
   const [bestScore, setBestScore] = useState(0);
@@ -680,7 +685,7 @@ export default function KaitenSushiScreen() {
                   </View>
                 </View>
                 <Text style={styles.orderMeaning}>{orderWord.meaning}</Text>
-                {orderWord.sinoVietnamese ? (
+                {hasValidSino(orderWord.sinoVietnamese) ? (
                   <Text style={styles.orderHint}>Âm Hán Việt: {orderWord.sinoVietnamese}</Text>
                 ) : null}
                 <View style={styles.orderTimerTrack}>

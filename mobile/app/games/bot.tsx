@@ -61,6 +61,17 @@ function getQuestionLimitSec(d: Difficulty): number {
   return 9;
 }
 
+function hasValidSino(s: string | null | undefined): s is string {
+  const trimmed = s?.trim() ?? '';
+  return trimmed.length > 0 && !['-', '—', '–', 'n/a'].includes(trimmed.toLowerCase());
+}
+
+function formatWordWithReading(word: VocabularyDto): string {
+  return word.reading && word.reading !== word.word
+    ? `${word.word} (${word.reading})`
+    : word.word;
+}
+
 function buildBossQuestion(
   targets: readonly VocabularyDto[],
   distractorPool: readonly VocabularyDto[],
@@ -85,25 +96,16 @@ function buildBossQuestion(
       word: target,
       promptLabel: 'Đòn 1 · Nhìn Kanji / Từ → Chọn nghĩa Việt',
       promptMain: target.word,
-      promptSub:
-        target.reading && target.reading !== target.word
-          ? target.reading
-          : 'Chọn nhanh nghĩa tiếng Việt chính xác',
+      promptSub: 'Chọn nhanh nghĩa tiếng Việt chính xác',
       options,
       correctOption: target.meaning,
     };
   }
 
   if (kind === 'audio_to_word') {
-    const correctLabel =
-      target.reading && target.reading !== target.word
-        ? `${target.word} (${target.reading})`
-        : target.word;
     const options = shuffleItems([
-      correctLabel,
-      ...distractorsPool.map((d) =>
-        d.reading && d.reading !== d.word ? `${d.word} (${d.reading})` : d.word,
-      ),
+      target.word,
+      ...distractorsPool.map((d) => d.word),
     ]);
     const levelLabel = target.jlptLevel ?? 'SRS';
     return {
@@ -113,30 +115,24 @@ function buildBossQuestion(
       promptMain: 'Nghe phát âm & chọn từ đúng',
       promptSub: `Nghe kỹ phát âm rồi chọn đúng từ tiếng Nhật (${levelLabel})`,
       options,
-      correctOption: correctLabel,
+      correctOption: target.word,
     };
   }
 
-  const correctWord =
-    target.reading && target.reading !== target.word
-      ? `${target.word} · ${target.reading}`
-      : target.word;
   const options = shuffleItems([
-    correctWord,
-    ...distractorsPool.map((d) =>
-      d.reading && d.reading !== d.word ? `${d.word} · ${d.reading}` : d.word,
-    ),
+    target.word,
+    ...distractorsPool.map((d) => d.word),
   ]);
   return {
     kind,
     word: target,
-    promptLabel: 'Đòn 3 · Nhìn nghĩa Việt → Chọn từ / Kana đúng',
+    promptLabel: 'Đòn 3 · Nhìn nghĩa Việt → Chọn từ tiếng Nhật đúng',
     promptMain: target.meaning,
-    promptSub: target.sinoVietnamese
+    promptSub: hasValidSino(target.sinoVietnamese)
       ? `Hán Việt: ${target.sinoVietnamese}`
       : 'Chọn từ tiếng Nhật tương ứng',
     options,
-    correctOption: correctWord,
+    correctOption: target.word,
   };
 }
 
@@ -467,7 +463,7 @@ export default function BotGameScreen() {
       triggerShake(bossShakeAnim);
       triggerFloatPopup(isCrit ? `-${dmg} CHÍ MẠNG!` : `-${dmg} HP`, isCrit ? 'crit' : 'hit');
       setBattleLog(
-        `${isCrit ? '⚡ CHÍ MẠNG! ' : ''}Gây ${dmg} sát thương!${nextCombo >= 3 ? ` (Combo ×${nextCombo})` : ''} · "${question.word.word}" = ${question.word.meaning}`,
+        `${isCrit ? '⚡ CHÍ MẠNG! ' : ''}Gây ${dmg} sát thương!${nextCombo >= 3 ? ` (Combo ×${nextCombo})` : ''} · "${formatWordWithReading(question.word)}" = ${question.word.meaning}`,
       );
       if (question.kind !== 'audio_to_word') {
         void speakJapanese(question.word.reading || question.word.word);
@@ -477,12 +473,12 @@ export default function BotGameScreen() {
       const incoming = difficulty === 'Dễ' ? 12 : difficulty === 'Khó' ? 24 : 18;
       if (shieldActive) {
         triggerFloatPopup('🛡️ ĐỠ ĐÒN!', 'block');
-        setBattleLog(`Khiên Momo đã đỡ trọn đòn phản công! Đáp án đúng: "${question.correctOption}" (${question.word.meaning})`);
+        setBattleLog(`Khiên Momo đã đỡ trọn đòn phản công! Đáp án đúng: "${formatWordWithReading(question.word)}" = ${question.word.meaning}`);
       } else {
         nextPlayerHp = Math.max(0, playerHp - incoming);
         triggerShake(playerShakeAnim);
         triggerFloatPopup(`-${incoming} HP`, 'miss');
-        setBattleLog(`Trả lời sai! Boss phản công -${incoming} HP. Đúng: "${question.correctOption}" (${question.word.meaning})`);
+        setBattleLog(`Trả lời sai! Boss phản công -${incoming} HP. Đúng: "${formatWordWithReading(question.word)}" = ${question.word.meaning}`);
       }
       setMissedWords((prev) =>
         prev.some((w) => w.id === question.word.id) ? prev : [...prev, question.word],
@@ -509,12 +505,12 @@ export default function BotGameScreen() {
 
     if (shieldActive) {
       triggerFloatPopup('🛡️ ĐỠ ĐÒN!', 'block');
-      setBattleLog(`Hết giờ câu này! Khiên Momo đã chặn sát thương. Đáp án: "${question.correctOption}"`);
+      setBattleLog(`Hết giờ câu này! Khiên Momo đã chặn sát thương. Đáp án: "${formatWordWithReading(question.word)}" = ${question.word.meaning}`);
     } else {
       nextPlayerHp = Math.max(0, playerHp - incoming);
       triggerShake(playerShakeAnim);
       triggerFloatPopup(`HẾT GIỜ -${incoming} HP`, 'miss');
-      setBattleLog(`Hết ${questionLimitSec}s phản xạ! Boss ra đòn -${incoming} HP. Đáp án: "${question.correctOption}"`);
+      setBattleLog(`Hết ${questionLimitSec}s phản xạ! Boss ra đòn -${incoming} HP. Đáp án: "${formatWordWithReading(question.word)}" = ${question.word.meaning}`);
     }
 
     setCombo(0);
@@ -670,7 +666,7 @@ export default function BotGameScreen() {
 
           <View style={styles.rulesCard}>
             <Text style={styles.rulesText}>
-              • Hạ 3 Wave Boss với 3 kiểu đòn: Kanji → Nghĩa, Nghe âm thanh → Từ Nhật, Nghĩa → Kana.
+              • Hạ 3 Wave Boss với 3 kiểu đòn: Kanji → Nghĩa, Nghe âm thanh → Từ Nhật, Nghĩa → Từ Nhật.
             </Text>
             <Text style={styles.rulesText}>
               • Mỗi câu có đồng hồ đếm ngược ({questionLimitSec}s). Trả lời trong 40% thời gian đầu nổ đòn ⚡ CHÍ MẠNG (+35% sát thương)! Hết giờ Boss tự động phản công.
