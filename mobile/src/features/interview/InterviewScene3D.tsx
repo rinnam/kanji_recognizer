@@ -26,6 +26,7 @@ interface InterviewScene3DProps {
   interviewerName: string;
   companyName: string;
   onDoorClick?: () => void;
+  onPropClick?: () => void;
 }
 
 function makePlaqueTexture(
@@ -191,17 +192,20 @@ export function InterviewScene3D({
   interviewerName,
   companyName,
   onDoorClick,
+  onPropClick,
 }: InterviewScene3DProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const phaseRef = useRef<ScenePhase>(phase);
   const moodRef = useRef<AvatarMood>(mood);
   const onDoorClickRef = useRef(onDoorClick);
+  const onPropClickRef = useRef(onPropClick);
   const doorShakeRef = useRef(0);
   const prevPhaseRef = useRef<ScenePhase>(phase);
 
   phaseRef.current = phase;
   moodRef.current = mood;
   onDoorClickRef.current = onDoorClick;
+  onPropClickRef.current = onPropClick;
 
   useEffect(() => {
     if (prevPhaseRef.current !== phase) {
@@ -238,11 +242,7 @@ export function InterviewScene3D({
     scene.background = new THREE.Color(bgHex);
 
     const camera = new THREE.PerspectiveCamera(46, width / height, 0.1, 60);
-    if (sceneType === 'interview') {
-      camera.position.set(0, 1.62, 5.15);
-    } else {
-      camera.position.set(0, 1.4, 2.05);
-    }
+    camera.position.set(0, 1.62, 5.15);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
@@ -319,14 +319,115 @@ export function InterviewScene3D({
     rightWall.position.set(4.2, 2.2, 2.0);
     scene.add(rightWall);
 
-    // Characters list + optional interactive door (Interview only)
+    // Characters list + interactive door (customized per scene) + clickable 3D props
     const characters: Array<{
       avatar: ReturnType<typeof buildCharacterAvatar>;
       isPrimary: boolean;
       offset: number;
     }> = [];
-    let doorPivot: THREE.Group | null = null;
     const clickableDoorMeshes: THREE.Object3D[] = [];
+    const clickablePropMeshes: THREE.Object3D[] = [];
+
+    // Entrance hallway + bespoke entrance door at z = 3.25 for ALL 4 scenes
+    const hallwayFloor = new THREE.Mesh(
+      new THREE.PlaneGeometry(10, 5),
+      new THREE.MeshStandardMaterial({
+        color: sceneType === 'restaurant' ? '#4A3528' : '#C7BFB4',
+        roughness: 0.9,
+      }),
+    );
+    hallwayFloor.rotation.x = -Math.PI / 2;
+    hallwayFloor.position.set(0, 0, 5.6);
+    scene.add(hallwayFloor);
+
+    const doorTrimColor =
+      sceneType === 'restaurant'
+        ? '#5C3A21'
+        : sceneType === 'clinic'
+          ? '#0284C7'
+          : sceneType === 'horenso'
+            ? '#334155'
+            : '#8D6E63';
+    const doorWoodColor =
+      sceneType === 'restaurant'
+        ? '#6B4226'
+        : sceneType === 'clinic'
+          ? '#E0F2FE'
+          : sceneType === 'horenso'
+            ? '#64748B'
+            : '#A47551';
+    const doorTrimMat = new THREE.MeshStandardMaterial({ color: doorTrimColor, roughness: 0.6 });
+
+    const partitionLeft = new THREE.Mesh(new THREE.BoxGeometry(3.55, 4.4, 0.16), wallMat);
+    partitionLeft.position.set(-2.45, 2.2, 3.25);
+    scene.add(partitionLeft);
+    const partitionRight = new THREE.Mesh(new THREE.BoxGeometry(3.55, 4.4, 0.16), wallMat);
+    partitionRight.position.set(2.45, 2.2, 3.25);
+    scene.add(partitionRight);
+    const partitionTop = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.85, 0.16), wallMat);
+    partitionTop.position.set(0, 3.475, 3.25);
+    scene.add(partitionTop);
+
+    const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.09, 2.55, 0.22), doorTrimMat);
+    frameL.position.set(-0.68, 1.275, 3.25);
+    scene.add(frameL);
+    const frameR = new THREE.Mesh(new THREE.BoxGeometry(0.09, 2.55, 0.22), doorTrimMat);
+    frameR.position.set(0.68, 1.275, 3.25);
+    scene.add(frameR);
+    const frameT = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.09, 0.22), doorTrimMat);
+    frameT.position.set(0, 2.56, 3.25);
+    scene.add(frameT);
+
+    const doorPivot = new THREE.Group();
+    doorPivot.position.set(-0.63, 0, 3.25);
+    scene.add(doorPivot);
+
+    const doorMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(1.26, 2.5, 0.08),
+      new THREE.MeshStandardMaterial({ color: doorWoodColor, roughness: 0.58 }),
+    );
+    doorMesh.position.set(0.63, 1.25, 0);
+    doorPivot.add(doorMesh);
+
+    const brassMat = new THREE.MeshStandardMaterial({ color: '#D97706', metalness: 0.65, roughness: 0.28 });
+    const handleOut = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.09), brassMat);
+    handleOut.position.set(1.06, 1.12, 0.07);
+    doorPivot.add(handleOut);
+    const handleIn = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.09), brassMat);
+    handleIn.position.set(1.06, 1.12, -0.07);
+    doorPivot.add(handleIn);
+
+    const doorTitle =
+      sceneType === 'restaurant'
+        ? '和食 さくら'
+        : sceneType === 'clinic'
+          ? '診察室'
+          : sceneType === 'horenso'
+            ? '会議室 · PM'
+            : '面接室';
+    const doorSub =
+      sceneType === 'restaurant'
+        ? 'CLICK ĐỂ MỞ CỬA VÀO QUÁN'
+        : sceneType === 'clinic'
+          ? 'TRÌNH 保険証 & VÀO KHÁM'
+          : sceneType === 'horenso'
+            ? 'XIN PHÉP VÀO HỌP HORENSO'
+            : companyName || 'INTERVIEW ROOM';
+    const signTex = makePlaqueTexture(
+      doorTitle,
+      doorSub,
+      sceneType === 'restaurant' ? '#FFFBEB' : '#FDFBF7',
+      doorTrimColor,
+      sceneType === 'restaurant' ? '#991B1B' : '#1C1917',
+    );
+    disposables.push(signTex);
+    const doorSign = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.84, 0.3),
+      new THREE.MeshBasicMaterial({ map: signTex }),
+    );
+    doorSign.position.set(0.63, 1.82, 0.045);
+    doorPivot.add(doorSign);
+    clickableDoorMeshes.push(doorMesh, doorSign, handleOut, handleIn);
 
     if (sceneType === 'restaurant') {
       // ── JAPANESE WASHOKU / IZAKAYA RESTAURANT ─────────────────────────────
@@ -378,6 +479,7 @@ export function InterviewScene3D({
       menuStand.rotation.y = 0.28;
       menuStand.rotation.x = -0.12;
       scene.add(menuStand);
+      clickablePropMeshes.push(menuStand);
 
       // Green tea cup (Yunomi)
       const cup = new THREE.Mesh(
@@ -472,6 +574,7 @@ export function InterviewScene3D({
       );
       chart.position.set(-0.55, 0.88, 0.55);
       scene.add(chart);
+      clickablePropMeshes.push(chart, clinicSign);
 
       // Single Doctor wearing white lab coat + blue scrub + stethoscope
       const doctor = buildCharacterAvatar({
@@ -497,6 +600,7 @@ export function InterviewScene3D({
       );
       whiteboard.position.set(0, 2.15, -2.44);
       scene.add(whiteboard);
+      clickablePropMeshes.push(whiteboard);
 
       // Colorful sticky notes on whiteboard
       [
@@ -549,15 +653,7 @@ export function InterviewScene3D({
       scene.add(pm.root);
       characters.push({ avatar: pm, isPrimary: true, offset: 0 });
     } else {
-      // ── JAPANESE JOB INTERVIEW ROOM (面接室 + Interactive 3-Knock Door) ───
-      const hallwayFloor = new THREE.Mesh(
-        new THREE.PlaneGeometry(10, 5),
-        new THREE.MeshStandardMaterial({ color: '#C7BFB4', roughness: 0.9 }),
-      );
-      hallwayFloor.rotation.x = -Math.PI / 2;
-      hallwayFloor.position.set(0, 0, 5.6);
-      scene.add(hallwayFloor);
-
+      // ── JAPANESE JOB INTERVIEW ROOM (面接室) ─────────────────────────────
       // Window with Tokyo skyline
       const windowSky = new THREE.Mesh(
         new THREE.PlaneGeometry(3.8, 2.0),
@@ -582,56 +678,6 @@ export function InterviewScene3D({
       barV.position.set(-1.5, 2.1, -2.42);
       scene.add(barV);
 
-      // Partition wall & interactive 3D door
-      const partitionLeft = new THREE.Mesh(new THREE.BoxGeometry(3.55, 4.4, 0.16), wallMat);
-      partitionLeft.position.set(-2.45, 2.2, 3.25);
-      scene.add(partitionLeft);
-      const partitionRight = new THREE.Mesh(new THREE.BoxGeometry(3.55, 4.4, 0.16), wallMat);
-      partitionRight.position.set(2.45, 2.2, 3.25);
-      scene.add(partitionRight);
-      const partitionTop = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.85, 0.16), wallMat);
-      partitionTop.position.set(0, 3.475, 3.25);
-      scene.add(partitionTop);
-
-      const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.09, 2.55, 0.22), woodTrimMat);
-      frameL.position.set(-0.68, 1.275, 3.25);
-      scene.add(frameL);
-      const frameR = new THREE.Mesh(new THREE.BoxGeometry(0.09, 2.55, 0.22), woodTrimMat);
-      frameR.position.set(0.68, 1.275, 3.25);
-      scene.add(frameR);
-      const frameT = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.09, 0.22), woodTrimMat);
-      frameT.position.set(0, 2.56, 3.25);
-      scene.add(frameT);
-
-      doorPivot = new THREE.Group();
-      doorPivot.position.set(-0.63, 0, 3.25);
-      scene.add(doorPivot);
-
-      const doorMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(1.26, 2.5, 0.08),
-        new THREE.MeshStandardMaterial({ color: '#A47551', roughness: 0.58 }),
-      );
-      doorMesh.position.set(0.63, 1.25, 0);
-      doorPivot.add(doorMesh);
-
-      const brassMat = new THREE.MeshStandardMaterial({ color: '#D97706', metalness: 0.65, roughness: 0.28 });
-      const handleOut = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.09), brassMat);
-      handleOut.position.set(1.06, 1.12, 0.07);
-      doorPivot.add(handleOut);
-      const handleIn = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.09), brassMat);
-      handleIn.position.set(1.06, 1.12, -0.07);
-      doorPivot.add(handleIn);
-
-      const signTex = makePlaqueTexture('面接室', companyName || 'INTERVIEW ROOM');
-      disposables.push(signTex);
-      const doorSign = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.68, 0.26),
-        new THREE.MeshBasicMaterial({ map: signTex }),
-      );
-      doorSign.position.set(0.63, 1.82, 0.045);
-      doorPivot.add(doorSign);
-      clickableDoorMeshes.push(doorMesh, doorSign, handleOut, handleIn);
-
       // Conference desk + CV + laptop
       const deskTop = new THREE.Mesh(
         new THREE.BoxGeometry(4.2, 0.12, 1.25),
@@ -647,6 +693,7 @@ export function InterviewScene3D({
       resumeSheet.position.set(-0.4, 0.89, 0.45);
       resumeSheet.rotation.y = 0.06;
       scene.add(resumeSheet);
+      clickablePropMeshes.push(resumeSheet);
 
       const laptopBase = new THREE.Mesh(
         new THREE.BoxGeometry(0.52, 0.03, 0.36),
@@ -726,9 +773,12 @@ export function InterviewScene3D({
       updatePointer(e);
       parallaxX = pointer.x * 0.14;
       parallaxY = pointer.y * 0.06;
-      if (clickableDoorMeshes.length > 0 && phaseRef.current === 'hallway') {
-        raycaster.setFromCamera(pointer, camera);
+      raycaster.setFromCamera(pointer, camera);
+      if (phaseRef.current === 'hallway' && clickableDoorMeshes.length > 0) {
         const hits = raycaster.intersectObjects(clickableDoorMeshes);
+        renderer.domElement.style.cursor = hits.length > 0 ? 'pointer' : 'default';
+      } else if (clickablePropMeshes.length > 0) {
+        const hits = raycaster.intersectObjects(clickablePropMeshes);
         renderer.domElement.style.cursor = hits.length > 0 ? 'pointer' : 'default';
       } else {
         renderer.domElement.style.cursor = 'default';
@@ -736,14 +786,24 @@ export function InterviewScene3D({
     };
 
     const onPointerDown = (e: PointerEvent) => {
-      if (clickableDoorMeshes.length === 0 || phaseRef.current !== 'hallway') return;
       updatePointer(e);
       raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObjects(clickableDoorMeshes);
-      if (hits.length > 0) {
-        playDoorKnockSfx();
-        doorShakeRef.current = 1.0;
-        onDoorClickRef.current?.();
+      if (phaseRef.current === 'hallway' && clickableDoorMeshes.length > 0) {
+        const hits = raycaster.intersectObjects(clickableDoorMeshes);
+        if (hits.length > 0) {
+          if (sceneType === 'interview') {
+            playDoorKnockSfx();
+            doorShakeRef.current = 1.0;
+          }
+          onDoorClickRef.current?.();
+          return;
+        }
+      }
+      if (phaseRef.current !== 'hallway' && clickablePropMeshes.length > 0) {
+        const propHits = raycaster.intersectObjects(clickablePropMeshes);
+        if (propHits.length > 0) {
+          onPropClickRef.current?.();
+        }
       }
     };
 
@@ -759,7 +819,7 @@ export function InterviewScene3D({
     };
     window.addEventListener('resize', onResize);
 
-    const lookTarget = new THREE.Vector3(0, 1.35, sceneType === 'interview' ? 3.25 : -0.45);
+    const lookTarget = new THREE.Vector3(0, 1.5, 3.25);
     let rafId = 0;
     const clock = new THREE.Clock();
 
@@ -777,12 +837,12 @@ export function InterviewScene3D({
       let lz = -0.45;
       let targetDoorAngle = 0;
 
-      if (sceneType === 'interview') {
-        if (curPhase === 'hallway') {
-          tx = 0; ty = 1.62; tz = 5.15; lx = 0; ly = 1.52; lz = 3.25;
-        } else if (curPhase === 'entering') {
-          tx = 0.05; ty = 1.68 + Math.sin(t * 7) * 0.025; tz = 2.85; lx = 0; ly = 1.38; lz = -0.4; targetDoorAngle = -1.25;
-        } else if (curPhase === 'standing_by_chair' || curPhase === 'exit_standing') {
+      if (curPhase === 'hallway') {
+        tx = 0; ty = 1.62; tz = 5.15; lx = 0; ly = 1.52; lz = 3.25;
+      } else if (curPhase === 'entering') {
+        tx = 0.05; ty = 1.68 + Math.sin(t * 7) * 0.025; tz = 2.85; lx = 0; ly = 1.38; lz = -0.4; targetDoorAngle = -1.25;
+      } else if (sceneType === 'interview') {
+        if (curPhase === 'standing_by_chair' || curPhase === 'exit_standing') {
           tx = -0.35; ty = 1.72; tz = 2.25; lx = 0.05; ly = 1.35; lz = -0.4;
         } else if (curPhase === 'bowing_30') {
           tx = -0.35; ty = 1.48; tz = 2.15; lx = 0.05; ly = 0.42; lz = 0.35;
@@ -796,9 +856,10 @@ export function InterviewScene3D({
           tx = 0; ty = 1.65; tz = 4.95; lx = 0; ly = 1.5; lz = 3.25; targetDoorAngle = -1.15;
         }
       } else {
-        // Roleplay scenes: smooth seated / bowing POV
         if (curPhase === 'bowing_30') {
           tx = 0; ty = 1.25; tz = 1.95; lx = 0; ly = 0.55; lz = 0.25;
+        } else if (curPhase === 'left_room') {
+          tx = 0; ty = 1.65; tz = 4.95; lx = 0; ly = 1.5; lz = 3.25; targetDoorAngle = -1.15;
         } else {
           tx = 0; ty = 1.4; tz = 2.05; lx = 0; ly = 1.32; lz = -0.45;
         }
@@ -864,23 +925,29 @@ export function InterviewScene3D({
 
   const phaseHint =
     sceneType === 'restaurant'
-      ? mood === 'speaking'
-        ? 'Nhân viên nhà hàng đang nói...'
-        : mood === 'listening'
-          ? 'Nhân viên đang lắng nghe bạn gọi món...'
-          : 'Nhà hàng Washoku Sakura · Sẵn sàng gọi món'
-      : sceneType === 'clinic'
-        ? mood === 'speaking'
-          ? 'Bác sĩ Kobayashi đang tư vấn...'
+      ? phase === 'hallway'
+        ? 'Trước cửa nhà hàng 和食 さくら · Click cánh cửa 3D để mở cửa vào quán (カランコロン)'
+        : mood === 'speaking'
+          ? 'Nhân viên nhà hàng đang nói...'
           : mood === 'listening'
-            ? 'Bác sĩ đang lắng nghe triệu chứng của bạn...'
-            : 'Phòng khám Nội khoa Shinjuku · Đang khám bệnh'
-        : sceneType === 'horenso'
-          ? mood === 'speaking'
-            ? 'Sếp Takahashi đang phản hồi...'
+            ? 'Nhân viên đang lắng nghe bạn...'
+            : 'Click quyển 実 đơn お品書き trên bàn 3D để mở Menu thật'
+      : sceneType === 'clinic'
+        ? phase === 'hallway'
+          ? 'Trước phòng khám 診察室 · Click cánh cửa để trình thẻ bảo hiểm 保険証 & vào khám'
+          : mood === 'speaking'
+            ? 'Bác sĩ Kobayashi đang hỏi khám...'
             : mood === 'listening'
-              ? 'Sếp PM đang lắng nghe báo cáo Horenso...'
-              : 'Phòng Dự án IT · Họp Horenso (報連相)'
+              ? 'Bác sĩ đang lắng nghe bạn mô tả tình trạng...'
+              : 'Click hồ sơ trên bàn 3D để mở Phiếu khai bệnh 問診票'
+        : sceneType === 'horenso'
+          ? phase === 'hallway'
+            ? 'Trước phòng họp PM · Click cửa để xin phép vào trao đổi Horenso'
+            : mood === 'speaking'
+              ? 'Sếp Takahashi đang phản hồi...'
+              : mood === 'listening'
+                ? 'Sếp PM đang lắng nghe báo cáo của bạn...'
+                : 'Click Bảng Kanban 3D sau lưng sếp để xem tiến độ Sprint'
           : phase === 'hallway'
             ? `Ngoài hành lang · Click trực tiếp vào cánh cửa để gõ (${knockCount}/3 lần)`
             : phase === 'entering'

@@ -22,7 +22,17 @@ import {
   type ScenePhase,
   type SceneType,
 } from '../../../src/features/interview/InterviewScene3D';
-import { playDoorKnockSfx } from '../../../src/features/interview/interview-sfx';
+import {
+  playCallBellSfx,
+  playClinicChimeSfx,
+  playDoorKnockSfx,
+  playShopBellSfx,
+} from '../../../src/features/interview/interview-sfx';
+import {
+  ScenarioPropModal,
+  type OutcomeCardData,
+  type PropModalKind,
+} from '../../../src/features/interview/ScenarioPropModal';
 import {
   useJapaneseMic,
   type RecordedAudioPayload,
@@ -128,6 +138,7 @@ const ROLEPLAY_STEP_META: Record<
 };
 
 type FlowStep =
+  | 'roleplay_entrance'
   | 'knock_door'
   | 'enter_phrase'
   | 'stand_greet'
@@ -136,6 +147,14 @@ type FlowStep =
   | 'exit_stand'
   | 'exit_door'
   | 'completed';
+
+const FRAMEWORK_TITLES: Record<string, string> = {
+  PREP: 'Cấu trúc PREP (Phỏng vấn)',
+  STAR: 'Cấu trúc STAR (Kinh nghiệm CV)',
+  HORENSO: 'Khung Horenso (報・連・相)',
+  SERVICE: 'Tiêu chí Giao tiếp Dịch vụ',
+  MEDICAL: 'Tiêu chí Giao tiếp Y tế',
+};
 
 interface ScenarioInfo {
   id: string;
@@ -161,7 +180,7 @@ interface EvaluationDto {
   naturalScore: number;
   contentScore: number;
   structureScore: number;
-  framework: 'PREP' | 'STAR';
+  framework: 'PREP' | 'STAR' | 'HORENSO' | 'SERVICE' | 'MEDICAL';
   frameworkChecklist: FrameworkCheckItem[];
   fillersDetected: string[];
   fluencyNoteVi: string;
@@ -252,6 +271,8 @@ export default function Interview3DRoomScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [lastFailedText, setLastFailedText] = useState<string | null>(null);
+  const [propModalKind, setPropModalKind] = useState<PropModalKind>(null);
+  const [outcomeCard, setOutcomeCard] = useState<OutcomeCardData | null>(null);
 
   const directAudioHandlerRef = useRef<(payload: RecordedAudioPayload) => void>(() => {});
   const mic = useJapaneseMic({
@@ -273,17 +294,29 @@ export default function Interview3DRoomScreen() {
         if (!picked) return;
         setScenario(picked);
         if (picked.category === 'roleplay') {
-          setFlowStep('qa_interview');
-          setScenePhase('seated');
+          setFlowStep('roleplay_entrance');
+          setScenePhase('hallway');
           setQaStage('jikoshokai');
-          setCurrentJa(picked.openingJa);
-          setCurrentReading(picked.openingReading);
-          setCurrentVi(picked.openingVi);
-          setLogs([{ id: 'open', role: 'interviewer', text: picked.openingJa }]);
-          setMood('speaking');
-          void speakJapanese(picked.openingJa).finally(() => {
-            setMood((prev) => (prev === 'speaking' ? 'idle' : prev));
-          });
+          if (picked.id === 'roleplay_restaurant') {
+            setCurrentJa('（和食 さくらの入口に到着しました。引き戸を開けて入店してください）');
+            setCurrentReading('わしょく さくらのいりぐちにとうちゃくしました。ひきどをあけてにゅうてんしてください');
+            setCurrentVi('Bạn đang đứng trước cửa nhà hàng Washoku Sakura. Click cánh cửa 3D (hoặc bấm nút bên dưới) để mở cửa bước vào quán!');
+          } else if (picked.id === 'roleplay_clinic') {
+            setCurrentJa('（受付が完了しました。保険証を提示して診察室にお入りください）');
+            setCurrentReading('うけつけがかんりょうしました。ほけんしょうをていじしてしんさつしつにおはいりください');
+            setCurrentVi('Đã đến lượt khám! Hãy trình thẻ bảo hiểm (保険証) & click cánh cửa 3D để bước vào phòng khám gặp Bác sĩ Kobayashi.');
+          } else {
+            setCurrentJa('（PMの会議室の前です。「今、少しよろしいでしょうか？」と声をかけて入室してください）');
+            setCurrentReading('かいぎしつのまえです。「いま、すこしよろしいでしょうか」とこえをかけてにゅうしつしてください');
+            setCurrentVi('Bạn đang đứng trước phòng họp PM. Click cửa (hoặc bấm nút xin phép) để bắt đầu buổi họp Horenso!');
+          }
+          setLogs([
+            {
+              id: 'init',
+              role: 'manner',
+              text: `Chuẩn bị vào bối cảnh ${picked.companyName}. Click cửa 3D hoặc bấm nút bên dưới để bắt đầu!`,
+            },
+          ]);
         } else {
           setLogs([
             {
@@ -294,7 +327,7 @@ export default function Interview3DRoomScreen() {
           ]);
         }
       })
-      .catch(() => setErrorMsg('Không tải được kịch bản phỏng vấn từ Backend.'));
+      .catch(() => setErrorMsg('Không tải được kịch bản từ Backend.'));
   }, [scenarioId]);
 
   useEffect(() => {
@@ -327,6 +360,26 @@ export default function Interview3DRoomScreen() {
     void speakJapanese(ja).finally(() => {
       setMood((prev) => (prev === 'speaking' ? 'idle' : prev));
     });
+  };
+
+  const handleRoleplayEnter = () => {
+    if (!scenario || flowStep !== 'roleplay_entrance') return;
+    if (scenario.id === 'roleplay_restaurant') {
+      playShopBellSfx();
+      addLog('candidate', '（引き戸を開けて入店… カランコロン♪）');
+    } else if (scenario.id === 'roleplay_clinic') {
+      playClinicChimeSfx();
+      addLog('candidate', '（保険証を提示して診察室に入室）失礼します。');
+    } else {
+      playDoorKnockSfx();
+      addLog('candidate', '（ノックして）お疲れ様です。今、少しよろしいでしょうか？');
+    }
+    setScenePhase('entering');
+    setTimeout(() => {
+      setScenePhase('seated');
+      setFlowStep('qa_interview');
+      speakInterviewer(scenario.openingJa, scenario.openingReading, scenario.openingVi);
+    }, 1150);
   };
 
   // STEP 1: Knock on the 3D door (must be 3 times!)
@@ -537,6 +590,7 @@ export default function Interview3DRoomScreen() {
         replyVi: string;
         nextStage: InterviewStage;
         finished: boolean;
+        outcomeCard?: OutcomeCardData;
         evaluation: EvaluationDto;
       };
 
@@ -546,6 +600,10 @@ export default function Interview3DRoomScreen() {
             item.id === placeholderId ? { ...item, text: data.candidateTranscript! } : item,
           ),
         );
+      }
+
+      if (data.outcomeCard) {
+        setOutcomeCard(data.outcomeCard);
       }
 
       setEvaluations((prev) => [...prev, data.evaluation]);
@@ -788,8 +846,60 @@ export default function Interview3DRoomScreen() {
             knockCount={knockCount}
             interviewerName={scenario?.interviewerName || 'Nhân vật 3D'}
             companyName={scenario?.companyName || 'Kanji Nest Japan'}
-            onDoorClick={() => handleKnockDoor(false)}
+            onDoorClick={() => {
+              if (flowStep === 'roleplay_entrance') {
+                handleRoleplayEnter();
+              } else {
+                handleKnockDoor(false);
+              }
+            }}
+            onPropClick={() => {
+              if (sceneType === 'restaurant') setPropModalKind('menu');
+              else if (sceneType === 'clinic') setPropModalKind('medical_intake');
+              else if (sceneType === 'horenso') setPropModalKind('kanban');
+              else setPropModalKind('cv');
+            }}
           />
+
+          {/* Interactive 3D Props Toolbar */}
+          {flowStep !== 'knock_door' && flowStep !== 'roleplay_entrance' ? (
+            <View style={styles.propsBar}>
+              {sceneType === 'restaurant' ? (
+                <>
+                  <Pressable style={styles.propBtnPrimary} onPress={() => setPropModalKind('menu')}>
+                    <Text style={styles.propBtnPrimaryText}>Mở Thực đơn (お品書き)</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.propBtn}
+                    onPress={() => {
+                      playCallBellSfx();
+                      addLog('candidate', '（呼び出しボタン：ピンポーン♪）');
+                      mic.setTranscript('すみません！');
+                    }}
+                  >
+                    <Text style={styles.propBtnText}>Bấm chuông gọi nhân viên (ピンポーン♪)</Text>
+                  </Pressable>
+                </>
+              ) : sceneType === 'clinic' ? (
+                <Pressable style={styles.propBtnPrimary} onPress={() => setPropModalKind('medical_intake')}>
+                  <Text style={styles.propBtnPrimaryText}>Mở Phiếu khám bệnh (問診票) &amp; Mẫu câu</Text>
+                </Pressable>
+              ) : sceneType === 'horenso' ? (
+                <Pressable style={styles.propBtnPrimary} onPress={() => setPropModalKind('kanban')}>
+                  <Text style={styles.propBtnPrimaryText}>Mở Bảng Sprint Kanban (スプリント進捗)</Text>
+                </Pressable>
+              ) : (
+                <Pressable style={styles.propBtn} onPress={() => setPropModalKind('cv')}>
+                  <Text style={styles.propBtnText}>Xem lại tờ CV (履歴書) trên bàn</Text>
+                </Pressable>
+              )}
+              {outcomeCard ? (
+                <Pressable style={styles.propBtn} onPress={() => setPropModalKind('outcome')}>
+                  <Text style={styles.propBtnText}>Xem {outcomeCard.title}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
 
           {/* Subtitle / Prompt Card */}
           <View style={styles.subtitleCard}>
@@ -842,8 +952,43 @@ export default function Interview3DRoomScreen() {
                   ? `Điểm giao tiếp trung bình: ${avgLangScore}/100`
                   : `Tổng điểm: ${finalTotalScore}/100 (Tác phong: ${mannerScore}đ · Tiếng Nhật: ${avgLangScore}đ)`}
               </Text>
+              {outcomeCard ? (
+                <View style={styles.outcomeSummaryBox}>
+                  <Text style={styles.outcomeSummaryTitle}>{outcomeCard.title}</Text>
+                  {outcomeCard.items.map((line, i) => (
+                    <Text key={i} style={styles.outcomeSummaryItem}>
+                      • {line}
+                    </Text>
+                  ))}
+                  {outcomeCard.noteVi ? (
+                    <Text style={styles.outcomeSummaryNote}>{outcomeCard.noteVi}</Text>
+                  ) : null}
+                </View>
+              ) : null}
               <Pressable style={styles.primaryBtn} onPress={() => router.back()}>
                 <Text style={styles.primaryBtnText}>Quay lại chọn kịch bản khác</Text>
+              </Pressable>
+            </View>
+          ) : flowStep === 'roleplay_entrance' ? (
+            <View style={styles.controlsCard}>
+              <Text style={styles.stepGuideTitle}>
+                {sceneType === 'restaurant'
+                  ? 'Bước nhập cảnh — Mở cửa trượt bước vào nhà hàng'
+                  : sceneType === 'clinic'
+                    ? 'Bước nhập cảnh — Trình thẻ Bảo hiểm (保険証) & Vào phòng khám'
+                    : 'Bước nhập cảnh — Xin phép sếp trước khi vào họp Horenso'}
+              </Text>
+              <Text style={styles.stepGuideDesc}>
+                Click trực tiếp lên cánh cửa 3D ở trên hoặc bấm nút bên dưới để bước vào không gian 3D.
+              </Text>
+              <Pressable style={styles.primaryBtn} onPress={handleRoleplayEnter}>
+                <Text style={styles.primaryBtnText}>
+                  {sceneType === 'restaurant'
+                    ? 'Mở cửa trượt vào quán (カランコロン♪) →'
+                    : sceneType === 'clinic'
+                      ? 'Trình thẻ 保険証 & Vào phòng khám →'
+                      : 'Gõ cửa & Xin phép "今、少しよろしいでしょうか？" →'}
+                </Text>
               </Pressable>
             </View>
           ) : flowStep === 'knock_door' ? (
@@ -1003,7 +1148,7 @@ export default function Interview3DRoomScreen() {
                 <View style={styles.frameworkBox}>
                   <View style={styles.frameworkHeader}>
                     <Text style={styles.frameworkTitle}>
-                      Cấu trúc {latestEval.framework}
+                      {FRAMEWORK_TITLES[latestEval.framework] ?? `Cấu trúc ${latestEval.framework}`}
                     </Text>
                     <Text style={styles.frameworkScore}>{latestEval.structureScore}đ</Text>
                   </View>
@@ -1113,6 +1258,13 @@ export default function Interview3DRoomScreen() {
           </View>
         </View>
       </View>
+      <ScenarioPropModal
+        kind={propModalKind}
+        customContext={cvSummary || scenario?.openingVi || ''}
+        outcomeCard={outcomeCard}
+        onClose={() => setPropModalKind(null)}
+        onPickPhrase={(ja) => mic.setTranscript(ja)}
+      />
     </AppShell>
   );
 }
@@ -1188,6 +1340,61 @@ const styles = StyleSheet.create({
   },
   leftColWide: {
     flex: 1.45,
+  },
+  propsBar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  propBtnPrimary: {
+    backgroundColor: '#991B1B',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: nihongoTheme.radius.pill,
+  },
+  propBtnPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  propBtn: {
+    backgroundColor: '#FDF8F0',
+    borderWidth: 1,
+    borderColor: '#C87D55',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: nihongoTheme.radius.pill,
+  },
+  propBtnText: {
+    color: '#9A5B37',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  outcomeSummaryBox: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: nihongoTheme.radius.md,
+    borderWidth: 1,
+    borderColor: '#E5D5C3',
+    padding: 12,
+    gap: 4,
+    marginVertical: 4,
+  },
+  outcomeSummaryTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#9A5B37',
+  },
+  outcomeSummaryItem: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+    lineHeight: 18,
+  },
+  outcomeSummaryNote: {
+    fontSize: 12,
+    color: nihongoTheme.colors.textSecondary,
+    marginTop: 4,
   },
   rightCol: {
     gap: 12,

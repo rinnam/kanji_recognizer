@@ -346,7 +346,9 @@ export default function SpeakingLobbyScreen() {
               </View>
             ) : (
               <Text style={styles.cvHint}>
-                Tải lên CV thật của bạn (PDF tiếng Việt/Anh/Nhật hoặc ảnh chụp 履歴書), AI sẽ tự đọc trích xuất và đặt 3 câu hỏi đào sâu đúng dự án/kinh nghiệm của bạn.
+                {categoryTab === 'interview'
+                  ? 'Tải lên CV thật của bạn (PDF tiếng Việt/Anh/Nhật hoặc ảnh chụp 履歴書), AI sẽ tự đọc trích xuất và đặt 3 câu hỏi đào sâu đúng dự án/kinh nghiệm của bạn.'
+                  : 'Nhập bất kỳ tình huống nào bạn muốn luyện (vd: té xe nghi gãy chân thay vì sốt, đi ăn chay 6 người, sập server production...) — AI sẽ tự lái toàn bộ câu hỏi và hóa đơn/đơn thuốc cuối buổi theo đúng tình huống bạn nhập!'}
               </Text>
             )}
 

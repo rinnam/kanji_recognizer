@@ -69,3 +69,39 @@ export function playDoorOpenSfx(): void {
   osc.start(now);
   osc.stop(now + 0.13);
 }
+
+function playTone(freq: number, startOffset: number, duration: number, vol = 0.22): void {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const t = ctx.currentTime + startOffset;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, t);
+  gain.gain.setValueAtTime(vol, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t + duration + 0.02);
+}
+
+/** Traditional Japanese restaurant sliding door chime ("カランコロン"). */
+export function playShopBellSfx(): void {
+  playTone(1046.5, 0, 0.22, 0.18);
+  playTone(1318.5, 0.12, 0.25, 0.16);
+  playTone(1568.0, 0.25, 0.35, 0.14);
+}
+
+/** Japanese restaurant table call bell ("ピンポーン♪"). */
+export function playCallBellSfx(): void {
+  playTone(880, 0, 0.18, 0.22);
+  playTone(698.46, 0.18, 0.45, 0.22);
+}
+
+/** Japanese clinic waiting-room gentle chime. */
+export function playClinicChimeSfx(): void {
+  playTone(659.25, 0, 0.22, 0.16);
+  playTone(783.99, 0.2, 0.24, 0.16);
+  playTone(1046.5, 0.4, 0.45, 0.18);
+}

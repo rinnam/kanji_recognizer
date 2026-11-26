@@ -37,18 +37,26 @@ export interface FrameworkCheckItem {
   met: boolean;
 }
 
+export type EvaluationFramework = 'PREP' | 'STAR' | 'HORENSO' | 'SERVICE' | 'MEDICAL';
+
 export interface InterviewEvaluation {
   keigoScore: number;
   grammarScore: number;
   naturalScore: number;
   contentScore: number;
   structureScore: number;
-  framework: 'PREP' | 'STAR';
+  framework: EvaluationFramework;
   frameworkChecklist: FrameworkCheckItem[];
   fillersDetected: string[];
   fluencyNoteVi: string;
   betterJapanese: string;
   feedbackVi: string;
+}
+
+export interface DynamicOutcomeCard {
+  title: string;
+  items: string[];
+  noteVi: string;
 }
 
 export interface InterviewTurnResponse {
@@ -59,6 +67,7 @@ export interface InterviewTurnResponse {
   nextStage: InterviewStage;
   finished: boolean;
   evaluation: InterviewEvaluation;
+  outcomeCard?: DynamicOutcomeCard | undefined;
 }
 
 export interface ParsedCvResponse {
@@ -227,6 +236,27 @@ const STAR_TEMPLATE: FrameworkCheckItem[] = [
   { code: 'R', label: 'Kết quả (Result)', met: false },
 ];
 
+const HORENSO_TEMPLATE: FrameworkCheckItem[] = [
+  { code: '報', label: 'Báo cáo tiến độ', met: false },
+  { code: '連', label: 'Liên lạc sự cố', met: false },
+  { code: '相', label: 'Đề xuất & Xin ý kiến', met: false },
+  { code: '確', label: 'Chốt hành động', met: false },
+];
+
+const SERVICE_TEMPLATE: FrameworkCheckItem[] = [
+  { code: '数', label: 'Rõ số lượng / món', met: false },
+  { code: '礼', label: 'Lịch sự tự nhiên', met: false },
+  { code: '伝', label: 'Đúng yêu cầu', met: false },
+  { code: '流', label: 'Trôi chảy', met: false },
+];
+
+const MEDICAL_TEMPLATE: FrameworkCheckItem[] = [
+  { code: '症', label: 'Rõ triệu chứng / chấn thương', met: false },
+  { code: '時', label: 'Rõ thời điểm / mức độ', met: false },
+  { code: '薬', label: 'Thông tin dị ứng / thuốc', met: false },
+  { code: '礼', label: 'Lịch sự dễ hiểu', met: false },
+];
+
 const FILLER_REGEX =
   /(えー+と|えっと|あのー+|あのお|うー+ん|そのー+|まあ|なんか|えー+|あー+|umm+|uh+|à+|ờ+)/gi;
 
@@ -235,8 +265,29 @@ export function detectTextFillers(text: string): string[] {
   return [...new Set(matches.map((m) => m.trim()).filter(Boolean))];
 }
 
-function expectedFrameworkForStage(stage: InterviewStage): 'PREP' | 'STAR' {
+function expectedFrameworkForScenario(
+  scenarioId: string,
+  stage: InterviewStage,
+): EvaluationFramework {
+  if (scenarioId === 'roleplay_restaurant') return 'SERVICE';
+  if (scenarioId === 'roleplay_clinic') return 'MEDICAL';
+  if (scenarioId === 'roleplay_horenso') return 'HORENSO';
   return stage === 'cv_q1' || stage === 'cv_q3' ? 'STAR' : 'PREP';
+}
+
+function templateForFramework(framework: EvaluationFramework): FrameworkCheckItem[] {
+  switch (framework) {
+    case 'STAR':
+      return STAR_TEMPLATE;
+    case 'HORENSO':
+      return HORENSO_TEMPLATE;
+    case 'SERVICE':
+      return SERVICE_TEMPLATE;
+    case 'MEDICAL':
+      return MEDICAL_TEMPLATE;
+    default:
+      return PREP_TEMPLATE;
+  }
 }
 
 function getNextStage(current: InterviewStage): InterviewStage {
@@ -344,8 +395,8 @@ export async function runInterviewTurn(input: {
     INTERVIEW_SCENARIOS.find((s) => s.id === input.scenarioId) ?? INTERVIEW_SCENARIOS[0]!;
   const cvText = input.cvSummary?.trim() || scenario.defaultCv;
   const candidateText = input.userMessage.trim();
-  const framework = expectedFrameworkForStage(input.stage);
-  const templateChecklist = framework === 'STAR' ? STAR_TEMPLATE : PREP_TEMPLATE;
+  const framework = expectedFrameworkForScenario(scenario.id, input.stage);
+  const templateChecklist = templateForFramework(framework);
 
   const detectedFillers = [
     ...new Set([...(input.fillersFromAudio ?? []), ...detectTextFillers(candidateText)]),
@@ -392,33 +443,33 @@ export async function runInterviewTurn(input: {
   const roleplayStepGuides: Record<string, Partial<Record<InterviewStage, string>>> = {
     roleplay_restaurant: {
       jikoshokai:
-        'Bước 1/4 (入店・案内): Khách vừa báo số người/chỗ ngồi. Hãy dẫn khách vào bàn lịch sự ("かしこまりました。こちらのお席へどうぞ"), đưa thực đơn và hỏi khách muốn gọi đồ uống hay món ăn gì.',
+        'Bước 1/4 (入店・案内): Khách vừa báo số người/chỗ ngồi hoặc yêu cầu đầu tiên (lưu ý bám sát bối cảnh tùy chỉnh của khách ở trên nếu có: vd đi nhóm, có trẻ em, ăn chay...). Hãy dẫn khách vào bàn lịch sự ("かしこまりました。こちらのお席へどうぞ"), đưa thực đơn お品書き và hỏi khách muốn gọi đồ uống hay món gì.',
       jiko_pr:
-        'Bước 2/4 (注文): Khách vừa gọi món hoặc hỏi món gợi ý. Hãy giới thiệu/xác nhận món rất thân thiện và hỏi khách có dị ứng thực phẩm hay yêu cầu đặc biệt gì không (cay/đá/dị ứng).',
+        'Bước 2/4 (注文): Khách vừa gọi món hoặc hỏi món gợi ý (Menu quán có: 鮭定食 ¥1,100, カツ丼 ¥980, 辛口味噌ラーメン ¥950, 海鮮天ぷら盛り合わせ ¥1,350, 野菜天ぷら定食 ¥1,050, ウーロン茶 ¥300, 生ビール ¥550, 抹茶アイス ¥420). Hãy xác nhận món thân thiện và hỏi khách có dị ứng thực phẩm hay yêu cầu đặc biệt gì không.',
       cv_q1:
-        'Bước 3/4 (要望・食事後): Khách vừa báo yêu cầu đặc biệt hoặc gọi thêm. Hãy xác nhận chu đáo, mô phỏng đã phục vụ xong bữa ăn và hỏi khách có muốn gọi thêm món tráng miệng hay thanh toán (お会計) không.',
+        'Bước 3/4 (要望・食事後): Khách vừa báo yêu cầu đặc biệt / dị ứng / gọi thêm. Hãy xác nhận chu đáo, mô phỏng đã phục vụ món xong và hỏi khách có muốn gọi thêm gì hay thanh toán (お会計) không.',
       cv_q2:
-        'Bước 4/4 (お会計・退店): Khách vừa yêu cầu thanh toán hoặc nói ごちそうさまでした. Hãy báo tổng tiền lịch sự (vd 2,400円になります), cảm ơn và chào tạm biệt chuẩn quán Nhật ("ありがとうございました！またお越しくださいませ！").',
+        'Bước 4/4 (お会計・退店): Khách vừa yêu cầu thanh toán hoặc nói ごちそうさまでした. Hãy tính tổng tiền ước lượng dựa trên ĐÚNG các món khách đã gọi trong lịch sử, chào cảm ơn chuẩn quán Nhật ("ありがとうございました！またお越しくださいませ！") VÀ điền trường outcomeCard dạng Hóa đơn (伝票).',
     },
     roleplay_clinic: {
       jikoshokai:
-        'Bước 1/4 (症状の説明): Bệnh nhân vừa kể triệu chứng ban đầu. Hãy hỏi thăm ân cần và hỏi sâu thêm: sốt bao nhiêu độ, có đau họng/ho/chán ăn không.',
+        'Bước 1/4 (症状の説明): Bệnh nhân vừa mô tả vấn đề sức khỏe/chấn thương. QUAN TRỌNG: Đọc kỹ bối cảnh tùy chỉnh và lời nói thật của bệnh nhân (ví dụ: nếu bị gãy chân / trật khớp / đau bụng / dị ứng thì HỎI ĐÚNG VỀ CHẤN THƯƠNG/BỆNH ĐÓ — TUYỆT ĐỐI KHÔNG tự bịa hỏi sốt hay đau họng nếu bệnh nhân không bị cảm!). Hãy hỏi sâu 1-2 câu chuyên môn phù hợp (bị từ lúc nào, mức độ đau/sưng/cử động...).',
       jiko_pr:
-        'Bước 2/4 (問診): Bệnh nhân vừa trả lời chi tiết triệu chứng. Hãy hỏi xem bệnh nhân có dị ứng thuốc (薬のアレルギー) hoặc đang uống loại thuốc nào khác không.',
+        'Bước 2/4 (問診): Bệnh nhân vừa trả lời chi tiết tình trạng. Hãy phản hồi ân cần đúng với bệnh/chấn thương của bệnh nhân và hỏi về tiền sử dị ứng thuốc (薬のアレルギー) hoặc thuốc đang sử dụng.',
       cv_q1:
-        'Bước 3/4 (アレルギー確認・処方): Bệnh nhân vừa báo thông tin dị ứng. Hãy kết luận nhẹ nhàng (cảm cúm nhẹ / viêm họng), nói sẽ kê đơn thuốc (お薬を出しておきます) và hỏi bệnh nhân có thắc mắc gì về cách uống thuốc không.',
+        'Bước 3/4 (アレルギー確認・診断): Bệnh nhân vừa trả lời thông tin dị ứng. Hãy đưa ra kết luận sơ bộ & hướng xử lý THỰC TẾ đúng với bệnh/chấn thương (ví dụ: gãy chân → chụp X-quang レントゲン & nẹp/bó bột + thuốc giảm đau; cảm cúm → đơn thuốc uống sau ăn; đau bụng → thuốc dạ dày...) và hỏi bệnh nhân có thắc mắc gì không.',
       cv_q2:
-        'Bước 4/4 (処方箋・お大事に): Bệnh nhân vừa hỏi cách uống hoặc cảm ơn. Hãy dặn uống thuốc sau bữa ăn ngày 3 lần, nghỉ ngơi nhiều và chào tạm biệt chuẩn bác sĩ Nhật ("お大事になさってください。").',
+        'Bước 4/4 (処方箋・お大事に): Bệnh nhân vừa hỏi thêm hoặc cảm ơn. Hãy dặn dò cách chăm sóc/uống thuốc/tái khám ĐÚNG với ca bệnh của bệnh nhân, chào "お大事になさってください。" VÀ điền trường outcomeCard dạng Phiếu chẩn đoán & Đơn thuốc (診断メモ・処方箋).',
     },
     roleplay_horenso: {
       jikoshokai:
-        'Bước 1/4 (報告 - Báo cáo tiến độ): Nhân viên vừa báo cáo tiến độ task tuần này. Hãy ghi nhận ngắn gọn và hỏi xem có vấn đề kỹ thuật hay rủi ro nào ảnh hưởng đến deadline không.',
+        'Bước 1/4 (報告 - Báo cáo): Nhân viên vừa trình bày tình hình ban đầu (bám sát 100% bối cảnh tùy chỉnh ở trên: vd tiến độ sprint, sập server production, đổi yêu cầu khách hàng...). Hãy ghi nhận và hỏi sâu về rủi ro / mức độ ảnh hưởng hiện tại.',
       jiko_pr:
-        'Bước 2/4 (連絡 - Liên lạc sự cố): Nhân viên vừa báo sự cố/bug. Hãy đánh giá cao việc báo sớm (早めに連絡してくれてありがとう) và hỏi nhân viên đề xuất phương án giải quyết (相談) như thế nào.',
+        'Bước 2/4 (連絡 - Liên lạc vấn đề): Nhân viên vừa thông tin chi tiết vấn đề/rủi ro. Hãy khen ngợi việc báo sớm (早めに連絡してくれてありがとう) và hỏi nhân viên đề xuất phương án xử lý (相談) như thế nào.',
       cv_q1:
-        'Bước 3/4 (相談 - Xin ý kiến giải pháp): Nhân viên vừa đưa ra phương án xử lý. Hãy góp ý ngắn gọn, đồng ý hướng xử lý và hỏi xác nhận thời điểm hoàn thành mới cụ thể.',
+        'Bước 3/4 (相談 - Thảo luận giải pháp): Nhân viên vừa đề xuất hướng xử lý. Hãy góp ý thực tế đúng theo sự cố đó, thống nhất phương án và hỏi xác nhận thời điểm hoàn thành / hành động tiếp theo cụ thể.',
       cv_q2:
-        'Bước 4/4 (確認・締め): Nhân viên vừa chốt lịch mới. Hãy xác nhận đồng ý, dặn báo lại khi xong và kết thúc cuộc họp Horenso ("承知しました。引き続きよろしくお願いします。お疲れ様でした。").',
+        'Bước 4/4 (確認・締め): Nhân viên vừa chốt hành động. Hãy xác nhận đồng ý, chào kết thúc chuẩn công sở Nhật ("承知しました。引き続きよろしくお願いします。お疲れ様でした。") VÀ điền trường outcomeCard dạng Biên bản chốt hành động Horenso (確認メモ).',
     },
   };
 
@@ -428,35 +479,58 @@ export async function runInterviewTurn(input: {
         ? `Đây là lượt cuối của buổi Roleplay (${scenario.title}). Hãy phản hồi tự nhiên và chào kết thúc lịch sự bằng tiếng Nhật.`
         : `Bạn đang nhập vai ${scenario.interviewerName} trong tình huống "${scenario.title}". Hãy phản hồi tự nhiên (1-2 câu tiếng Nhật trình độ ${scenario.level}) và hỏi tiếp câu sát bối cảnh.`)
     : STAGE_INSTRUCTIONS[input.stage];
-  const frameworkSpec =
-    framework === 'STAR'
-      ? 'STAR: S (Bối cảnh - Situation), T (Nhiệm vụ - Task), A (Hành động của riêng ứng viên - Action), R (Kết quả cụ thể - Result)'
-      : 'PREP: P (Kết luận trước - Point), R (Lý do - Reason), E (Ví dụ/bằng chứng cụ thể - Example), P (Chốt lại - Point)';
 
-  const systemPrompt = `Bạn là nhà tuyển dụng Nhật Bản tên ${scenario.interviewerName} (${scenario.interviewerRole}) tại ${scenario.companyName}.
-Kịch bản: ${scenario.title} (Trình độ ${scenario.level}).
-Nội dung CV / 履歴書 THẬT của ứng viên:
+  const frameworkSpecMap: Record<EvaluationFramework, string> = {
+    PREP: 'PREP: P (Kết luận trước), R (Lý do), E (Ví dụ cụ thể), P (Chốt lại)',
+    STAR: 'STAR: S (Bối cảnh), T (Nhiệm vụ), A (Hành động của riêng ứng viên), R (Kết quả cụ thể)',
+    HORENSO: 'HORENSO: 報 (Báo cáo rõ ràng), 連 (Liên lạc kịp thời rủi ro), 相 (Đề xuất & xin ý kiến), 確 (Chốt hành động tiếp theo)',
+    SERVICE: 'SERVICE (Giao tiếp dịch vụ): 数 (Rõ số lượng/món), 礼 (Lịch sự tự nhiên), 伝 (Đúng yêu cầu), 流 (Trôi chảy) — KHÔNG ép khung PREP',
+    MEDICAL: 'MEDICAL (Giao tiếp y tế): 症 (Rõ triệu chứng/chấn thương), 時 (Thời điểm/mức độ), 薬 (Dị ứng/thuốc), 礼 (Lịch sự dễ hiểu) — KHÔNG ép khung PREP',
+  };
+  const frameworkSpec = frameworkSpecMap[framework];
+
+  const roleDescriptor = isRoleplay
+    ? `Bạn đang nhập vai ${scenario.interviewerName} (${scenario.interviewerRole}) tại ${scenario.companyName} trong bối cảnh "${scenario.title}".`
+    : `Bạn là nhà tuyển dụng Nhật Bản tên ${scenario.interviewerName} (${scenario.interviewerRole}) tại ${scenario.companyName}.`;
+
+  const contextHeading = isRoleplay
+    ? 'Bối cảnh TÙY CHỈNH người dùng đặt ra (BẮT BUỘC bám sát 100%, không tự bịa kịch bản khác):'
+    : 'Nội dung CV / 履歴書 THẬT của ứng viên:';
+
+  const systemPrompt = `${roleDescriptor}
+Trình độ mục tiêu: ${scenario.level}.
+${contextHeading}
 """
 ${cvText}
 """
 
-Lượt hiện tại ứng viên vừa trả lời thuộc bước: "${input.stage}".
+Lượt hiện tại thuộc bước: "${input.stage}".
 CHỈ DẪN BẮT BUỘC CHO LƯỢT NÀY:
 ${stageInstruction}
 
-CHẤM ĐIỂM CHUYÊN SÂU:
-1. Đánh giá cấu trúc câu trả lời theo khung **${framework}** (${frameworkSpec}): kiểm tra từng yếu tố (met: true/false) và chấm structureScore (0-100).
-2. Phát hiện từ đệm / ấp úng (フィラー như えーと, あのー, うーん, そのー, まあ, à, ờ) có trong câu nói (hệ thống đã sơ bộ phát hiện: ${JSON.stringify(detectedFillers)}). Viết fluencyNoteVi nhận xét ngắn gọn độ trôi chảy & cách khắc phục từ đệm.
+CHẤM ĐIỂM PHÙ HỢP BỐI CẢNH:
+1. Đánh giá theo khung **${framework}** (${frameworkSpec}): điền đúng 4 mục vào frameworkChecklist (met: true/false) và chấm structureScore (0-100). Với tình huống giao tiếp ngắn (như báo số người ở nhà hàng), hãy chấm công bằng theo độ rõ ràng & lịch sự của tình huống đó, KHÔNG đòi hỏi dài dòng kiểu phỏng vấn.
+2. Phát hiện từ đệm / ấp úng (フィラー như えーと, あのー, うーん, そのー, まあ, à, ờ) có trong câu nói (sơ bộ: ${JSON.stringify(detectedFillers)}). Viết fluencyNoteVi nhận xét ngắn gọn.
 3. Chấm keigoScore, grammarScore, naturalScore, contentScore (0-100).
-4. Viết betterJapanese: phiên bản trả lời tiếng Nhật lịch sự hơn, theo đúng cấu trúc ${framework} và không có từ đệm.
-5. Viết feedbackVi: nhận xét & sửa lỗi cụ thể 1-2 câu bằng tiếng Việt (nêu rõ thiếu phần nào của ${framework} nếu có).
+4. Viết betterJapanese: phiên bản nói tiếng Nhật tự nhiên & lịch sự hơn đúng bối cảnh (không có từ đệm).
+5. Viết feedbackVi: nhận xét & gợi ý cải thiện ngắn gọn 1-2 câu bằng tiếng Việt.
+${
+  willFinish && isRoleplay
+    ? '6. BẮT BUỘC điền trường "outcomeCard" tổng kết thực tế cuối buổi (vd: Hóa đơn 伝票 đúng các món vừa gọi + tổng Yên; hoặc Phiếu chẩn đoán & đơn thuốc 診断メモ đúng bệnh/chấn thương vừa khám; hoặc Biên bản chốt hành động Horenso).'
+    : ''
+}
 
 CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
 {
-  "candidateTranscript": "string (nếu ứng viên gửi file ghi âm, chép lại nguyên văn tiếng Nhật ứng viên vừa nói gồm cả từ đệm えーと/あのー; nếu gửi văn bản thì trả lại văn bản đó)",
-  "replyJa": "string (1-3 câu tiếng Nhật lịch sự của nhà tuyển dụng)",
+  "candidateTranscript": "string",
+  "replyJa": "string (1-3 câu tiếng Nhật tự nhiên)",
   "replyReading": "string (hiragana/katakana)",
   "replyVi": "string (dịch tiếng Việt)",
+  "outcomeCard": ${
+    willFinish && isRoleplay
+      ? '{ "title": "string", "items": ["string"], "noteVi": "string" }'
+      : 'null'
+  },
   "evaluation": {
     "keigoScore": number,
     "grammarScore": number,
@@ -518,6 +592,18 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
     ]),
   ];
 
+  const rawOutcome = parsed.outcomeCard;
+  const outcomeCard: DynamicOutcomeCard | undefined =
+    rawOutcome && typeof rawOutcome.title === 'string' && rawOutcome.title.trim()
+      ? {
+          title: rawOutcome.title.trim(),
+          items: Array.isArray(rawOutcome.items)
+            ? rawOutcome.items.map((x) => String(x)).filter(Boolean).slice(0, 8)
+            : [],
+          noteVi: String(rawOutcome.noteVi ?? '').trim(),
+        }
+      : undefined;
+
   return {
     candidateTranscript: resolvedCandidateText,
     replyJa:
@@ -527,6 +613,7 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
     replyVi: parsed.replyVi?.trim() || 'Cảm ơn bạn. Bạn có thể chia sẻ chi tiết hơn không?',
     nextStage,
     finished: willFinish,
+    outcomeCard,
     evaluation: {
       keigoScore: clampScore(parsed.evaluation?.keigoScore, 78),
       grammarScore: clampScore(parsed.evaluation?.grammarScore, 80),
