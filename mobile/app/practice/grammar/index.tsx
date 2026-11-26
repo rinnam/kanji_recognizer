@@ -79,6 +79,7 @@ export default function GrammarPracticeScreen() {
   const [visibleCount, setVisibleCount] = useState(18);
 
   // Tab 2: Star Sentence Builder + 25s reflex timer
+  const [starRoundSize, setStarRoundSize] = useState<5 | 10 | 15>(5);
   const [starReflexMode, setStarReflexMode] = useState(true);
   const [starRoundQuestions, setStarRoundQuestions] = useState<StarSentenceQuestion[]>([]);
   const [starIdx, setStarIdx] = useState(0);
@@ -293,10 +294,13 @@ export default function GrammarPracticeScreen() {
     triggerCardEnter(starCardEnterAnim);
   };
 
-  const startStarRound = (lv: JlptLevelFilter = levelFilter) => {
+  const startStarRound = (
+    lv: JlptLevelFilter = levelFilter,
+    count: 5 | 10 | 15 = starRoundSize,
+  ) => {
     recordMeaningfulStudyAction('grammar_star_start');
     const pool = lv === 'ALL' ? STAR_SENTENCES : STAR_SENTENCES.filter((s) => s.level === lv);
-    const chosen = shuffleArray(pool.length > 0 ? pool : STAR_SENTENCES).slice(0, 5);
+    const chosen = shuffleArray(pool.length > 0 ? pool : STAR_SENTENCES).slice(0, count);
     setStarRoundQuestions(chosen);
     setStarIdx(0);
     setStarScore(0);
@@ -1008,6 +1012,29 @@ export default function GrammarPracticeScreen() {
         </View>
       ) : activeTab === 'star' ? (
         <View style={styles.sectionGap}>
+          <View style={styles.rowBetween}>
+            <Text style={styles.label}>Số câu mỗi lượt:</Text>
+            <View style={styles.subFilterRow}>
+              {([5, 10, 15] as const).map((sz) => {
+                const active = starRoundSize === sz;
+                return (
+                  <Pressable
+                    key={sz}
+                    style={[styles.subChip, active && styles.subChipActive]}
+                    onPress={() => {
+                      setStarRoundSize(sz);
+                      startStarRound(levelFilter, sz);
+                    }}
+                  >
+                    <Text style={[styles.subChipText, active && styles.subChipTextActive]}>
+                      {sz} câu
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
           {starRoundDone ? (
             <View style={styles.card}>
               <Text style={styles.doneTitle}>Hoàn thành vòng Xếp Câu Dấu Sao!</Text>
@@ -1020,8 +1047,13 @@ export default function GrammarPracticeScreen() {
                   <Text style={styles.ksBannerText}>{starKsMsg}</Text>
                 </View>
               ) : null}
-              <Pressable style={styles.primaryBtn} onPress={() => startStarRound(levelFilter)}>
-                <Text style={styles.primaryBtnText}>Chơi vòng mới (5 câu khác) →</Text>
+              <Pressable
+                style={styles.primaryBtn}
+                onPress={() => startStarRound(levelFilter, starRoundSize)}
+              >
+                <Text style={styles.primaryBtnText}>
+                  Chơi vòng mới ({starRoundSize} câu khác) →
+                </Text>
               </Pressable>
             </View>
           ) : currentStar ? (

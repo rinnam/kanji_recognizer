@@ -13,9 +13,21 @@ import {
   SushiPlateIcon,
   VolumeIcon,
 } from '../../src/components/AppIcons';
+import {
+  GameDeckSelector,
+  loadSavedGameDeckSelection,
+  saveGameDeckSelection,
+} from '../../src/components/GameDeckSelector';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { getUserScopedKey } from '../../src/features/auth/auth-store';
-import { selectGameDeck, shuffleItems, useGameVocabulary } from '../../src/features/games/use-game-vocab';
+import {
+  countDeckMatches,
+  DEFAULT_GAME_DECK_SELECTION,
+  selectGameDeck,
+  shuffleItems,
+  useGameVocabulary,
+  type GameDeckSelection,
+} from '../../src/features/games/use-game-vocab';
 import { claimDailyGameReward } from '../../src/features/membership/membership-store';
 import { recordMeaningfulStudyAction } from '../../src/features/study-tracker/use-study-tracker';
 import { speakJapanese } from '../../src/utils/speak-japanese';
@@ -50,14 +62,15 @@ function getBaseSpeedPx(sp: BeltSpeed): number {
 }
 
 export default function KaitenSushiScreen() {
-  const { words, loading } = useGameVocabulary();
-  const [level, setLevel] = useState('ALL');
+  const { words, folders, loading } = useGameVocabulary();
+  const [deckSelection, setDeckSelection] = useState<GameDeckSelection>(DEFAULT_GAME_DECK_SELECTION);
   const [speed, setSpeed] = useState<BeltSpeed>('Vừa');
   const [showKana, setShowKana] = useState(true);
   const [phase, setPhase] = useState<'setup' | 'playing' | 'summary'>('setup');
 
   const [bestScore, setBestScore] = useState(0);
-  const [broadenedNotice, setBroadenedNotice] = useState(false);
+  const [activeDeckLabel, setActiveDeckLabel] = useState('Tất cả bộ từ');
+  const [activeDeckCount, setActiveDeckCount] = useState(0);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [hearts, setHearts] = useState(3);
@@ -78,7 +91,8 @@ export default function KaitenSushiScreen() {
   const [floatTone, setFloatTone] = useState<FloatTone>('good');
 
   // Synchronous game loop refs
-  const deckRef = useRef<VocabularyDto[]>([]);
+  const targetsRef = useRef<VocabularyDto[]>([]);
+  const distractorPoolRef = useRef<VocabularyDto[]>([]);
   const orderRef = useRef<VocabularyDto | null>(null);
   const platesRef = useRef<SushiPlate[]>([]);
   const scoreRef = useRef(0);
@@ -112,12 +126,20 @@ export default function KaitenSushiScreen() {
           if (Number.isFinite(n)) setBestScore(n);
         }
       });
+    void loadSavedGameDeckSelection().then(setDeckSelection);
     return () => {
       if (rafRef.current !== null && typeof cancelAnimationFrame !== 'undefined') {
         cancelAnimationFrame(rafRef.current);
       }
     };
   }, []);
+
+  const handleDeckChange = (next: GameDeckSelection) => {
+    setDeckSelection(next);
+    void saveGameDeckSelection(next);
+  };
+
+  const previewCount = countDeckMatches(words, deckSelection, folders);
 
   // Gentle Fever pulse loop when combo >= 3
   useEffect(() => {
@@ -170,13 +192,22 @@ export default function KaitenSushiScreen() {
     return source[Math.floor(Math.random() * source.length)]!;
   };
 
-  const makeInitialPlates = (pool: readonly VocabularyDto[], target: VocabularyDto, bw: number): SushiPlate[] => {
-    const distractors = shuffleItems(pool.filter((w) => w.id !== target.id)).slice(0, 3);
+  const makeInitialPlates = (
+    targets: readonly VocabularyDto[],
+    dPool: readonly VocabularyDto[],
+    target: VocabularyDto,
+    bw: number,
+  ): SushiPlate[] => {
+    const preferredOthers = targets.filter((w) => w.id !== target.id);
+    const extraDecoys = dPool.filter(
+      (w) => w.id !== target.id && !preferredOthers.some((p) => p.id === w.id),
+    );
+    const distractors = [...shuffleItems(preferredOthers), ...shuffleItems(extraDecoys)].slice(0, 3);
     const selected = shuffleItems([target, ...distractors]);
     const width = Math.max(340, bw);
     const fractions = [0.22, 0.44, 0.67, 0.89];
     return selected.map((w, i) => {
-      const xPx = Math.round(width * fractions[i]!);
+      const xPx = Math.round(width * (fractions[i] ?? 0.9));
       return {
         uid: `p_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}`,
         word: w,
@@ -217,16 +248,20 @@ export default function KaitenSushiScreen() {
 
   const startGame = () => {
     recordMeaningfulStudyAction('sushi_start');
-    const { pool, broadened } = selectGameDeck(words, level);
-    deckRef.current = pool;
-    setBroadenedNotice(broadened);
+    const { targets, distractorPool, deckLabel } = selectGameDeck(words, deckSelection, folders);
+    if (targets.length === 0) return;
 
-    const firstOrder = pickNextOrder(pool);
+    targetsRef.current = targets;
+    distractorPoolRef.current = distractorPool;
+    setActiveDeckLabel(deckLabel);
+    setActiveDeckCount(targets.length);
+
+    const firstOrder = pickNextOrder(targets);
     orderRef.current = firstOrder;
     setOrderWord(firstOrder);
     resetOrderTimer(getOrderLimitSec(speed));
 
-    const initPlates = makeInitialPlates(pool, firstOrder, beltWidthRef.current);
+    const initPlates = makeInitialPlates(targets, distractorPool, firstOrder, beltWidthRef.current);
     platesRef.current = initPlates;
     setPlates(initPlates);
 
@@ -241,7 +276,7 @@ export default function KaitenSushiScreen() {
     setSpeedBonusCount(0);
     setMissedWords([]);
     setKsMsg(null);
-    setFeedback('Phục vụ nhanh! Chạm đúng đĩa khớp nghĩa khách đang gọi.');
+    setFeedback(`Mở ca với ${targets.length} từ đang chọn! Chạm đúng đĩa khớp nghĩa khách gọi.`);
     phaseRef.current = 'playing';
     setPhase('playing');
   };
@@ -262,8 +297,9 @@ export default function KaitenSushiScreen() {
       lastTs = now;
 
       const curOrder = orderRef.current;
-      const pool = deckRef.current;
-      if (!curOrder || pool.length === 0) {
+      const targets = targetsRef.current;
+      const dPool = distractorPoolRef.current;
+      if (!curOrder || targets.length === 0 || dPool.length === 0) {
         rafRef.current = requestAnimationFrame(tick);
         return;
       }
@@ -332,7 +368,7 @@ export default function KaitenSushiScreen() {
           return;
         }
 
-        const nextOrd = pickNextOrder(pool, curOrder.id);
+        const nextOrd = pickNextOrder(targets, curOrder.id);
         orderRef.current = nextOrd;
         setOrderWord(nextOrd);
         resetOrderTimer(limitMs / 1000);
@@ -357,11 +393,10 @@ export default function KaitenSushiScreen() {
 
         if (maxLaneX < bw - MIN_PLATE_GAP_PX || !hasActivePlateOnScreen) {
           const spawnX = Math.max(bw + 10, maxLaneX + MIN_PLATE_GAP_PX);
-          // Avoid exceeding too far off-screen when spawning fillers
           if (spawnX <= bw + 260) {
             const wordToSpawn = !hasActivePlateOnScreen
               ? activeOrder
-              : pool[Math.floor(Math.random() * pool.length)]!;
+              : dPool[Math.floor(Math.random() * dPool.length)]!;
             remaining.push({
               uid: `p_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
               word: wordToSpawn,
@@ -446,7 +481,7 @@ export default function KaitenSushiScreen() {
         `${fever ? 'FEVER ×2! ' : ''}${isFast ? '⚡ Siêu tốc! ' : ''}Phục vụ chuẩn "${plate.word.word}" (+${pts}đ)`,
       );
 
-      const nextOrd = pickNextOrder(deckRef.current, curOrder.id);
+      const nextOrd = pickNextOrder(targetsRef.current, curOrder.id);
       orderRef.current = nextOrd;
       setOrderWord(nextOrd);
       resetOrderTimer(getOrderLimitSec(speedRef.current));
@@ -512,20 +547,13 @@ export default function KaitenSushiScreen() {
 
       {phase === 'setup' ? (
         <View style={styles.card}>
-          <Text style={styles.label}>Trình độ từ vựng</Text>
-          <View style={styles.row}>
-            {(['ALL', 'N5', 'N4', 'N3', 'N2', 'N1'] as const).map((lv) => (
-              <Pressable
-                key={lv}
-                style={[styles.chip, level === lv && styles.chipActive]}
-                onPress={() => setLevel(lv)}
-              >
-                <Text style={[styles.chipText, level === lv && styles.chipTextActive]}>
-                  {lv === 'ALL' ? 'Tất cả' : lv}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <GameDeckSelector
+            words={words}
+            folders={folders}
+            value={deckSelection}
+            onChange={handleDeckChange}
+            accentColor="#0D9488"
+          />
 
           <Text style={styles.label}>Tốc độ băng chuyền &amp; Thời gian mỗi đơn</Text>
           <View style={styles.row}>
@@ -567,22 +595,26 @@ export default function KaitenSushiScreen() {
           </View>
 
           <Pressable
-            style={[styles.primaryBtn, loading && styles.btnDisabled]}
-            disabled={loading}
+            style={[styles.primaryBtn, (loading || previewCount === 0) && styles.btnDisabled]}
+            disabled={loading || previewCount === 0}
             onPress={startGame}
           >
             <Text style={styles.primaryBtnText}>
-              {loading ? 'Đang mở quán...' : 'Mở cửa Quán Sushi'}
+              {loading
+                ? 'Đang mở quán...'
+                : previewCount === 0
+                  ? 'Chưa có từ khớp bộ lọc'
+                  : `Mở cửa Quán Sushi (${deckSelection.limitCount > 0 ? Math.min(deckSelection.limitCount, previewCount) : previewCount} từ)`}
             </Text>
           </Pressable>
         </View>
       ) : phase === 'playing' && orderWord ? (
         <View style={styles.sectionGap}>
-          {broadenedNotice ? (
-            <Text style={styles.broadNotice}>
-              Chưa đủ từ cấp {level}, đã mở rộng toàn bộ kho từ để đĩa chạy đa dạng hơn.
+          <View style={styles.broadNotice}>
+            <Text style={styles.broadNoticeText}>
+              Bộ từ: {activeDeckLabel} ({activeDeckCount} từ đang phục vụ)
             </Text>
-          ) : null}
+          </View>
 
           {/* HUD & Customer Order with shake, floating score, and patience timer */}
           <Animated.View
@@ -889,13 +921,17 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.textPrimary,
   },
   broadNotice: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: nihongoTheme.colors.warningText,
-    backgroundColor: nihongoTheme.colors.warningBg,
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#99F6E4',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
+  },
+  broadNoticeText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#0D9488',
   },
   floatPopup: {
     position: 'absolute',

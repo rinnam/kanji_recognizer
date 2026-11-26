@@ -13,9 +13,21 @@ import {
   ShieldCheckIcon,
   VolumeIcon,
 } from '../../src/components/AppIcons';
+import {
+  GameDeckSelector,
+  loadSavedGameDeckSelection,
+  saveGameDeckSelection,
+} from '../../src/components/GameDeckSelector';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { getUserScopedKey } from '../../src/features/auth/auth-store';
-import { selectGameDeck, shuffleItems, useGameVocabulary } from '../../src/features/games/use-game-vocab';
+import {
+  countDeckMatches,
+  DEFAULT_GAME_DECK_SELECTION,
+  selectGameDeck,
+  shuffleItems,
+  useGameVocabulary,
+  type GameDeckSelection,
+} from '../../src/features/games/use-game-vocab';
 import { claimDailyGameReward } from '../../src/features/membership/membership-store';
 import { recordMeaningfulStudyAction } from '../../src/features/study-tracker/use-study-tracker';
 import { speakJapanese } from '../../src/utils/speak-japanese';
@@ -49,12 +61,18 @@ function getQuestionLimitSec(d: Difficulty): number {
   return 9;
 }
 
-function buildBossQuestion(deck: readonly VocabularyDto[], idx: number): BossQuestion {
-  const target = deck[idx % deck.length]!;
+function buildBossQuestion(
+  targets: readonly VocabularyDto[],
+  distractorPool: readonly VocabularyDto[],
+  idx: number,
+): BossQuestion {
+  const target = targets[idx % targets.length]!;
   const kinds: QuestionKind[] = ['kanji_to_vi', 'audio_to_word', 'vi_to_word'];
   const kind = kinds[idx % kinds.length]!;
   const distractorsPool = shuffleItems(
-    deck.filter((w) => w.id !== target.id && w.meaning !== target.meaning && w.word !== target.word),
+    distractorPool.filter(
+      (w) => w.id !== target.id && w.meaning !== target.meaning && w.word !== target.word,
+    ),
   ).slice(0, 3);
 
   if (kind === 'kanji_to_vi') {
@@ -123,13 +141,13 @@ function buildBossQuestion(deck: readonly VocabularyDto[], idx: number): BossQue
 }
 
 export default function BotGameScreen() {
-  const { words, loading } = useGameVocabulary();
+  const { words, folders, loading } = useGameVocabulary();
   const [difficulty, setDifficulty] = useState<Difficulty>('Vừa');
-  const [level, setLevel] = useState('ALL');
+  const [deckSelection, setDeckSelection] = useState<GameDeckSelection>(DEFAULT_GAME_DECK_SELECTION);
   const [phase, setPhase] = useState<'setup' | 'battle' | 'summary'>('setup');
 
   const [deck, setDeck] = useState<VocabularyDto[]>([]);
-  const [broadenedNotice, setBroadenedNotice] = useState(false);
+  const [activeDeckLabel, setActiveDeckLabel] = useState('Tất cả bộ từ');
   const [bestScore, setBestScore] = useState(0);
 
   // Battle RPG state
@@ -164,6 +182,8 @@ export default function BotGameScreen() {
   const [floatTone, setFloatTone] = useState<FloatTone>('hit');
 
   // Refs for timers & synchronous checks
+  const targetsRef = useRef<VocabularyDto[]>([]);
+  const distractorPoolRef = useRef<VocabularyDto[]>([]);
   const nextTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafRef = useRef<number | null>(null);
   const qStartTsRef = useRef<number>(0);
@@ -189,6 +209,7 @@ export default function BotGameScreen() {
           if (Number.isFinite(n)) setBestScore(n);
         }
       });
+    void loadSavedGameDeckSelection().then(setDeckSelection);
     return () => {
       if (nextTimerRef.current) clearTimeout(nextTimerRef.current);
       if (rafRef.current !== null && typeof cancelAnimationFrame !== 'undefined') {
@@ -196,6 +217,13 @@ export default function BotGameScreen() {
       }
     };
   }, []);
+
+  const handleDeckChange = (next: GameDeckSelection) => {
+    setDeckSelection(next);
+    void saveGameDeckSelection(next);
+  };
+
+  const previewCount = countDeckMatches(words, deckSelection, folders);
 
   const initialBossHp = (d: Difficulty, w: number) => {
     const base = d === 'Dễ' ? 75 : d === 'Khó' ? 140 : 100;
@@ -289,9 +317,13 @@ export default function BotGameScreen() {
 
   const startBattle = () => {
     recordMeaningfulStudyAction('momo_boss_start');
-    const { pool, broadened } = selectGameDeck(words, level);
-    setDeck(pool);
-    setBroadenedNotice(broadened);
+    const { targets, distractorPool, deckLabel } = selectGameDeck(words, deckSelection, folders);
+    if (targets.length === 0) return;
+
+    targetsRef.current = targets;
+    distractorPoolRef.current = distractorPool;
+    setDeck(targets);
+    setActiveDeckLabel(deckLabel);
 
     const hp1 = initialBossHp(difficulty, 1);
     setWave(1);
@@ -311,9 +343,11 @@ export default function BotGameScreen() {
     setPickedOption(null);
     setMissedWords([]);
     setKsMsg(null);
-    setBattleLog(`Wave 1: ${BOSS_NAMES[0]} xuất hiện! Trả lời nhanh trong ${getQuestionLimitSec(difficulty)}s để nổ Chí mạng.`);
+    setBattleLog(
+      `Wave 1: ${BOSS_NAMES[0]} (${targets.length} từ trong bộ)! Trả lời trong ${getQuestionLimitSec(difficulty)}s để nổ Chí mạng.`,
+    );
 
-    const firstQ = buildBossQuestion(pool, 0);
+    const firstQ = buildBossQuestion(targets, distractorPool, 0);
     setQIdx(0);
     setQuestion(firstQ);
     resetQuestionTimer(getQuestionLimitSec(difficulty));
@@ -376,7 +410,7 @@ export default function BotGameScreen() {
       }
 
       const nextIdx = qIdx + 1;
-      const nextQ = buildBossQuestion(deck, nextIdx);
+      const nextQ = buildBossQuestion(targetsRef.current, distractorPoolRef.current, nextIdx);
       setQIdx(nextIdx);
       setQuestion(nextQ);
       setPickedOption(null);
@@ -625,23 +659,14 @@ export default function BotGameScreen() {
             ))}
           </View>
 
-          <Text style={styles.label}>Trình độ từ vựng</Text>
-          <View style={styles.row}>
-            {(['ALL', 'N5', 'N4', 'N3', 'N2', 'N1'] as const).map((lv) => (
-              <Pressable
-                key={lv}
-                style={[styles.chip, level === lv && styles.chipActive]}
-                onPress={() => {
-                  recordMeaningfulStudyAction('game_option');
-                  setLevel(lv);
-                }}
-              >
-                <Text style={[styles.chipText, level === lv && styles.chipTextActive]}>
-                  {lv === 'ALL' ? 'Tất cả' : lv}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <Text style={styles.label}>Chọn bộ từ vựng &amp; Số từ ôn</Text>
+          <GameDeckSelector
+            words={words}
+            folders={folders}
+            value={deckSelection}
+            onChange={handleDeckChange}
+            accentColor="#DC2626"
+          />
 
           <View style={styles.rulesCard}>
             <Text style={styles.rulesText}>
@@ -656,22 +681,26 @@ export default function BotGameScreen() {
           </View>
 
           <Pressable
-            style={[styles.primaryBtn, loading && styles.btnDisabled]}
-            disabled={loading}
+            style={[styles.primaryBtn, (loading || previewCount === 0) && styles.btnDisabled]}
+            disabled={loading || previewCount === 0}
             onPress={startBattle}
           >
             <Text style={styles.primaryBtnText}>
-              {loading ? 'Đang tải kho từ vựng...' : 'Xuất quân công thành'}
+              {loading
+                ? 'Đang tải kho từ vựng...'
+                : previewCount === 0
+                  ? 'Chưa có từ khớp bộ lọc'
+                  : `Xuất quân công thành (${deckSelection.limitCount > 0 ? Math.min(deckSelection.limitCount, previewCount) : previewCount} từ)`}
             </Text>
           </Pressable>
         </View>
       ) : phase === 'battle' && question ? (
         <View style={styles.sectionGap}>
-          {broadenedNotice ? (
-            <Text style={styles.broadNotice}>
-              Chưa đủ từ cấp {level}, đã tự mở rộng sang toàn bộ thư viện của bạn.
+          <View style={styles.broadNotice}>
+            <Text style={styles.broadNoticeText}>
+              Bộ từ: {activeDeckLabel} ({deck.length} từ đang luyện)
             </Text>
-          ) : null}
+          </View>
 
           {/* Battle HUD with shake & floating popup */}
           <Animated.View
@@ -1029,13 +1058,17 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.textPrimary,
   },
   broadNotice: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: nihongoTheme.colors.warningText,
-    backgroundColor: nihongoTheme.colors.warningBg,
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderWidth: 1,
+    borderColor: '#FAD7B5',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
+  },
+  broadNoticeText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
   },
   floatPopup: {
     position: 'absolute',
