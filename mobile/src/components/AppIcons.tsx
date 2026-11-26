@@ -371,3 +371,102 @@ export function GrammarSkillIcon({ size = 22, color = '#EA7A1E' }: IconProps) {
     </Svg>
   );
 }
+
+export function BossSwordIcon({ size = 22, color = '#DC2626' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14.5 3.5L20.5 3.5L20.5 9.5L11 19L5 13L14.5 3.5Z"
+        fill="rgba(220, 38, 38, 0.14)"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M3.5 20.5L7.5 16.5M5 13L3.5 14.5M11 19L9.5 20.5M4.5 5.5L9.5 10.5M14.5 13.5L18.5 17.5"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function SushiPlateIcon({ size = 22, color = '#0D9488' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12.5" r="8.5" fill="rgba(13, 148, 136, 0.14)" stroke={color} strokeWidth={2} />
+      <Rect x="6.5" y="9" width="11" height="5.5" rx="2.75" fill="#FFFFFF" stroke={color} strokeWidth={2} />
+      <Path d="M10.5 9v5.5M13.5 9v5.5" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function StarPuzzleIcon({ size = 22, color = '#D97706' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Polygon
+        points="12,3 14.7,8.7 21,9.6 16.4,14 17.5,20.3 12,17.3 6.5,20.3 7.6,14 3,9.6 9.3,8.7"
+        fill="rgba(217, 119, 6, 0.18)"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function LightningBoltIcon({ size = 22, color = '#4F46E5' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Polygon
+        points="13,2 4,14 11.5,14 10.5,22 20,10 12.5,10"
+        fill="rgba(79, 70, 229, 0.16)"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function TrophyArenaIcon({ size = 22, color = '#EA7A1E' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M7 4h10v6a5 5 0 0 1-10 0V4z"
+        fill="rgba(234, 122, 30, 0.18)"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M7 6H4.5a1.5 1.5 0 0 0-1.5 1.5V9a3 3 0 0 0 3 3h1M17 6h2.5A1.5 1.5 0 0 1 21 7.5V9a3 3 0 0 1-3 3h-1M12 15v4M8.5 21h7"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+interface HeartIconProps extends IconProps {
+  filled?: boolean;
+}
+
+export function HeartIcon({ size = 16, color = '#DC2626', filled = true }: HeartIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 20.4s-7.5-4.7-9.2-9.2C1.7 8.1 3.7 5 6.8 5c1.9 0 3.4 1 4.2 2.2C11.8 6 13.3 5 15.2 5c3.1 0 5.1 3.1 4 6.2-1.7 4.5-7.2 9.2-7.2 9.2z"
+        fill={filled ? color : 'none'}
+        stroke={color}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}

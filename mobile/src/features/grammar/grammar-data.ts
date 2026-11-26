@@ -1,8 +1,37 @@
+import {
+  N3_FULL_CONJUGATION_BLITZ,
+  N3_FULL_GRAMMAR_POINTS,
+  N3_FULL_PARTICLE_BLITZ,
+  N3_FULL_STAR_SENTENCES,
+} from './n3-grammar-full';
+
 export type JlptLevelFilter = 'ALL' | 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
+
+export type GrammarCategory =
+  | 'time_sequence'
+  | 'cause_result'
+  | 'purpose_habit'
+  | 'condition_scope'
+  | 'contrast'
+  | 'compound_particle'
+  | 'inference_quote'
+  | 'state_attitude';
+
+export const GRAMMAR_CATEGORIES: ReadonlyArray<{ key: GrammarCategory; label: string }> = [
+  { key: 'time_sequence', label: 'Thời gian & Trình tự' },
+  { key: 'cause_result', label: 'Nguyên nhân & Kết quả' },
+  { key: 'purpose_habit', label: 'Mục đích & Thói quen' },
+  { key: 'condition_scope', label: 'Điều kiện & Phạm vi' },
+  { key: 'contrast', label: 'Tương phản & Nhượng bộ' },
+  { key: 'compound_particle', label: 'Trợ từ kép & Quan hệ' },
+  { key: 'inference_quote', label: 'Phán đoán & Truyền đạt' },
+  { key: 'state_attitude', label: 'Trạng thái & Thái độ' },
+];
 
 export interface GrammarPoint {
   id: string;
   level: 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
+  category: GrammarCategory;
   pattern: string;
   structure: string;
   meaningVi: string;
@@ -40,6 +69,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n5_masu_tai',
     level: 'N5',
+    category: 'state_attitude',
     pattern: '〜たいです',
     structure: 'Vます (bỏ ます) + たいです',
     meaningVi: 'Muốn làm gì đó (nguyện vọng của bản thân)',
@@ -52,6 +82,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n5_te_kudasai',
     level: 'N5',
+    category: 'state_attitude',
     pattern: '〜てください',
     structure: 'Vて + ください',
     meaningVi: 'Hãy vui lòng làm ~ (nhờ vả, chỉ dẫn lịch sự)',
@@ -64,6 +95,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n5_kara_reason',
     level: 'N5',
+    category: 'cause_result',
     pattern: '〜から / 〜ので (Lý do)',
     structure: 'Câu ngắn / Thể thường + から · ので',
     meaningVi: 'Vì... nên...',
@@ -76,6 +108,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n5_te_mo_ii',
     level: 'N5',
+    category: 'state_attitude',
     pattern: '〜てもいいですか',
     structure: 'Vて + もいいですか',
     meaningVi: 'Tôi làm ~ có được không?',
@@ -88,6 +121,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n5_nakute_wa_ikemasen',
     level: 'N5',
+    category: 'state_attitude',
     pattern: '〜なければなりません',
     structure: 'Vない (bỏ い) + ければなりません',
     meaningVi: 'Phải làm ~ (nghĩa vụ, quy định)',
@@ -100,6 +134,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n5_ta_koto_ga_aru',
     level: 'N5',
+    category: 'time_sequence',
     pattern: '〜たことがあります',
     structure: 'Vた + ことがあります',
     meaningVi: 'Đã từng làm ~ (kinh nghiệm quá khứ)',
@@ -114,6 +149,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n4_te_miru',
     level: 'N4',
+    category: 'purpose_habit',
     pattern: '〜てみる',
     structure: 'Vて + みる',
     meaningVi: 'Thử làm ~ xem sao',
@@ -126,6 +162,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n4_te_shimau',
     level: 'N4',
+    category: 'state_attitude',
     pattern: '〜てしまう',
     structure: 'Vて + しまう (khẩu ngữ: ちゃう / じゃう)',
     meaningVi: 'Lỡ làm mất / Làm hoàn tất xong xuôi',
@@ -138,6 +175,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n4_koto_ni_suru',
     level: 'N4',
+    category: 'purpose_habit',
     pattern: '〜ことにする / 〜ことになる',
     structure: 'Vる / Vない + ことにする · ことになる',
     meaningVi: 'Quyết định làm ~ (tự chọn) / Được quyết định thành ~ (khách quan)',
@@ -150,6 +188,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n4_you_da_sou_da',
     level: 'N4',
+    category: 'inference_quote',
     pattern: '〜そうだ (Nghe nói vs Trông có vẻ)',
     structure: 'Vる/A (thể thường) + そうだ (nghe nói) · Vます/A(bỏ い) + そうだ (trông có vẻ)',
     meaningVi: 'Nghe nói rằng ~ / Trông có vẻ sắp ~',
@@ -162,6 +201,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n4_ba_condition',
     level: 'N4',
+    category: 'condition_scope',
     pattern: '〜ば (Điều kiện)',
     structure: 'V (cột え) + ば · Aい → ければ · N/Na → なら',
     meaningVi: 'Nếu ~ thì...',
@@ -174,6 +214,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n4_keigo_basic',
     level: 'N4',
+    category: 'state_attitude',
     pattern: 'お〜になります / 〜ております',
     structure: 'お + Vます + になります (Tôn kính) · Vて + おります (Khiêm nhường)',
     meaningVi: 'Ngài làm ~ (nâng người đối diện) / Tôi đang ~ (hạ mình lịch sự)',
@@ -184,84 +225,14 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
     ],
   },
 
-  // N3
-  {
-    id: 'n3_tame_vs_you_ni',
-    level: 'N3',
-    pattern: '〜ために vs 〜ように (Mục đích)',
-    structure: 'Vる / Nの + ために · Vる (khả năng/vô ý)/Vない + ように',
-    meaningVi: 'Để (làm được mục tiêu gì đó)...',
-    nuanceVi: 'Cặp kinh điển hay nhầm: ために đi với động từ CÓ ý chí + cùng chủ ngữ; ように đi với thể khả năng, trạng thái hoặc Vない.',
-    examples: [
-      { ja: '日本へ留学するために、日本語を勉強している。', reading: 'にほんへりゅうがくするために、にほんごをべんきょうしている。', vi: 'Tôi đang học tiếng Nhật để đi du học Nhật.' },
-      { ja: '遅刻しないように、目覚ましを二つかけた。', reading: 'ちこくしないように、めざましをふたつかかけた。', vi: 'Để không bị trễ giờ, tôi đặt hai chuông báo thức.' },
-    ],
-  },
-  {
-    id: 'n3_hazu_vs_wake',
-    level: 'N3',
-    pattern: '〜はずだ vs 〜わけだ',
-    structure: 'Thể thường + はずだ / わけだ',
-    meaningVi: 'Chắc chắn phải là ~ (suy luận logic) vs Thảo nào / Hóa ra là ~',
-    nuanceVi: 'はずだ là suy đoán có cơ sở ("Đã gửi rồi thì chắc chắn đã tới"); わけだ là hiểu ra kết quả đương nhiên từ nguyên nhân nghe thấy.',
-    examples: [
-      { ja: '先週出したから、もう届いているはずだ。', reading: 'せんしゅうだしたから、もうとどいているはずだ。', vi: 'Vì gửi từ tuần trước nên chắc chắn giờ đã tới nơi rồi.' },
-      { ja: '10年も日本に住んでいるなら、ペラペラなわけだ。', reading: 'じゅうねんもにほんにすんでいるなら、ぺらぺらなわけだ。', vi: 'Sống ở Nhật tận 10 năm thì thảo nào nói trôi chảy thế.' },
-    ],
-  },
-  {
-    id: 'n3_nagara_contrast',
-    level: 'N3',
-    pattern: '〜ながら / 〜ながらも',
-    structure: 'Vます / A / N + ながら(も)',
-    meaningVi: 'Mặc dù... nhưng vẫn... (tính tương phản)',
-    nuanceVi: 'Ngoài nghĩa "vừa làm A vừa làm B" (N5), ở N3 ながら đi với tính từ/trạng từ mang nghĩa "tuy vậy mà".',
-    examples: [
-      { ja: '狭いながらも、とても住みやすい部屋だ。', reading: 'せまいながらも、とてもすみやすいへやだ。', vi: 'Tuy chật nhưng đây là căn phòng rất dễ sống.' },
-      { ja: '残念ですが、今回は見送らせていただきます。', reading: 'ざんねんですが、こんかいはみおくらせていただきます。', vi: 'Tuy đáng tiếc nhưng lần này tôi xin phép bỏ qua.' },
-    ],
-  },
-  {
-    id: 'n3_koto_ga_dekiru_nitsuite',
-    level: 'N3',
-    pattern: '〜について / 〜にとって / 〜に対して',
-    structure: 'N + について · にとって · に対して',
-    meaningVi: 'Về (chủ đề) · Đối với (góc nhìn) · Hướng tới / Ngược lại với',
-    nuanceVi: 'Hay bẫy phần trợ từ N3: にとって gắn với đánh giá ("Với tôi điều này rất quan trọng"), に対して hướng hành động/thái độ tới ai.',
-    examples: [
-      { ja: '日本の文化について発表します。', reading: 'にほんのぶんかについてはっぴょうします。', vi: 'Tôi sẽ thuyết trình về văn hóa Nhật Bản.' },
-      { ja: '留学生にとって、アルバイト探しは大切だ。', reading: 'りゅうがくせいにとって、あるばいとさがしはたいせつだ。', vi: 'Đối với du học sinh, việc tìm việc làm thêm rất quan trọng.' },
-    ],
-  },
-  {
-    id: 'n3_okage_sei',
-    level: 'N3',
-    pattern: '〜おかげで vs 〜せいで',
-    structure: 'Thể thường (Aな/Nの) + おかげで · せいで',
-    meaningVi: 'Nhờ có ~ (tích cực) vs Tại vì ~ (tiêu cực)',
-    nuanceVi: 'おかげで luôn bày tỏ biết ơn kết quả tốt; せいで mang hàm ý đổ lỗi cho nguyên nhân gây ra chuyện xấu.',
-    examples: [
-      { ja: '先生のおかげで、N3に合格できました。', reading: 'せんせいのおかげで、N3にごうかくできました。', vi: 'Nhờ có thầy/cô mà tôi đã đỗ N3.' },
-      { ja: '台風せいで、飛行機が欠航になった。', reading: 'たいふうのせいで、ひこうきがけっこうになった。', vi: 'Tại bão mà chuyến bay bị hủy mất rồi.' },
-    ],
-  },
-  {
-    id: 'n3_toshite',
-    level: 'N3',
-    pattern: '〜として',
-    structure: 'N + として',
-    meaningVi: 'Với tư cách là / Như là...',
-    nuanceVi: 'Chỉ vai trò, chức danh, lập trường hoặc mục đích sử dụng của danh từ.',
-    examples: [
-      { ja: 'ITエンジニアとして日本で働きたいです。', reading: 'あいてぃーえんじにあとしてにほんではたらきたいです。', vi: 'Tôi muốn làm việc tại Nhật với tư cách kỹ sư IT.' },
-      { ja: 'ここは観光地として有名です。', reading: 'ここはかんこうちとしてゆうめいです。', vi: 'Nơi đây nổi tiếng với tư cách là điểm du lịch.' },
-    ],
-  },
+  // N3 (Full syllabus)
+  ...N3_FULL_GRAMMAR_POINTS,
 
   // N2
   {
     id: 'n2_ni_ojite',
     level: 'N2',
+    category: 'condition_scope',
     pattern: '〜に応じて',
     structure: 'N + に応じて',
     meaningVi: 'Tùy theo / Tương ứng với ~',
@@ -274,6 +245,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n2_koto_kara',
     level: 'N2',
+    category: 'cause_result',
     pattern: '〜ことから',
     structure: 'V/A (thể thường) + ことから',
     meaningVi: 'Từ việc / Vì lý do (suy ra tên gọi, phán đoán)...',
@@ -286,6 +258,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n2_ni_kagirazu',
     level: 'N2',
+    category: 'condition_scope',
     pattern: '〜に限らず',
     structure: 'N + に限らず',
     meaningVi: 'Không chỉ giới hạn ở ~ mà còn rộng hơn...',
@@ -298,6 +271,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n2_te_wa_irarenai',
     level: 'N2',
+    category: 'state_attitude',
     pattern: '〜てはいられない',
     structure: 'Vて + はいられない',
     meaningVi: 'Không thể cứ ngồi yên ~ mãi được',
@@ -310,6 +284,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n2_wake_ni_wa_ikanai',
     level: 'N2',
+    category: 'state_attitude',
     pattern: '〜わけにはいかない',
     structure: 'Vる / Vない + わけにはいかない',
     meaningVi: 'Không thể làm ~ (vì đạo lý, trách nhiệm, hoàn cảnh)',
@@ -324,6 +299,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n1_wo_kawakiri_ni',
     level: 'N1',
+    category: 'time_sequence',
     pattern: '〜を皮切りに（して）',
     structure: 'N + を皮切りに(して)',
     meaningVi: 'Bắt đầu từ ~ (làm phát súng đầu tiên cho chuỗi sự kiện tiếp theo)',
@@ -336,6 +312,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n1_yue_ni',
     level: 'N1',
+    category: 'cause_result',
     pattern: '〜ゆえに',
     structure: 'V/A/N(である) + ゆえに',
     meaningVi: 'Chính vì ~ cho nên (văn phong trang trọng)',
@@ -348,6 +325,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n1_ni_taeru',
     level: 'N1',
+    category: 'state_attitude',
     pattern: '〜に堪える / 〜に堪えない',
     structure: 'Vる / N + に堪える · に堪えない',
     meaningVi: 'Đáng để ~ / Không chịu nổi (nỗi buồn, cảm xúc, sự xấu hổ)',
@@ -360,6 +338,7 @@ export const GRAMMAR_POINTS: GrammarPoint[] = [
   {
     id: 'n1_to_atte_wa',
     level: 'N1',
+    category: 'cause_result',
     pattern: '〜とあって（は）',
     structure: 'Thể thường / N + とあって',
     meaningVi: 'Bởi vì là dịp đặc biệt / tình huống hiếm có ~ nên...',
@@ -552,6 +531,7 @@ export const STAR_SENTENCES: StarSentenceQuestion[] = [
     starIndex: 2,
     explanationVi: '決勝戦とあって (vì là dịp đặc biệt trận chung kết) → 会場は満員に埋まった.',
   },
+  ...N3_FULL_STAR_SENTENCES,
 ];
 
 // Clean fix on star_n5_2 natural phrasing before exporting
@@ -721,6 +701,7 @@ export const PARTICLE_BLITZ_QUESTIONS: GrammarBlitzQuestion[] = [
     choices: ['に関わらず', 'に応じて', 'に従って', 'によって'],
     tipVi: '〜に関わらず đứng sau cặp từ trái nghĩa (có/không, nam/nữ, ngày/đêm).',
   },
+  ...N3_FULL_PARTICLE_BLITZ,
 ];
 
 export const CONJUGATION_BLITZ_QUESTIONS: GrammarBlitzQuestion[] = [
@@ -878,4 +859,5 @@ export const CONJUGATION_BLITZ_QUESTIONS: GrammarBlitzQuestion[] = [
     choices: ['拝見する (はいけんする)', 'ご覧になる', '見られる', 'お見になる'],
     tipVi: 'ご覧になる là Tôn kính ngữ (khách xem); 拝見する là Khiêm nhường ngữ (mình xem).',
   },
+  ...N3_FULL_CONJUGATION_BLITZ,
 ];
