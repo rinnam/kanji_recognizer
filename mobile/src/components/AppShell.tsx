@@ -24,11 +24,11 @@ export function AppShell({ children, scroll = true, contentStyle }: AppShellProp
     Platform.OS === 'web'
       ? ({
           backgroundImage: 'linear-gradient(160deg, #FFFDF9 0%, #FFF7EE 48%, #FCECE3 100%)',
-          minHeight: '100vh',
+          minHeight: '100%',
         } as unknown as ViewStyle)
       : undefined;
 
-  const mobileBottomPad = !isDesktop ? Math.max(28, insets.bottom + 18) : 48;
+  const mobileBottomPad = !isDesktop ? Math.max(40, insets.bottom + 28) : 48;
   const nonScrollPad: ViewStyle | undefined = !isDesktop
     ? {
         paddingTop: 10,
@@ -51,7 +51,9 @@ export function AppShell({ children, scroll = true, contentStyle }: AppShellProp
               !isDesktop && { paddingBottom: mobileBottomPad },
               contentStyle,
             ]}
-            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={Platform.OS !== 'web'}
           >
             <View style={styles.container}>{children}</View>
           </ScrollView>

@@ -168,7 +168,7 @@ export default function BillingScreen() {
 
       {/* Top Account Membership + Wallet Strip */}
       <View style={[styles.summaryStrip, isPhone && styles.summaryStripPhone]}>
-        <View style={styles.summaryLeft}>
+        <View style={[styles.summaryLeft, !isPhone && styles.summaryLeftWide]}>
           <View style={styles.tierRow}>
             <View
               style={[
@@ -199,7 +199,7 @@ export default function BillingScreen() {
           </Text>
         </View>
 
-        <View style={styles.walletBox}>
+        <View style={[styles.walletBox, isPhone && styles.walletBoxPhone]}>
           <View style={styles.walletValRow}>
             <CoinKsIcon size={20} color={nihongoTheme.colors.accentHover} />
             <Text style={styles.walletValue}>{ksBalance.toLocaleString('vi-VN')} KS</Text>
@@ -306,7 +306,7 @@ export default function BillingScreen() {
                     <Text style={styles.priceSub}>{subPrice}</Text>
                   </View>
 
-                  <View style={styles.highlightsList}>
+                  <View style={[styles.highlightsList, isWide && styles.highlightsListWide]}>
                     {plan.highlights.map((line) => (
                       <View key={line} style={styles.highlightRow}>
                         <Text style={styles.highlightBullet}>•</Text>
@@ -362,8 +362,8 @@ export default function BillingScreen() {
               Mức thưởng tính đúng theo mốc mục tiêu thời gian học mỗi ngày bạn chọn và nhân theo hệ số gói (×{summary.subscription.multiplier}).
             </Text>
 
-            <View style={styles.earnGrid}>
-              <View style={styles.earnBox}>
+            <View style={[styles.earnGrid, isWide && styles.earnGridWide]}>
+              <View style={[styles.earnBox, isWide && styles.earnBoxWide]}>
                 <Text style={styles.earnHeading}>1. Mục tiêu hôm nay ({summary.todayGoalStatus.goalMinutes} phút)</Text>
                 <Text style={styles.earnRule}>
                   5p → 5 KS · 10p → 10 KS · 15p → 16 KS · 30p → 35 KS · 60p → 65 KS
@@ -396,7 +396,7 @@ export default function BillingScreen() {
                 </Pressable>
               </View>
 
-              <View style={styles.earnBox}>
+              <View style={[styles.earnBox, isWide && styles.earnBoxWide]}>
                 <Text style={styles.earnHeading}>2. Thử thách hôm nay (5 câu)</Text>
                 <Text style={styles.earnRule}>+4 KS / câu đúng + thưởng 5/5 câu (+10 KS) → Tối đa 30 KS × hệ số</Text>
                 <Text style={styles.earnProgress}>
@@ -421,7 +421,7 @@ export default function BillingScreen() {
                 </Pressable>
               </View>
 
-              <View style={styles.earnBox}>
+              <View style={[styles.earnBox, isWide && styles.earnBoxWide]}>
                 <Text style={styles.earnHeading}>3. Game học tập (Tối đa 3 game/ngày)</Text>
                 <Text style={styles.earnRule}>
                   +8 KS × hệ số / game thắng (Xếp câu ★, Blitz 60s, Công thành Momo, Sushi) → Trần 24 KS gốc/ngày
@@ -439,12 +439,13 @@ export default function BillingScreen() {
             <Text style={[styles.earnHeading, { marginTop: 8 }]}>
               4. Mốc chuỗi liên tiếp (Hiện tại: {summary.streakStatus.currentStreak} ngày)
             </Text>
-            <View style={styles.milestoneRow}>
+            <View style={[styles.milestoneRow, isWide && styles.milestoneRowWide]}>
               {summary.streakStatus.milestones.map((m) => (
                 <Pressable
                   key={m.days}
                   style={[
                     styles.milestoneCard,
+                    isWide ? styles.milestoneCardWide : styles.milestoneCardCompact,
                     m.status === 'claimable' && styles.milestoneClaimable,
                     m.status === 'claimed' && styles.milestoneClaimed,
                   ]}
@@ -698,8 +699,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   summaryLeft: {
-    flex: 1,
     gap: 8,
+  },
+  summaryLeftWide: {
+    flex: 1,
   },
   tierRow: {
     flexDirection: 'row',
@@ -745,6 +748,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'flex-end',
     gap: 3,
+  },
+  walletBoxPhone: {
+    alignSelf: 'stretch',
+    alignItems: 'flex-start',
   },
   walletValRow: {
     flexDirection: 'row',
@@ -911,7 +918,9 @@ const styles = StyleSheet.create({
   },
   highlightsList: {
     gap: 6,
-    flex: 1,
+  },
+  highlightsListWide: {
+    flexGrow: 1,
   },
   highlightRow: {
     flexDirection: 'row',
@@ -970,19 +979,24 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.textSecondary,
   },
   earnGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: 'column',
     gap: 12,
   },
+  earnGridWide: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
   earnBox: {
-    flex: 1,
-    minWidth: 260,
     backgroundColor: nihongoTheme.colors.surfaceSubtle,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: nihongoTheme.colors.borderWarm,
     padding: 14,
     gap: 7,
+  },
+  earnBoxWide: {
+    flex: 1,
+    justifyContent: 'space-between',
   },
   earnHeading: {
     fontSize: 14,
@@ -1036,11 +1050,14 @@ const styles = StyleSheet.create({
   milestoneRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+  },
+  milestoneRowWide: {
+    flexWrap: 'nowrap',
     gap: 10,
   },
   milestoneCard: {
-    flex: 1,
-    minWidth: 110,
     backgroundColor: nihongoTheme.colors.surfaceSubtle,
     borderWidth: 1,
     borderColor: nihongoTheme.colors.borderWarm,
@@ -1048,6 +1065,12 @@ const styles = StyleSheet.create({
     padding: 10,
     alignItems: 'center',
     gap: 3,
+  },
+  milestoneCardCompact: {
+    width: '48.2%',
+  },
+  milestoneCardWide: {
+    flex: 1,
   },
   milestoneClaimable: {
     backgroundColor: nihongoTheme.colors.accentSoft,

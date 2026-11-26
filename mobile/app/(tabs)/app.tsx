@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { VocabularyDto } from '../../../packages/contracts/src/study';
@@ -62,6 +62,8 @@ interface DailyChallengeQuestion {
 export default function HomeScreen() {
   const router = useRouter();
   const isPhone = useIsMobilePhone();
+  const { width } = useWindowDimensions();
+  const isTwoCol = !isPhone && width >= 680;
   const currentYear = new Date().getFullYear();
   const [query, setQuery] = useState('');
   const [year, setYear] = useState(currentYear);
@@ -455,8 +457,8 @@ export default function HomeScreen() {
       </View>
 
       {/* 2-Column Action Cards */}
-      <View style={styles.twoColRow}>
-        <View style={[styles.card, styles.flexCard]}>
+      <View style={[styles.twoColRow, isTwoCol && styles.twoColRowWide]}>
+        <View style={[styles.card, styles.twoColCard, isTwoCol && styles.flexCardWide]}>
           <View style={styles.flexCardBody}>
             <Text style={styles.cardTitle}>Ôn tập hôm nay</Text>
             <Text style={styles.cardSubtitle}>
@@ -470,7 +472,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <View style={[styles.card, styles.flexCard]}>
+        <View style={[styles.card, styles.twoColCard, isTwoCol && styles.flexCardWide]}>
           <View style={styles.flexCardBody}>
             <View style={styles.rowBetween}>
               <Text style={styles.cardTitle}>Thử thách hôm nay</Text>
@@ -801,13 +803,20 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   twoColRow: {
+    flexDirection: 'column',
+    gap: 14,
+    marginBottom: 14,
+  },
+  twoColRowWide: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'stretch',
     gap: 12,
   },
-  flexCard: {
+  twoColCard: {
+    marginBottom: 0,
+  },
+  flexCardWide: {
     flex: 1,
-    minWidth: 260,
     justifyContent: 'space-between',
   },
   flexCardBody: {
@@ -861,13 +870,12 @@ const styles = StyleSheet.create({
   skillGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    justifyContent: 'space-between',
+    rowGap: 12,
     marginBottom: 16,
   },
   skillCard: {
-    width: '48%',
-    flexGrow: 1,
-    minWidth: 155,
+    width: '48.4%',
     backgroundColor: nihongoTheme.colors.surface,
     borderRadius: nihongoTheme.radius.card,
     borderWidth: 1,
@@ -1002,7 +1010,6 @@ const styles = StyleSheet.create({
     gap: 2.5,
   },
   skillCardPhone: {
-    minWidth: 140,
     padding: 14,
   },
   skillCardLocked: {

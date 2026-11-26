@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -302,6 +303,8 @@ export default function SpeakingLobbyScreen() {
   };
 
   const isPhone = useIsMobilePhone();
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 720;
   const selectedScenario = scenarios.find((s) => s.id === selectedId) ?? scenarios[0];
 
   if (isPhone) {
@@ -334,8 +337,8 @@ export default function SpeakingLobbyScreen() {
       />
 
       {/* Membership + KS Wallet Strip */}
-      <View style={styles.memberStrip}>
-        <View style={styles.memberLeft}>
+      <View style={[styles.memberStrip, isNarrow && styles.memberStripNarrow]}>
+        <View style={[styles.memberLeft, !isNarrow && styles.memberLeftWide]}>
           <View style={styles.tierBadge}>
             <CrownIcon size={14} color={nihongoTheme.colors.accentHover} />
             <Text style={styles.tierBadgeText}>{summary.subscription.planName}</Text>
@@ -851,10 +854,17 @@ const styles = StyleSheet.create({
     gap: 10,
     ...nihongoTheme.shadow.card,
   },
+  memberStripNarrow: {
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
+    alignItems: 'stretch',
+  },
   memberLeft: {
+    gap: 5,
+  },
+  memberLeftWide: {
     flex: 1,
     minWidth: 240,
-    gap: 5,
   },
   tierBadge: {
     alignSelf: 'flex-start',

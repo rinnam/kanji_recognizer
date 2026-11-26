@@ -1186,12 +1186,11 @@ const styles = StyleSheet.create({
   },
   barsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 12,
   },
   barCol: {
     flex: 1,
-    minWidth: 180,
+    minWidth: 0,
     gap: 5,
   },
   barHeaderRow: {
@@ -1220,12 +1219,11 @@ const styles = StyleSheet.create({
   },
   skillsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
   },
   skillBtn: {
     flex: 1,
-    minWidth: 145,
+    minWidth: 0,
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 6,

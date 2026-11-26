@@ -475,7 +475,7 @@ export default function ListeningScreen() {
           {/* Main Layout: 2 Columns on Desktop, 1 Column on Mobile */}
           <View style={[styles.mainLayout, isDesktop ? styles.layoutDesktop : styles.layoutMobile]}>
             {/* Left Column: Player + Toolbar + Current Sentence View */}
-            <View style={styles.leftColumn}>
+            <View style={[styles.leftColumn, isDesktop && styles.leftColumnDesktop]}>
               <ShadowingPlayer
                 ref={playerRef}
                 videoId={videoId}
@@ -513,7 +513,7 @@ export default function ListeningScreen() {
             </View>
 
             {/* Right Column: Transcript Subtitles List */}
-            <View style={styles.rightColumn}>
+            <View style={isDesktop ? styles.rightColumnDesktop : undefined}>
               <TranscriptListView
                 lines={lines}
                 activeIndex={currentIndex}
@@ -583,10 +583,12 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   leftColumn: {
-    flex: 1.25,
     gap: 14,
   },
-  rightColumn: {
+  leftColumnDesktop: {
+    flex: 1.25,
+  },
+  rightColumnDesktop: {
     flex: 0.95,
   },
   folderStrip: {

@@ -220,7 +220,7 @@ export default function GamesHubScreen() {
 
       {/* 2x2 Themed Solo & Grammar Game Grid */}
       <Text style={styles.sectionTitle}>Chế độ Luyện Solo &amp; Phản xạ</Text>
-      <View style={styles.soloGrid}>
+      <View style={[styles.soloGrid, isPhone && styles.soloGridPhone]}>
         {SOLO_GAMES.map((g) => {
           const record = bestScores[g.key] ?? 0;
           return (
@@ -235,7 +235,7 @@ export default function GamesHubScreen() {
               onPress={() => router.push(g.route)}
             >
               <View style={[styles.cardTopAccent, { backgroundColor: g.accent }]} />
-              <View style={styles.cardBody}>
+              <View style={[styles.cardBody, !isPhone && styles.cardBodyDesktop]}>
                 <View style={styles.cardHeaderRow}>
                   <View style={[styles.iconBadge, { backgroundColor: g.softBg, borderColor: g.borderTint }]}>
                     {renderGameIcon(g.key, g.accent)}
@@ -255,7 +255,7 @@ export default function GamesHubScreen() {
                   </View>
                 </View>
 
-                <Text style={styles.gameDesc}>{g.desc}</Text>
+                <Text style={[styles.gameDesc, !isPhone && styles.gameDescDesktop]}>{g.desc}</Text>
 
                 <View style={styles.mechanicsRow}>
                   {g.pills.map((pill) => (
@@ -277,7 +277,7 @@ export default function GamesHubScreen() {
       {/* Elevated Kotoba PvP Arena Section */}
       <View style={styles.arenaCard}>
         <View style={[styles.arenaHeader, isPhone && styles.arenaHeaderPhone]}>
-          <View style={styles.arenaTitleWrap}>
+          <View style={[styles.arenaTitleWrap, !isPhone && styles.arenaTitleWrapWide]}>
             <View style={styles.arenaIconBadge}>
               <TrophyArenaIcon size={24} color={nihongoTheme.colors.accentHover} />
             </View>
@@ -415,6 +415,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
+    maxWidth: '100%',
+    flexShrink: 1,
     backgroundColor: '#FFF7ED',
     borderWidth: 1,
     borderColor: '#FDBA74',
@@ -423,6 +425,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   ksRewardText: {
+    flexShrink: 1,
     fontSize: 12.5,
     fontWeight: '800',
     color: nihongoTheme.colors.accentHover,
@@ -436,8 +439,14 @@ const styles = StyleSheet.create({
   soloGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 14,
+    justifyContent: 'space-between',
+    rowGap: 14,
     marginBottom: 22,
+  },
+  soloGridPhone: {
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
+    gap: 14,
   },
   gameCard: {
     backgroundColor: nihongoTheme.colors.surface,
@@ -447,9 +456,7 @@ const styles = StyleSheet.create({
     ...nihongoTheme.shadow.card,
   },
   gameCardDesktop: {
-    width: '48.8%',
-    flexGrow: 1,
-    minWidth: 300,
+    width: '48.6%',
   },
   gameCardPhone: {
     width: '100%',
@@ -465,7 +472,9 @@ const styles = StyleSheet.create({
   cardBody: {
     padding: 16,
     gap: 12,
-    flex: 1,
+  },
+  cardBodyDesktop: {
+    flexGrow: 1,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -522,7 +531,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     color: nihongoTheme.colors.textSecondary,
-    flex: 1,
+  },
+  gameDescDesktop: {
+    flexGrow: 1,
   },
   mechanicsRow: {
     flexDirection: 'row',
@@ -570,12 +581,15 @@ const styles = StyleSheet.create({
   },
   arenaHeaderPhone: {
     flexDirection: 'column',
+    flexWrap: 'nowrap',
     alignItems: 'stretch',
   },
   arenaTitleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  arenaTitleWrapWide: {
     flex: 1,
     minWidth: 240,
   },

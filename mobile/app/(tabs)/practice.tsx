@@ -140,12 +140,11 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    justifyContent: 'space-between',
+    rowGap: 12,
   },
   skillCard: {
-    width: '48%',
-    flexGrow: 1,
-    minWidth: 155,
+    width: '48.4%',
     backgroundColor: nihongoTheme.colors.surface,
     borderRadius: nihongoTheme.radius.card,
     borderWidth: 1,
@@ -176,7 +175,8 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.textSecondary,
   },
   pillCardPhone: {
-    minWidth: 108,
+    flexGrow: 0,
+    minWidth: 0,
     paddingHorizontal: 14,
     paddingVertical: 11,
   },
@@ -186,7 +186,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   skillCardPhone: {
-    minWidth: 140,
     padding: 14,
   },
   skillCardLocked: {

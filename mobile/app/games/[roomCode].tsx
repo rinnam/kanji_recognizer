@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.accentHover,
   },
   centerBox: {
-    flex: 1,
+    flexGrow: 1,
     minHeight: 380,
     alignItems: 'center',
     justifyContent: 'center',

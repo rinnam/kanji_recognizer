@@ -10,6 +10,7 @@ import { getUserScopedKey, readAuthSession } from '../../../src/features/auth/au
 import { useMembership } from '../../../src/features/membership/membership-store';
 import { recordMeaningfulStudyAction } from '../../../src/features/study-tracker/use-study-tracker';
 import { speakJapanese } from '../../../src/utils/speak-japanese';
+import { useIsMobilePhone } from '../../../src/utils/device';
 
 const READING_PROGRESS_KEY = 'kanji_smart_reading_progress_v1';
 
@@ -37,6 +38,7 @@ const GENRES = ['Đoản văn', 'Email công sở', 'Tin tức ngắn', 'Hội t
 
 export default function ReadingScreen() {
   const router = useRouter();
+  const isPhone = useIsMobilePhone();
   const { summary, tier, refresh: refreshMembership } = useMembership();
   const [level, setLevel] = useState<(typeof LEVELS)[number]>('N3');
   const [genre, setGenre] = useState<(typeof GENRES)[number]>('Đoản văn');
@@ -394,8 +396,8 @@ export default function ReadingScreen() {
 
           {/* Main Passage */}
           <View style={styles.passageCard}>
-            <View style={styles.passageHeader}>
-              <View style={styles.passageTitleWrap}>
+            <View style={[styles.passageHeader, isPhone && styles.passageHeaderPhone]}>
+              <View style={[styles.passageTitleWrap, !isPhone && styles.passageTitleWrapWide]}>
                 <View style={styles.badgeRow}>
                   <View style={styles.levelBadge}>
                     <Text style={styles.levelBadgeText}>{reading.level}</Text>
@@ -699,9 +701,16 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
   },
+  passageHeaderPhone: {
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
+    alignItems: 'stretch',
+  },
   passageTitleWrap: {
-    flex: 1,
     gap: 4,
+  },
+  passageTitleWrapWide: {
+    flex: 1,
   },
   badgeRow: {
     flexDirection: 'row',

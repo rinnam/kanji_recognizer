@@ -1,11 +1,12 @@
 import React, { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { MomoAvatar } from '../../src/components/MomoAvatar';
 import { CoinKsIcon, CrownIcon } from '../../src/components/AppIcons';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
+import { useIsMobilePhone } from '../../src/utils/device';
 import {
   DEFAULT_PROFILE,
   readLearningProfile,
@@ -20,6 +21,9 @@ import { useMembership } from '../../src/features/membership/membership-store';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isPhone = useIsMobilePhone();
+  const isWide = !isPhone && width >= 920;
   const [profile, setProfile] = useState<LearningProfile>(DEFAULT_PROFILE);
   const [session, setSession] = useState<AuthSession | null>(null);
   const { summary, tier, ksBalance, refresh } = useMembership();
@@ -66,36 +70,38 @@ export default function ProfileScreen() {
       </View>
 
       {/* 3-Card Grid */}
-      <View style={styles.grid}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Gói sử dụng &amp; Ví Xu KS</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Gói hiện tại</Text>
-            <View style={styles.accentPill}>
-              <Text style={styles.accentPillText}>{summary.subscription.planName}</Text>
-            </View>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Hệ số tích Xu KS</Text>
-            <Text style={styles.infoValue}>×{summary.subscription.multiplier}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Số dư ví</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <CoinKsIcon size={15} color={nihongoTheme.colors.accentHover} />
-              <Text style={[styles.infoValue, { color: nihongoTheme.colors.accentHover }]}>
-                {ksBalance.toLocaleString('vi-VN')} KS
-              </Text>
-            </View>
-          </View>
-          {tier !== 'free' && summary.subscription.expiresAt ? (
+      <View style={[styles.grid, isWide && styles.gridWide]}>
+        <View style={[styles.card, isWide && styles.cardWide]}>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle}>Gói sử dụng &amp; Ví Xu KS</Text>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Hạn gói (Demo)</Text>
-              <Text style={styles.infoValue}>
-                {new Date(summary.subscription.expiresAt).toLocaleDateString('vi-VN')}
-              </Text>
+              <Text style={styles.infoLabel}>Gói hiện tại</Text>
+              <View style={styles.accentPill}>
+                <Text style={styles.accentPillText}>{summary.subscription.planName}</Text>
+              </View>
             </View>
-          ) : null}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Hệ số tích Xu KS</Text>
+              <Text style={styles.infoValue}>×{summary.subscription.multiplier}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Số dư ví</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <CoinKsIcon size={15} color={nihongoTheme.colors.accentHover} />
+                <Text style={[styles.infoValue, { color: nihongoTheme.colors.accentHover }]}>
+                  {ksBalance.toLocaleString('vi-VN')} KS
+                </Text>
+              </View>
+            </View>
+            {tier !== 'free' && summary.subscription.expiresAt ? (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Hạn gói (Demo)</Text>
+                <Text style={styles.infoValue}>
+                  {new Date(summary.subscription.expiresAt).toLocaleDateString('vi-VN')}
+                </Text>
+              </View>
+            ) : null}
+          </View>
           <Pressable style={styles.primaryBtn} onPress={() => router.push('/billing')}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <CrownIcon size={15} color="#FFFFFF" />
@@ -104,38 +110,42 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Thiết lập học tập</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Trình độ hiện tại</Text>
-            <View style={styles.accentPill}>
-              <Text style={styles.accentPillText}>{profile.jlptLevel}</Text>
+        <View style={[styles.card, isWide && styles.cardWide]}>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle}>Thiết lập học tập</Text>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Trình độ hiện tại</Text>
+              <View style={styles.accentPill}>
+                <Text style={styles.accentPillText}>{profile.jlptLevel}</Text>
+              </View>
             </View>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Mục tiêu chính</Text>
-            <Text style={styles.infoValue}>{profile.primaryGoal}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Thời gian mỗi ngày</Text>
-            <Text style={styles.infoValue}>{profile.dailyMinutes} phút / ngày</Text>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Mục tiêu chính</Text>
+              <Text style={styles.infoValue}>{profile.primaryGoal}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Thời gian mỗi ngày</Text>
+              <Text style={styles.infoValue}>{profile.dailyMinutes} phút / ngày</Text>
+            </View>
           </View>
           <Pressable style={styles.primaryBtn} onPress={() => router.push('/profile/learning')}>
             <Text style={styles.primaryBtnText}>Chỉnh sửa trình độ & mục tiêu</Text>
           </Pressable>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Phiên đăng nhập & Bảo mật</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Trạng thái</Text>
-            <View style={styles.greenBadge}>
-              <Text style={styles.greenBadgeText}>{session ? 'Đã xác thực' : 'Chưa đăng nhập'}</Text>
+        <View style={[styles.card, isWide && styles.cardWide]}>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle}>Phiên đăng nhập & Bảo mật</Text>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Trạng thái</Text>
+              <View style={styles.greenBadge}>
+                <Text style={styles.greenBadgeText}>{session ? 'Đã xác thực' : 'Chưa đăng nhập'}</Text>
+              </View>
             </View>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Đồng bộ đám mây</Text>
-            <Text style={styles.infoValue}>PostgreSQL · Tự động</Text>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Đồng bộ đám mây</Text>
+              <Text style={styles.infoValue}>PostgreSQL · Tự động</Text>
+            </View>
           </View>
           <View style={styles.actionsCol}>
             <Pressable style={styles.outlineBtn} onPress={() => router.push('/onboarding')}>
@@ -221,21 +231,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   grid: {
+    flexDirection: 'column',
+    gap: 14,
+  },
+  gridWide: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'stretch',
     gap: 14,
   },
   card: {
-    flex: 1,
-    minWidth: 280,
     backgroundColor: nihongoTheme.colors.surface,
     borderRadius: nihongoTheme.radius.card,
     borderWidth: 1,
     borderColor: nihongoTheme.colors.borderWarm,
     padding: 20,
     gap: 14,
-    justifyContent: 'space-between',
     ...nihongoTheme.shadow.card,
+  },
+  cardWide: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  cardBody: {
+    gap: 12,
   },
   cardTitle: {
     fontSize: 16,

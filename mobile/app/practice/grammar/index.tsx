@@ -2146,13 +2146,12 @@ const styles = StyleSheet.create({
   choicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    justifyContent: 'space-between',
+    rowGap: 10,
     marginTop: 4,
   },
   blitzChoiceBtn: {
-    width: '48%',
-    flexGrow: 1,
-    minWidth: 140,
+    width: '48.2%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
