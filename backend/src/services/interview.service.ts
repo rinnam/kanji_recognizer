@@ -61,6 +61,7 @@ export interface DynamicOutcomeCard {
 
 export interface InterviewTurnResponse {
   candidateTranscript?: string;
+  advanceStage?: boolean;
   replyJa: string;
   replyReading: string;
   replyVi: string;
@@ -539,6 +540,7 @@ ${stageInstruction}
 NGUYÊN TẮC HỘI THOẠI TỰ NHIÊN:${antiMetagamingRule}
 - Chỉ nói ĐÚNG 1 hành động/phản hồi tự nhiên của ${aiRoleLabel} trong lượt này; TUYỆT ĐỐI KHÔNG tự tua thời gian hay tự biên tự diễn 2 cảnh trong cùng 1 câu (không viết kiểu "少々お待ちください……お待たせいたしました！").
 - Giữ logic thực tế đời thường (không nhận các yêu cầu mâu thuẫn vật lý như "cá hồi bỏ hải sản").
+- Trường "advanceStage": đặt true nếu ${learnerRoleLabel} đã hoàn thành mục tiêu của bước "${input.stage}"; đặt false NẾU ${learnerRoleLabel} mới chỉ hỏi thông tin trung gian (vd: "おすすめは何ですか？" khi chưa chốt món, xin nhắc lại câu hỏi "もう一度お願いします", đang đổi lại món do dị ứng, hoặc ở bước cuối nhà hàng gọi thêm tráng miệng thay vì gọi thanh toán お会計) để giữ nguyên bước hiện tại cho người học nói tiếp!
 - Trường "replyVi" dịch bằng tiếng Việt tự nhiên, đời thường (vd: "set cơm cá hồi nướng" thay vì dịch cứng "suất cá hồi định thực").
 
 CHẤM ĐIỂM CÂU NÓI CỦA ${learnerRoleLabel.toUpperCase()} (KHÔNG chấm câu trả lời của ${aiRoleLabel}):
@@ -550,19 +552,20 @@ CHẤM ĐIỂM CÂU NÓI CỦA ${learnerRoleLabel.toUpperCase()} (KHÔNG chấm 
 5. Viết feedbackVi: nhận xét & gợi ý cải thiện ngắn gọn 1-2 câu bằng tiếng Việt CHO CÂU VỪA NÓI CỦA ${learnerRoleLabel} (tuyệt đối KHÔNG tự nhận xét hay tự khen lời thoại của ${aiRoleLabel}!).
 ${
   willFinish && isRoleplay
-    ? '6. BẮT BUỘC điền trường "outcomeCard" tổng kết thực tế cuối buổi (vd: Hóa đơn 伝票 đúng các món vừa gọi + tổng Yên; hoặc Phiếu chẩn đoán & đơn thuốc 診断メモ đúng bệnh/chấn thương vừa khám; hoặc Biên bản chốt hành động Horenso).'
+    ? '6. Nếu advanceStage = true (buổi hội thoại kết thúc / khách yêu cầu thanh toán / chốt xong đơn thuốc / chốt kế hoạch), BẮT BUỘC điền trường "outcomeCard" tổng kết thực tế cuối buổi; nếu advanceStage = false (khách gọi thêm món / hỏi thêm câu phụ chưa kết thúc), để "outcomeCard": null.'
     : ''
 }
 
 CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
 {
   "candidateTranscript": "string",
+  "advanceStage": boolean,
   "replyJa": "string (1-3 câu tiếng Nhật của ${aiRoleLabel})",
   "replyReading": "string (hiragana/katakana)",
   "replyVi": "string (dịch tiếng Việt tự nhiên)",
   "outcomeCard": ${
     willFinish && isRoleplay
-      ? '{ "title": "string", "items": ["string"], "noteVi": "string" }'
+      ? '{ "title": "string", "items": ["string"], "noteVi": "string" } | null'
       : 'null'
   },
   "evaluation": {
@@ -604,6 +607,9 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
 
   const parsed = await callGeminiJson<Partial<InterviewTurnResponse>>(parts);
   const resolvedCandidateText = parsed.candidateTranscript?.trim() || candidateText;
+  const resolvedAdvance = parsed.advanceStage !== false;
+  const effectiveNextStage = resolvedAdvance ? nextStage : input.stage;
+  const effectiveFinished = resolvedAdvance && willFinish;
   const fillersFromResolved = detectTextFillers(resolvedCandidateText);
 
   const rawChecklist = parsed.evaluation?.frameworkChecklist;
@@ -626,7 +632,7 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
     ]),
   ];
 
-  const rawOutcome = parsed.outcomeCard;
+  const rawOutcome = effectiveFinished ? parsed.outcomeCard : undefined;
   const outcomeCard: DynamicOutcomeCard | undefined =
     rawOutcome && typeof rawOutcome.title === 'string' && rawOutcome.title.trim()
       ? {
@@ -640,13 +646,14 @@ CHỈ TRẢ VỀ JSON HỢP LỆ (không bọc markdown):
 
   return {
     candidateTranscript: resolvedCandidateText,
+    advanceStage: resolvedAdvance,
     replyJa:
       parsed.replyJa?.trim() ||
       'ありがとうございます。もう少し詳しく教えていただけますか。',
     replyReading: parsed.replyReading?.trim() || '',
     replyVi: parsed.replyVi?.trim() || 'Cảm ơn bạn. Bạn có thể chia sẻ chi tiết hơn không?',
-    nextStage,
-    finished: willFinish,
+    nextStage: effectiveNextStage,
+    finished: effectiveFinished,
     outcomeCard,
     evaluation: {
       keigoScore: clampScore(parsed.evaluation?.keigoScore, 78),

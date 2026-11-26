@@ -228,7 +228,7 @@ export default function SpeakingLobbyScreen() {
       <TopHeader
         mode="subpage"
         title="Phỏng vấn & Roleplay 3D cùng AI"
-        subtitle="Phỏng vấn chuẩn Nhật (đủ gõ cửa 3 lần + CV) & Roleplay đời sống/công sở · Whisper offline"
+        subtitle="Phỏng vấn chuẩn Nhật (đủ gõ cửa 3 lần + CV) & Roleplay đời sống/công sở 3D"
       />
 
       <View style={styles.catTabsRow}>
@@ -254,12 +254,12 @@ export default function SpeakingLobbyScreen() {
         <Text style={styles.bannerTitle}>
           {categoryTab === 'interview'
             ? 'Lộ trình đầy đủ buổi phỏng vấn chuẩn Nhật'
-            : 'Hội thoại nhập vai thực chiến tại Nhật (3D + Whisper offline)'}
+            : 'Hội thoại nhập vai thực chiến tại Nhật (Không gian 3D tương tác)'}
         </Text>
         <Text style={styles.bannerSteps}>
           {categoryTab === 'interview'
             ? '① Gõ cửa 3D (3 lần) & 失礼いたします → ② Đứng cạnh ghế chào 30° & Ngồi xuống → ③ 自己紹介 → ④ 自己PR → ⑤ 3 câu hỏi xoáy trực tiếp vào CV thật của bạn → ⑥ 逆質問 → ⑦ Cúi chào 45° & Ra về'
-            : 'Vào thẳng bối cảnh 3D (Họp Horenso với sếp Nhật · Khám bệnh · Nhà hàng) → Nói tiếng Nhật qua Mic (Whisper offline 0 token) → AI phản hồi giọng Nhật, chấm Keigo & sửa câu nói tự nhiên.'}
+            : 'Bước qua cửa 3D từng bối cảnh (Nhà hàng · Phòng khám · Họp Horenso) → Tương tác trực tiếp với Menu / Chuông bàn / Phiếu khám / Kanban 3D → Nói tiếng Nhật qua Mic và nhận chấm điểm theo đúng bối cảnh.'}
         </Text>
       </View>
 

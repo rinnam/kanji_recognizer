@@ -71,6 +71,7 @@ const ROLEPLAY_STEP_META: Record<
     partnerLabel: string;
     badges: Array<{ stage: InterviewStage; label: string }>;
     stageLabels: Partial<Record<InterviewStage, string>>;
+    stagePhrases: Partial<Record<InterviewStage, Array<{ label: string; text: string }>>>;
     quickPhrases: Array<{ label: string; text: string }>;
     doneTitle: string;
   }
@@ -88,6 +89,24 @@ const ROLEPLAY_STEP_META: Record<
       jiko_pr: 'Bước 2/4 · 注文 (Hỏi gợi ý & gọi món)',
       cv_q1: 'Bước 3/4 · 要望・アレルギー (Báo dị ứng / gọi thêm)',
       cv_q2: 'Bước 4/4 · お会計 (Thanh toán & ごちそうさまでした)',
+    },
+    stagePhrases: {
+      jikoshokai: [
+        { label: 'Đi 2 người (2名です)', text: 'すみません、2名です。' },
+        { label: 'Xin bàn gần cửa sổ', text: '3名です。窓際の席は空いていますか。' },
+      ],
+      jiko_pr: [
+        { label: 'Hỏi món đặc sản (おすすめ)', text: 'すみません、今日のおすすめは何ですか。' },
+        { label: 'Gọi Set cá hồi (鮭定食)', text: '鮭定食を一つお願いします。' },
+      ],
+      cv_q1: [
+        { label: 'Không ăn được cay', text: '辛いものは少し苦手なので、控えめにお願いできますか。' },
+        { label: 'Không bị dị ứng', text: 'アレルギーは特にありません。お水もお願いします。' },
+      ],
+      cv_q2: [
+        { label: 'Thanh toán (お会計お願いします)', text: 'すみません、お会計をお願いします。ごちそうさまでした！' },
+        { label: 'Gọi thêm kem Matcha', text: 'すみません、食後に抹茶アイスを一つ追加でお願いします。' },
+      ],
     },
     quickPhrases: [
       { label: 'Gọi nhân viên (すみません！)', text: 'すみません、注文をお願いします。' },
@@ -109,8 +128,26 @@ const ROLEPLAY_STEP_META: Record<
       cv_q1: 'Bước 3/4 · アレルギー確認 (Báo tiền sử dị ứng thuốc)',
       cv_q2: 'Bước 4/4 · 処方箋 (Hỏi cách chăm sóc / uống thuốc & cảm ơn)',
     },
+    stagePhrases: {
+      jikoshokai: [
+        { label: 'Báo sốt & đau họng', text: '昨日の夜から38度くらいの熱と喉の痛みがあります。' },
+        { label: 'Báo chấn thương chân', text: '先ほど転んで右足首を強くひねってしまい、歩くのがつらいです。' },
+      ],
+      jiko_pr: [
+        { label: 'Kể thời điểm bắt đầu', text: '昨日の夕方頃から少しずつひどくなってきました。' },
+        { label: 'Mô tả mức độ đau', text: '動かすとズキズキ痛みますが、吐き気はありません。' },
+      ],
+      cv_q1: [
+        { label: 'Không dị ứng thuốc', text: '薬のアレルギーはありません。普段飲んでいる薬もありません。' },
+        { label: 'Xin thuốc ít gây buồn ngủ', text: 'アレルギーはありませんが、眠くなりにくい薬をお願いできますか。' },
+      ],
+      cv_q2: [
+        { label: 'Hỏi cách uống thuốc & cảm ơn', text: 'この薬は食後に飲めばよろしいでしょうか。ありがとうございました。' },
+        { label: 'Hỏi lịch tái khám', text: '何日くらい経っても治らない場合は、また受診した方がいいですか。ありがとうございました。' },
+      ],
+    },
     quickPhrases: [
-      { label: 'Trình thẻ bảo hiểm (保険証)', text: 'はい、こちらが保険証です。昨日から熱と喉の痛みがあります。' },
+      { label: 'Không dị ứng thuốc', text: '薬のアレルギーは特にありません。' },
       { label: 'Hỏi cách uống thuốc', text: 'この薬は食後に飲めばいいですか。ありがとうございました。' },
     ],
     doneTitle: 'Hoàn thành buổi Khám bệnh tại Phòng khám Nhật!',
@@ -129,8 +166,22 @@ const ROLEPLAY_STEP_META: Record<
       cv_q1: 'Bước 3/4 · 相談 (Đề xuất giải pháp & xin ý kiến sếp)',
       cv_q2: 'Bước 4/4 · 確認 (Chốt deadline mới & chào kết thúc)',
     },
+    stagePhrases: {
+      jikoshokai: [
+        { label: 'Báo tiến độ (結論から)', text: 'お疲れ様です。今週のタスクは現在7割ほど完了しておりますが、1点ご報告があります。' },
+      ],
+      jiko_pr: [
+        { label: 'Báo sự cố sớm (連絡)', text: '決済APIのテスト中にタイムアウトの不具合が見つかり、納期が1日遅れる可能性があります。' },
+      ],
+      cv_q1: [
+        { label: 'Đề xuất 2 phương án (相談)', text: '納期を明日の夕方まで調整いただくか、田中さんに1時間ほどレビューをご相談したいのですが、いかがでしょうか。' },
+      ],
+      cv_q2: [
+        { label: 'Chốt hành động (承知いたしました)', text: '承知いたしました。明日の夕方までに修正して改めてご報告いたします。ありがとうございます！' },
+      ],
+    },
     quickPhrases: [
-      { label: 'Chào sếp (お疲れ様です)', text: 'お疲れ様です。今週のタスクは8割ほど完了しています。' },
+      { label: 'Chào sếp (お疲れ様です)', text: 'お疲れ様です。今週のタスクの進捗についてご報告いたします。' },
       { label: 'Chốt hành động (承知いたしました)', text: '承知いたしました。明日の夕方までに修正して改めてご報告いたします。' },
     ],
     doneTitle: 'Hoàn thành buổi Họp Horenso (報連相) chuẩn công sở Nhật!',
@@ -163,6 +214,7 @@ interface ScenarioInfo {
   companyName: string;
   interviewerName: string;
   interviewerRole: string;
+  defaultCv?: string;
   openingJa: string;
   openingReading: string;
   openingVi: string;
@@ -617,7 +669,12 @@ export default function Interview3DRoomScreen() {
       speakInterviewer(data.replyJa, data.replyReading, data.replyVi);
       setQaStage(data.nextStage);
 
-      if (scenario.id === 'roleplay_restaurant' && data.nextStage === 'cv_q2' && !data.finished) {
+      if (
+        scenario.id === 'roleplay_restaurant' &&
+        qaStage !== 'cv_q2' &&
+        data.nextStage === 'cv_q2' &&
+        !data.finished
+      ) {
         setMannerAlert(
           'Một lúc sau, nhân viên đã mang món ra và bạn đã dùng bữa xong! Hãy gọi thêm món tráng miệng hoặc bấm chuông / nói 「すみません、お会計をお願いします。ごちそうさまでした！」 để thanh toán.',
         );
@@ -626,8 +683,9 @@ export default function Interview3DRoomScreen() {
       if (data.finished) {
         if (scenario.category === 'roleplay') {
           setTimeout(() => {
+            setScenePhase('left_room');
             setFlowStep('completed');
-          }, 2500);
+          }, 2600);
         } else {
           setTimeout(() => {
             setFlowStep('exit_stand');
@@ -743,19 +801,23 @@ export default function Interview3DRoomScreen() {
           ) / evaluations.length,
         )
       : 80;
-  const finalTotalScore = Math.round(mannerScore * 0.35 + avgLangScore * 0.65);
-  const rank = finalTotalScore >= 90 ? 'S' : finalTotalScore >= 80 ? 'A' : finalTotalScore >= 65 ? 'B' : 'C';
-
   const sceneType = resolveSceneType(scenario?.id ?? scenarioId);
   const roleplayMeta = sceneType !== 'interview' ? ROLEPLAY_STEP_META[sceneType] : null;
+  const finalTotalScore = Math.round(mannerScore * 0.35 + avgLangScore * 0.65);
+  const rankBasis = roleplayMeta ? avgLangScore : finalTotalScore;
+  const rank = rankBasis >= 90 ? 'S' : rankBasis >= 80 ? 'A' : rankBasis >= 65 ? 'B' : 'C';
+
   const currentBadgeIdx = FLOW_BADGES.findIndex((b) => b.steps.includes(flowStep));
   const roleplayStageIdx = roleplayMeta
     ? roleplayMeta.badges.findIndex((b) => b.stage === qaStage)
     : -1;
+  const activeQuickPhrases = roleplayMeta
+    ? roleplayMeta.stagePhrases[qaStage] ?? roleplayMeta.quickPhrases
+    : [];
 
   const micPlaceholder =
     roleplayMeta
-      ? 'Nói câu tiếng Nhật của bạn qua Mic (Whisper offline) hoặc gõ...'
+      ? 'Nói câu tiếng Nhật của bạn qua Mic hoặc gõ trực tiếp...'
       : flowStep === 'enter_phrase'
         ? 'Bấm Mic nói "失礼いたします" (Shitsurei itashimasu)...'
         : flowStep === 'stand_greet'
@@ -871,6 +933,11 @@ export default function Interview3DRoomScreen() {
               else if (sceneType === 'clinic') setPropModalKind('medical_intake');
               else if (sceneType === 'horenso') setPropModalKind('kanban');
               else setPropModalKind('cv');
+            }}
+            onBellClick={() => {
+              playCallBellSfx();
+              addLog('candidate', '（呼び出しボタン：ピンポーン♪）');
+              mic.setTranscript('すみません！');
             }}
           />
 
@@ -1045,7 +1112,7 @@ export default function Interview3DRoomScreen() {
                 {flowStep === 'qa_interview' ? (
                   roleplayMeta ? (
                     <>
-                      {roleplayMeta.quickPhrases.map((qp, i) => (
+                      {activeQuickPhrases.map((qp, i) => (
                         <Pressable
                           key={i}
                           style={styles.etiquetteBtn}
@@ -1130,9 +1197,17 @@ export default function Interview3DRoomScreen() {
         <View style={[styles.rightCol, isWide && styles.rightColWide]}>
           <View style={styles.evalCard}>
             <View style={styles.mannerHeader}>
-              <Text style={styles.panelTitle}>Điểm Tác phong (マナー) &amp; AI</Text>
+              <Text style={styles.panelTitle}>
+                {roleplayMeta ? 'Đánh giá Giao tiếp AI' : 'Điểm Tác phong (マナー) & AI'}
+              </Text>
               <View style={styles.mannerBadge}>
-                <Text style={styles.mannerBadgeText}>Tác phong: {mannerScore}đ</Text>
+                <Text style={styles.mannerBadgeText}>
+                  {roleplayMeta
+                    ? evaluations.length > 0
+                      ? `TB: ${avgLangScore}đ`
+                      : 'Sẵn sàng'
+                    : `Tác phong: ${mannerScore}đ`}
+                </Text>
               </View>
             </View>
 
@@ -1217,7 +1292,7 @@ export default function Interview3DRoomScreen() {
             ) : (
               <Text style={styles.emptyHint}>
                 {roleplayMeta
-                  ? `Hãy bắt đầu đối thoại tiếng Nhật cùng ${roleplayMeta.partnerLabel} qua Mic (Whisper offline) hoặc gõ — AI sẽ chấm 4 tiêu chí, bắt từ đệm và gợi ý câu nói tự nhiên hơn ngay tại đây.`
+                  ? `Hãy bắt đầu đối thoại tiếng Nhật cùng ${roleplayMeta.partnerLabel} qua Mic hoặc gõ trực tiếp — AI sẽ chấm 4 tiêu chí, bắt từ đệm và gợi ý câu nói tự nhiên hơn ngay tại đây.`
                   : 'Hoàn thành các bước gõ cửa → chào vào phòng → cúi chào 30° → ngồi xuống, sau đó AI sẽ chấm 4 tiêu chí tiếng Nhật và sửa lỗi Keigo cho từng câu trả lời của bạn.'}
               </Text>
             )}
@@ -1273,7 +1348,7 @@ export default function Interview3DRoomScreen() {
       </View>
       <ScenarioPropModal
         kind={propModalKind}
-        customContext={cvSummary || scenario?.openingVi || ''}
+        customContext={cvSummary || scenario?.defaultCv || ''}
         outcomeCard={outcomeCard}
         onClose={() => setPropModalKind(null)}
         onPickPhrase={(ja) => mic.setTranscript(ja)}
