@@ -1,6 +1,6 @@
 # Hướng dẫn cập nhật DB, `.env` & chạy dự án (dành cho đồng đội)
 
-Tài liệu này tổng hợp **tất cả thay đổi về Database, biến môi trường (`.env`) và thư viện mới** trên nhánh `002-nihongo-app-clone` kể từ sau khi gộp code Shadowing/Handwriting. Làm đủ 5 bước dưới đây là chạy mượt toàn bộ tính năng (**Flashcard SRS, Quiz, Shadowing YouTube, Tra cứu Từ điển + Vẽ tay Kanji, Đấu trường Kotoba WebSocket, Phỏng vấn 3D cùng AI**).
+Tài liệu này tổng hợp **tất cả thay đổi về Database, biến môi trường (`.env`) và thư viện mới** trên nhánh `feat/interview-3d-and-kotoba-game` kể từ sau khi gộp code Shadowing/Handwriting. Làm đủ 5 bước dưới đây là chạy mượt toàn bộ tính năng (**Flashcard SRS, Quiz, Shadowing YouTube, Tra cứu Từ điển + Vẽ tay Kanji, Đấu trường Kotoba WebSocket, Phỏng vấn 3D cùng AI**).
 
 ---
 
@@ -8,8 +8,8 @@ Tài liệu này tổng hợp **tất cả thay đổi về Database, biến mô
 
 ```bash
 git fetch origin
-git checkout 002-nihongo-app-clone
-git pull origin 002-nihongo-app-clone
+git checkout feat/interview-3d-and-kotoba-game
+git pull origin feat/interview-3d-and-kotoba-game
 ```
 
 ---
