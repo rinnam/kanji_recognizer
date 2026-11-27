@@ -42,6 +42,7 @@ export default function ListeningScreen() {
   const [customVideos, setCustomVideos] = useState<SavedVideoItem[]>([]);
   const [selectedVideoFolderId, setSelectedVideoFolderId] = useState<string | null>(null);
   const [newVideoFolderName, setNewVideoFolderName] = useState<string>('');
+  const [createFolderOpen, setCreateFolderOpen] = useState<boolean>(false);
   const [currentVideo, setCurrentVideo] = useState<SampleVideoItem>(SAMPLE_VIDEOS[0]);
 
   useEffect(() => {
@@ -70,6 +71,7 @@ export default function ListeningScreen() {
     persistLibrary([...videoFolders, created], customVideos);
     setNewVideoFolderName('');
     setSelectedVideoFolderId(created.id);
+    setCreateFolderOpen(false);
   };
 
   // In-memory cache for fetched transcript lines to avoid re-fetching the same video within the same session
@@ -89,6 +91,9 @@ export default function ListeningScreen() {
   const [loadingVideoId, setLoadingVideoId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [videoPickerOpen, setVideoPickerOpen] = useState<boolean>(false);
+  const [desktopTranscriptOpen, setDesktopTranscriptOpen] = useState<boolean>(true);
+  const [mobileTranscriptOpen, setMobileTranscriptOpen] = useState<boolean>(false);
+  const [showTranslation, setShowTranslation] = useState<boolean>(true);
   const [quickUrl, setQuickUrl] = useState<string>('');
 
   const playerRef = useRef<PlayerRef>(null);
@@ -336,55 +341,81 @@ export default function ListeningScreen() {
   const currentLine = lines[currentIndex] || null;
 
   return (
-    <AppShell>
+    <AppShell
+      scroll={screenMode === 'catalog' || !isDesktop}
+      contentStyle={
+        isDesktop && screenMode === 'player'
+          ? { maxWidth: 1340, paddingTop: 18, paddingHorizontal: 32, paddingBottom: 16 }
+          : undefined
+      }
+    >
       {screenMode === 'catalog' ? (
         <>
           <TopHeader
             mode="subpage"
             title="Luyện nghe & Shadowing"
-            subtitle="Chọn video luyện tập hoặc dán link YouTube bất kỳ để lưu vào thư mục"
           />
 
           {/* Video Folder Filter & Quick Create Bar */}
           <View style={styles.folderStrip}>
-            <View style={styles.folderChips}>
-              <Pressable
-                style={[styles.folderChip, selectedVideoFolderId === null && styles.folderChipActive]}
-                onPress={() => setSelectedVideoFolderId(null)}
+            <View style={styles.folderTopRow}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.folderScroll}
+                contentContainerStyle={styles.folderChips}
               >
-                <Text style={[styles.folderChipText, selectedVideoFolderId === null && styles.folderChipTextActive]}>
-                  Tất cả ({customVideos.length + SAMPLE_VIDEOS.length})
+                <Pressable
+                  style={[styles.folderChip, selectedVideoFolderId === null && styles.folderChipActive]}
+                  onPress={() => setSelectedVideoFolderId(null)}
+                >
+                  <Text style={[styles.folderChipText, selectedVideoFolderId === null && styles.folderChipTextActive]}>
+                    Tất cả ({customVideos.length + SAMPLE_VIDEOS.length})
+                  </Text>
+                </Pressable>
+                {videoFolders.map((f) => {
+                  const active = selectedVideoFolderId === f.id;
+                  const count = customVideos.filter((v) => v.folderId === f.id).length;
+                  return (
+                    <Pressable
+                      key={f.id}
+                      style={[styles.folderChip, active && styles.folderChipActive]}
+                      onPress={() => setSelectedVideoFolderId(f.id)}
+                    >
+                      <Text style={[styles.folderChipText, active && styles.folderChipTextActive]}>
+                        {f.name} ({count})
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+
+              <Pressable
+                style={[styles.addFolderIconBtn, createFolderOpen && styles.folderChipActive]}
+                onPress={() => setCreateFolderOpen((prev) => !prev)}
+                accessibilityLabel="Tạo thư mục mới"
+              >
+                <Text style={[styles.addFolderIconText, createFolderOpen && styles.folderChipTextActive]}>
+                  +
                 </Text>
               </Pressable>
-              {videoFolders.map((f) => {
-                const active = selectedVideoFolderId === f.id;
-                const count = customVideos.filter((v) => v.folderId === f.id).length;
-                return (
-                  <Pressable
-                    key={f.id}
-                    style={[styles.folderChip, active && styles.folderChipActive]}
-                    onPress={() => setSelectedVideoFolderId(f.id)}
-                  >
-                    <Text style={[styles.folderChipText, active && styles.folderChipTextActive]}>
-                      {f.name} ({count})
-                    </Text>
-                  </Pressable>
-                );
-              })}
             </View>
-            <View style={styles.folderCreateRow}>
-              <TextInput
-                value={newVideoFolderName}
-                onChangeText={setNewVideoFolderName}
-                onSubmitEditing={handleCreateVideoFolder}
-                placeholder="Tạo thư mục video mới..."
-                placeholderTextColor={nihongoTheme.colors.textMuted}
-                style={styles.pickerInput}
-              />
-              <Pressable style={styles.pickerAddBtn} onPress={handleCreateVideoFolder}>
-                <Text style={styles.pickerAddText}>+ Tạo</Text>
-              </Pressable>
-            </View>
+            {createFolderOpen ? (
+              <View style={styles.folderCreateRow}>
+                <TextInput
+                  value={newVideoFolderName}
+                  onChangeText={setNewVideoFolderName}
+                  onSubmitEditing={handleCreateVideoFolder}
+                  placeholder="Tạo thư mục video mới..."
+                  placeholderTextColor={nihongoTheme.colors.textMuted}
+                  style={styles.pickerInput}
+                  autoFocus
+                />
+                <Pressable style={styles.pickerAddBtn} onPress={handleCreateVideoFolder}>
+                  <Text style={styles.pickerAddText}>Tạo</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
 
           <VideoCatalogView
@@ -401,13 +432,7 @@ export default function ListeningScreen() {
           <TopHeader
             mode="subpage"
             title="Luyện nghe & Shadowing"
-            subtitle={currentVideo.channel ? `${videoTitle} · ${currentVideo.channel}` : videoTitle}
             onBack={handleBackToCatalog}
-            rightSlot={
-              <Pressable style={styles.backButton} onPress={() => setVideoPickerOpen(true)}>
-                <Text style={styles.backButtonText}>Đổi video ▾</Text>
-              </Pressable>
-            }
           />
 
           {/* In-place Video Switcher Modal */}
@@ -472,54 +497,152 @@ export default function ListeningScreen() {
             </View>
           </Modal>
 
-          {/* Main Layout: 2 Columns on Desktop, 1 Column on Mobile */}
-          <View style={[styles.mainLayout, isDesktop ? styles.layoutDesktop : styles.layoutMobile]}>
-            {/* Left Column: Player + Toolbar + Current Sentence View */}
-            <View style={[styles.leftColumn, isDesktop && styles.leftColumnDesktop]}>
-              <ShadowingPlayer
-                ref={playerRef}
-                videoId={videoId}
-                onTimeUpdate={handleTimeUpdate}
-                onStateChange={handlePlayerState}
-              />
+          {/* Main Layout: Sticky Video + Toolbar, Right Column Transcript on Desktop, Modal on Mobile */}
+          <View
+            style={[
+              styles.mobilePlayerRoot,
+              isDesktop && !desktopTranscriptOpen && styles.desktopPlayerContainer,
+              isDesktop && desktopTranscriptOpen && styles.desktopSplitRow,
+            ]}
+          >
+            <View style={[styles.mobilePlayerRoot, isDesktop && desktopTranscriptOpen && styles.leftColumnDesktop]}>
+              {isDesktop ? (
+                <ScrollView
+                  style={styles.mobileBodyScroll}
+                  contentContainerStyle={styles.leftColumnScrollContent}
+                  showsVerticalScrollIndicator={false}
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <ShadowingPlayer
+                    ref={playerRef}
+                    videoId={videoId}
+                    onTimeUpdate={handleTimeUpdate}
+                    onStateChange={handlePlayerState}
+                  />
 
-              <ShadowingToolbar
-                isPlaying={isPlaying}
-                onTogglePlay={handleTogglePlay}
-                onPrevLine={handlePrevLine}
-                onNextLine={handleNextLine}
-                onSeekRelative={handleSeekRelative}
-                speed={speed}
-                onChangeSpeed={handleChangeSpeed}
-                autoPause={autoPause}
-                onToggleAutoPause={() => setAutoPause((prev) => !prev)}
-                isLooping={isLooping}
-                onToggleLoop={() => setIsLooping((prev) => !prev)}
-              />
+                  <ShadowingToolbar
+                    isPlaying={isPlaying}
+                    onTogglePlay={handleTogglePlay}
+                    onPrevLine={handlePrevLine}
+                    onNextLine={handleNextLine}
+                    speed={speed}
+                    onChangeSpeed={handleChangeSpeed}
+                    autoPause={autoPause}
+                    onToggleAutoPause={() => setAutoPause((prev) => !prev)}
+                    showTranslation={showTranslation}
+                    onToggleTranslation={() => setShowTranslation((prev) => !prev)}
+                    transcriptOpen={desktopTranscriptOpen}
+                    onOpenTranscript={() => setDesktopTranscriptOpen((prev) => !prev)}
+                  />
 
-              <CurrentSentenceView
-                line={currentLine}
-                onSelectToken={(token) => {
-                  recordMeaningfulStudyAction('listening_token');
-                  setSelectedToken(token);
-                }}
-                onReplayLine={() => {
-                  recordMeaningfulStudyAction('listening_replay');
-                  handleReplayCurrentLine();
-                }}
-                isLooping={isLooping}
-                onToggleLoop={() => setIsLooping((prev) => !prev)}
-              />
+                  <CurrentSentenceView
+                    showTranslation={showTranslation}
+                    line={currentLine}
+                    onSelectToken={(token) => {
+                      recordMeaningfulStudyAction('listening_token');
+                      setSelectedToken(token);
+                    }}
+                    onReplayLine={() => {
+                      recordMeaningfulStudyAction('listening_replay');
+                      handleReplayCurrentLine();
+                    }}
+                    onBeforeSpeak={() => {
+                      playerRef.current?.pause();
+                      setIsPlaying(false);
+                    }}
+                    isLooping={isLooping}
+                    onToggleLoop={() => setIsLooping((prev) => !prev)}
+                  />
+                </ScrollView>
+              ) : (
+                <>
+                  <View style={styles.mobileStickyTop}>
+                    <ShadowingPlayer
+                      ref={playerRef}
+                      videoId={videoId}
+                      onTimeUpdate={handleTimeUpdate}
+                      onStateChange={handlePlayerState}
+                    />
+
+                    <ShadowingToolbar
+                      isPlaying={isPlaying}
+                      onTogglePlay={handleTogglePlay}
+                      onPrevLine={handlePrevLine}
+                      onNextLine={handleNextLine}
+                      speed={speed}
+                      onChangeSpeed={handleChangeSpeed}
+                      autoPause={autoPause}
+                      onToggleAutoPause={() => setAutoPause((prev) => !prev)}
+                      showTranslation={showTranslation}
+                      onToggleTranslation={() => setShowTranslation((prev) => !prev)}
+                      transcriptOpen={mobileTranscriptOpen}
+                      onOpenTranscript={() => setMobileTranscriptOpen((prev) => !prev)}
+                    />
+                  </View>
+
+                  <CurrentSentenceView
+                    showTranslation={showTranslation}
+                    line={currentLine}
+                    onSelectToken={(token) => {
+                      recordMeaningfulStudyAction('listening_token');
+                      setSelectedToken(token);
+                    }}
+                    onReplayLine={() => {
+                      recordMeaningfulStudyAction('listening_replay');
+                      handleReplayCurrentLine();
+                    }}
+                    onBeforeSpeak={() => {
+                      playerRef.current?.pause();
+                      setIsPlaying(false);
+                    }}
+                    isLooping={isLooping}
+                    onToggleLoop={() => setIsLooping((prev) => !prev)}
+                  />
+                </>
+              )}
             </View>
 
-            {/* Right Column: Transcript Subtitles List */}
-            <View style={isDesktop ? styles.rightColumnDesktop : undefined}>
-              <TranscriptListView
-                lines={lines}
-                activeIndex={currentIndex}
-                onSelectLine={handleSelectLine}
-              />
-            </View>
+            {isDesktop && desktopTranscriptOpen ? (
+              <View style={styles.rightColumnDesktop}>
+                <TranscriptListView
+                  inModal
+                  lines={lines}
+                  activeIndex={currentIndex}
+                  onSelectLine={handleSelectLine}
+                />
+              </View>
+            ) : null}
+
+            {!isDesktop ? (
+              <Modal
+                visible={mobileTranscriptOpen}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setMobileTranscriptOpen(false)}
+              >
+                <View style={styles.transcriptOverlay}>
+                  <Pressable style={StyleSheet.absoluteFill} onPress={() => setMobileTranscriptOpen(false)} />
+                  <View style={styles.transcriptSheet}>
+                    <View style={styles.transcriptSheetHeader}>
+                      <Text style={styles.pickerTitle}>Phụ đề video ({lines.length})</Text>
+                      <Pressable onPress={() => setMobileTranscriptOpen(false)}>
+                        <Text style={styles.pickerClose}>Đóng</Text>
+                      </Pressable>
+                    </View>
+                    <TranscriptListView
+                      inModal
+                      lines={lines}
+                      activeIndex={currentIndex}
+                      onSelectLine={(idx) => {
+                        handleSelectLine(idx);
+                        setMobileTranscriptOpen(false);
+                      }}
+                    />
+                  </View>
+                </View>
+              </Modal>
+            ) : null}
           </View>
 
           {/* Word Detail Popover/Modal */}
@@ -586,10 +709,69 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   leftColumnDesktop: {
-    flex: 1.25,
+    flex: 1.65,
   },
   rightColumnDesktop: {
-    flex: 0.95,
+    flex: 0.85,
+    minWidth: 320,
+  },
+  mobilePlayerRoot: {
+    flex: 1,
+    gap: 10,
+  },
+  desktopPlayerContainer: {
+    width: '100%',
+    maxWidth: 940,
+    alignSelf: 'center',
+  },
+  desktopSplitRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 16,
+  },
+  mobileStickyTop: {
+    flexShrink: 0,
+    gap: 8,
+  },
+  mobileBodyScroll: {
+    flex: 1,
+  },
+  mobileBodyScrollContent: {
+    paddingBottom: 24,
+  },
+  leftColumnScrollContent: {
+    gap: 10,
+    paddingBottom: 24,
+  },
+  transcriptOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    justifyContent: 'flex-end',
+  },
+  transcriptOverlayDesktop: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  transcriptSheet: {
+    backgroundColor: nihongoTheme.colors.bgWarm,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 14,
+    height: '76%',
+    gap: 10,
+  },
+  transcriptSheetDesktop: {
+    width: '100%',
+    maxWidth: 620,
+    height: '78%',
+    borderRadius: 20,
+  },
+  transcriptSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
   },
   folderStrip: {
     backgroundColor: nihongoTheme.colors.surface,
@@ -601,10 +783,34 @@ const styles = StyleSheet.create({
     gap: 10,
     ...nihongoTheme.shadow.card,
   },
+  folderScroll: {
+    flex: 1,
+  },
   folderChips: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: 8,
+  },
+  folderTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addFolderIconBtn: {
+    flexShrink: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addFolderIconText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+    lineHeight: 20,
   },
   folderChip: {
     paddingHorizontal: 12,

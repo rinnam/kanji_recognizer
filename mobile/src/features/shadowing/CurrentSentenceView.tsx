@@ -10,8 +10,10 @@ interface CurrentSentenceViewProps {
   line: ShadowingLine | null;
   onSelectToken: (token: AnalyzedToken) => void;
   onReplayLine: () => void;
+  onBeforeSpeak?: () => void;
   isLooping: boolean;
   onToggleLoop: () => void;
+  showTranslation?: boolean;
 }
 
 const POS_COLORS: Record<string, { border: string; bg: string; text: string }> = {
@@ -86,11 +88,11 @@ export function CurrentSentenceView({
   line,
   onSelectToken,
   onReplayLine,
+  onBeforeSpeak,
   isLooping,
   onToggleLoop,
+  showTranslation = true,
 }: CurrentSentenceViewProps) {
-  const [showTable, setShowTable] = useState(false);
-  const [showTranslation, setShowTranslation] = useState(true);
   const [translation, setTranslation] = useState<string>('');
   const [translating, setTranslating] = useState(false);
 
@@ -129,37 +131,34 @@ export function CurrentSentenceView({
               {formatTimestamp(line.start)} - {formatTimestamp(line.start + line.duration)}
             </Text>
           </View>
-          <Text style={styles.tokenCountTag}>{visibleTokens.length} từ</Text>
         </View>
 
         <View style={styles.actionIcons}>
           <Pressable
-            style={[styles.smallBtn, isLooping && styles.smallBtnActive, { flexDirection: 'row', alignItems: 'center', gap: 5 }]}
+            style={[styles.smallIconBtn, isLooping && styles.smallBtnActive]}
             onPress={onToggleLoop}
+            accessibilityLabel={isLooping ? 'Tắt lặp câu' : 'Lặp câu'}
           >
-            <RepeatIcon size={13} color={isLooping ? '#FFFFFF' : '#6E6055'} />
-            <Text style={[styles.smallBtnText, isLooping && styles.smallBtnTextActive]}>
-              {isLooping ? 'Đang lặp' : 'Lặp câu'}
-            </Text>
-          </Pressable>
-
-          <Pressable style={[styles.smallBtn, { flexDirection: 'row', alignItems: 'center', gap: 5 }]} onPress={onReplayLine}>
-            <ResetIcon size={13} color="#6E6055" />
-            <Text style={styles.smallBtnText}>Nghe lại</Text>
-          </Pressable>
-
-          <Pressable style={[styles.smallBtn, { flexDirection: 'row', alignItems: 'center', gap: 5 }]} onPress={() => speakJapanese(line.text)}>
-            <VolumeIcon size={13} color={nihongoTheme.colors.accentHover} />
-            <Text style={styles.smallBtnText}>Đọc mẫu</Text>
+            <RepeatIcon size={15} color={isLooping ? '#FFFFFF' : '#6E6055'} />
           </Pressable>
 
           <Pressable
-            style={[styles.smallBtn, showTranslation && styles.smallBtnActive]}
-            onPress={() => setShowTranslation((v) => !v)}
+            style={styles.smallIconBtn}
+            onPress={onReplayLine}
+            accessibilityLabel="Nghe lại câu này"
           >
-            <Text style={[styles.smallBtnText, showTranslation && styles.smallBtnTextActive]}>
-              {showTranslation ? 'Dịch: BẬT' : 'Dịch: TẮT'}
-            </Text>
+            <ResetIcon size={15} color="#6E6055" />
+          </Pressable>
+
+          <Pressable
+            style={styles.smallIconBtn}
+            onPress={() => {
+              onBeforeSpeak?.();
+              speakJapanese(line.text);
+            }}
+            accessibilityLabel="Đọc mẫu tiếng Nhật"
+          >
+            <VolumeIcon size={15} color={nihongoTheme.colors.accentHover} />
           </Pressable>
         </View>
       </View>
@@ -198,55 +197,6 @@ export function CurrentSentenceView({
           </Text>
         ) : null}
       </View>
-
-      {/* Toggle table button */}
-      <View style={styles.footerRow}>
-        <Pressable
-          style={styles.toggleTableBtn}
-          onPress={() => setShowTable((prev) => !prev)}
-        >
-          <Text style={styles.toggleTableText}>
-            {showTable ? '▲ Thu gọn phân tích từ' : '▼ Bảng chi tiết từ loại & dạng gốc'}
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* Morphological Analysis Table */}
-      {showTable && visibleTokens.length > 0 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tableScroll}>
-          <View style={styles.table}>
-            <View style={[styles.tableRow, styles.tableHeaderRow]}>
-              <Text style={[styles.tableCell, styles.cellIndex]}>#</Text>
-              <Text style={[styles.tableCell, styles.cellWord]}>Từ</Text>
-              <Text style={[styles.tableCell, styles.cellReading]}>Cách đọc</Text>
-              <Text style={[styles.tableCell, styles.cellBase]}>Dạng gốc</Text>
-              <Text style={[styles.tableCell, styles.cellPos]}>Loại từ</Text>
-            </View>
-            {visibleTokens.map((token, idx) => {
-              const posStyle = POS_COLORS[token.pos] || POS_COLORS.other;
-              return (
-                <Pressable
-                  key={idx}
-                  style={[styles.tableRow, idx % 2 === 1 && styles.tableRowAlt]}
-                  onPress={() => onSelectToken(token)}
-                >
-                  <Text style={[styles.tableCell, styles.cellIndex]}>{idx + 1}</Text>
-                  <Text style={[styles.tableCell, styles.cellWord, { fontWeight: '700' }]}>{token.surface}</Text>
-                  <Text style={[styles.tableCell, styles.cellReading]}>{token.reading || '—'}</Text>
-                  <Text style={[styles.tableCell, styles.cellBase]}>{token.base || token.surface}</Text>
-                  <View style={styles.cellPos}>
-                    <View style={[styles.posChip, { backgroundColor: posStyle.bg }]}>
-                      <Text style={[styles.posChipText, { color: posStyle.text }]}>
-                        {formatPosVietnamese(token.posRaw, token.pos)}
-                      </Text>
-                    </View>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        </ScrollView>
-      ) : null}
     </View>
   );
 }
@@ -300,6 +250,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: nihongoTheme.radius.pill,
     backgroundColor: nihongoTheme.colors.chipNeutralBg,
+  },
+  smallIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   smallBtnActive: {
     backgroundColor: nihongoTheme.colors.accent,

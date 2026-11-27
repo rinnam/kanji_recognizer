@@ -15,7 +15,7 @@ import type { SampleVideoItem } from './types';
 interface VideoCatalogViewProps {
   videos: SampleVideoItem[];
   onSelectVideo: (video: SampleVideoItem) => void;
-  onSubmitUrl: (url: string) => void;
+  onSubmitUrl?: (url: string) => void;
   isLoading: boolean;
   loadingVideoId: string | null;
   errorMessage: string | null;
@@ -32,67 +32,62 @@ export function VideoCatalogView({
   const { width } = useWindowDimensions();
   const isDesktop = width >= 800;
   const [urlInput, setUrlInput] = useState('');
+  const [urlOpen, setUrlOpen] = useState(false);
 
   const handleSubmit = () => {
-    if (urlInput.trim()) {
+    if (urlInput.trim() && onSubmitUrl) {
       onSubmitUrl(urlInput.trim());
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* 1. Custom URL Input Section */}
-      <View style={styles.inputCard}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardIcon}>🔗</Text>
-          <View style={styles.cardHeaderTextCol}>
-            <Text style={styles.cardTitle}>Dán link YouTube bất kỳ</Text>
-            <Text style={styles.cardSubtitle}>
-              Hệ thống sẽ tự động trích xuất phụ đề tiếng Nhật, chia câu, gán Furigana và phân tích ngữ pháp
-            </Text>
-          </View>
+      {errorMessage ? (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
         </View>
+      ) : null}
 
-        <View style={styles.inputRow}>
-          <TextInput
-            value={urlInput}
-            onChangeText={setUrlInput}
-            placeholder="Dán URL YouTube (ví dụ: https://www.youtube.com/watch?v=...)"
-            placeholderTextColor={nihongoTheme.colors.textMuted}
-            style={styles.textInput}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+      {/* Curated Sample Videos Catalog Section */}
+      <View style={styles.catalogSection}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Video có sẵn</Text>
           <Pressable
-            style={[styles.submitButton, (!urlInput.trim() || isLoading) && styles.submitButtonDisabled]}
-            onPress={handleSubmit}
-            disabled={!urlInput.trim() || isLoading}
+            style={styles.ytbButton}
+            onPress={() => setUrlOpen((prev) => !prev)}
           >
-            {isLoading && loadingVideoId === 'custom' ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <Text style={styles.submitButtonText}>Bắt đầu học ▶</Text>
-            )}
+            <Text style={styles.ytbButtonText}>
+              {urlOpen ? '✕ Thu gọn' : '+ Link YouTube'}
+            </Text>
           </Pressable>
         </View>
 
-        {errorMessage ? (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
+        {urlOpen ? (
+          <View style={styles.inputRow}>
+            <TextInput
+              value={urlInput}
+              onChangeText={setUrlInput}
+              onSubmitEditing={handleSubmit}
+              placeholder="Dán URL YouTube..."
+              placeholderTextColor={nihongoTheme.colors.textMuted}
+              style={styles.textInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+            />
+            <Pressable
+              style={[styles.submitButton, (!urlInput.trim() || isLoading) && styles.submitButtonDisabled]}
+              onPress={handleSubmit}
+              disabled={!urlInput.trim() || isLoading}
+            >
+              {isLoading && loadingVideoId === 'custom' ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.submitButtonText}>Bắt đầu học ▶</Text>
+              )}
+            </Pressable>
           </View>
         ) : null}
-      </View>
-
-      {/* 2. Curated Sample Videos Catalog Section */}
-      <View style={styles.catalogSection}>
-        <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionIcon}>📺</Text>
-          <Text style={styles.sectionTitle}>Video có sẵn để luyện tập</Text>
-          <Text style={styles.sectionCount}>({videos.length} video)</Text>
-        </View>
-        <Text style={styles.sectionDesc}>
-          Chọn một video bên dưới để bắt đầu luyện phản xạ nói (Shadowing) ngay lập tức:
-        </Text>
 
         <View style={[styles.grid, isDesktop && styles.gridDesktop]}>
           {videos.map((video) => {
@@ -199,6 +194,13 @@ const styles = StyleSheet.create({
   cardHeaderTextCol: {
     flex: 1,
   },
+  chevronText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textMuted,
+    paddingLeft: 8,
+    paddingTop: 4,
+  },
   cardTitle: {
     fontSize: 16,
     fontWeight: '800',
@@ -261,6 +263,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  ytbButton: {
+    flexShrink: 0,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: nihongoTheme.radius.pill,
+    backgroundColor: nihongoTheme.colors.accent,
+  },
+  ytbButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   sectionIcon: {
     fontSize: 22,

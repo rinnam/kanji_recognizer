@@ -1,20 +1,31 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform, Alert, Modal } from 'react-native';
 import { nihongoTheme } from '../../theme/nihongo-theme';
-import { MicIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, RepeatIcon, VolumeIcon } from '../../components/AppIcons';
+import {
+  MicIcon,
+  MoreVerticalIcon,
+  NextIcon,
+  PauseIcon,
+  PlayIcon,
+  PrevIcon,
+  SubtitlesIcon,
+  TranslateIcon,
+  VolumeIcon,
+} from '../../components/AppIcons';
 
 interface ShadowingToolbarProps {
   isPlaying: boolean;
   onTogglePlay: () => void;
   onPrevLine: () => void;
   onNextLine: () => void;
-  onSeekRelative: (offsetSeconds: number) => void;
   speed: number;
   onChangeSpeed: (speed: number) => void;
   autoPause: boolean;
   onToggleAutoPause: () => void;
-  isLooping: boolean;
-  onToggleLoop: () => void;
+  showTranslation?: boolean;
+  onToggleTranslation?: () => void;
+  transcriptOpen?: boolean;
+  onOpenTranscript?: () => void;
 }
 
 export function ShadowingToolbar({
@@ -22,17 +33,19 @@ export function ShadowingToolbar({
   onTogglePlay,
   onPrevLine,
   onNextLine,
-  onSeekRelative,
   speed,
   onChangeSpeed,
   autoPause,
   onToggleAutoPause,
-  isLooping,
-  onToggleLoop,
+  showTranslation = true,
+  onToggleTranslation,
+  transcriptOpen = false,
+  onOpenTranscript,
 }: ShadowingToolbarProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const mediaRecorderRef = useRef<any>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<any>(null);
@@ -102,89 +115,121 @@ export function ShadowingToolbar({
   }, [recordedUrl]);
 
   return (
-    <View style={styles.card}>
-      {/* Playback Controls Row */}
-      <View style={styles.controlsRow}>
+    <View style={[styles.card, styles.cardCompact]}>
+      <View style={styles.compactRow}>
         <View style={styles.btnGroup}>
-          <Pressable style={styles.btn} onPress={() => onSeekRelative(-5)}>
-            <Text style={styles.btnText}>-5s</Text>
-          </Pressable>
-
-          <Pressable style={styles.btn} onPress={onPrevLine}>
+          <Pressable style={styles.btn} onPress={onPrevLine} accessibilityLabel="Câu trước">
             <PrevIcon size={16} color="#4A3E35" />
           </Pressable>
 
-          <Pressable style={[styles.btn, styles.playBtn]} onPress={onTogglePlay}>
+          <Pressable style={[styles.btn, styles.playBtn]} onPress={onTogglePlay} accessibilityLabel={isPlaying ? 'Tạm dừng' : 'Phát'}>
             {isPlaying ? <PauseIcon size={18} color="#FFFFFF" /> : <PlayIcon size={18} color="#FFFFFF" />}
           </Pressable>
 
-          <Pressable style={styles.btn} onPress={onNextLine}>
+          <Pressable style={styles.btn} onPress={onNextLine} accessibilityLabel="Câu tiếp theo">
             <NextIcon size={16} color="#4A3E35" />
           </Pressable>
-
-          <Pressable style={styles.btn} onPress={() => onSeekRelative(5)}>
-            <Text style={styles.btnText}>+5s</Text>
-          </Pressable>
         </View>
 
-        {/* Speed Selector */}
-        <View style={styles.speedRow}>
-          {SPEEDS.map((s) => (
+        <View style={styles.compactActions}>
+          {!isRecording ? (
             <Pressable
-              key={s}
-              style={[styles.speedBtn, speed === s && styles.speedBtnActive]}
-              onPress={() => onChangeSpeed(s)}
+              style={[styles.iconActionBtn, styles.recordIconBtn]}
+              onPress={startRecording}
+              accessibilityLabel="Ghi âm nhại giọng"
             >
-              <Text style={[styles.speedText, speed === s && styles.speedTextActive]}>
-                {s}x
+              <MicIcon size={17} color="#991B1B" />
+            </Pressable>
+          ) : (
+            <Pressable
+              style={[styles.iconActionBtn, styles.recordingActive]}
+              onPress={stopRecording}
+              accessibilityLabel={`Dừng ghi âm ${recordingSeconds} giây`}
+            >
+              <MicIcon size={17} color="#FFFFFF" />
+            </Pressable>
+          )}
+
+          {recordedUrl && !isRecording ? (
+            <Pressable
+              style={[styles.iconActionBtn, styles.listenBackIconBtn]}
+              onPress={playRecordedAudio}
+              accessibilityLabel="Nghe lại giọng mình"
+            >
+              <VolumeIcon size={17} color="#0369A1" />
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            style={[styles.iconActionBtn, showTranslation && styles.iconActionBtnActive]}
+            onPress={onToggleTranslation}
+            accessibilityLabel={showTranslation ? 'Tắt dịch câu' : 'Bật dịch câu'}
+          >
+            <TranslateIcon size={17} color={showTranslation ? '#FFFFFF' : '#6E6055'} />
+          </Pressable>
+
+          <Pressable
+            style={[styles.iconActionBtn, transcriptOpen && styles.iconActionBtnActive]}
+            onPress={onOpenTranscript}
+            accessibilityLabel={transcriptOpen ? 'Đóng phụ đề video' : 'Mở phụ đề video'}
+          >
+            <SubtitlesIcon size={17} color={transcriptOpen ? '#FFFFFF' : '#6E6055'} />
+          </Pressable>
+
+          <Pressable
+            style={[styles.iconActionBtn, (autoPause || speed !== 1.0) && styles.iconActionBtnTinted]}
+            onPress={() => setMenuOpen(true)}
+            accessibilityLabel="Tùy chọn phát video"
+          >
+            <MoreVerticalIcon size={18} color="#4A3E35" />
+          </Pressable>
+        </View>
+      </View>
+
+      <Modal
+        visible={menuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuOpen(false)}
+      >
+        <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)}>
+          <Pressable style={styles.menuCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.menuTitle}>Tùy chọn phát</Text>
+
+            <View style={styles.menuSection}>
+              <Text style={styles.menuLabel}>Tốc độ video</Text>
+              <View style={styles.speedRow}>
+                {SPEEDS.map((s) => (
+                  <Pressable
+                    key={s}
+                    style={[styles.speedBtn, speed === s && styles.speedBtnActive]}
+                    onPress={() => onChangeSpeed(s)}
+                  >
+                    <Text style={[styles.speedText, speed === s && styles.speedTextActive]}>
+                      {s}x
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            <Pressable
+              style={[styles.menuToggleRow, autoPause && styles.menuToggleRowActive]}
+              onPress={onToggleAutoPause}
+            >
+              <View style={styles.menuToggleLeft}>
+                <PauseIcon size={15} color={autoPause ? nihongoTheme.colors.accentHover : '#6E6055'} />
+                <Text style={[styles.menuToggleText, autoPause && styles.menuToggleTextActive]}>
+                  Dừng lại mỗi câu
+                </Text>
+              </View>
+              <Text style={[styles.menuBadge, autoPause && styles.menuBadgeActive]}>
+                {autoPause ? 'BẬT' : 'TẮT'}
               </Text>
             </Pressable>
-          ))}
-        </View>
-      </View>
-
-      {/* Shadowing Features: Auto-Pause & Loop & Voice Recorder */}
-      <View style={styles.featureRow}>
-        <Pressable
-          style={[styles.featureChip, autoPause && styles.featureChipActive, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
-          onPress={onToggleAutoPause}
-        >
-          <PauseIcon size={13} color={autoPause ? '#FFFFFF' : '#6E6055'} />
-          <Text style={[styles.featureChipText, autoPause && styles.featureChipTextActive]}>
-            {autoPause ? 'Dừng mỗi câu: BẬT' : 'Dừng mỗi câu: TẮT'}
-          </Text>
+          </Pressable>
         </Pressable>
-
-        <Pressable
-          style={[styles.featureChip, isLooping && styles.featureChipActive, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
-          onPress={onToggleLoop}
-        >
-          <RepeatIcon size={14} color={isLooping ? '#FFFFFF' : '#6E6055'} />
-          <Text style={[styles.featureChipText, isLooping && styles.featureChipTextActive]}>
-            {isLooping ? 'Lặp câu: BẬT' : 'Lặp câu: TẮT'}
-          </Text>
-        </Pressable>
-
-        {/* Voice recording button */}
-        {!isRecording ? (
-          <Pressable style={[styles.recordBtn, { flexDirection: 'row', alignItems: 'center', gap: 6 }]} onPress={startRecording}>
-            <MicIcon size={14} color="#991B1B" />
-            <Text style={styles.recordBtnText}>Ghi âm nhại giọng</Text>
-          </Pressable>
-        ) : (
-          <Pressable style={[styles.recordBtn, styles.recordingActive, { flexDirection: 'row', alignItems: 'center', gap: 6 }]} onPress={stopRecording}>
-            <MicIcon size={14} color="#FFFFFF" />
-            <Text style={styles.recordBtnText}>Dừng ghi ({recordingSeconds}s)</Text>
-          </Pressable>
-        )}
-
-        {recordedUrl && !isRecording ? (
-          <Pressable style={[styles.listenBackBtn, { flexDirection: 'row', alignItems: 'center', gap: 6 }]} onPress={playRecordedAudio}>
-            <VolumeIcon size={14} color="#1B873F" />
-            <Text style={styles.listenBackText}>Nghe lại giọng mình</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      </Modal>
     </View>
   );
 }
@@ -308,5 +353,112 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#0369A1',
+  },
+  cardCompact: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  compactActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  iconActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconActionBtnActive: {
+    backgroundColor: nihongoTheme.colors.accent,
+  },
+  iconActionBtnTinted: {
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.accent,
+  },
+  recordIconBtn: {
+    backgroundColor: '#FEE2E2',
+  },
+  listenBackIconBtn: {
+    backgroundColor: '#E0F2FE',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  menuCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1.5,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 16,
+    gap: 12,
+    ...nihongoTheme.shadow.dock,
+  },
+  menuTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  menuSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  menuLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  menuToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: nihongoTheme.radius.button,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderLight,
+  },
+  menuToggleRowActive: {
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderColor: nihongoTheme.colors.accent,
+  },
+  menuToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  menuToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  menuToggleTextActive: {
+    color: nihongoTheme.colors.accentHover,
+  },
+  menuBadge: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textMuted,
+  },
+  menuBadgeActive: {
+    color: nihongoTheme.colors.accentHover,
   },
 });

@@ -28,7 +28,7 @@ config.server.enhanceMiddleware = (middleware, server) => {
       return;
     }
     const upstream = http.request({
-      hostname: '127.0.0.1', port: process.env.KANJI_BACKEND_PORT || 3001, path: req.url,
+      hostname: '127.0.0.1', port: process.env.KANJI_BACKEND_PORT || 3000, path: req.url,
       method: req.method, headers: isPush ? { 'content-type': 'application/json' } : {},
     }, response => {
       res.writeHead(response.statusCode, { 'content-type': response.headers['content-type'] || 'application/json', 'cache-control': 'no-store' });

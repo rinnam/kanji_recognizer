@@ -478,3 +478,56 @@ export function HeartIcon({ size = 16, color = '#DC2626', filled = true }: Heart
     </Svg>
   );
 }
+
+export function MoreVerticalIcon({ size = 18, color = '#4A3E35' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="5.5" r="1.75" fill={color} />
+      <Circle cx="12" cy="12" r="1.75" fill={color} />
+      <Circle cx="12" cy="18.5" r="1.75" fill={color} />
+    </Svg>
+  );
+}
+
+export function TranslateIcon({ size = 17, color = '#6E6055' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 8h8M9 6v2c0 3.5-1.8 6.4-4 8M7 11.5c1.2 1.6 2.8 3 4.8 4"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M13 19l3.5-9L20 19M14.2 16.5h4.6"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function SubtitlesIcon({ size = 17, color = '#6E6055' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="3"
+        y="5"
+        width="18"
+        height="14"
+        rx="3"
+        stroke={color}
+        strokeWidth={2}
+      />
+      <Path
+        d="M7 12h4M13 12h4M7 15.5h6M15 15.5h2"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}

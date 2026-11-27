@@ -58,7 +58,9 @@ export function AppShell({ children, scroll = true, contentStyle }: AppShellProp
             <View style={styles.container}>{children}</View>
           </ScrollView>
         ) : (
-          <View style={[styles.flex, styles.container, nonScrollPad, contentStyle]}>{children}</View>
+          <View style={styles.flex}>
+            <View style={[styles.flex, styles.container, nonScrollPad, contentStyle]}>{children}</View>
+          </View>
         )}
       </View>
     </SafeAreaView>

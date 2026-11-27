@@ -8,12 +8,14 @@ interface TranscriptListViewProps {
   lines: ShadowingLine[];
   activeIndex: number;
   onSelectLine: (index: number) => void;
+  inModal?: boolean;
 }
 
 export function TranscriptListView({
   lines,
   activeIndex,
   onSelectLine,
+  inModal = false,
 }: TranscriptListViewProps) {
   const [search, setSearch] = useState('');
   const itemRefs = useRef<Record<number, any>>({});
@@ -34,7 +36,7 @@ export function TranscriptListView({
   }, [activeIndex]);
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, inModal && styles.cardInModal]}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>Phụ đề video</Text>
@@ -50,7 +52,11 @@ export function TranscriptListView({
         />
       </View>
 
-      <ScrollView style={styles.list} showsVerticalScrollIndicator={true}>
+      <ScrollView
+        style={[styles.list, inModal && styles.listInModal]}
+        showsVerticalScrollIndicator={true}
+        nestedScrollEnabled
+      >
         {filteredLines.length > 0 ? (
           filteredLines.map((line) => {
             const isActive = line.originalIndex === activeIndex;
@@ -100,6 +106,10 @@ const styles = StyleSheet.create({
     maxHeight: 520,
     ...nihongoTheme.shadow.card,
   },
+  cardInModal: {
+    flex: 1,
+    maxHeight: '100%',
+  },
   header: {
     gap: 8,
   },
@@ -135,6 +145,10 @@ const styles = StyleSheet.create({
   list: {
     flex: 1,
     maxHeight: 420,
+  },
+  listInModal: {
+    flex: 1,
+    maxHeight: '100%',
   },
   lineItem: {
     flexDirection: 'row',
