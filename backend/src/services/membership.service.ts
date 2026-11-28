@@ -2327,15 +2327,24 @@ export async function adminSetUserSubscription(input: {
     let subscriptionOrderCode: string | null = null;
 
     if (input.tier !== 'free') {
-      if (mode === 'extend' && existingSub && existingSub.deleted_at === null) {
-        if (!customStart && existingSub.tier === input.tier) {
+      if (mode === 'extend') {
+        const canExtendExisting =
+          existingSub !== undefined &&
+          existingSub.deleted_at === null &&
+          existingSub.tier === input.tier &&
+          existingSub.expires_at !== null &&
+          existingSub.expires_at.getTime() > now.getTime() &&
+          existingSub.expires_at.getUTCFullYear() < 2090;
+        if (!canExtendExisting || !existingSub?.expires_at) {
+          throw new ValidationFailedError(
+            'Chỉ có thể gia hạn cộng dồn cho đúng gói trả phí đang còn hạn. Để chuyển gói hoặc cấp mới, hãy chọn Cấp / Đổi gói mới.',
+          );
+        }
+        if (!customStart) {
           newStartedAt = existingSub.started_at;
         }
-        const extendBase =
-          existingSub.expires_at && existingSub.expires_at.getTime() > now.getTime()
-            ? existingSub.expires_at
-            : now;
-        newExpiresAt = customEnd ?? new Date(extendBase.getTime() + days * 86_400_000);
+        newExpiresAt =
+          customEnd ?? new Date(existingSub.expires_at.getTime() + days * 86_400_000);
         subscriptionOrderCode = input.recordOrder
           ? orderCode
           : (existingSub.demo_order_code ?? orderCode);

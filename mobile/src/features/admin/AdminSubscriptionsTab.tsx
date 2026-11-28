@@ -156,7 +156,7 @@ export function AdminSubscriptionsTab({
   const [detail, setDetail] = useState<AdminSubscriptionDetailResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  const [actionMode, setActionMode] = useState<'extend' | 'replace'>('extend');
+  const [extendExisting, setExtendExisting] = useState(true);
   const [formTier, setFormTier] = useState<'plus' | 'pro'>('plus');
   const [formCycle, setFormCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [durationDaysInput, setDurationDaysInput] = useState('30');
@@ -217,16 +217,12 @@ export function AdminSubscriptionsTab({
     setModalTab('manage');
     setErrorMsg(null);
 
-    const hasPaidActive =
-      row.tier !== 'free' &&
-      (row.subscriptionStatus === 'active' || row.subscriptionStatus === 'expiring_soon') &&
-      !row.isLifetime;
     const defaultTier: 'plus' | 'pro' = row.tier === 'pro' ? 'pro' : 'plus';
     const defaultCycle: 'monthly' | 'yearly' =
       row.tier === 'free' ? 'monthly' : row.billingCycle;
     const defaultDays = defaultCycle === 'yearly' ? 365 : 30;
 
-    setActionMode(hasPaidActive ? 'extend' : 'replace');
+    setExtendExisting(true);
     setFormTier(defaultTier);
     setFormCycle(defaultCycle);
     setDurationDaysInput(String(defaultDays));
@@ -250,18 +246,39 @@ export function AdminSubscriptionsTab({
 
   const parsedDays = Math.max(1, Number(durationDaysInput.replace(/[^0-9]/g, '')) || 30);
 
+  const canExtendCurrentTier = Boolean(
+    selectedRow &&
+      selectedRow.tier === formTier &&
+      (selectedRow.subscriptionStatus === 'active' ||
+        selectedRow.subscriptionStatus === 'expiring_soon') &&
+      !selectedRow.isLifetime &&
+      selectedRow.expiresAt &&
+      new Date(selectedRow.expiresAt).getTime() > Date.now(),
+  );
+
+  const effectiveMode: 'extend' | 'replace' =
+    canExtendCurrentTier && extendExisting ? 'extend' : 'replace';
+
+  const isSwitchingPaidTier = Boolean(
+    selectedRow &&
+      selectedRow.tier !== 'free' &&
+      selectedRow.tier !== formTier &&
+      (selectedRow.subscriptionStatus === 'active' ||
+        selectedRow.subscriptionStatus === 'expiring_soon'),
+  );
+
   const previewNewExpiryText = useMemo(() => {
     if (!selectedRow) return '—';
     const nowMs = Date.now();
     const curExpiryMs = selectedRow.expiresAt ? new Date(selectedRow.expiresAt).getTime() : 0;
-    const baseMs = actionMode === 'extend' && curExpiryMs > nowMs ? curExpiryMs : nowMs;
+    const baseMs = effectiveMode === 'extend' && curExpiryMs > nowMs ? curExpiryMs : nowMs;
     const targetDate = new Date(baseMs + parsedDays * 86_400_000);
     return targetDate.toLocaleDateString('vi-VN', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
     });
-  }, [selectedRow, actionMode, parsedDays]);
+  }, [selectedRow, effectiveMode, parsedDays]);
 
   const handleSelectPlanForm = (
     nextTier: 'plus' | 'pro',
@@ -282,10 +299,11 @@ export function AdminSubscriptionsTab({
 
     try {
       const parsedAmount = Math.max(0, Number(amountInput.replace(/[^0-9]/g, '')) || 0);
+      const tierLabel = targetTier === 'pro' ? 'Pro AI' : 'Plus';
       await adminSetUserSubscriptionApi(selectedRow.userId, {
         tier: targetTier,
         billingCycle: targetTier === 'free' ? 'monthly' : formCycle,
-        mode: targetTier === 'free' ? 'replace' : actionMode,
+        mode: targetTier === 'free' ? 'replace' : effectiveMode,
         durationDays: parsedDays,
         recordOrder: targetTier !== 'free' && recordOrder,
         amountVnd: parsedAmount,
@@ -297,7 +315,11 @@ export function AdminSubscriptionsTab({
       setNoticeMsg(
         targetTier === 'free'
           ? `Đã chuyển ${selectedRow.email} về gói Miễn phí.`
-          : `${actionMode === 'extend' ? 'Đã gia hạn' : 'Đã kích hoạt'} gói ${targetTier.toUpperCase()} (+${parsedDays} ngày) cho ${selectedRow.email}.`,
+          : effectiveMode === 'extend'
+            ? `Đã gia hạn gói ${tierLabel} (+${parsedDays} ngày) cho ${selectedRow.email}.`
+            : isSwitchingPaidTier
+              ? `Đã đổi ${selectedRow.email} sang gói ${tierLabel} (${parsedDays} ngày).`
+              : `Đã kích hoạt gói ${tierLabel} (${parsedDays} ngày) cho ${selectedRow.email}.`,
       );
       setConfirmDowngrade(false);
       const [freshDetail] = await Promise.all([
@@ -746,25 +768,6 @@ export function AdminSubscriptionsTab({
                 /* Renew / Upgrade Form */
                 <View style={styles.sectionBox}>
                   <View style={styles.filterGroup}>
-                    {(
-                      [
-                        ['extend', 'Gia hạn cộng dồn'],
-                        ['replace', 'Cấp / Đổi gói mới'],
-                      ] as const
-                    ).map(([m, lbl]) => (
-                      <Pressable
-                        key={m}
-                        style={[styles.chip, actionMode === m && styles.chipDarkActive]}
-                        onPress={() => setActionMode(m)}
-                      >
-                        <Text style={[styles.chipText, actionMode === m && styles.chipTextActive]}>
-                          {lbl}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-
-                  <View style={styles.filterGroup}>
                     {(['plus', 'pro'] as const).map((t) => (
                       <Pressable
                         key={t}
@@ -791,6 +794,27 @@ export function AdminSubscriptionsTab({
                       );
                     })}
                   </View>
+
+                  {canExtendCurrentTier ? (
+                    <View style={styles.rowBetween}>
+                      <Text style={styles.mutedLabel}>
+                        Cộng dồn vào hạn cũ ({formatDateVn(selectedRow?.expiresAt)})
+                      </Text>
+                      <AdminSwitch
+                        value={extendExisting}
+                        onValueChange={setExtendExisting}
+                        accessibilityLabel="Cộng dồn vào hạn cũ"
+                      />
+                    </View>
+                  ) : isSwitchingPaidTier ? (
+                    <View style={styles.switchTierNotice}>
+                      <Text style={styles.switchTierNoticeText}>
+                        Đổi từ {selectedRow?.planName} sang{' '}
+                        {formTier === 'pro' ? 'Chuyên sâu (Pro AI)' : 'Tiêu chuẩn (Plus)'} · Hạn mới
+                        tính từ hôm nay, không cộng dồn ngày gói cũ.
+                      </Text>
+                    </View>
+                  ) : null}
 
                   <View style={styles.rowBetween}>
                     <Text style={styles.inputLabel}>
@@ -858,9 +882,11 @@ export function AdminSubscriptionsTab({
                     <Text style={styles.primaryBtnText}>
                       {saving
                         ? 'Đang lưu...'
-                        : actionMode === 'extend'
-                          ? `Gia hạn +${parsedDays} ngày (${formTier === 'pro' ? 'Pro AI' : 'Plus'})`
-                          : `Kích hoạt gói ${formTier === 'pro' ? 'Pro AI' : 'Plus'} (${parsedDays} ngày)`}
+                        : effectiveMode === 'extend'
+                          ? `Gia hạn ${formTier === 'pro' ? 'Pro AI' : 'Plus'} (+${parsedDays} ngày)`
+                          : isSwitchingPaidTier
+                            ? `Đổi sang ${formTier === 'pro' ? 'Pro AI' : 'Plus'} (${parsedDays} ngày)`
+                            : `Kích hoạt gói ${formTier === 'pro' ? 'Pro AI' : 'Plus'} (${parsedDays} ngày)`}
                     </Text>
                   </Pressable>
 
@@ -1146,6 +1172,20 @@ const styles = StyleSheet.create({
   },
   previewText: { fontSize: 12, color: adminTheme.colors.textSecondary },
   previewStrong: { fontWeight: '800', color: adminTheme.colors.successText },
+  switchTierNotice: {
+    backgroundColor: adminTheme.colors.warningBg,
+    borderWidth: 1,
+    borderColor: adminTheme.colors.accentBorder,
+    borderRadius: adminTheme.radius.input,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  switchTierNoticeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
+    color: adminTheme.colors.warningText,
+  },
   primaryBtn: {
     backgroundColor: adminTheme.colors.accent,
     borderRadius: adminTheme.radius.input,
