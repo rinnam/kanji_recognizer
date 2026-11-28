@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -43,6 +43,13 @@ import { libraryEndpoint, loadLibrary } from '../../src/library-source';
 import { readServerCache, saveServerCache } from '../../src/workspace-storage';
 import { hydrateQuizletStates } from '../../src/features/flashcards/quizlet-srs';
 import { getUserScopedKey } from '../../src/features/auth/auth-store';
+import {
+  buildDailyChallengeRound,
+  canBuildDailyChallenge,
+  DAILY_CHALLENGE_QUESTION_COUNT,
+  DAILY_CHALLENGE_RECENT_KEY,
+  type DailyChallengeQuestion,
+} from '../../src/features/daily-challenge/daily-challenge';
 import { useIsMobilePhone } from '../../src/utils/device';
 
 const DAILY_CHALLENGE_KEY = 'kanji_nest_daily_challenge_v2';
@@ -53,12 +60,6 @@ const SKILLS = [
   { key: 'reading', title: 'Đọc', desc: 'Đoạn văn theo cấp độ', Icon: ReadingSkillIcon, route: '/practice/reading' as const },
   { key: 'writing', title: 'Viết', desc: 'Kana, Kanji và viết câu', Icon: WritingSkillIcon, route: '/practice/writing' as const },
 ];
-
-interface DailyChallengeQuestion {
-  word: VocabularyDto;
-  choices: string[];
-  correctAnswer: string;
-}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -75,13 +76,18 @@ export default function HomeScreen() {
   const [phoneLockNotice, setPhoneLockNotice] = useState(false);
 
   // Daily 5-question challenge state
+  const [challengeQuestions, setChallengeQuestions] = useState<DailyChallengeQuestion[]>([]);
   const [challengeOpen, setChallengeOpen] = useState(false);
   const [challengeIdx, setChallengeIdx] = useState(0);
   const [challengeScore, setChallengeScore] = useState(0);
   const [challengeSelected, setChallengeSelected] = useState<string | null>(null);
   const [challengeDoneToday, setChallengeDoneToday] = useState(false);
+  const [savedChallengeScore, setSavedChallengeScore] = useState(0);
+  const [savedChallengeTotal, setSavedChallengeTotal] = useState(DAILY_CHALLENGE_QUESTION_COUNT);
   const [ksFeedbackMsg, setKsFeedbackMsg] = useState<string | null>(null);
   const [claimingKs, setClaimingKs] = useState(false);
+  const dueWordIdsRef = useRef<Set<string>>(new Set());
+  const recentChallengeIdsRef = useRef<string[]>([]);
 
   const study = useStudyTracker(profile.dailyMinutes);
   const { summary: membership, refresh: refreshMem } = useMembership();
@@ -101,17 +107,35 @@ export default function HomeScreen() {
           if (!active) return;
           if (!raw) {
             setChallengeDoneToday(false);
-            setChallengeScore(0);
+            setSavedChallengeScore(0);
+            setSavedChallengeTotal(DAILY_CHALLENGE_QUESTION_COUNT);
             return;
           }
-          const saved = JSON.parse(raw) as { date?: string; score?: number };
+          const saved = JSON.parse(raw) as { date?: string; score?: number; total?: number };
           if (saved.date === todayKey) {
             setChallengeDoneToday(true);
-            setChallengeScore(saved.score ?? 0);
+            setSavedChallengeScore(saved.score ?? 0);
+            setSavedChallengeTotal(saved.total ?? DAILY_CHALLENGE_QUESTION_COUNT);
           } else {
             setChallengeDoneToday(false);
-            setChallengeScore(0);
+            setSavedChallengeScore(0);
+            setSavedChallengeTotal(DAILY_CHALLENGE_QUESTION_COUNT);
           }
+        })
+        .catch(() => undefined);
+
+      void getUserScopedKey(DAILY_CHALLENGE_RECENT_KEY)
+        .then((rKey) => AsyncStorage.getItem(rKey))
+        .then((raw) => {
+          if (!active) return;
+          if (!raw) {
+            recentChallengeIdsRef.current = [];
+            return;
+          }
+          const parsed = JSON.parse(raw) as unknown;
+          recentChallengeIdsRef.current = Array.isArray(parsed)
+            ? parsed.filter((id): id is string => typeof id === 'string' && id.length > 0)
+            : [];
         })
         .catch(() => undefined);
 
@@ -144,9 +168,15 @@ export default function HomeScreen() {
         }
         if (!active) return;
         const states = hydrateQuizletStates(liveWords, savedLocal);
-        const rev = liveWords.filter(
-          (w) => states[w.id]?.stage === 'review' || states[w.id]?.stage === 'learning',
-        ).length;
+        const dueIds = new Set<string>();
+        for (const w of liveWords) {
+          const st = states[w.id]?.stage;
+          if (st === 'review' || st === 'learning') {
+            dueIds.add(w.id);
+          }
+        }
+        dueWordIdsRef.current = dueIds;
+        const rev = dueIds.size;
         const nw = liveWords.filter((w) => !states[w.id] || states[w.id].stage === 'new').length;
         setDueReviewCount(rev);
         setDueNewCount(nw);
@@ -158,19 +188,7 @@ export default function HomeScreen() {
     }, []),
   );
 
-  const challengeQuestions = useMemo<DailyChallengeQuestion[]>(() => {
-    if (words.length < 4) return [];
-    const pool = [...words].slice(0, 40);
-    const chosen = pool.slice(0, 5);
-    return chosen.map((w, idx) => {
-      const distractors = pool
-        .filter((other) => other.id !== w.id && other.meaning !== w.meaning)
-        .slice(idx, idx + 3)
-        .map((d) => d.meaning);
-      const all = [w.meaning, ...distractors].sort((a, b) => a.localeCompare(b));
-      return { word: w, choices: all, correctAnswer: w.meaning };
-    });
-  }, [words]);
+  const canStartChallenge = useMemo(() => canBuildDailyChallenge(words), [words]);
 
   const heatmapCells = useMemo(() => {
     // 26 weeks (182 days) anchored to today for currentYear, or Dec 31 for past years
@@ -200,6 +218,20 @@ export default function HomeScreen() {
   };
 
   const startChallenge = () => {
+    const { questions, nextRecentWordIds } = buildDailyChallengeRound({
+      words,
+      dueWordIds: dueWordIdsRef.current,
+      preferredJlptLevel: profile.jlptLevel === 'BEGINNER' ? null : profile.jlptLevel,
+      recentWordIds: recentChallengeIdsRef.current,
+    });
+    if (questions.length === 0) return;
+
+    recentChallengeIdsRef.current = nextRecentWordIds;
+    void getUserScopedKey(DAILY_CHALLENGE_RECENT_KEY)
+      .then((rKey) => AsyncStorage.setItem(rKey, JSON.stringify(nextRecentWordIds)))
+      .catch(() => undefined);
+
+    setChallengeQuestions(questions);
     setChallengeIdx(0);
     setChallengeScore(0);
     setChallengeSelected(null);
@@ -223,15 +255,18 @@ export default function HomeScreen() {
   };
 
   const handleNextChallenge = () => {
-    if (challengeIdx + 1 >= challengeQuestions.length) {
+    const totalCount = challengeQuestions.length;
+    if (challengeIdx + 1 >= totalCount) {
       const finalScore = challengeScore;
+      setSavedChallengeScore(finalScore);
+      setSavedChallengeTotal(totalCount);
       setChallengeDoneToday(true);
       closeChallengeModal();
       void getUserScopedKey(DAILY_CHALLENGE_KEY)
         .then((cKey) =>
           AsyncStorage.setItem(
             cKey,
-            JSON.stringify({ date: getLocalDateKey(), score: finalScore }),
+            JSON.stringify({ date: getLocalDateKey(), score: finalScore, total: totalCount }),
           ),
         )
         .catch(() => undefined);
@@ -239,7 +274,7 @@ export default function HomeScreen() {
         .then((res) => {
           if (res.applied && res.delta > 0) {
             setKsFeedbackMsg(
-              `Hoàn thành Thử thách (${finalScore}/${challengeQuestions.length}): Nhận +${res.delta} Xu KS!`,
+              `Hoàn thành Thử thách (${finalScore}/${totalCount}): Nhận +${res.delta} Xu KS!`,
             );
           }
         })
@@ -488,15 +523,15 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.cardSubtitle}>
               {challengeDoneToday
-                ? `Bạn đã hoàn thành thử thách hôm nay (${challengeScore}/${challengeQuestions.length} câu đúng)${
+                ? `Bạn đã hoàn thành thử thách hôm nay (${savedChallengeScore}/${savedChallengeTotal} câu đúng)${
                     membership.todayChallengeClaimed ? ' · ✓ Đã cộng Xu KS' : ''
                   }!`
                 : '+4 KS / câu đúng · +10 KS thưởng hoàn hảo 5/5 câu từ kho từ của bạn.'}
             </Text>
           </View>
           <Pressable
-            style={[styles.primaryBtn, challengeQuestions.length === 0 && styles.disabledBtn]}
-            disabled={challengeQuestions.length === 0}
+            style={[styles.primaryBtn, !canStartChallenge && styles.disabledBtn]}
+            disabled={!canStartChallenge}
             onPress={startChallenge}
           >
             <Text style={styles.primaryBtnText}>
