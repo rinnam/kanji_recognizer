@@ -653,3 +653,92 @@ export function InfoCircleIcon({ size = 16, color = '#6E6055' }: IconProps) {
     </Svg>
   );
 }
+
+export function AdminDashboardIcon({ size = 18, color = '#1E1E1E', active = false }: NavIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect
+        x="3"
+        y="3"
+        width="8"
+        height="8"
+        rx="2"
+        fill={active ? 'rgba(244, 138, 52, 0.16)' : 'none'}
+        stroke={color}
+        strokeWidth={2}
+      />
+      <Rect
+        x="13"
+        y="3"
+        width="8"
+        height="5"
+        rx="1.5"
+        fill={active ? 'rgba(244, 138, 52, 0.16)' : 'none'}
+        stroke={color}
+        strokeWidth={2}
+      />
+      <Rect
+        x="13"
+        y="10"
+        width="8"
+        height="11"
+        rx="2"
+        fill={active ? 'rgba(244, 138, 52, 0.16)' : 'none'}
+        stroke={color}
+        strokeWidth={2}
+      />
+      <Rect
+        x="3"
+        y="13"
+        width="8"
+        height="8"
+        rx="2"
+        fill={active ? 'rgba(244, 138, 52, 0.16)' : 'none'}
+        stroke={color}
+        strokeWidth={2}
+      />
+    </Svg>
+  );
+}
+
+export function DownloadIcon({ size = 16, color = '#EA7A1E' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 4v11M7.5 11.5L12 16l4.5-4.5M4 17.5V19a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 19v-1.5"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function LinkExternalIcon({ size = 16, color = '#EA7A1E' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14 4h6v6M10 14L20 4M19 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4 18.5v-12A1.5 1.5 0 0 1 5.5 5H10"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function LogoutIcon({ size = 16, color = '#DC2626' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}

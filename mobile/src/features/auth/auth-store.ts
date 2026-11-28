@@ -49,8 +49,9 @@ export async function readAuthSession(): Promise<AuthSession | null> {
     }
     const parsed = JSON.parse(raw) as AuthSession;
     const prevId = cachedSession?.user.id ?? null;
+    const prevRole = cachedSession?.user.role ?? null;
     cachedSession = parsed;
-    if (prevId !== parsed.user.id) {
+    if (prevId !== parsed.user.id || prevRole !== parsed.user.role) {
       notifySessionListeners(parsed);
     }
     return parsed;
@@ -108,4 +109,33 @@ export async function registerApi(email: string, password: string, displayName: 
   const session: AuthSession = { accessToken: data.accessToken, user: data.user };
   await saveAuthSession(session);
   return session;
+}
+
+/** Đồng bộ lại thông tin role & trạng thái tài khoản mới nhất từ máy chủ. */
+export async function refreshAuthMe(): Promise<AuthSession | null> {
+  const cur = cachedSession !== undefined ? cachedSession : await readAuthSession();
+  if (!cur?.accessToken) return null;
+  try {
+    const resp = await fetch(`${apiBase()}/auth/me`, {
+      headers: { Authorization: `Bearer ${cur.accessToken}` },
+    });
+    if (resp.status === 401 || resp.status === 403) {
+      await saveAuthSession(null);
+      return null;
+    }
+    if (!resp.ok) return cur;
+    const data = (await resp.json().catch(() => null)) as { user?: AuthUser } | null;
+    if (!data?.user) return cur;
+    const next: AuthSession = { accessToken: cur.accessToken, user: data.user };
+    if (
+      next.user.role !== cur.user.role ||
+      next.user.displayName !== cur.user.displayName ||
+      next.user.email !== cur.user.email
+    ) {
+      await saveAuthSession(next);
+    }
+    return next;
+  } catch {
+    return cur;
+  }
 }

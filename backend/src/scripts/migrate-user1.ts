@@ -23,12 +23,12 @@ async function main() {
 
     await client.query(
       `INSERT INTO users (id, email, password_hash, display_name, role)
-       VALUES ($1, $2, $3, $4, 'admin')
+       VALUES ($1, $2, $3, $4, 'user')
        ON CONFLICT (id) DO UPDATE SET
          email = EXCLUDED.email,
          password_hash = EXCLUDED.password_hash,
          display_name = EXCLUDED.display_name,
-         role = 'admin'`,
+         role = 'user'`,
       [targetId, email, passwordHash, displayName],
     );
 
@@ -38,7 +38,7 @@ async function main() {
 
     await client.query('COMMIT');
     console.log(
-      `MIGRATE_OK user=${email} id=${targetId} role=admin folders_moved=${fRes.rowCount} vocab_moved=${vRes.rowCount} quiz_moved=${qRes.rowCount}`,
+      `MIGRATE_OK user=${email} id=${targetId} role=user folders_moved=${fRes.rowCount} vocab_moved=${vRes.rowCount} quiz_moved=${qRes.rowCount}`,
     );
   } catch (err) {
     await client.query('ROLLBACK');

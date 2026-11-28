@@ -22,7 +22,7 @@ async function main() {
       throw new Error('Không tìm thấy tài khoản user1@gmail.com trong DB.');
     }
 
-    await client.query(`UPDATE users SET role = 'admin' WHERE id = $1`, [user1Id]);
+    await client.query(`UPDATE users SET role = 'user' WHERE id = $1`, [user1Id]);
     await client.query(
       `INSERT INTO user_subscriptions (user_id, tier, billing_cycle, started_at, expires_at, demo_order_code, updated_at, deleted_at)
        VALUES ($1, 'pro', 'yearly', now(), '2099-12-31T23:59:59Z', 'KS-ADMIN-PRO', now(), NULL)

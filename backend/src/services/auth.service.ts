@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { pool } from '../config/database.js';
+import { ensureAdminAndLessonTables } from './admin-schema.service.js';
 
 export type UserRole = 'user' | 'admin';
 
@@ -8,6 +9,11 @@ export interface AuthUser {
   email: string;
   displayName: string;
   role: UserRole;
+}
+
+export interface LiveAuthRecord {
+  user: AuthUser;
+  isBanned: boolean;
 }
 
 const JWT_TTL_SECONDS = 7 * 24 * 3600; // 7 days
@@ -111,9 +117,10 @@ export async function registerUser(emailRaw: string, password: string, displayNa
 }
 
 export async function loginUser(emailRaw: string, password: string) {
+  await ensureAdminAndLessonTables();
   const email = emailRaw.trim().toLowerCase();
   const res = await pool.query(
-    'SELECT id, email, password_hash, display_name AS "displayName", role FROM users WHERE email = $1',
+    'SELECT id, email, password_hash, display_name AS "displayName", role, is_banned FROM users WHERE email = $1',
     [email],
   );
   if (res.rows.length === 0) throw new Error('Sai email hoặc mật khẩu.');
@@ -123,7 +130,11 @@ export async function loginUser(emailRaw: string, password: string) {
     password_hash: string | null;
     displayName: string | null;
     role: UserRole;
+    is_banned?: boolean;
   };
+  if (row.is_banned) {
+    throw new Error('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.');
+  }
   if (!verifyPassword(password, row.password_hash)) {
     throw new Error('Sai email hoặc mật khẩu.');
   }
@@ -139,4 +150,49 @@ export async function loginUser(emailRaw: string, password: string) {
 export function extractBearerUser(authHeader?: string): AuthUser | null {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   return verifyToken(authHeader.slice(7).trim());
+}
+
+/** Kiểm tra token + đối chiếu quyền và trạng thái khóa trực tiếp từ DB. */
+export async function resolveAuthRecordByToken(rawToken?: string): Promise<LiveAuthRecord | null> {
+  const token = (rawToken ?? '').trim();
+  if (!token) return null;
+  const decoded = verifyToken(token);
+  if (!decoded) return null;
+
+  await ensureAdminAndLessonTables();
+  const res = await pool.query<{
+    id: string;
+    email: string;
+    display_name: string | null;
+    role: string;
+    is_banned: boolean;
+  }>(
+    `SELECT id, email, display_name, role, is_banned
+     FROM users
+     WHERE id = $1`,
+    [decoded.id],
+  );
+  const row = res.rows[0];
+  if (!row || !row.email) return null;
+
+  return {
+    isBanned: Boolean(row.is_banned),
+    user: {
+      id: row.id,
+      email: row.email,
+      displayName: row.display_name || row.email.split('@')[0] || 'User',
+      role: row.role === 'admin' ? 'admin' : 'user',
+    },
+  };
+}
+
+export async function resolveAuthenticatedToken(rawToken?: string): Promise<AuthUser | null> {
+  const record = await resolveAuthRecordByToken(rawToken);
+  if (!record || record.isBanned) return null;
+  return record.user;
+}
+
+export async function resolveAuthenticatedUser(authHeader?: string): Promise<AuthUser | null> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  return resolveAuthenticatedToken(authHeader.slice(7).trim());
 }

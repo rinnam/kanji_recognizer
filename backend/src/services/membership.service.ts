@@ -1,6 +1,9 @@
 import crypto from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { pool } from '../config/database.js';
+import { appendAdminAuditLog } from '../utils/audit-log.js';
+import { NotFoundError, ValidationFailedError } from '../utils/errors.js';
+import { ensureAdminAndLessonTables } from './admin-schema.service.js';
 import { ensureStudyStateTables } from './study-state.service.js';
 
 export type SubscriptionTier = 'free' | 'plus' | 'pro';
@@ -796,6 +799,7 @@ export async function activateDemoSubscription(
   dateKey?: string,
 ) {
   await ensureMembershipTables();
+  await ensureAdminAndLessonTables();
   const demoOrderCode =
     tier === 'free'
       ? null
@@ -803,19 +807,50 @@ export async function activateDemoSubscription(
   const days = billingCycle === 'yearly' ? 365 : 30;
   const expiresAt = tier === 'free' ? null : new Date(Date.now() + days * 86_400_000);
 
-  await pool.query(
-    `INSERT INTO user_subscriptions (user_id, tier, billing_cycle, started_at, expires_at, demo_order_code, updated_at, deleted_at)
-     VALUES ($1, $2, $3, now(), $4, $5, now(), NULL)
-     ON CONFLICT (user_id) DO UPDATE SET
-       tier = EXCLUDED.tier,
-       billing_cycle = EXCLUDED.billing_cycle,
-       started_at = now(),
-       expires_at = EXCLUDED.expires_at,
-       demo_order_code = EXCLUDED.demo_order_code,
-       updated_at = now(),
-       deleted_at = NULL`,
-    [userId, tier, billingCycle, expiresAt, demoOrderCode],
-  );
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO user_subscriptions (user_id, tier, billing_cycle, started_at, expires_at, demo_order_code, updated_at, deleted_at)
+       VALUES ($1, $2, $3, now(), $4, $5, now(), NULL)
+       ON CONFLICT (user_id) DO UPDATE SET
+         tier = EXCLUDED.tier,
+         billing_cycle = EXCLUDED.billing_cycle,
+         started_at = now(),
+         expires_at = EXCLUDED.expires_at,
+         demo_order_code = EXCLUDED.demo_order_code,
+         updated_at = now(),
+         deleted_at = NULL`,
+      [userId, tier, billingCycle, expiresAt, demoOrderCode],
+    );
+
+    if (tier !== 'free' && demoOrderCode) {
+      const plan = PLAN_CATALOG[tier];
+      const amountVnd = billingCycle === 'yearly' ? plan.yearlyPriceVnd : plan.monthlyPriceVnd;
+      const orderId = `order_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+      await client.query(
+        `INSERT INTO payment_orders
+          (id, order_code, user_id, tier, billing_cycle, amount_vnd, status, is_demo, provider, note, created_by, paid_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 'paid', true, 'demo', $7, $8, now())`,
+        [
+          orderId,
+          demoOrderCode,
+          userId,
+          tier,
+          billingCycle,
+          amountVnd,
+          `Kích hoạt dùng thử gói ${plan.name}`,
+          userId,
+        ],
+      );
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 
   return getMembershipSummary(userId, dateKey);
 }
@@ -1730,4 +1765,154 @@ export async function checkUserIsPro(userId: string): Promise<boolean> {
   await ensureMembershipTables();
   const sub = await resolveActiveTier(pool, userId);
   return sub.tier === 'pro';
+}
+
+export async function resolveUserActiveTier(userId: string): Promise<SubscriptionTier> {
+  await ensureMembershipTables();
+  const sub = await resolveActiveTier(pool, userId);
+  return sub.tier;
+}
+
+export async function adminSetUserSubscription(input: {
+  adminId: string;
+  targetUserId: string;
+  tier: SubscriptionTier;
+  billingCycle: BillingCycle;
+  durationDays?: number | undefined;
+  recordOrder?: boolean | undefined;
+  amountVnd?: number | undefined;
+  isDemo?: boolean | undefined;
+  note?: string | undefined;
+}) {
+  await ensureMembershipTables();
+  await ensureAdminAndLessonTables();
+
+  const days = input.durationDays ?? (input.billingCycle === 'yearly' ? 365 : 30);
+  const expiresAt = input.tier === 'free' ? null : new Date(Date.now() + days * 86_400_000);
+  const isDemo = Boolean(input.isDemo);
+  const orderCode =
+    input.tier === 'free'
+      ? null
+      : `${isDemo ? 'KS-ADM-DEMO-' : 'KS-ADM-'}${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const userRes = await client.query<{ id: string; email: string | null }>(
+      `SELECT id, email FROM users WHERE id = $1 FOR UPDATE`,
+      [input.targetUserId],
+    );
+    const targetUser = userRes.rows[0];
+    if (!targetUser) {
+      throw new NotFoundError('Không tìm thấy tài khoản người dùng.');
+    }
+
+    await client.query(
+      `INSERT INTO user_subscriptions (user_id, tier, billing_cycle, started_at, expires_at, demo_order_code, updated_at, deleted_at)
+       VALUES ($1, $2, $3, now(), $4, $5, now(), NULL)
+       ON CONFLICT (user_id) DO UPDATE SET
+         tier = EXCLUDED.tier,
+         billing_cycle = EXCLUDED.billing_cycle,
+         started_at = now(),
+         expires_at = EXCLUDED.expires_at,
+         demo_order_code = EXCLUDED.demo_order_code,
+         updated_at = now(),
+         deleted_at = NULL`,
+      [input.targetUserId, input.tier, input.billingCycle, expiresAt, orderCode],
+    );
+
+    if (input.tier !== 'free' && input.recordOrder && orderCode) {
+      const plan = PLAN_CATALOG[input.tier];
+      const amount =
+        input.amountVnd ??
+        (input.billingCycle === 'yearly' ? plan.yearlyPriceVnd : plan.monthlyPriceVnd);
+      const orderId = `order_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+      await client.query(
+        `INSERT INTO payment_orders
+          (id, order_code, user_id, tier, billing_cycle, amount_vnd, status, is_demo, provider, note, created_by, paid_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 'paid', $7, $8, $9, $10, now())`,
+        [
+          orderId,
+          orderCode,
+          input.targetUserId,
+          input.tier,
+          input.billingCycle,
+          amount,
+          isDemo,
+          isDemo ? 'admin_demo' : 'admin_manual',
+          input.note?.trim() || `Admin cấp gói ${plan.name} (${days} ngày)`,
+          input.adminId,
+        ],
+      );
+    }
+
+    await appendAdminAuditLog(client, {
+      adminId: input.adminId,
+      action: 'user_subscription_set',
+      targetType: 'user',
+      targetId: input.targetUserId,
+      detail: `Đặt gói ${input.tier} (${input.tier === 'free' ? 'không hạn' : `${days} ngày`}${input.recordOrder && input.tier !== 'free' ? ', có ghi đơn' : ''}) cho ${targetUser.email ?? input.targetUserId}`,
+    });
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  return getMembershipSummary(input.targetUserId);
+}
+
+export async function adminAdjustUserKs(input: {
+  adminId: string;
+  targetUserId: string;
+  delta: number;
+  reason: string;
+}) {
+  await ensureMembershipTables();
+  await ensureAdminAndLessonTables();
+  if (!Number.isFinite(input.delta) || input.delta === 0) {
+    throw new ValidationFailedError('Số Xu điều chỉnh phải khác 0.');
+  }
+
+  const client = await pool.connect();
+  let ledgerResult: { applied: boolean; delta: number; balanceAfter: number };
+  try {
+    await client.query('BEGIN');
+    const userRes = await client.query<{ id: string; email: string | null }>(
+      `SELECT id, email FROM users WHERE id = $1 FOR UPDATE`,
+      [input.targetUserId],
+    );
+    const targetUser = userRes.rows[0];
+    if (!targetUser) {
+      throw new NotFoundError('Không tìm thấy tài khoản người dùng.');
+    }
+
+    const reasonText = input.reason.trim() || 'Admin điều chỉnh số dư Xu KS';
+    ledgerResult = await appendLedgerEntry(client, {
+      userId: input.targetUserId,
+      delta: Math.trunc(input.delta),
+      reasonCode: 'admin_adjust',
+      description: `Admin: ${reasonText}`,
+    });
+
+    await appendAdminAuditLog(client, {
+      adminId: input.adminId,
+      action: 'user_points_adjust',
+      targetType: 'user',
+      targetId: input.targetUserId,
+      detail: `${input.delta > 0 ? '+' : ''}${input.delta} Xu KS cho ${targetUser.email ?? input.targetUserId} (${reasonText})`,
+    });
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  return ledgerResult;
 }

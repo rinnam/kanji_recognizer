@@ -1,5 +1,10 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { extractBearerUser, loginUser, registerUser } from '../services/auth.service.js';
+import {
+  extractBearerUser,
+  loginUser,
+  registerUser,
+  resolveAuthenticatedUser,
+} from '../services/auth.service.js';
 import {
   getUserStudyState,
   saveUserStudyState,
@@ -28,8 +33,8 @@ export async function handleLogin(req: FastifyRequest, reply: FastifyReply) {
 }
 
 export async function handleMe(req: FastifyRequest, reply: FastifyReply) {
-  const user = extractBearerUser(req.headers.authorization);
-  if (!user) return reply.status(401).send({ message: 'Chưa đăng nhập hoặc token hết hạn.' });
+  const user = await resolveAuthenticatedUser(req.headers.authorization);
+  if (!user) return reply.status(401).send({ message: 'Chưa đăng nhập, tài khoản bị khóa hoặc token hết hạn.' });
   return reply.send({ user });
 }
 

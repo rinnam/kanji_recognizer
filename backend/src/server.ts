@@ -5,6 +5,7 @@ import { sql } from 'kysely';
 import { ZodError } from 'zod';
 import { db, pool } from './config/database.js';
 import { env } from './config/env.js';
+import { adminRoutes } from './routes/admin.routes.js';
 import { aiStudyRoutes } from './routes/ai-study.routes.js';
 import { authRoutes } from './routes/auth.routes.js';
 import { dictionaryRoutes } from './routes/dictionary.routes.js';
@@ -12,6 +13,7 @@ import { flashcardRoutes } from './routes/flashcard.routes.js';
 import { folderRoutes } from './routes/folder.routes.js';
 import { gameRoutes } from './routes/game.routes.js';
 import { interviewRoutes } from './routes/interview.routes.js';
+import { lessonRoutes } from './routes/lesson.routes.js';
 import { membershipRoutes } from './routes/membership.routes.js';
 import { quizRoutes } from './routes/quiz.routes.js';
 import { syncRoutes } from './routes/sync.routes.js';
@@ -21,7 +23,9 @@ import { vocabularyRoutes } from './routes/vocabulary.routes.js';
 import { MembershipHttpError } from './services/membership.service.js';
 import {
   DuplicateError,
+  ForbiddenError,
   NotFoundError,
+  UnauthorizedError,
   ValidationFailedError,
 } from './utils/errors.js';
 import { ensureLocalOwner } from './utils/local-owner.js';
@@ -56,6 +60,14 @@ export async function buildServer(): Promise<FastifyInstance> {
         code: error.code,
         message: error.message,
       });
+      return;
+    }
+    if (error instanceof UnauthorizedError) {
+      void reply.code(401).send({ error: 'Unauthorized', message: error.message });
+      return;
+    }
+    if (error instanceof ForbiddenError) {
+      void reply.code(403).send({ error: 'Forbidden', message: error.message });
       return;
     }
     if (error instanceof ValidationFailedError) {
@@ -112,6 +124,8 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(interviewRoutes, { prefix: '/api' });
   await app.register(membershipRoutes, { prefix: '/api' });
   await app.register(transcriptRoutes, { prefix: '/api' });
+  await app.register(adminRoutes, { prefix: '/api' });
+  await app.register(lessonRoutes, { prefix: '/api' });
 
   return app;
 }

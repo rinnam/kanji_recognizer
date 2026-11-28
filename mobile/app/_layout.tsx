@@ -4,7 +4,13 @@ import { Stack, usePathname, useRootNavigationState, useRouter } from 'expo-rout
 import { AntiAfkPromptModal } from '../src/components/AntiAfkPromptModal';
 import { FloatingBottomDock } from '../src/components/FloatingBottomDock';
 import { FloatingUtilityDock } from '../src/components/FloatingUtilityDock';
-import { readAuthSession, subscribeAuthSession } from '../src/features/auth/auth-store';
+import {
+  getCachedAuthSession,
+  readAuthSession,
+  refreshAuthMe,
+  subscribeAuthSession,
+  type AuthSession,
+} from '../src/features/auth/auth-store';
 import { DEFAULT_PROFILE, readLearningProfile } from '../src/features/profile/profile-store';
 import {
   markStudyInteraction,
@@ -16,34 +22,60 @@ export default function RootLayout() {
   const router = useRouter();
   const rootNavState = useRootNavigationState();
   const [checked, setChecked] = useState(false);
-  const [hasSession, setHasSession] = useState(false);
+  const [session, setSession] = useState<AuthSession | null>(() => getCachedAuthSession());
   const [dailyMinutes, setDailyMinutes] = useState(DEFAULT_PROFILE.dailyMinutes);
 
   const isAuthPage = pathname === '/login' || pathname === '/register';
   const isOnboardingPage = pathname === '/onboarding';
+  const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
+  const hasSession = Boolean(session);
+  const isAdminUser = session?.user.role === 'admin';
+  const isRoleMismatch =
+    hasSession && !isAuthPage && ((isAdminUser && !isAdminRoute) || (!isAdminUser && isAdminRoute));
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      document.title = 'Kanji Smart';
+      document.title = isAdminRoute ? 'Kanji Smart · Quản trị' : 'Kanji Smart';
     }
-  }, [pathname]);
+  }, [isAdminRoute]);
 
   useEffect(() => {
     const unsub = subscribeAuthSession((s) => {
-      setHasSession(Boolean(s));
+      setSession(s);
     });
     return unsub;
   }, []);
 
   useEffect(() => {
     let active = true;
-    void readLearningProfile().then((p) => {
-      if (active) setDailyMinutes(p.dailyMinutes);
-    });
-    void readAuthSession().then((session) => {
+    void (async () => {
+      const local = await readAuthSession();
       if (!active) return;
-      setHasSession(Boolean(session));
+      if (local) {
+        setSession(local);
+        const fresh = await refreshAuthMe();
+        if (!active) return;
+        setSession(fresh);
+      } else {
+        setSession(null);
+      }
       setChecked(true);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void readAuthSession().then((current) => {
+      if (!active) return;
+      setSession(current);
+      if (!current || current.user.role !== 'admin') {
+        void readLearningProfile().then((p) => {
+          if (active) setDailyMinutes(p.dailyMinutes);
+        });
+      }
     });
     return () => {
       active = false;
@@ -51,28 +83,39 @@ export default function RootLayout() {
   }, [pathname]);
 
   useEffect(() => {
-    if (checked && rootNavState?.key && !hasSession && !isAuthPage) {
+    if (!checked || !rootNavState?.key) return;
+    if (!hasSession && !isAuthPage) {
       router.replace('/login');
+      return;
     }
-  }, [checked, hasSession, isAuthPage, rootNavState?.key, router]);
+    if (hasSession && isAdminUser && !isAdminRoute && !isAuthPage) {
+      router.replace('/admin');
+      return;
+    }
+    if (hasSession && !isAdminUser && isAdminRoute) {
+      router.replace('/app');
+    }
+  }, [checked, hasSession, isAdminUser, isAdminRoute, isAuthPage, rootNavState?.key, router]);
 
   useGlobalStudyTimer({
-    enabled: checked && hasSession && !isAuthPage && !isOnboardingPage,
+    enabled: checked && hasSession && !isAuthPage && !isOnboardingPage && !isAdminUser && !isAdminRoute,
     pathname,
     goalSeconds: Math.max(1, dailyMinutes) * 60,
   });
 
-  const showAuthedChrome = checked && hasSession && !isAuthPage;
+  const showLearnerChrome = checked && hasSession && !isAuthPage && !isAdminUser && !isAdminRoute;
 
   return (
     <View style={styles.root} onTouchStart={markStudyInteraction}>
       <View style={styles.contentArea}>
         <Stack screenOptions={{ headerShown: false }} />
-        {!checked || (!hasSession && !isAuthPage) ? <View style={styles.authGateOverlay} /> : null}
+        {!checked || (!hasSession && !isAuthPage) || isRoleMismatch ? (
+          <View style={styles.authGateOverlay} />
+        ) : null}
       </View>
-      {showAuthedChrome ? <FloatingBottomDock /> : null}
-      {showAuthedChrome ? <FloatingUtilityDock /> : null}
-      <AntiAfkPromptModal />
+      {showLearnerChrome ? <FloatingBottomDock /> : null}
+      {showLearnerChrome ? <FloatingUtilityDock /> : null}
+      {showLearnerChrome ? <AntiAfkPromptModal /> : null}
     </View>
   );
 }

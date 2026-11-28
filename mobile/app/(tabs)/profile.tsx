@@ -14,6 +14,7 @@ import {
 } from '../../src/features/profile/profile-store';
 import {
   readAuthSession,
+  refreshAuthMe,
   saveAuthSession,
   type AuthSession,
 } from '../../src/features/auth/auth-store';
@@ -32,6 +33,9 @@ export default function ProfileScreen() {
     useCallback(() => {
       void readLearningProfile().then(setProfile);
       void readAuthSession().then(setSession);
+      void refreshAuthMe().then((fresh) => {
+        if (fresh) setSession(fresh);
+      });
       void refresh();
     }, []),
   );
@@ -44,7 +48,7 @@ export default function ProfileScreen() {
 
   const displayName = session?.user.displayName || profile.displayName;
   const email = session?.user.email || 'Chưa đăng nhập';
-  const roleLabel = session?.user.role === 'admin' ? 'Admin' : 'Thành viên';
+  const roleLabel = 'Thành viên';
 
   return (
     <AppShell>

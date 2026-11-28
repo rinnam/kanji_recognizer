@@ -1,0 +1,743 @@
+import crypto from 'node:crypto';
+import { pool } from '../config/database.js';
+import { appendAdminAuditLog } from '../utils/audit-log.js';
+import { NotFoundError, ValidationFailedError } from '../utils/errors.js';
+import { ensureAdminAndLessonTables } from './admin-schema.service.js';
+import {
+  ensureMembershipTables,
+  getVietnamDateKey,
+  PLAN_CATALOG,
+  type BillingCycle,
+} from './membership.service.js';
+
+export type OrderStatusFilter = 'all' | 'paid' | 'pending' | 'refunded';
+export type OrderKindFilter = 'all' | 'real' | 'demo';
+
+export interface RevenueSeriesPoint {
+  label: string;
+  dateKey: string;
+  amountVnd: number;
+  orderCount: number;
+}
+
+function buildVietnamCalendarBuckets(days: 7 | 30 | 90 | 365): { dateKey: string; label: string }[] {
+  const now = new Date();
+  if (days === 365) {
+    // 12 tháng gần nhất theo múi giờ Việt Nam
+    const todayVn = getVietnamDateKey(now);
+    const [yStr, mStr] = todayVn.split('-');
+    const year = Number(yStr);
+    const month = Number(mStr);
+    const buckets: { dateKey: string; label: string }[] = [];
+    for (let i = 11; i >= 0; i -= 1) {
+      const d = new Date(Date.UTC(year, month - 1 - i, 1));
+      const yy = d.getUTCFullYear();
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      buckets.push({
+        dateKey: `${yy}-${mm}`,
+        label: `${mm}/${String(yy).slice(-2)}`,
+      });
+    }
+    return buckets;
+  }
+
+  const buckets: { dateKey: string; label: string }[] = [];
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date(now.getTime() - i * 86_400_000);
+    const dateKey = getVietnamDateKey(d);
+    const parts = dateKey.split('-');
+    buckets.push({
+      dateKey,
+      label: `${parts[2]}/${parts[1]}`,
+    });
+  }
+  return buckets;
+}
+
+export async function getAdminOverview(params: {
+  days: 7 | 30 | 90 | 365;
+  kind: OrderKindFilter;
+}) {
+  await ensureMembershipTables();
+  await ensureAdminAndLessonTables();
+
+  const todayVn = getVietnamDateKey();
+  const currentMonthVn = todayVn.slice(0, 7);
+  const buckets = buildVietnamCalendarBuckets(params.days);
+  const bucketMap = new Map<string, { amountVnd: number; orderCount: number }>();
+
+  const kindWhere =
+    params.kind === 'real' ? 'AND is_demo = false' : params.kind === 'demo' ? 'AND is_demo = true' : '';
+
+  const [
+    userStatsRes,
+    activeTodayRes,
+    tierRes,
+    revenueRes,
+    lessonCountRes,
+    materialCountRes,
+    seriesRes,
+    auditRes,
+  ] = await Promise.all([
+    pool.query<{ total_users: number; new_users_30d: number }>(
+      `SELECT
+         COUNT(*)::int AS total_users,
+         COUNT(*) FILTER (WHERE created_at >= now() - interval '30 days')::int AS new_users_30d
+       FROM users
+       WHERE role = 'user'`,
+    ),
+    pool.query<{ active_today: number }>(
+      `SELECT COUNT(DISTINCT l.user_id)::int AS active_today
+       FROM user_study_logs l
+       INNER JOIN users u ON u.id = l.user_id
+       WHERE u.role = 'user'
+         AND l.study_date = $1
+         AND l.seconds > 0
+         AND l.deleted_at IS NULL`,
+      [todayVn],
+    ),
+    pool.query<{ effective_tier: string; cnt: number }>(
+      `SELECT
+         CASE
+           WHEN s.deleted_at IS NULL
+            AND s.tier IN ('plus', 'pro')
+            AND (s.expires_at IS NULL OR s.expires_at >= now())
+           THEN s.tier
+           ELSE 'free'
+         END AS effective_tier,
+         COUNT(*)::int AS cnt
+       FROM users u
+       LEFT JOIN user_subscriptions s ON s.user_id = u.id
+       WHERE u.role = 'user'
+       GROUP BY 1`,
+    ),
+    pool.query<{
+      revenue_real: string | number;
+      revenue_demo: string | number;
+      month_real: string | number;
+      month_demo: string | number;
+      paid_count: number;
+    }>(
+      `SELECT
+         COALESCE(SUM(amount_vnd) FILTER (WHERE is_demo = false), 0) AS revenue_real,
+         COALESCE(SUM(amount_vnd) FILTER (WHERE is_demo = true), 0) AS revenue_demo,
+         COALESCE(SUM(amount_vnd) FILTER (WHERE is_demo = false AND to_char(COALESCE(paid_at, created_at) AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM') = $1), 0) AS month_real,
+         COALESCE(SUM(amount_vnd) FILTER (WHERE is_demo = true AND to_char(COALESCE(paid_at, created_at) AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM') = $1), 0) AS month_demo,
+         COUNT(*)::int AS paid_count
+       FROM payment_orders
+       WHERE status = 'paid' AND deleted_at IS NULL`,
+      [currentMonthVn],
+    ),
+    pool.query<{ published_cnt: number; draft_cnt: number }>(
+      `SELECT
+         COUNT(*) FILTER (WHERE status = 'published')::int AS published_cnt,
+         COUNT(*) FILTER (WHERE status = 'draft')::int AS draft_cnt
+       FROM lessons
+       WHERE deleted_at IS NULL`,
+    ),
+    pool.query<{ cnt: number }>(
+      `SELECT COUNT(*)::int AS cnt
+       FROM lesson_materials m
+       INNER JOIN lessons l ON l.id = m.lesson_id
+       WHERE m.deleted_at IS NULL AND l.deleted_at IS NULL`,
+    ),
+    pool.query<{ bucket_key: string; amount_vnd: string | number; order_cnt: number }>(
+      params.days === 365
+        ? `SELECT
+             to_char(COALESCE(paid_at, created_at) AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM') AS bucket_key,
+             COALESCE(SUM(amount_vnd), 0) AS amount_vnd,
+             COUNT(*)::int AS order_cnt
+           FROM payment_orders
+           WHERE status = 'paid'
+             AND deleted_at IS NULL
+             AND COALESCE(paid_at, created_at) >= now() - interval '370 days'
+             ${kindWhere}
+           GROUP BY 1`
+        : `SELECT
+             to_char(COALESCE(paid_at, created_at) AT TIME ZONE 'Asia/Ho_Chi_Minh', 'YYYY-MM-DD') AS bucket_key,
+             COALESCE(SUM(amount_vnd), 0) AS amount_vnd,
+             COUNT(*)::int AS order_cnt
+           FROM payment_orders
+           WHERE status = 'paid'
+             AND deleted_at IS NULL
+             AND COALESCE(paid_at, created_at) >= now() - make_interval(days => $1)
+             ${kindWhere}
+           GROUP BY 1`,
+      params.days === 365 ? [] : [params.days + 1],
+    ),
+    pool.query<{
+      id: string;
+      action: string;
+      target_type: string;
+      target_id: string;
+      detail: string;
+      created_at: Date;
+      admin_email: string | null;
+      admin_name: string | null;
+    }>(
+      `SELECT
+         a.id, a.action, a.target_type, a.target_id, a.detail, a.created_at,
+         u.email AS admin_email,
+         u.display_name AS admin_name
+       FROM admin_audit_logs a
+       LEFT JOIN users u ON u.id = a.admin_id
+       ORDER BY a.created_at DESC
+       LIMIT 10`,
+    ),
+  ]);
+
+  const tierCounts = { free: 0, plus: 0, pro: 0 };
+  for (const r of tierRes.rows) {
+    if (r.effective_tier === 'plus') tierCounts.plus = Number(r.cnt) || 0;
+    else if (r.effective_tier === 'pro') tierCounts.pro = Number(r.cnt) || 0;
+    else tierCounts.free += Number(r.cnt) || 0;
+  }
+
+  for (const r of seriesRes.rows) {
+    bucketMap.set(r.bucket_key, {
+      amountVnd: Number(r.amount_vnd) || 0,
+      orderCount: Number(r.order_cnt) || 0,
+    });
+  }
+
+  const revenueSeries: RevenueSeriesPoint[] = buckets.map((b) => {
+    const hit = bucketMap.get(b.dateKey);
+    return {
+      label: b.label,
+      dateKey: b.dateKey,
+      amountVnd: hit?.amountVnd ?? 0,
+      orderCount: hit?.orderCount ?? 0,
+    };
+  });
+
+  const rev = revenueRes.rows[0];
+  const uStats = userStatsRes.rows[0];
+  const lStats = lessonCountRes.rows[0];
+
+  return {
+    kpi: {
+      totalUsers: Number(uStats?.total_users ?? 0),
+      newUsers30d: Number(uStats?.new_users_30d ?? 0),
+      activeUsersToday: Number(activeTodayRes.rows[0]?.active_today ?? 0),
+      paidUsersCount: tierCounts.plus + tierCounts.pro,
+      tierCounts,
+      revenueRealVnd: Number(rev?.revenue_real ?? 0),
+      revenueDemoVnd: Number(rev?.revenue_demo ?? 0),
+      revenueThisMonthRealVnd: Number(rev?.month_real ?? 0),
+      revenueThisMonthDemoVnd: Number(rev?.month_demo ?? 0),
+      paidOrderCount: Number(rev?.paid_count ?? 0),
+      publishedLessonCount: Number(lStats?.published_cnt ?? 0),
+      draftLessonCount: Number(lStats?.draft_cnt ?? 0),
+      materialCount: Number(materialCountRes.rows[0]?.cnt ?? 0),
+    },
+    revenueSeries,
+    recentAuditLogs: auditRes.rows.map((a) => ({
+      id: a.id,
+      action: a.action,
+      targetType: a.target_type,
+      targetId: a.target_id,
+      detail: a.detail,
+      createdAt: a.created_at.toISOString(),
+      adminEmail: a.admin_email ?? '',
+      adminName: a.admin_name || a.admin_email || 'Admin',
+    })),
+  };
+}
+
+export async function listPaymentOrders(params: {
+  status: OrderStatusFilter;
+  kind: OrderKindFilter;
+  q: string;
+  limit: number;
+  offset: number;
+}) {
+  await ensureMembershipTables();
+  await ensureAdminAndLessonTables();
+
+  const clauses: string[] = ['o.deleted_at IS NULL'];
+  const values: unknown[] = [];
+
+  if (params.status !== 'all') {
+    values.push(params.status);
+    clauses.push(`o.status = $${values.length}`);
+  }
+  if (params.kind === 'real') {
+    clauses.push('o.is_demo = false');
+  } else if (params.kind === 'demo') {
+    clauses.push('o.is_demo = true');
+  }
+  const qClean = params.q.trim();
+  if (qClean) {
+    values.push(`%${qClean}%`);
+    clauses.push(
+      `(o.order_code ILIKE $${values.length} OR u.email ILIKE $${values.length} OR COALESCE(u.display_name, '') ILIKE $${values.length})`,
+    );
+  }
+
+  const whereSql = clauses.join(' AND ');
+  const countRes = await pool.query<{ total: number }>(
+    `SELECT COUNT(*)::int AS total
+     FROM payment_orders o
+     INNER JOIN users u ON u.id = o.user_id
+     WHERE ${whereSql}`,
+    values,
+  );
+
+  const listValues = [...values, params.limit, params.offset];
+  const rowsRes = await pool.query<{
+    id: string;
+    order_code: string;
+    user_id: string;
+    user_email: string | null;
+    user_name: string | null;
+    tier: string;
+    billing_cycle: string;
+    amount_vnd: number;
+    status: string;
+    is_demo: boolean;
+    provider: string;
+    note: string | null;
+    paid_at: Date | null;
+    created_at: Date;
+  }>(
+    `SELECT
+       o.id, o.order_code, o.user_id,
+       u.email AS user_email,
+       u.display_name AS user_name,
+       o.tier, o.billing_cycle, o.amount_vnd, o.status, o.is_demo, o.provider, o.note, o.paid_at, o.created_at
+     FROM payment_orders o
+     INNER JOIN users u ON u.id = o.user_id
+     WHERE ${whereSql}
+     ORDER BY o.created_at DESC
+     LIMIT $${listValues.length - 1} OFFSET $${listValues.length}`,
+    listValues,
+  );
+
+  return {
+    total: Number(countRes.rows[0]?.total ?? 0),
+    orders: rowsRes.rows.map((r) => ({
+      id: r.id,
+      orderCode: r.order_code,
+      userId: r.user_id,
+      userEmail: r.user_email ?? '',
+      userName: r.user_name || r.user_email || 'Người dùng',
+      tier: r.tier as 'plus' | 'pro',
+      billingCycle: r.billing_cycle as BillingCycle,
+      amountVnd: Number(r.amount_vnd) || 0,
+      status: r.status as 'paid' | 'pending' | 'refunded',
+      isDemo: Boolean(r.is_demo),
+      provider: r.provider,
+      note: r.note ?? '',
+      paidAt: r.paid_at?.toISOString() ?? null,
+      createdAt: r.created_at.toISOString(),
+    })),
+  };
+}
+
+export async function createManualOrder(
+  adminId: string,
+  input: {
+    userId?: string | undefined;
+    email?: string | undefined;
+    tier: 'plus' | 'pro';
+    billingCycle: BillingCycle;
+    amountVnd?: number | undefined;
+    status: 'paid' | 'pending';
+    isDemo: boolean;
+    provider: string;
+    note: string;
+  },
+) {
+  await ensureMembershipTables();
+  await ensureAdminAndLessonTables();
+
+  const targetRes = await pool.query<{ id: string; email: string | null }>(
+    input.userId
+      ? `SELECT id, email FROM users WHERE id = $1`
+      : `SELECT id, email FROM users WHERE lower(email) = lower($1)`,
+    [input.userId ?? input.email],
+  );
+  const targetUser = targetRes.rows[0];
+  if (!targetUser) {
+    throw new NotFoundError('Không tìm thấy tài khoản người dùng tương ứng.');
+  }
+
+  const plan = PLAN_CATALOG[input.tier];
+  const amountVnd =
+    input.amountVnd ??
+    (input.billingCycle === 'yearly' ? plan.yearlyPriceVnd : plan.monthlyPriceVnd);
+  const orderId = `order_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+  const orderCode = `${input.isDemo ? 'KS-DEMO-' : 'KS-ORD-'}${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+  const days = input.billingCycle === 'yearly' ? 365 : 30;
+  const expiresAt = new Date(Date.now() + days * 86_400_000);
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO payment_orders
+        (id, order_code, user_id, tier, billing_cycle, amount_vnd, status, is_demo, provider, note, created_by, paid_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CASE WHEN $7 = 'paid' THEN now() ELSE NULL END)`,
+      [
+        orderId,
+        orderCode,
+        targetUser.id,
+        input.tier,
+        input.billingCycle,
+        amountVnd,
+        input.status,
+        input.isDemo,
+        input.provider,
+        input.note,
+        adminId,
+      ],
+    );
+
+    if (input.status === 'paid') {
+      await client.query(
+        `INSERT INTO user_subscriptions (user_id, tier, billing_cycle, started_at, expires_at, demo_order_code, updated_at, deleted_at)
+         VALUES ($1, $2, $3, now(), $4, $5, now(), NULL)
+         ON CONFLICT (user_id) DO UPDATE SET
+           tier = EXCLUDED.tier,
+           billing_cycle = EXCLUDED.billing_cycle,
+           started_at = now(),
+           expires_at = EXCLUDED.expires_at,
+           demo_order_code = EXCLUDED.demo_order_code,
+           updated_at = now(),
+           deleted_at = NULL`,
+        [targetUser.id, input.tier, input.billingCycle, expiresAt, orderCode],
+      );
+    }
+
+    await appendAdminAuditLog(client, {
+      adminId,
+      action: 'order_create',
+      targetType: 'payment_order',
+      targetId: orderCode,
+      detail: `Tạo đơn ${orderCode} (${input.tier}/${input.billingCycle}, ${amountVnd}đ, ${input.status}) cho ${targetUser.email ?? targetUser.id}`,
+    });
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  return { id: orderId, orderCode };
+}
+
+export async function updatePaymentOrderStatus(
+  adminId: string,
+  orderId: string,
+  input: { status: 'paid' | 'pending' | 'refunded'; note?: string | undefined },
+) {
+  await ensureMembershipTables();
+  await ensureAdminAndLessonTables();
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const existingRes = await client.query<{
+      id: string;
+      order_code: string;
+      user_id: string;
+      tier: 'plus' | 'pro';
+      billing_cycle: BillingCycle;
+      status: string;
+      note: string | null;
+    }>(
+      `SELECT id, order_code, user_id, tier, billing_cycle, status, note
+       FROM payment_orders
+       WHERE id = $1 AND deleted_at IS NULL
+       FOR UPDATE`,
+      [orderId],
+    );
+    const existing = existingRes.rows[0];
+    if (!existing) {
+      throw new NotFoundError('Không tìm thấy đơn hàng.');
+    }
+
+    const nextNote = input.note !== undefined ? input.note : existing.note;
+    await client.query(
+      `UPDATE payment_orders
+       SET status = $2::text,
+           note = $3,
+           paid_at = CASE WHEN $2::text = 'paid' THEN COALESCE(paid_at, now()) ELSE paid_at END,
+           updated_at = now()
+       WHERE id = $1`,
+      [orderId, input.status, nextNote],
+    );
+
+    if (input.status === 'paid' && existing.status !== 'paid') {
+      const days = existing.billing_cycle === 'yearly' ? 365 : 30;
+      const expiresAt = new Date(Date.now() + days * 86_400_000);
+      await client.query(
+        `INSERT INTO user_subscriptions (user_id, tier, billing_cycle, started_at, expires_at, demo_order_code, updated_at, deleted_at)
+         VALUES ($1, $2, $3, now(), $4, $5, now(), NULL)
+         ON CONFLICT (user_id) DO UPDATE SET
+           tier = EXCLUDED.tier,
+           billing_cycle = EXCLUDED.billing_cycle,
+           started_at = now(),
+           expires_at = EXCLUDED.expires_at,
+           demo_order_code = EXCLUDED.demo_order_code,
+           updated_at = now(),
+           deleted_at = NULL`,
+        [existing.user_id, existing.tier, existing.billing_cycle, expiresAt, existing.order_code],
+      );
+    }
+
+    await appendAdminAuditLog(client, {
+      adminId,
+      action: 'order_status_update',
+      targetType: 'payment_order',
+      targetId: existing.order_code,
+      detail: `Đổi trạng thái đơn ${existing.order_code}: ${existing.status} → ${input.status}`,
+    });
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  return { ok: true };
+}
+
+export async function listAdminUsers(params: {
+  q: string;
+  role: 'all' | 'user' | 'admin';
+  tier: 'all' | 'free' | 'plus' | 'pro';
+  status: 'all' | 'active' | 'banned';
+  limit: number;
+  offset: number;
+}) {
+  await ensureMembershipTables();
+  await ensureAdminAndLessonTables();
+
+  const clauses: string[] = ['1 = 1'];
+  const values: unknown[] = [];
+
+  const qClean = params.q.trim();
+  if (qClean) {
+    values.push(`%${qClean}%`);
+    clauses.push(
+      `(COALESCE(u.email, '') ILIKE $${values.length} OR COALESCE(u.display_name, '') ILIKE $${values.length})`,
+    );
+  }
+  if (params.role !== 'all') {
+    values.push(params.role);
+    clauses.push(`u.role = $${values.length}`);
+  }
+  if (params.status === 'banned') {
+    clauses.push('u.is_banned = true');
+  } else if (params.status === 'active') {
+    clauses.push('u.is_banned = false');
+  }
+
+  const effectiveTierExpr = `
+    CASE
+      WHEN s.deleted_at IS NULL
+       AND s.tier IN ('plus', 'pro')
+       AND (s.expires_at IS NULL OR s.expires_at >= now())
+      THEN s.tier
+      ELSE 'free'
+    END
+  `;
+  if (params.tier !== 'all') {
+    if (params.role !== 'admin') {
+      clauses.push(`u.role = 'user'`);
+    }
+    values.push(params.tier);
+    clauses.push(`(${effectiveTierExpr}) = $${values.length}`);
+  }
+
+  const whereSql = clauses.join(' AND ');
+  const countRes = await pool.query<{ total: number }>(
+    `SELECT COUNT(*)::int AS total
+     FROM users u
+     LEFT JOIN user_subscriptions s ON s.user_id = u.id
+     WHERE ${whereSql}`,
+    values,
+  );
+
+  const listValues = [...values, params.limit, params.offset];
+  const rowsRes = await pool.query<{
+    id: string;
+    email: string | null;
+    display_name: string | null;
+    role: string;
+    is_banned: boolean;
+    created_at: Date;
+    effective_tier: string;
+    billing_cycle: string | null;
+    expires_at: Date | null;
+    jlpt_level: string | null;
+    ks_balance: string | number;
+    study_days: number;
+    total_study_seconds: string | number;
+    vocab_count: number;
+  }>(
+    `SELECT
+       u.id,
+       u.email,
+       u.display_name,
+       u.role,
+       u.is_banned,
+       u.created_at,
+       ${effectiveTierExpr} AS effective_tier,
+       s.billing_cycle,
+       s.expires_at,
+       p.jlpt_level,
+       COALESCE(l.balance, 0) AS ks_balance,
+       COALESCE(st.study_days, 0)::int AS study_days,
+       COALESCE(st.total_seconds, 0) AS total_study_seconds,
+       COALESCE(vc.vocab_cnt, 0)::int AS vocab_count
+     FROM users u
+     LEFT JOIN user_subscriptions s ON s.user_id = u.id
+     LEFT JOIN user_learning_profiles p ON p.user_id = u.id AND p.deleted_at IS NULL
+     LEFT JOIN (
+       SELECT user_id, SUM(delta) AS balance
+       FROM user_point_ledger
+       WHERE deleted_at IS NULL
+       GROUP BY user_id
+     ) l ON l.user_id = u.id
+     LEFT JOIN (
+       SELECT user_id, COUNT(*) FILTER (WHERE seconds > 0) AS study_days, SUM(seconds) AS total_seconds
+       FROM user_study_logs
+       WHERE deleted_at IS NULL
+       GROUP BY user_id
+     ) st ON st.user_id = u.id
+     LEFT JOIN (
+       SELECT owner_id, COUNT(*) AS vocab_cnt
+       FROM vocabularies
+       WHERE deleted_at IS NULL
+       GROUP BY owner_id
+     ) vc ON vc.owner_id = u.id
+     WHERE ${whereSql}
+     ORDER BY u.created_at DESC
+     LIMIT $${listValues.length - 1} OFFSET $${listValues.length}`,
+    listValues,
+  );
+
+  return {
+    total: Number(countRes.rows[0]?.total ?? 0),
+    users: rowsRes.rows.map((r) => ({
+      id: r.id,
+      email: r.email ?? '',
+      displayName: r.display_name || r.email?.split('@')[0] || 'Người dùng',
+      role: (r.role === 'admin' ? 'admin' : 'user') as 'admin' | 'user',
+      isBanned: Boolean(r.is_banned),
+      createdAt: r.created_at.toISOString(),
+      tier: r.effective_tier as 'free' | 'plus' | 'pro',
+      billingCycle: (r.billing_cycle === 'yearly' ? 'yearly' : 'monthly') as BillingCycle,
+      expiresAt: r.expires_at?.toISOString() ?? null,
+      jlptLevel: r.jlpt_level ?? 'N3',
+      ksBalance: Math.max(0, Number(r.ks_balance) || 0),
+      studyDays: Number(r.study_days) || 0,
+      totalStudyMinutes: Math.round((Number(r.total_study_seconds) || 0) / 60),
+      vocabCount: Number(r.vocab_count) || 0,
+    })),
+  };
+}
+
+export async function updateUserRole(
+  adminId: string,
+  targetUserId: string,
+  role: 'user' | 'admin',
+) {
+  await ensureAdminAndLessonTables();
+  if (targetUserId === adminId && role !== 'admin') {
+    throw new ValidationFailedError('Bạn không thể tự hạ quyền quản trị của chính mình.');
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const targetRes = await client.query<{ id: string; email: string | null; role: string }>(
+      `SELECT id, email, role FROM users WHERE id = $1 FOR UPDATE`,
+      [targetUserId],
+    );
+    const target = targetRes.rows[0];
+    if (!target) {
+      throw new NotFoundError('Không tìm thấy tài khoản người dùng.');
+    }
+
+    if (target.role === 'admin' && role === 'user') {
+      const activeAdminRes = await client.query<{ cnt: number }>(
+        `SELECT COUNT(*)::int AS cnt FROM users WHERE role = 'admin' AND is_banned = false`,
+      );
+      if (Number(activeAdminRes.rows[0]?.cnt ?? 0) <= 1) {
+        throw new ValidationFailedError('Hệ thống phải giữ lại ít nhất 1 quản trị viên đang hoạt động.');
+      }
+    }
+
+    await client.query(`UPDATE users SET role = $2 WHERE id = $1`, [targetUserId, role]);
+    await appendAdminAuditLog(client, {
+      adminId,
+      action: 'user_role_update',
+      targetType: 'user',
+      targetId: targetUserId,
+      detail: `Đổi quyền ${target.email ?? targetUserId}: ${target.role} → ${role}`,
+    });
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  return { ok: true, role };
+}
+
+export async function updateUserBan(
+  adminId: string,
+  targetUserId: string,
+  isBanned: boolean,
+) {
+  await ensureAdminAndLessonTables();
+  if (targetUserId === adminId && isBanned) {
+    throw new ValidationFailedError('Bạn không thể tự khóa tài khoản của chính mình.');
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const targetRes = await client.query<{ id: string; email: string | null; role: string }>(
+      `SELECT id, email, role FROM users WHERE id = $1 FOR UPDATE`,
+      [targetUserId],
+    );
+    const target = targetRes.rows[0];
+    if (!target) {
+      throw new NotFoundError('Không tìm thấy tài khoản người dùng.');
+    }
+
+    if (target.role === 'admin' && isBanned) {
+      const activeAdminRes = await client.query<{ cnt: number }>(
+        `SELECT COUNT(*)::int AS cnt FROM users WHERE role = 'admin' AND is_banned = false`,
+      );
+      if (Number(activeAdminRes.rows[0]?.cnt ?? 0) <= 1) {
+        throw new ValidationFailedError('Không thể khóa quản trị viên cuối cùng đang hoạt động.');
+      }
+    }
+
+    await client.query(`UPDATE users SET is_banned = $2 WHERE id = $1`, [targetUserId, isBanned]);
+    await appendAdminAuditLog(client, {
+      adminId,
+      action: isBanned ? 'user_ban' : 'user_unban',
+      targetType: 'user',
+      targetId: targetUserId,
+      detail: `${isBanned ? 'Khóa' : 'Mở khóa'} tài khoản ${target.email ?? targetUserId}`,
+    });
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  return { ok: true, isBanned };
+}
