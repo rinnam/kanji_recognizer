@@ -101,6 +101,7 @@ export function missingVocabularyIds(
 export async function createSession(
   input: CreateQuizSessionInput,
   now: Date = new Date(),
+  targetOwnerId = ownerId(),
 ): Promise<QuizSessionDto> {
   const { score, total, graded } = scoreAttempts(input.attempts);
 
@@ -115,7 +116,7 @@ export async function createSession(
     ),
   ];
   if (referencedIds.length > 0) {
-    const existingIds = await vocabRepo.selectExistingIds(ownerId(), referencedIds);
+    const existingIds = await vocabRepo.selectExistingIds(targetOwnerId, referencedIds);
     const missing = missingVocabularyIds(input.attempts, existingIds);
     if (missing.length > 0) {
       throw new ValidationFailedError(
@@ -128,7 +129,7 @@ export async function createSession(
     const result = await db.transaction().execute(async (trx) => {
       const session = await quizRepo.insertSession(
         {
-          owner_id: ownerId(),
+          owner_id: targetOwnerId,
           mode: input.mode ?? 'typing',
           score,
           total,
@@ -167,8 +168,11 @@ export async function createSession(
 }
 
 /** Đọc lại một phiên quiz (kèm các lần trả lời). */
-export async function getSession(id: string): Promise<QuizSessionDto> {
-  const session = await quizRepo.selectSessionById(ownerId(), id);
+export async function getSession(
+  id: string,
+  targetOwnerId = ownerId(),
+): Promise<QuizSessionDto> {
+  const session = await quizRepo.selectSessionById(targetOwnerId, id);
   if (!session) throw new NotFoundError(`Quiz session "${id}" not found`);
   const attempts = await quizRepo.listAttemptsBySession(session.id);
   return quizSessionRowToDto(session, attempts.map(quizAttemptRowToDto));

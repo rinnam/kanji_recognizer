@@ -10,12 +10,13 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { HandwritingModal } from '../../src/features/handwriting/HandwritingModal';
 import { libraryEndpoint, loadLibrary } from '../../src/library-source';
+import { saveServerCache } from '../../src/workspace-storage';
 import { getUserScopedKey, readAuthSession } from '../../src/features/auth/auth-store';
 import { recordMeaningfulStudyAction } from '../../src/features/study-tracker/use-study-tracker';
 import { speakJapanese } from '../../src/utils/speak-japanese';
@@ -50,6 +51,18 @@ interface DictionaryKanjiEntry {
 }
 
 const HISTORY_KEY = 'kanji_nest_lookup_history_v1';
+const DEFAULT_LOOKUP_FOLDER_NAME = 'Từ vựng đã tra cứu';
+
+type JlptTag = 'N1' | 'N2' | 'N3' | 'N4' | 'N5';
+const VALID_JLPT = new Set<JlptTag>(['N1', 'N2', 'N3', 'N4', 'N5']);
+
+function resolveJlptLevel(jlpt: string[]): JlptTag | null {
+  for (const raw of jlpt) {
+    const normalized = raw.trim().toUpperCase() as JlptTag;
+    if (VALID_JLPT.has(normalized)) return normalized;
+  }
+  return null;
+}
 
 const TABS = [
   { key: 'words', label: 'Từ vựng' },
@@ -58,6 +71,7 @@ const TABS = [
 
 export default function LookupScreen() {
   const isPhone = useIsMobilePhone();
+  const router = useRouter();
   const params = useLocalSearchParams<{ q?: string; kind?: string }>();
   const [query, setQuery] = useState(params.q ?? '');
   const [activeTab, setActiveTab] = useState<'words' | 'kanji'>(
@@ -74,6 +88,9 @@ export default function LookupScreen() {
   // Save to Flashcard modal state
   const [savingWord, setSavingWord] = useState<DictionaryWordEntry | null>(null);
   const [folders, setFolders] = useState<SimpleFolder[]>([]);
+  const [loadingFolders, setLoadingFolders] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
   const [savingBusy, setSavingBusy] = useState(false);
 
@@ -203,39 +220,134 @@ export default function LookupScreen() {
   const openSaveModal = async (entry: DictionaryWordEntry) => {
     setSavingWord(entry);
     setSavedNotice(null);
+    setSaveError(null);
+    setNewFolderName('');
+    setLoadingFolders(true);
     try {
       const controller = new AbortController();
       const lib = await loadLibrary(controller.signal);
-      setFolders(lib.folders.map((f) => ({ id: f.id, name: f.name })));
+      const endpoint = libraryEndpoint;
+      if (endpoint) {
+        void saveServerCache(endpoint, lib).catch(() => undefined);
+      }
+      setFolders(
+        lib.folders
+          .filter((f) => !f.deletedAt)
+          .map((f) => ({ id: f.id, name: f.name })),
+      );
     } catch {
       setFolders([]);
+      setSaveError('Không tải được danh sách thư mục. Bạn vẫn có thể tạo thư mục mới.');
+    } finally {
+      setLoadingFolders(false);
     }
   };
 
-  const handleSaveToFolder = async (folderId: string | null) => {
+  const extractApiError = async (res: Response, fallback: string): Promise<string> => {
+    try {
+      const body = (await res.json()) as { message?: string; error?: string };
+      return body.message || body.error || fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  const persistWordToFolder = async (
+    entry: DictionaryWordEntry,
+    folder: SimpleFolder,
+  ): Promise<boolean> => {
+    const session = await readAuthSession();
+    const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+    const res = await fetch(`${base}/vocabularies`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        word: entry.word,
+        reading: entry.reading || null,
+        meaning: entry.meaningVi,
+        sinoVietnamese: entry.sinoVietnamese ?? null,
+        jlptLevel: resolveJlptLevel(entry.jlpt),
+        folderIds: [folder.id],
+      }),
+    });
+    if (res.status === 409) {
+      setSaveError(`Từ "${entry.word}" đã có trong thư mục "${folder.name}".`);
+      return false;
+    }
+    if (!res.ok) {
+      const msg = await extractApiError(res, `Không thể lưu từ này (HTTP ${res.status}).`);
+      setSaveError(msg);
+      return false;
+    }
+
+    setWords((prev) =>
+      prev.map((w) => (w.id === entry.id ? { ...w, source: 'library' as const } : w)),
+    );
+    const endpoint = libraryEndpoint;
+    if (endpoint) {
+      const syncController = new AbortController();
+      void loadLibrary(syncController.signal)
+        .then((fresh) => saveServerCache(endpoint, fresh))
+        .catch(() => undefined);
+    }
+    setSavedNotice(`Đã lưu "${entry.word}" vào thư mục "${folder.name}".`);
+    setSavingWord(null);
+    return true;
+  };
+
+  const handleSaveToFolder = async (folder: SimpleFolder) => {
     if (!savingWord || savingBusy) return;
     setSavingBusy(true);
+    setSaveError(null);
     try {
-      const session = await readAuthSession();
-      const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
-      const res = await fetch(`${base}/vocabularies`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          word: savingWord.word,
-          reading: savingWord.reading,
-          meaning: savingWord.meaningVi,
-          sinoVietnamese: savingWord.sinoVietnamese ?? null,
-          folderId,
-        }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setSavedNotice(`Đã lưu "${savingWord.word}" vào Flashcard!`);
-      setSavingWord(null);
+      await persistWordToFolder(savingWord, folder);
     } catch {
-      setSavedNotice('Không thể lưu từ này. Hãy thử lại.');
+      setSaveError('Không thể kết nối máy chủ để lưu từ. Hãy thử lại.');
+    } finally {
+      setSavingBusy(false);
+    }
+  };
+
+  const handleCreateAndSave = async (rawName: string) => {
+    if (!savingWord || savingBusy) return;
+    const name = rawName.trim();
+    if (!name) {
+      setSaveError('Vui lòng nhập tên thư mục mới.');
+      return;
+    }
+    setSavingBusy(true);
+    setSaveError(null);
+    try {
+      const existing = folders.find((f) => f.name.trim().toLowerCase() === name.toLowerCase());
+      let targetFolder = existing;
+      if (!targetFolder) {
+        const session = await readAuthSession();
+        const base = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+        const createRes = await fetch(`${base}/folders`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ name }),
+        });
+        if (!createRes.ok) {
+          const msg = await extractApiError(
+            createRes,
+            `Không thể tạo thư mục (HTTP ${createRes.status}).`,
+          );
+          setSaveError(msg);
+          return;
+        }
+        const created = (await createRes.json()) as { id: string; name: string };
+        targetFolder = { id: created.id, name: created.name };
+        setFolders((prev) => [...prev, targetFolder!]);
+      }
+      const saved = await persistWordToFolder(savingWord, targetFolder);
+      if (saved) setNewFolderName('');
+    } catch {
+      setSaveError('Không thể tạo thư mục hoặc lưu từ. Hãy thử lại.');
     } finally {
       setSavingBusy(false);
     }
@@ -297,6 +409,12 @@ export default function LookupScreen() {
       {savedNotice ? (
         <View style={styles.noticeCard}>
           <Text style={styles.noticeText}>{savedNotice}</Text>
+          <Pressable
+            style={styles.noticeLinkBtn}
+            onPress={() => router.push('/practice/flashcard-quiz')}
+          >
+            <Text style={styles.noticeLinkText}>Mở Flashcard →</Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -463,7 +581,7 @@ export default function LookupScreen() {
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Lưu vào Flashcard</Text>
-              <Pressable onPress={() => setSavingWord(null)}>
+              <Pressable style={styles.modalCloseBtn} onPress={() => setSavingWord(null)}>
                 <Text style={styles.modalClose}>Đóng</Text>
               </Pressable>
             </View>
@@ -472,25 +590,89 @@ export default function LookupScreen() {
                 {savingWord.word} ({savingWord.reading || '—'}) — {savingWord.meaningVi}
               </Text>
             ) : null}
-            <ScrollView style={styles.folderList}>
-              <Pressable
-                style={styles.folderOption}
-                disabled={savingBusy}
-                onPress={() => void handleSaveToFolder(null)}
-              >
-                <Text style={styles.folderOptionText}>Thư mục chung (không phân loại)</Text>
-              </Pressable>
-              {folders.map((f) => (
+            {saveError ? (
+              <View style={styles.modalErrorBox}>
+                <Text style={styles.modalErrorText}>{saveError}</Text>
+              </View>
+            ) : null}
+
+            {loadingFolders ? (
+              <View style={styles.modalLoadingRow}>
+                <ActivityIndicator color={nihongoTheme.colors.accent} />
+                <Text style={styles.modalSub}>Đang tải danh sách thư mục...</Text>
+              </View>
+            ) : folders.length === 0 ? (
+              <View style={styles.emptyFolderFlow}>
+                <Text style={styles.modalHint}>
+                  Bạn chưa có thư mục Flashcard nào. Tạo thư mục để lưu từ này:
+                </Text>
                 <Pressable
-                  key={f.id}
-                  style={styles.folderOption}
+                  style={[styles.primaryCreateBtn, savingBusy && styles.btnDisabled]}
                   disabled={savingBusy}
-                  onPress={() => void handleSaveToFolder(f.id)}
+                  onPress={() => void handleCreateAndSave(DEFAULT_LOOKUP_FOLDER_NAME)}
                 >
-                  <Text style={styles.folderOptionText}>{f.name}</Text>
+                  <Text style={styles.primaryCreateBtnText}>
+                    {savingBusy ? 'Đang lưu...' : `+ Tạo "${DEFAULT_LOOKUP_FOLDER_NAME}" & Lưu`}
+                  </Text>
                 </Pressable>
-              ))}
-            </ScrollView>
+                <View style={styles.createFolderRow}>
+                  <TextInput
+                    value={newFolderName}
+                    onChangeText={setNewFolderName}
+                    placeholder="Hoặc nhập tên thư mục mới (vd: JLPT N3)..."
+                    placeholderTextColor={nihongoTheme.colors.textMuted}
+                    style={styles.newFolderInput}
+                    onSubmitEditing={() => void handleCreateAndSave(newFolderName)}
+                  />
+                  <Pressable
+                    style={[
+                      styles.createSaveSmallBtn,
+                      (!newFolderName.trim() || savingBusy) && styles.btnDisabled,
+                    ]}
+                    disabled={!newFolderName.trim() || savingBusy}
+                    onPress={() => void handleCreateAndSave(newFolderName)}
+                  >
+                    <Text style={styles.createSaveSmallText}>Tạo &amp; Lưu</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.emptyFolderFlow}>
+                <Text style={styles.modalHint}>Chọn thư mục để lưu:</Text>
+                <ScrollView style={styles.folderList}>
+                  {folders.map((f) => (
+                    <Pressable
+                      key={f.id}
+                      style={[styles.folderOption, savingBusy && styles.btnDisabled]}
+                      disabled={savingBusy}
+                      onPress={() => void handleSaveToFolder(f)}
+                    >
+                      <Text style={styles.folderOptionText}>{f.name}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+                <View style={styles.createFolderRow}>
+                  <TextInput
+                    value={newFolderName}
+                    onChangeText={setNewFolderName}
+                    placeholder="Hoặc tạo thư mục mới..."
+                    placeholderTextColor={nihongoTheme.colors.textMuted}
+                    style={styles.newFolderInput}
+                    onSubmitEditing={() => void handleCreateAndSave(newFolderName)}
+                  />
+                  <Pressable
+                    style={[
+                      styles.createSaveSmallBtn,
+                      (!newFolderName.trim() || savingBusy) && styles.btnDisabled,
+                    ]}
+                    disabled={!newFolderName.trim() || savingBusy}
+                    onPress={() => void handleCreateAndSave(newFolderName)}
+                  >
+                    <Text style={styles.createSaveSmallText}>+ Tạo &amp; Lưu</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -580,15 +762,34 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   noticeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 10,
     backgroundColor: nihongoTheme.colors.successBg,
     borderRadius: nihongoTheme.radius.md,
     padding: 12,
     marginBottom: 12,
   },
   noticeText: {
+    flex: 1,
     color: '#15803D',
     fontWeight: '700',
     fontSize: 13,
+  },
+  noticeLinkBtn: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  noticeLinkText: {
+    color: '#15803D',
+    fontWeight: '800',
+    fontSize: 12,
   },
   errorCard: {
     backgroundColor: '#FEF2F2',
@@ -837,14 +1038,18 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(28, 25, 23, 0.35)',
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(28, 25, 23, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalCard: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 440,
+    alignSelf: 'center',
+    overflow: 'hidden',
     backgroundColor: '#FFFFFF',
     borderRadius: nihongoTheme.radius.card,
     padding: 18,
@@ -855,23 +1060,101 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 10,
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: '800',
     color: nihongoTheme.colors.textPrimary,
   },
+  modalCloseBtn: {
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
   modalClose: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: nihongoTheme.colors.accentHover,
+    color: nihongoTheme.colors.textPrimary,
   },
   modalSub: {
     fontSize: 13,
     color: nihongoTheme.colors.textSecondary,
   },
+  modalHint: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  modalErrorBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: nihongoTheme.radius.md,
+    padding: 10,
+  },
+  modalErrorText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#DC2626',
+  },
+  modalLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+  },
+  emptyFolderFlow: {
+    gap: 10,
+  },
+  primaryCreateBtn: {
+    backgroundColor: nihongoTheme.colors.accent,
+    borderRadius: nihongoTheme.radius.button,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  primaryCreateBtnText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  createFolderRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  newFolderInput: {
+    flex: 1,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: nihongoTheme.radius.button,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: nihongoTheme.colors.textPrimary,
+  },
+  createSaveSmallBtn: {
+    backgroundColor: nihongoTheme.colors.textPrimary,
+    borderRadius: nihongoTheme.radius.button,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  createSaveSmallText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  btnDisabled: {
+    opacity: 0.55,
+  },
   folderList: {
-    maxHeight: 280,
+    maxHeight: 240,
   },
   folderOption: {
     paddingVertical: 11,

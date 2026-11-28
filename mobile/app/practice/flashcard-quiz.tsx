@@ -3,6 +3,7 @@ import { Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextI
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import { useFocusEffect } from 'expo-router';
 import type { FolderDto, VocabularyDto } from '../../../packages/contracts/src/study';
 import { speakJapanese } from '../../src/utils/speak-japanese';
 import {
@@ -223,8 +224,13 @@ export default function FlashcardQuizPracticeScreen() {
     }
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      void fetchFromBackend();
+    }, [fetchFromBackend]),
+  );
+
   useEffect(() => {
-    void fetchFromBackend();
     void getUserScopedKey(SRS_OPTIONS_STORAGE_KEY)
       .then((optKey) => AsyncStorage.getItem(optKey))
       .then((raw) => {
@@ -235,7 +241,7 @@ export default function FlashcardQuizPracticeScreen() {
         setNewCardsInput(String(merged.newCardsPerDay));
       })
       .catch(() => undefined);
-  }, [fetchFromBackend]);
+  }, []);
 
   const updateOptions = (patch: Partial<QuizletOptionsConfig>) => {
     setOptions((prev) => {

@@ -17,8 +17,9 @@ const ownerId = (): string => env.LOCAL_OWNER_ID;
 export async function listDueVocabularies(
   limit: number,
   now: Date = new Date(),
+  targetOwnerId = ownerId(),
 ): Promise<VocabularyDto[]> {
-  const rows = await vocabRepo.listDue(ownerId(), now, limit);
+  const rows = await vocabRepo.listDue(targetOwnerId, now, limit);
   const result: VocabularyDto[] = [];
   for (const row of rows) {
     const folderIds = await vocabFoldersRepo.listFolderIds(row.id);
@@ -32,8 +33,9 @@ export async function reviewVocabulary(
   id: string,
   rating: SrsRating,
   now: Date = new Date(),
+  targetOwnerId = ownerId(),
 ): Promise<VocabularyDto> {
-  const existing = await vocabRepo.selectById(ownerId(), id);
+  const existing = await vocabRepo.selectById(targetOwnerId, id);
   if (!existing) throw new NotFoundError(`Vocabulary "${id}" not found`);
 
   const next = review(
@@ -47,7 +49,7 @@ export async function reviewVocabulary(
     now,
   );
 
-  const updated = await vocabRepo.update(ownerId(), id, {
+  const updated = await vocabRepo.update(targetOwnerId, id, {
     srs_interval: next.interval,
     srs_repetition: next.repetition,
     srs_ease_factor: next.easeFactor,

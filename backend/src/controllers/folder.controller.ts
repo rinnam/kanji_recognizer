@@ -1,4 +1,5 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { extractBearerUser } from '../services/auth.service.js';
 import * as folderService from '../services/folder.service.js';
 import {
   createFolderSchema,
@@ -12,7 +13,8 @@ export async function create(
   reply: FastifyReply,
 ): Promise<void> {
   const input = createFolderSchema.parse(req.body);
-  const folder = await folderService.createFolder(input);
+  const user = extractBearerUser(req.headers.authorization);
+  const folder = await folderService.createFolder(input, user?.id);
   await reply.code(201).send(folder);
 }
 
@@ -21,7 +23,8 @@ export async function list(
   reply: FastifyReply,
 ): Promise<void> {
   const query = listFoldersQuerySchema.parse(req.query);
-  const folders = await folderService.listFolders(query);
+  const user = extractBearerUser(req.headers.authorization);
+  const folders = await folderService.listFolders(query, user?.id);
   await reply.send({ data: folders });
 }
 
@@ -30,7 +33,8 @@ export async function getOne(
   reply: FastifyReply,
 ): Promise<void> {
   const { id } = folderIdParamSchema.parse(req.params);
-  const folder = await folderService.getFolder(id);
+  const user = extractBearerUser(req.headers.authorization);
+  const folder = await folderService.getFolder(id, user?.id);
   await reply.send(folder);
 }
 
@@ -40,7 +44,8 @@ export async function patch(
 ): Promise<void> {
   const { id } = folderIdParamSchema.parse(req.params);
   const input = updateFolderSchema.parse(req.body);
-  const folder = await folderService.updateFolder(id, input);
+  const user = extractBearerUser(req.headers.authorization);
+  const folder = await folderService.updateFolder(id, input, user?.id);
   await reply.send(folder);
 }
 
@@ -49,6 +54,7 @@ export async function remove(
   reply: FastifyReply,
 ): Promise<void> {
   const { id } = folderIdParamSchema.parse(req.params);
-  const folder = await folderService.deleteFolder(id);
+  const user = extractBearerUser(req.headers.authorization);
+  const folder = await folderService.deleteFolder(id, user?.id);
   await reply.send(folder);
 }

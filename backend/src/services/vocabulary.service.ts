@@ -6,6 +6,7 @@ import type { JlptLevel, NewVocabularyRow } from '../types/database.js';
 import {
   DuplicateError,
   NotFoundError,
+  ValidationFailedError,
   isPgUniqueViolation,
 } from '../utils/errors.js';
 import { newVocabId } from '../utils/id.js';
@@ -25,12 +26,22 @@ function easeToColumn(value: number | null | undefined): string | number | null 
 
 export async function createVocabulary(
   input: CreateVocabularyInput,
+  targetOwnerId = ownerId(),
 ): Promise<VocabularyDto> {
   const reading = input.reading ?? null;
   const folderIds = input.folderIds ?? [];
 
+  if (folderIds.length > 0) {
+    const validIds = await vocabFoldersRepo.listExistingFolderIds(targetOwnerId, folderIds);
+    if (validIds.length !== new Set(folderIds).size) {
+      throw new ValidationFailedError(
+        'Thư mục đích không tồn tại hoặc không thuộc tài khoản này.',
+      );
+    }
+  }
+
   // Chống trùng theo phạm vi thư mục: cùng owner + word + reading trong cùng thư mục → 409.
-  const dup = await vocabRepo.findDuplicate(ownerId(), input.word, reading, folderIds);
+  const dup = await vocabRepo.findDuplicate(targetOwnerId, input.word, reading, folderIds);
   if (dup) {
     throw new DuplicateError(
       `A vocabulary with the same word and reading already exists in the target folder (id: ${dup.id})`,
@@ -38,12 +49,11 @@ export async function createVocabulary(
   }
 
   // Nếu có bản ghi trước đây đã bị xóa (tombstone) trùng word + reading: khôi phục lại thay vì tạo mới/ghi đè.
-  const tomb = await vocabRepo.findTombstone(ownerId(), input.word, reading);
+  const tomb = await vocabRepo.findTombstone(targetOwnerId, input.word, reading);
   if (tomb) {
-    const now = new Date();
     const dto = await db.transaction().execute(async (trx) => {
       const updated = await vocabRepo.restoreTombstone(
-        ownerId(),
+        targetOwnerId,
         tomb.id,
         {
           word: input.word,
@@ -70,7 +80,7 @@ export async function createVocabulary(
 
   const row: NewVocabularyRow = {
     id,
-    owner_id: ownerId(),
+    owner_id: targetOwnerId,
     word: input.word,
     meaning: input.meaning,
     reading,
@@ -109,6 +119,7 @@ export async function createVocabulary(
 
 export async function listVocabularies(
   query: ListVocabulariesQuery,
+  targetOwnerId = ownerId(),
 ): Promise<VocabularyDto[]> {
   const filters: vocabRepo.VocabularyListFilters = {
     limit: query.limit,
@@ -118,7 +129,7 @@ export async function listVocabularies(
   if (query.jlptLevel !== undefined) filters.jlptLevel = query.jlptLevel;
   if (query.search !== undefined) filters.search = query.search;
 
-  const rows = await vocabRepo.list(ownerId(), filters);
+  const rows = await vocabRepo.list(targetOwnerId, filters);
   const result: VocabularyDto[] = [];
   for (const row of rows) {
     const folderIds = await vocabFoldersRepo.listFolderIds(row.id);
@@ -127,8 +138,11 @@ export async function listVocabularies(
   return result;
 }
 
-export async function getVocabulary(id: string): Promise<VocabularyDto> {
-  const row = await vocabRepo.selectById(ownerId(), id);
+export async function getVocabulary(
+  id: string,
+  targetOwnerId = ownerId(),
+): Promise<VocabularyDto> {
+  const row = await vocabRepo.selectById(targetOwnerId, id);
   if (!row) throw new NotFoundError(`Vocabulary "${id}" not found`);
   const folderIds = await vocabFoldersRepo.listFolderIds(row.id);
   return vocabularyRowToDto(row, folderIds);
@@ -137,9 +151,19 @@ export async function getVocabulary(id: string): Promise<VocabularyDto> {
 export async function updateVocabulary(
   id: string,
   input: UpdateVocabularyInput,
+  targetOwnerId = ownerId(),
 ): Promise<VocabularyDto> {
-  const existing = await vocabRepo.selectById(ownerId(), id);
+  const existing = await vocabRepo.selectById(targetOwnerId, id);
   if (!existing) throw new NotFoundError(`Vocabulary "${id}" not found`);
+
+  if (input.folderIds !== undefined && input.folderIds.length > 0) {
+    const validIds = await vocabFoldersRepo.listExistingFolderIds(targetOwnerId, input.folderIds);
+    if (validIds.length !== new Set(input.folderIds).size) {
+      throw new ValidationFailedError(
+        'Thư mục đích không tồn tại hoặc không thuộc tài khoản này.',
+      );
+    }
+  }
 
   const patch: Parameters<typeof vocabRepo.update>[2] = {};
   if (input.word !== undefined) patch.word = input.word;
@@ -165,7 +189,7 @@ export async function updateVocabulary(
       ? input.folderIds
       : await vocabFoldersRepo.listFolderIds(id);
 
-    const dup = await vocabRepo.findDuplicate(ownerId(), word, reading, folderIds);
+    const dup = await vocabRepo.findDuplicate(targetOwnerId, word, reading, folderIds);
     if (dup && dup.id !== id) {
       throw new DuplicateError(
         `A vocabulary with the same word and reading already exists in the target folder (id: ${dup.id})`,
@@ -177,7 +201,7 @@ export async function updateVocabulary(
     const dto = await db.transaction().execute(async (trx) => {
       const hasFieldUpdate = Object.keys(patch).length > 0;
       const updatedRow = hasFieldUpdate
-        ? await vocabRepo.update(ownerId(), id, patch, trx)
+        ? await vocabRepo.update(targetOwnerId, id, patch, trx)
         : existing;
       if (!updatedRow) throw new NotFoundError(`Vocabulary "${id}" not found`);
 
@@ -198,8 +222,11 @@ export async function updateVocabulary(
   }
 }
 
-export async function deleteVocabulary(id: string): Promise<VocabularyDto> {
-  const deleted = await vocabRepo.softDelete(ownerId(), id);
+export async function deleteVocabulary(
+  id: string,
+  targetOwnerId = ownerId(),
+): Promise<VocabularyDto> {
+  const deleted = await vocabRepo.softDelete(targetOwnerId, id);
   if (!deleted) throw new NotFoundError(`Vocabulary "${id}" not found`);
   const folderIds = await vocabFoldersRepo.listFolderIds(deleted.id);
   return vocabularyRowToDto(deleted, folderIds);
