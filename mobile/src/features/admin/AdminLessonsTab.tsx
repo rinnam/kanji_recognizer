@@ -31,7 +31,7 @@ import {
   type SubscriptionTier,
 } from '../lessons/lessons-api';
 import { AdminConfirmModal } from './AdminConfirmModal';
-import { adminTheme } from './admin-theme';
+import { adminTheme, downloadCsvFile } from './admin-theme';
 import {
   addAdminLessonItem,
   addAdminLessonMaterialLink,
@@ -43,6 +43,7 @@ import {
   fetchAdminLessonDetail,
   fetchAdminLessons,
   fileAssetToBase64,
+  fileAssetToText,
   updateAdminLesson,
   updateAdminLessonItem,
   uploadAdminLessonMaterialFile,
@@ -56,6 +57,64 @@ const SAMPLE_LESSON_CSV =
   'word,reading,meaning,sinoVietnamese,example,exampleMeaning\n' +
   '準備,じゅんび,"chuẩn bị",CHUẨN BỊ,試験の準備をします。,Tôi chuẩn bị cho kỳ thi.\n' +
   '復習,ふくしゅう,"ôn tập",PHỤC TẬP,毎日単語を復習します。,Mỗi ngày tôi đều ôn tập từ vựng.';
+
+const SAMPLE_LESSON_CSV_ROWS: ReadonlyArray<ReadonlyArray<string>> = [
+  ['準備', 'じゅんび', 'chuẩn bị', 'CHUẨN BỊ', '試験の準備をします。', 'Tôi chuẩn bị cho kỳ thi.'],
+  ['復習', 'ふくしゅう', 'ôn tập', 'PHỤC TẬP', '毎日単語を復習します。', 'Mỗi ngày tôi đều ôn tập từ vựng.'],
+];
+
+function normalizeExternalLinkInput(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  let candidate = trimmed;
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(candidate)) {
+    candidate = candidate.startsWith('//') ? `https:${candidate}` : `https://${candidate}`;
+  }
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    if (!parsed.hostname || !parsed.hostname.includes('.')) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+function deriveLinkMaterialTitle(urlStr: string): string {
+  try {
+    const host = new URL(urlStr).hostname.toLowerCase();
+    if (host.includes('drive.google.com')) return 'Tài liệu Google Drive';
+    if (host.includes('docs.google.com')) return 'Tài liệu Google Docs';
+    if (host.includes('sheets.google.com')) return 'Bảng tính Google Sheets';
+    if (host.includes('slides.google.com')) return 'Slide Google';
+    if (host.includes('youtu.be') || host.includes('youtube.com')) return 'Video YouTube';
+    return `Tài liệu (${host.replace(/^www\./, '')})`;
+  } catch {
+    return 'Liên kết tài liệu';
+  }
+}
+
+function parseLessonCsvText(rawText: string) {
+  const rows = parseCsv(rawText).filter((r) => r.some((c) => c.trim().length > 0));
+  if (rows.length === 0) return [];
+  const first = rows[0].map((c) => c.trim().toLowerCase());
+  const hasHeader =
+    first.includes('word') ||
+    first.includes('meaning') ||
+    first.includes('từ') ||
+    first.includes('nghĩa');
+  const dataRows = hasHeader ? rows.slice(1) : rows;
+  return dataRows
+    .map((cols) => ({
+      word: (cols[0] ?? '').trim(),
+      reading: (cols.length >= 3 ? cols[1] : cols[0])?.trim() || null,
+      meaning: (cols.length >= 3 ? cols[2] : cols[1])?.trim() || '',
+      sinoVietnamese: (cols[3] ?? '').trim() || null,
+      example: (cols[4] ?? '').trim() || null,
+      exampleMeaning: (cols[5] ?? '').trim() || null,
+    }))
+    .filter((it) => it.word.length > 0 && it.meaning.length > 0);
+}
 
 type DeleteConfirmTarget =
   | { kind: 'lesson'; lesson: AdminLessonDto }
@@ -158,6 +217,7 @@ export function AdminLessonsTab({ refreshSignal = 0 }: AdminLessonsTabProps) {
   const [vExampleVi, setVExampleVi] = useState('');
   const [csvOpen, setCsvOpen] = useState(false);
   const [csvText, setCsvText] = useState('');
+  const [csvFileName, setCsvFileName] = useState<string | null>(null);
 
   // Confirm Dialog Target
   const [confirmTarget, setConfirmTarget] = useState<DeleteConfirmTarget | null>(null);
@@ -184,6 +244,7 @@ export function AdminLessonsTab({ refreshSignal = 0 }: AdminLessonsTabProps) {
     setShowLinkForm(false);
     setShowVocabForm(false);
     setCsvOpen(false);
+    setCsvFileName(null);
     clearVocabInputs();
   };
 
@@ -344,21 +405,27 @@ export function AdminLessonsTab({ refreshSignal = 0 }: AdminLessonsTabProps) {
   };
 
   const handleAddLink = async () => {
-    if (!activeLessonId || !matLinkTitle.trim() || !matLinkUrl.trim() || busy) return;
-    setBusy(true);
+    if (!activeLessonId || busy) return;
     setErrorMsg(null);
     setNoticeMsg(null);
+    const normalizedUrl = normalizeExternalLinkInput(matLinkUrl);
+    if (!normalizedUrl) {
+      setErrorMsg('Vui lòng nhập đường dẫn tài liệu hợp lệ (vd: https://drive.google.com/...).');
+      return;
+    }
+    const resolvedTitle = matLinkTitle.trim() || deriveLinkMaterialTitle(normalizedUrl);
+    setBusy(true);
     try {
       await addAdminLessonMaterialLink(activeLessonId, {
-        title: matLinkTitle.trim(),
-        externalUrl: matLinkUrl.trim(),
+        title: resolvedTitle,
+        externalUrl: normalizedUrl,
         description: matLinkDesc.trim(),
       });
       setMatLinkTitle('');
       setMatLinkUrl('');
       setMatLinkDesc('');
       setShowLinkForm(false);
-      setNoticeMsg('Đã thêm liên kết tài liệu.');
+      setNoticeMsg(`Đã gắn liên kết "${resolvedTitle}".`);
       await Promise.all([loadDetail(activeLessonId), loadList()]);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Không thêm được liên kết.');
@@ -367,13 +434,65 @@ export function AdminLessonsTab({ refreshSignal = 0 }: AdminLessonsTabProps) {
     }
   };
 
-  const handleOpenMaterial = async (mat: LessonMaterialDto) => {
+  const handleOpenMaterial = (mat: LessonMaterialDto) => {
     if (mat.materialType === 'link' && mat.externalUrl) {
       openExternalUrl(mat.externalUrl);
       return;
     }
-    const session = getCachedAdminSession() ?? (await readAdminSession());
-    openExternalUrl(buildMaterialFileUrl(mat.id, session?.accessToken ?? null));
+    const cached = getCachedAdminSession();
+    if (cached?.accessToken) {
+      openExternalUrl(buildMaterialFileUrl(mat.id, cached.accessToken));
+      return;
+    }
+    void readAdminSession().then((session) => {
+      openExternalUrl(buildMaterialFileUrl(mat.id, session?.accessToken ?? null));
+    });
+  };
+
+  const handlePickCsvFile = async () => {
+    if (!activeLessonId || busy) return;
+    setErrorMsg(null);
+    setNoticeMsg(null);
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({
+        type: [
+          'text/csv',
+          'text/comma-separated-values',
+          'application/csv',
+          'application/vnd.ms-excel',
+          'text/plain',
+          '*/*',
+        ],
+        copyToCacheDirectory: true,
+      });
+      if (picked.canceled || !picked.assets?.[0]) return;
+      const asset = picked.assets[0];
+      const text = await fileAssetToText(asset.uri);
+      const parsedCount = parseLessonCsvText(text).length;
+      setCsvText(text);
+      setCsvFileName(asset.name || 'tu-vung.csv');
+      if (parsedCount === 0) {
+        setErrorMsg(`Đã mở "${asset.name || 'CSV'}" nhưng chưa thấy dòng từ + nghĩa hợp lệ nào.`);
+      } else {
+        setNoticeMsg(`Đã đọc ${parsedCount} từ vựng từ "${asset.name || 'tệp CSV'}". Bấm "Nhập danh sách vào bài" để lưu.`);
+      }
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Không đọc được tệp CSV đã chọn.');
+    }
+  };
+
+  const handleDownloadSampleCsv = () => {
+    setErrorMsg(null);
+    const downloaded = downloadCsvFile(
+      'mau-tu-vung-bai-hoc.csv',
+      ['word', 'reading', 'meaning', 'sinoVietnamese', 'example', 'exampleMeaning'],
+      SAMPLE_LESSON_CSV_ROWS,
+    );
+    if (!downloaded) {
+      setCsvText(SAMPLE_LESSON_CSV);
+      setCsvFileName('mau-tu-vung-bai-hoc.csv');
+      setNoticeMsg('Đã điền dữ liệu mẫu CSV vào ô nhập.');
+    }
   };
 
   const handleStartEditItem = (item: LessonItemDto) => {
@@ -438,34 +557,27 @@ export function AdminLessonsTab({ refreshSignal = 0 }: AdminLessonsTabProps) {
     }
   };
 
-  const handleBulkImportCsv = async () => {
-    if (!activeLessonId || !csvText.trim() || busy) return;
-    const rows = parseCsv(csvText).filter((r) => r.some((c) => c.trim().length > 0));
-    if (rows.length === 0) return;
-    const first = rows[0].map((c) => c.trim().toLowerCase());
-    const hasHeader = first.includes('word') || first.includes('meaning') || first.includes('từ');
-    const dataRows = hasHeader ? rows.slice(1) : rows;
-    const parsedItems = dataRows
-      .map((cols) => ({
-        word: (cols[0] ?? '').trim(),
-        reading: (cols.length >= 3 ? cols[1] : cols[0])?.trim() || null,
-        meaning: (cols.length >= 3 ? cols[2] : cols[1])?.trim() || '',
-        sinoVietnamese: (cols[3] ?? '').trim() || null,
-        example: (cols[4] ?? '').trim() || null,
-        exampleMeaning: (cols[5] ?? '').trim() || null,
-      }))
-      .filter((it) => it.word.length > 0 && it.meaning.length > 0);
+  const parsedCsvItems = React.useMemo(() => parseLessonCsvText(csvText), [csvText]);
 
+  const handleBulkImportCsv = async () => {
+    if (!activeLessonId || busy) return;
+    if (!csvText.trim()) {
+      setErrorMsg('Vui lòng chọn tệp CSV từ máy hoặc dán dữ liệu CSV trước khi nhập.');
+      return;
+    }
+    const parsedItems = parseLessonCsvText(csvText);
     if (parsedItems.length === 0) {
-      setErrorMsg('Không tìm thấy dòng từ vựng hợp lệ nào trong CSV.');
+      setErrorMsg('Không tìm thấy dòng từ vựng hợp lệ nào (cần ít nhất cột word và meaning).');
       return;
     }
 
     setBusy(true);
     setErrorMsg(null);
+    setNoticeMsg(null);
     try {
       const res = await bulkAddAdminLessonItems(activeLessonId, parsedItems);
       setCsvText('');
+      setCsvFileName(null);
       setCsvOpen(false);
       setNoticeMsg(`Đã nhập ${res.addedCount} từ vựng vào bài học.`);
       await Promise.all([loadDetail(activeLessonId), loadList()]);
@@ -688,7 +800,7 @@ export function AdminLessonsTab({ refreshSignal = 0 }: AdminLessonsTabProps) {
                 <TextInput
                   value={matLinkTitle}
                   onChangeText={setMatLinkTitle}
-                  placeholder="Tên tài liệu (vd: Đề cương N3)"
+                  placeholder="Tên tài liệu (tùy chọn — tự đặt nếu để trống)"
                   placeholderTextColor={adminTheme.colors.textMuted}
                   style={styles.input}
                 />
@@ -774,19 +886,56 @@ export function AdminLessonsTab({ refreshSignal = 0 }: AdminLessonsTabProps) {
                 <Text style={styles.itemSub}>
                   Cột: word, reading, meaning, sinoVietnamese, example, exampleMeaning
                 </Text>
-                <Pressable onPress={() => setCsvText(SAMPLE_LESSON_CSV)}>
-                  <Text style={styles.sampleLink}>Điền mẫu CSV</Text>
-                </Pressable>
+                <View style={styles.filterGroup}>
+                  <Pressable
+                    style={styles.uploadBtn}
+                    disabled={busy}
+                    onPress={() => void handlePickCsvFile()}
+                  >
+                    <UploadIcon size={14} color={adminTheme.colors.accentHover} />
+                    <Text style={styles.uploadBtnText}>Chọn tệp CSV từ máy</Text>
+                  </Pressable>
+                  <Pressable style={styles.outlineBtn} onPress={handleDownloadSampleCsv}>
+                    <Text style={styles.outlineBtnText}>Tải file CSV mẫu</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      setCsvText(SAMPLE_LESSON_CSV);
+                      setCsvFileName(null);
+                    }}
+                  >
+                    <Text style={styles.sampleLink}>Điền mẫu vào ô</Text>
+                  </Pressable>
+                </View>
+                {csvFileName || parsedCsvItems.length > 0 ? (
+                  <Text style={styles.itemSub}>
+                    {csvFileName ? `Tệp: ${csvFileName} · ` : ''}
+                    Phát hiện {parsedCsvItems.length} dòng từ vựng hợp lệ
+                  </Text>
+                ) : null}
                 <TextInput
                   value={csvText}
-                  onChangeText={setCsvText}
+                  onChangeText={(txt) => {
+                    setCsvText(txt);
+                    if (!txt.trim()) setCsvFileName(null);
+                  }}
                   multiline
                   placeholder={SAMPLE_LESSON_CSV}
                   placeholderTextColor={adminTheme.colors.textMuted}
                   style={[styles.input, styles.textArea]}
                 />
-                <Pressable style={styles.primaryBtn} disabled={busy} onPress={() => void handleBulkImportCsv()}>
-                  <Text style={styles.primaryBtnText}>Nhập danh sách vào bài</Text>
+                <Pressable
+                  style={[styles.primaryBtn, (busy || parsedCsvItems.length === 0) && styles.disabledBtn]}
+                  disabled={busy}
+                  onPress={() => void handleBulkImportCsv()}
+                >
+                  <Text style={styles.primaryBtnText}>
+                    {busy
+                      ? 'Đang nhập...'
+                      : parsedCsvItems.length > 0
+                        ? `Nhập ${parsedCsvItems.length} từ vào bài`
+                        : 'Nhập danh sách vào bài'}
+                  </Text>
                 </Pressable>
               </View>
             ) : null}

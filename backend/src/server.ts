@@ -12,10 +12,12 @@ import { dictionaryRoutes } from './routes/dictionary.routes.js';
 import { flashcardRoutes } from './routes/flashcard.routes.js';
 import { folderRoutes } from './routes/folder.routes.js';
 import { gameRoutes } from './routes/game.routes.js';
+import { grammarRoutes } from './routes/grammar.routes.js';
 import { interviewRoutes } from './routes/interview.routes.js';
 import { lessonRoutes } from './routes/lesson.routes.js';
 import { membershipRoutes } from './routes/membership.routes.js';
 import { quizRoutes } from './routes/quiz.routes.js';
+import { shadowingRoutes } from './routes/shadowing.routes.js';
 import { syncRoutes } from './routes/sync.routes.js';
 import { transcriptRoutes } from './routes/transcript.routes.js';
 import { ttsRoutes } from './routes/tts.routes.js';
@@ -124,6 +126,8 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(interviewRoutes, { prefix: '/api' });
   await app.register(membershipRoutes, { prefix: '/api' });
   await app.register(transcriptRoutes, { prefix: '/api' });
+  await app.register(shadowingRoutes, { prefix: '/api' });
+  await app.register(grammarRoutes, { prefix: '/api' });
   await app.register(adminRoutes, { prefix: '/api' });
   await app.register(lessonRoutes, { prefix: '/api' });
 

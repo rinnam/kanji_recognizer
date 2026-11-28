@@ -4,25 +4,41 @@ import {
   handleAdminAddMaterialLink,
   handleAdminAdjustPoints,
   handleAdminBulkAddLessonItems,
+  handleAdminCreateGrammarBlitz,
+  handleAdminCreateGrammarPoint,
+  handleAdminCreateGrammarStar,
   handleAdminCreateLesson,
   handleAdminCreateOrder,
+  handleAdminCreateShadowingVideo,
+  handleAdminDeleteGrammarBlitz,
+  handleAdminDeleteGrammarPoint,
+  handleAdminDeleteGrammarStar,
   handleAdminDeleteLesson,
   handleAdminDeleteLessonItem,
   handleAdminDeleteMaterial,
+  handleAdminDeleteShadowingVideo,
   handleAdminGetLesson,
   handleAdminGetSubscriptionDetail,
+  handleAdminListGrammarBlitz,
+  handleAdminListGrammarPoints,
+  handleAdminListGrammarStar,
   handleAdminListLessons,
   handleAdminListOrders,
   handleAdminListPlans,
+  handleAdminListShadowingVideos,
   handleAdminListSubscriptions,
   handleAdminListUsers,
   handleAdminOverview,
   handleAdminResetPlan,
   handleAdminSetSubscription,
+  handleAdminUpdateGrammarBlitz,
+  handleAdminUpdateGrammarPoint,
+  handleAdminUpdateGrammarStar,
   handleAdminUpdateLesson,
   handleAdminUpdateLessonItem,
   handleAdminUpdateOrder,
   handleAdminUpdatePlan,
+  handleAdminUpdateShadowingVideo,
   handleAdminUpdateUserBan,
   handleAdminUpdateUserRole,
   handleAdminUploadMaterialFile,
@@ -66,4 +82,24 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
   );
   app.post('/admin/lessons/:id/materials/link', handleAdminAddMaterialLink);
   app.delete('/admin/lessons/:id/materials/:materialId', handleAdminDeleteMaterial);
+
+  app.get('/admin/shadowing', handleAdminListShadowingVideos);
+  app.post('/admin/shadowing', handleAdminCreateShadowingVideo);
+  app.patch('/admin/shadowing/:id', handleAdminUpdateShadowingVideo);
+  app.delete('/admin/shadowing/:id', handleAdminDeleteShadowingVideo);
+
+  app.get('/admin/grammar', handleAdminListGrammarPoints);
+  app.post('/admin/grammar', handleAdminCreateGrammarPoint);
+  app.patch('/admin/grammar/:id', handleAdminUpdateGrammarPoint);
+  app.delete('/admin/grammar/:id', handleAdminDeleteGrammarPoint);
+
+  app.get('/admin/grammar/star', handleAdminListGrammarStar);
+  app.post('/admin/grammar/star', handleAdminCreateGrammarStar);
+  app.patch('/admin/grammar/star/:id', handleAdminUpdateGrammarStar);
+  app.delete('/admin/grammar/star/:id', handleAdminDeleteGrammarStar);
+
+  app.get('/admin/grammar/blitz', handleAdminListGrammarBlitz);
+  app.post('/admin/grammar/blitz', handleAdminCreateGrammarBlitz);
+  app.patch('/admin/grammar/blitz/:id', handleAdminUpdateGrammarBlitz);
+  app.delete('/admin/grammar/blitz/:id', handleAdminDeleteGrammarBlitz);
 };

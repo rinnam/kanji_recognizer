@@ -1,7 +1,19 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { AppShell } from '../../../src/components/AppShell';
 import { SmoothProgressBar } from '../../../src/components/SmoothProgressBar';
 import { TopHeader } from '../../../src/components/TopHeader';
@@ -17,16 +29,14 @@ import {
 } from '../../../src/components/AppIcons';
 import { nihongoTheme } from '../../../src/theme/nihongo-theme';
 import {
-  CONJUGATION_BLITZ_QUESTIONS,
+  fetchPublicGrammarCatalog,
   GRAMMAR_CATEGORIES,
-  GRAMMAR_POINTS,
-  PARTICLE_BLITZ_QUESTIONS,
-  STAR_SENTENCES,
   type GrammarBlitzQuestion,
   type GrammarCategory,
+  type GrammarPoint,
   type JlptLevelFilter,
   type StarSentenceQuestion,
-} from '../../../src/features/grammar/grammar-data';
+} from '../../../src/features/grammar/grammar-api';
 import { getUserScopedKey } from '../../../src/features/auth/auth-store';
 import { claimDailyGameReward } from '../../../src/features/membership/membership-store';
 import { recordMeaningfulStudyAction } from '../../../src/features/study-tracker/use-study-tracker';
@@ -75,6 +85,35 @@ export default function GrammarPracticeScreen() {
     params.tab === 'star' ? 'star' : params.tab === 'blitz' ? 'blitz' : 'library',
   );
   const [levelFilter, setLevelFilter] = useState<JlptLevelFilter>('ALL');
+
+  // Dynamic Catalog fetched from PostgreSQL via backend API
+  const [grammarPoints, setGrammarPoints] = useState<GrammarPoint[]>([]);
+  const [starSentences, setStarSentences] = useState<StarSentenceQuestion[]>([]);
+  const [particleBlitzQuestions, setParticleBlitzQuestions] = useState<GrammarBlitzQuestion[]>([]);
+  const [conjugationBlitzQuestions, setConjugationBlitzQuestions] = useState<GrammarBlitzQuestion[]>([]);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  const loadGrammarCatalog = useCallback(async () => {
+    setCatalogError(null);
+    try {
+      const data = await fetchPublicGrammarCatalog('ALL');
+      setGrammarPoints(data.points);
+      setStarSentences(data.starSentences);
+      setParticleBlitzQuestions(data.particleBlitz);
+      setConjugationBlitzQuestions(data.conjugationBlitz);
+    } catch (err) {
+      setCatalogError(err instanceof Error ? err.message : 'Không tải được dữ liệu ngữ pháp.');
+    } finally {
+      setLoadingCatalog(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadGrammarCatalog();
+    }, [loadGrammarCatalog]),
+  );
 
   // Tab 1: Library + per-user progress + category/progress filtering + incremental pagination
   const [search, setSearch] = useState('');
@@ -194,22 +233,22 @@ export default function GrammarPracticeScreen() {
 
   const levelCounts = useMemo(() => {
     const counts: Record<JlptLevelFilter, number> = {
-      ALL: GRAMMAR_POINTS.length,
+      ALL: grammarPoints.length,
       N5: 0,
       N4: 0,
       N3: 0,
       N2: 0,
       N1: 0,
     };
-    for (const g of GRAMMAR_POINTS) {
+    for (const g of grammarPoints) {
       counts[g.level] += 1;
     }
     return counts;
-  }, []);
+  }, [grammarPoints]);
 
   const filteredPoints = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return GRAMMAR_POINTS.filter((g) => {
+    return grammarPoints.filter((g) => {
       if (levelFilter !== 'ALL' && g.level !== levelFilter) return false;
       if (categoryFilter !== 'all' && g.category !== categoryFilter) return false;
       const mark = progressMap[g.id] ?? 'new';
@@ -222,7 +261,7 @@ export default function GrammarPracticeScreen() {
         g.nuanceVi.toLowerCase().includes(q)
       );
     });
-  }, [levelFilter, categoryFilter, progressFilter, progressMap, search]);
+  }, [grammarPoints, levelFilter, categoryFilter, progressFilter, progressMap, search]);
 
   const displayedPoints = useMemo(
     () => filteredPoints.slice(0, visibleCount),
@@ -235,8 +274,8 @@ export default function GrammarPracticeScreen() {
   );
 
   const totalMasteredCount = useMemo(
-    () => GRAMMAR_POINTS.filter((g) => progressMap[g.id] === 'mastered').length,
-    [progressMap],
+    () => grammarPoints.filter((g) => progressMap[g.id] === 'mastered').length,
+    [grammarPoints, progressMap],
   );
 
   const setPointProgress = (id: string, status: ProgressMark) => {
@@ -309,9 +348,10 @@ export default function GrammarPracticeScreen() {
     lv: JlptLevelFilter = levelFilter,
     count: 5 | 10 | 15 = starRoundSize,
   ) => {
+    if (starSentences.length === 0) return;
     recordMeaningfulStudyAction('grammar_star_start');
-    const pool = lv === 'ALL' ? STAR_SENTENCES : STAR_SENTENCES.filter((s) => s.level === lv);
-    const chosen = shuffleArray(pool.length > 0 ? pool : STAR_SENTENCES).slice(0, count);
+    const pool = lv === 'ALL' ? starSentences : starSentences.filter((s) => s.level === lv);
+    const chosen = shuffleArray(pool.length > 0 ? pool : starSentences).slice(0, count);
     setStarRoundQuestions(chosen);
     setStarIdx(0);
     setStarScore(0);
@@ -323,10 +363,10 @@ export default function GrammarPracticeScreen() {
   };
 
   useEffect(() => {
-    if (activeTab === 'star' && starRoundQuestions.length === 0) {
+    if (activeTab === 'star' && starRoundQuestions.length === 0 && starSentences.length > 0) {
       startStarRound(levelFilter);
     }
-  }, [activeTab]);
+  }, [activeTab, starSentences.length]);
 
   const currentStar = starRoundQuestions[starIdx] ?? null;
 
@@ -492,13 +532,14 @@ export default function GrammarPracticeScreen() {
   };
 
   const startBlitz = () => {
-    recordMeaningfulStudyAction('grammar_blitz_start');
     const basePool =
       blitzMode === 'particle'
-        ? PARTICLE_BLITZ_QUESTIONS
+        ? particleBlitzQuestions
         : blitzMode === 'conjugation'
-          ? CONJUGATION_BLITZ_QUESTIONS
-          : [...PARTICLE_BLITZ_QUESTIONS, ...CONJUGATION_BLITZ_QUESTIONS];
+          ? conjugationBlitzQuestions
+          : [...particleBlitzQuestions, ...conjugationBlitzQuestions];
+    if (basePool.length === 0) return;
+    recordMeaningfulStudyAction('grammar_blitz_start');
     const filtered =
       levelFilter === 'ALL' ? basePool : basePool.filter((q) => q.level === levelFilter);
     const deck = shuffleArray(filtered.length >= 4 ? filtered : basePool);
@@ -854,13 +895,26 @@ export default function GrammarPracticeScreen() {
         })}
       </ScrollView>
 
-      {activeTab === 'library' ? (
+      {loadingCatalog && grammarPoints.length === 0 ? (
+        <View style={styles.card}>
+          <ActivityIndicator color={nihongoTheme.colors.accent} />
+          <Text style={styles.summarySub}>Đang tải thư viện ngữ pháp JLPT từ máy chủ...</Text>
+        </View>
+      ) : catalogError && grammarPoints.length === 0 ? (
+        <View style={styles.card}>
+          <Text style={styles.summaryTitle}>Không tải được dữ liệu ngữ pháp</Text>
+          <Text style={styles.summarySub}>{catalogError}</Text>
+          <Pressable style={styles.outlineBtn} onPress={() => void loadGrammarCatalog()}>
+            <Text style={styles.outlineBtnText}>Thử lại</Text>
+          </Pressable>
+        </View>
+      ) : activeTab === 'library' ? (
         <View style={styles.sectionGap}>
           <View style={styles.summaryCard}>
             <View style={styles.rowBetween}>
               <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
                 <Text style={styles.summaryTitle}>
-                  Đã thuộc {totalMasteredCount} / {GRAMMAR_POINTS.length} mẫu
+                  Đã thuộc {totalMasteredCount} / {grammarPoints.length} mẫu
                   {activeFilterCount > 0 ? ` · Đang lọc: ${filteredPoints.length}` : ''}
                 </Text>
                 <View style={styles.libProgressTrack}>

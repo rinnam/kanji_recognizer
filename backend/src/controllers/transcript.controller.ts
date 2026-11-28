@@ -11,7 +11,13 @@ export async function getTranscript(req: FastifyRequest, reply: FastifyReply): P
     const data = await fetchVideoTranscript(query.id);
     void reply.send(data);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Không tải được phụ đề';
+    req.log.warn({ err, videoId: query.id }, 'transcript fetch failed');
+    const rawMsg = err instanceof Error ? err.message : '';
+    const isInternalCmd =
+      /command failed|enoent|spawn|python|scripts[\\/]/i.test(rawMsg);
+    const message = isInternalCmd || !rawMsg
+      ? 'Video này chưa có phụ đề tiếng Nhật (CC) hoặc tạm thời không trích xuất được phụ đề.'
+      : rawMsg;
     void reply.code(400).send({
       error: 'TranscriptError',
       message,

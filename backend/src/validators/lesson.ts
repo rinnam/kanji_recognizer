@@ -47,15 +47,27 @@ export const uploadLessonMaterialFileSchema = z.object({
   description: z.string().trim().max(500).default(''),
 });
 
+function normalizeExternalLinkUrl(raw: unknown): unknown {
+  if (typeof raw !== 'string') return raw;
+  const trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) return trimmed;
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+  return `https://${trimmed}`;
+}
+
 export const addLessonMaterialLinkSchema = z.object({
   title: z.string().trim().min(1, 'Tiêu đề tài liệu không được trống').max(200),
-  externalUrl: z
-    .string()
-    .trim()
-    .url('URL tài liệu không hợp lệ')
-    .refine((u) => /^https?:\/\//i.test(u), {
-      message: 'Liên kết chỉ chấp nhận http:// hoặc https://',
-    }),
+  externalUrl: z.preprocess(
+    normalizeExternalLinkUrl,
+    z
+      .string()
+      .trim()
+      .url('URL tài liệu không hợp lệ (vd: https://drive.google.com/...)')
+      .refine((u) => /^https?:\/\//i.test(u), {
+        message: 'Liên kết chỉ chấp nhận http:// hoặc https://',
+      }),
+  ),
   description: z.string().trim().max(500).default(''),
 });
 

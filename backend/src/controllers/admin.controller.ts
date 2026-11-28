@@ -11,6 +11,26 @@ import {
   updateUserRole,
 } from '../services/admin.service.js';
 import {
+  createAdminGrammarBlitzQuestion,
+  createAdminGrammarPoint,
+  createAdminGrammarStarQuestion,
+  deleteAdminGrammarBlitzQuestion,
+  deleteAdminGrammarPoint,
+  deleteAdminGrammarStarQuestion,
+  listAdminGrammarBlitzQuestions,
+  listAdminGrammarPoints,
+  listAdminGrammarStarQuestions,
+  updateAdminGrammarBlitzQuestion,
+  updateAdminGrammarPoint,
+  updateAdminGrammarStarQuestion,
+} from '../services/grammar.service.js';
+import {
+  createAdminShadowingVideo,
+  deleteAdminShadowingVideo,
+  listAdminShadowingVideos,
+  updateAdminShadowingVideo,
+} from '../services/shadowing.service.js';
+import {
   addLessonItem,
   addLessonMaterialLink,
   bulkAddLessonItems,
@@ -46,6 +66,21 @@ import {
   adminUpdateUserRoleSchema,
   adminUsersQuerySchema,
 } from '../validators/admin.js';
+import {
+  adminBlitzQuerySchema,
+  adminGrammarQuerySchema,
+  createGrammarBlitzSchema,
+  createGrammarPointSchema,
+  createGrammarStarSchema,
+  updateGrammarBlitzSchema,
+  updateGrammarPointSchema,
+  updateGrammarStarSchema,
+} from '../validators/grammar.js';
+import {
+  adminShadowingListQuerySchema,
+  createAdminShadowingSchema,
+  updateAdminShadowingSchema,
+} from '../validators/shadowing.js';
 import {
   addLessonMaterialLinkSchema,
   adminLessonsQuerySchema,
@@ -284,5 +319,137 @@ export async function handleAdminDeleteMaterial(req: FastifyRequest, reply: Fast
   if (!admin) return;
   const { id, materialId } = req.params as { id: string; materialId: string };
   const result = await deleteLessonMaterial(admin.id, id, materialId);
+  return reply.send(result);
+}
+
+export async function handleAdminListShadowingVideos(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const parsed = adminShadowingListQuerySchema.parse(req.query ?? {});
+  const data = await listAdminShadowingVideos(parsed);
+  return reply.send(data);
+}
+
+export async function handleAdminCreateShadowingVideo(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const parsed = createAdminShadowingSchema.parse(req.body ?? {});
+  const video = await createAdminShadowingVideo(admin.id, parsed);
+  return reply.status(201).send({ video });
+}
+
+export async function handleAdminUpdateShadowingVideo(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const { id } = req.params as { id: string };
+  const parsed = updateAdminShadowingSchema.parse(req.body ?? {});
+  const video = await updateAdminShadowingVideo(admin.id, id, parsed);
+  return reply.send({ video });
+}
+
+export async function handleAdminDeleteShadowingVideo(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const { id } = req.params as { id: string };
+  const result = await deleteAdminShadowingVideo(admin.id, id);
+  return reply.send(result);
+}
+
+export async function handleAdminListGrammarPoints(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const parsed = adminGrammarQuerySchema.parse(req.query ?? {});
+  const data = await listAdminGrammarPoints(parsed);
+  return reply.send(data);
+}
+
+export async function handleAdminCreateGrammarPoint(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const parsed = createGrammarPointSchema.parse(req.body ?? {});
+  const point = await createAdminGrammarPoint(admin.id, parsed);
+  return reply.status(201).send({ point });
+}
+
+export async function handleAdminUpdateGrammarPoint(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const { id } = req.params as { id: string };
+  const parsed = updateGrammarPointSchema.parse(req.body ?? {});
+  const point = await updateAdminGrammarPoint(admin.id, id, parsed);
+  return reply.send({ point });
+}
+
+export async function handleAdminDeleteGrammarPoint(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const { id } = req.params as { id: string };
+  const result = await deleteAdminGrammarPoint(admin.id, id);
+  return reply.send(result);
+}
+
+export async function handleAdminListGrammarStar(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const parsed = adminGrammarQuerySchema.parse(req.query ?? {});
+  const data = await listAdminGrammarStarQuestions(parsed);
+  return reply.send(data);
+}
+
+export async function handleAdminCreateGrammarStar(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const parsed = createGrammarStarSchema.parse(req.body ?? {});
+  const question = await createAdminGrammarStarQuestion(admin.id, parsed);
+  return reply.status(201).send({ question });
+}
+
+export async function handleAdminUpdateGrammarStar(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const { id } = req.params as { id: string };
+  const parsed = updateGrammarStarSchema.parse(req.body ?? {});
+  const question = await updateAdminGrammarStarQuestion(admin.id, id, parsed);
+  return reply.send({ question });
+}
+
+export async function handleAdminDeleteGrammarStar(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const { id } = req.params as { id: string };
+  const result = await deleteAdminGrammarStarQuestion(admin.id, id);
+  return reply.send(result);
+}
+
+export async function handleAdminListGrammarBlitz(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const parsed = adminBlitzQuerySchema.parse(req.query ?? {});
+  const data = await listAdminGrammarBlitzQuestions(parsed);
+  return reply.send(data);
+}
+
+export async function handleAdminCreateGrammarBlitz(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const parsed = createGrammarBlitzSchema.parse(req.body ?? {});
+  const question = await createAdminGrammarBlitzQuestion(admin.id, parsed);
+  return reply.status(201).send({ question });
+}
+
+export async function handleAdminUpdateGrammarBlitz(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const { id } = req.params as { id: string };
+  const parsed = updateGrammarBlitzSchema.parse(req.body ?? {});
+  const question = await updateAdminGrammarBlitzQuestion(admin.id, id, parsed);
+  return reply.send({ question });
+}
+
+export async function handleAdminDeleteGrammarBlitz(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const { id } = req.params as { id: string };
+  const result = await deleteAdminGrammarBlitzQuestion(admin.id, id);
   return reply.send(result);
 }

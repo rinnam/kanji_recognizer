@@ -13,13 +13,21 @@ import { DESKTOP_BREAKPOINT } from './AppShell';
 import {
   AdminDashboardIcon,
   CrownIcon,
+  GrammarSkillIcon,
+  HeadphonesSkillIcon,
   LessonsNavIcon,
   LogoutIcon,
   ProfileNavIcon,
   ResetIcon,
 } from './AppIcons';
 
-export type AdminTabKey = 'overview' | 'subscriptions' | 'lessons' | 'users';
+export type AdminTabKey =
+  | 'overview'
+  | 'subscriptions'
+  | 'lessons'
+  | 'shadowing'
+  | 'grammar'
+  | 'users';
 
 interface AdminShellProps {
   activeTab: AdminTabKey;
@@ -54,6 +62,18 @@ const ADMIN_NAV: readonly {
     label: 'Bài học & Tài liệu',
     shortLabel: 'Bài học',
     Icon: LessonsNavIcon,
+  },
+  {
+    key: 'shadowing',
+    label: 'Video Shadowing',
+    shortLabel: 'Shadowing',
+    Icon: HeadphonesSkillIcon,
+  },
+  {
+    key: 'grammar',
+    label: 'Ngữ pháp JLPT',
+    shortLabel: 'Ngữ pháp',
+    Icon: GrammarSkillIcon,
   },
   {
     key: 'users',

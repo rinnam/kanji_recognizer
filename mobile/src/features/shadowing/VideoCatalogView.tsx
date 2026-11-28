@@ -1,33 +1,39 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  Pressable,
-  Image,
   ActivityIndicator,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
   useWindowDimensions,
 } from 'react-native';
+import { AlertCircleIcon, MicIcon, TrashIcon } from '../../components/AppIcons';
 import { nihongoTheme } from '../../theme/nihongo-theme';
-import { AlertCircleIcon, MicIcon } from '../../components/AppIcons';
 import type { SampleVideoItem } from './types';
 
 interface VideoCatalogViewProps {
   videos: SampleVideoItem[];
+  activeScope: 'all' | 'mine';
   onSelectVideo: (video: SampleVideoItem) => void;
   onSubmitUrl?: (url: string) => void;
+  onDeleteVideo?: (video: SampleVideoItem) => void;
   isLoading: boolean;
   loadingVideoId: string | null;
+  deletingVideoId?: string | null;
   errorMessage: string | null;
 }
 
 export function VideoCatalogView({
   videos,
+  activeScope,
   onSelectVideo,
   onSubmitUrl,
+  onDeleteVideo,
   isLoading,
   loadingVideoId,
+  deletingVideoId = null,
   errorMessage,
 }: VideoCatalogViewProps) {
   const { width } = useWindowDimensions();
@@ -52,10 +58,11 @@ export function VideoCatalogView({
         </View>
       ) : null}
 
-      {/* Curated Sample Videos Catalog Section */}
       <View style={styles.catalogSection}>
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Video có sẵn</Text>
+          <Text style={styles.sectionTitle}>
+            {activeScope === 'mine' ? 'Video của tôi đã lưu' : 'Video có sẵn'}
+          </Text>
           <Pressable
             style={styles.ytbButton}
             onPress={() => setUrlOpen((prev) => !prev)}
@@ -72,7 +79,7 @@ export function VideoCatalogView({
               value={urlInput}
               onChangeText={setUrlInput}
               onSubmitEditing={handleSubmit}
-              placeholder="Dán URL YouTube..."
+              placeholder="Dán URL YouTube để lưu vào Video của tôi & học..."
               placeholderTextColor={nihongoTheme.colors.textMuted}
               style={styles.textInput}
               autoCapitalize="none"
@@ -80,97 +87,141 @@ export function VideoCatalogView({
               autoFocus
             />
             <Pressable
-              style={[styles.submitButton, (!urlInput.trim() || isLoading) && styles.submitButtonDisabled]}
+              style={[
+                styles.submitButton,
+                (!urlInput.trim() || isLoading) && styles.submitButtonDisabled,
+              ]}
               onPress={handleSubmit}
               disabled={!urlInput.trim() || isLoading}
             >
               {isLoading && loadingVideoId === 'custom' ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.submitButtonText}>Bắt đầu học ▶</Text>
+                <Text style={styles.submitButtonText}>Lưu &amp; Học ▶</Text>
               )}
             </Pressable>
           </View>
         ) : null}
 
-        <View style={[styles.grid, isDesktop && styles.gridDesktop]}>
-          {videos.map((video) => {
-            const isThisLoading = isLoading && loadingVideoId === video.videoId;
+        {videos.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>
+              {activeScope === 'mine'
+                ? 'Bạn chưa lưu video YouTube nào'
+                : 'Chưa có video Shadowing nào'}
+            </Text>
+            <Text style={styles.emptyDesc}>
+              {activeScope === 'mine'
+                ? 'Bấm "+ Link YouTube" ở góc trên bên phải để dán link video tiếng Nhật và lưu tại đây.'
+                : 'Quản trị viên chưa đăng video mẫu hoặc bạn có thể tự thêm qua "+ Link YouTube".'}
+            </Text>
+          </View>
+        ) : (
+          <View style={[styles.grid, isDesktop && styles.gridDesktop]}>
+            {videos.map((video) => {
+              const isThisLoading = isLoading && loadingVideoId === video.videoId;
+              const isDeleting = deletingVideoId === video.videoId;
+              const isUserOwned = video.source === 'user';
 
-            return (
-              <Pressable
-                key={video.videoId}
-                style={[styles.videoCard, isDesktop && styles.videoCardDesktop]}
-                onPress={() => onSelectVideo(video)}
-                disabled={isLoading}
-              >
-                {/* Thumbnail Container */}
-                <View style={styles.thumbWrapper}>
-                  <Image
-                    source={{ uri: `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg` }}
-                    style={styles.thumbnail}
-                    resizeMode="cover"
-                  />
-                  {video.duration ? (
-                    <View style={styles.durationBadge}>
-                      <Text style={styles.durationText}>{video.duration}</Text>
-                    </View>
-                  ) : null}
+              return (
+                <View
+                  key={`${video.source ?? 'admin'}_${video.videoId}`}
+                  style={[styles.videoCard, isDesktop && styles.videoCardDesktop]}
+                >
+                  <Pressable
+                    onPress={() => onSelectVideo(video)}
+                    disabled={isLoading || isDeleting}
+                  >
+                    <View style={styles.thumbWrapper}>
+                      <Image
+                        source={{ uri: `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg` }}
+                        style={styles.thumbnail}
+                        resizeMode="cover"
+                      />
+                      {video.duration ? (
+                        <View style={styles.durationBadge}>
+                          <Text style={styles.durationText}>{video.duration}</Text>
+                        </View>
+                      ) : null}
 
-                  {/* Play Overlay */}
-                  <View style={styles.playOverlay}>
-                    {isThisLoading ? (
-                      <ActivityIndicator color="#FFFFFF" size="large" />
-                    ) : (
-                      <View style={styles.playButtonCircle}>
-                        <Text style={styles.playIconText}>▶</Text>
+                      <View style={styles.playOverlay}>
+                        {isThisLoading ? (
+                          <ActivityIndicator color="#FFFFFF" size="large" />
+                        ) : (
+                          <View style={styles.playButtonCircle}>
+                            <Text style={styles.playIconText}>▶</Text>
+                          </View>
+                        )}
                       </View>
-                    )}
-                  </View>
-                </View>
-
-                {/* Video Info */}
-                <View style={styles.videoInfo}>
-                  <View style={styles.badgeRow}>
-                    {video.level ? (
-                      <View style={styles.levelBadge}>
-                        <Text style={styles.levelBadgeText}>{video.level}</Text>
-                      </View>
-                    ) : null}
-                    <View style={styles.onlineBadge}>
-                      <Text style={styles.onlineBadgeText}>YouTube Shadowing</Text>
                     </View>
-                  </View>
 
-                  <Text style={styles.videoTitle} numberOfLines={2}>
-                    {video.title}
-                  </Text>
+                    <View style={styles.videoInfo}>
+                      <View style={styles.badgeRow}>
+                        {video.level ? (
+                          <View style={styles.levelBadge}>
+                            <Text style={styles.levelBadgeText}>{video.level}</Text>
+                          </View>
+                        ) : null}
+                        <View style={isUserOwned ? styles.mineBadge : styles.onlineBadge}>
+                          <Text style={isUserOwned ? styles.mineBadgeText : styles.onlineBadgeText}>
+                            {isUserOwned ? 'Video của tôi' : 'YouTube Shadowing'}
+                          </Text>
+                        </View>
+                      </View>
 
-                  {video.channel ? (
-                    <View style={styles.channelRow}>
-                      <MicIcon size={12} color={nihongoTheme.colors.textSecondary} />
-                      <Text style={styles.channelName} numberOfLines={1}>
-                        {video.channel}
+                      <Text style={styles.videoTitle} numberOfLines={2}>
+                        {video.title}
                       </Text>
-                    </View>
-                  ) : null}
 
-                  {video.description ? (
-                    <Text style={styles.videoDesc} numberOfLines={2}>
-                      {video.description}
-                    </Text>
-                  ) : null}
+                      {video.channel ? (
+                        <View style={styles.channelRow}>
+                          <MicIcon size={12} color={nihongoTheme.colors.textSecondary} />
+                          <Text style={styles.channelName} numberOfLines={1}>
+                            {video.channel}
+                          </Text>
+                        </View>
+                      ) : null}
+
+                      {video.description ? (
+                        <Text style={styles.videoDesc} numberOfLines={2}>
+                          {video.description}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </Pressable>
 
                   <View style={styles.cardFooter}>
-                    <Text style={styles.ctaText}>
-                      {isThisLoading ? 'Đang trích xuất phụ đề…' : 'Bắt đầu luyện tập ▶'}
-                    </Text>
+                    {isUserOwned && onDeleteVideo ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Xóa video ${video.title}`}
+                        style={[styles.deleteBtn, isDeleting && { opacity: 0.5 }]}
+                        disabled={isDeleting || isLoading}
+                        onPress={() => onDeleteVideo(video)}
+                      >
+                        <TrashIcon size={13} color="#DC2626" />
+                        <Text style={styles.deleteBtnText}>
+                          {isDeleting ? 'Đang xóa...' : 'Xóa'}
+                        </Text>
+                      </Pressable>
+                    ) : (
+                      <View />
+                    )}
+
+                    <Pressable
+                      onPress={() => onSelectVideo(video)}
+                      disabled={isLoading || isDeleting}
+                    >
+                      <Text style={styles.ctaText}>
+                        {isThisLoading ? 'Đang trích xuất phụ đề…' : 'Bắt đầu luyện tập ▶'}
+                      </Text>
+                    </Pressable>
                   </View>
                 </View>
-              </Pressable>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -180,44 +231,6 @@ const styles = StyleSheet.create({
   container: {
     gap: 20,
     paddingBottom: 24,
-  },
-  inputCard: {
-    backgroundColor: nihongoTheme.colors.surface,
-    borderRadius: nihongoTheme.radius.card,
-    padding: 18,
-    gap: 14,
-    borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    ...nihongoTheme.shadow.card,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  cardIcon: {
-    fontSize: 26,
-  },
-  cardHeaderTextCol: {
-    flex: 1,
-  },
-  chevronText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: nihongoTheme.colors.textMuted,
-    paddingLeft: 8,
-    paddingTop: 4,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: nihongoTheme.colors.textPrimary,
-    marginBottom: 4,
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    color: nihongoTheme.colors.textSecondary,
-    lineHeight: 18,
   },
   inputRow: {
     flexDirection: 'row',
@@ -263,13 +276,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  catalogSection: {
-    gap: 12,
-  },
-  sectionTitleRow: {
+  errorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  catalogSection: {
+    gap: 12,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -289,23 +302,31 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
   },
-  sectionIcon: {
-    fontSize: 22,
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: nihongoTheme.colors.textPrimary,
   },
-  sectionCount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: nihongoTheme.colors.textMuted,
+  emptyCard: {
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 24,
+    alignItems: 'center',
+    gap: 6,
   },
-  sectionDesc: {
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+    textAlign: 'center',
+  },
+  emptyDesc: {
     fontSize: 13,
     color: nihongoTheme.colors.textSecondary,
-    marginBottom: 4,
+    textAlign: 'center',
+    lineHeight: 19,
   },
   grid: {
     flexDirection: 'column',
@@ -377,6 +398,7 @@ const styles = StyleSheet.create({
   },
   videoInfo: {
     padding: 16,
+    paddingBottom: 10,
     gap: 8,
   },
   badgeRow: {
@@ -396,16 +418,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: nihongoTheme.colors.accentHover,
   },
-  offlineBadge: {
-    backgroundColor: nihongoTheme.colors.successBg,
+  mineBadge: {
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: nihongoTheme.radius.pill,
   },
-  offlineBadgeText: {
+  mineBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: nihongoTheme.colors.successText,
+    color: '#1D4ED8',
   },
   onlineBadge: {
     backgroundColor: nihongoTheme.colors.chipNeutralBg,
@@ -424,11 +446,6 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.textPrimary,
     lineHeight: 21,
   },
-  errorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   channelRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -445,11 +462,31 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   cardFooter: {
-    marginTop: 4,
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 14,
     borderTopWidth: 1,
     borderTopColor: nihongoTheme.colors.borderLight,
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  deleteBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
   },
   ctaText: {
     fontSize: 13,

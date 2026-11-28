@@ -231,7 +231,8 @@ export async function getAdminLessonDetail(lessonId: string) {
       [lessonId],
     ),
     pool.query<LessonMaterialRow>(
-      `SELECT * FROM lesson_materials
+      `SELECT id, lesson_id, title, material_type, storage_name, file_name, mime_type, file_size, external_url, description, sort_order, created_at
+       FROM lesson_materials
        WHERE lesson_id = $1 AND deleted_at IS NULL
        ORDER BY sort_order ASC, created_at ASC`,
       [lessonId],
@@ -644,10 +645,7 @@ export async function uploadLessonMaterialFile(
     throw new NotFoundError('Không tìm thấy bài học.');
   }
 
-  await fs.mkdir(UPLOAD_DIR, { recursive: true });
   const storageName = `${crypto.randomUUID()}${ext}`;
-  const fullPath = resolveSafeMaterialPath(storageName);
-  await fs.writeFile(fullPath, buf);
 
   const client = await pool.connect();
   try {
@@ -662,9 +660,9 @@ export async function uploadLessonMaterialFile(
 
     const res = await client.query<LessonMaterialRow>(
       `INSERT INTO lesson_materials
-        (id, lesson_id, title, material_type, storage_name, file_name, mime_type, file_size, description, sort_order)
-       VALUES ($1, $2, $3, 'file', $4, $5, $6, $7, $8, $9)
-       RETURNING *`,
+        (id, lesson_id, title, material_type, storage_name, file_name, mime_type, file_size, file_data, description, sort_order)
+       VALUES ($1, $2, $3, 'file', $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id, lesson_id, title, material_type, storage_name, file_name, mime_type, file_size, external_url, description, sort_order, created_at`,
       [
         id,
         lessonId,
@@ -673,6 +671,7 @@ export async function uploadLessonMaterialFile(
         sanitizeDownloadFilename(input.fileName),
         storedMime,
         buf.length,
+        buf,
         input.description,
         sortOrder,
       ],
@@ -689,7 +688,6 @@ export async function uploadLessonMaterialFile(
     return mapLessonMaterial(res.rows[0]!);
   } catch (err) {
     await client.query('ROLLBACK');
-    await fs.unlink(fullPath).catch(() => undefined);
     throw err;
   } finally {
     client.release();
@@ -882,7 +880,8 @@ export async function getPublicLessonDetail(user: AuthUser | null, lessonId: str
       [lessonId],
     ),
     pool.query<LessonMaterialRow>(
-      `SELECT * FROM lesson_materials
+      `SELECT id, lesson_id, title, material_type, storage_name, file_name, mime_type, file_size, external_url, description, sort_order, created_at
+       FROM lesson_materials
        WHERE lesson_id = $1 AND deleted_at IS NULL
        ORDER BY sort_order ASC, created_at ASC`,
       [lessonId],
@@ -908,11 +907,12 @@ export async function resolveMaterialDownload(user: AuthUser | null, materialId:
     storage_name: string | null;
     file_name: string | null;
     mime_type: string | null;
+    file_data: Buffer | null;
     lesson_status: string;
     access_tier: string;
   }>(
     `SELECT
-       m.id, m.material_type, m.storage_name, m.file_name, m.mime_type,
+       m.id, m.material_type, m.storage_name, m.file_name, m.mime_type, m.file_data,
        l.status AS lesson_status,
        l.access_tier
      FROM lesson_materials m
@@ -921,7 +921,7 @@ export async function resolveMaterialDownload(user: AuthUser | null, materialId:
     [materialId],
   );
   const row = res.rows[0];
-  if (!row || row.material_type !== 'file' || !row.storage_name) {
+  if (!row || row.material_type !== 'file') {
     throw new NotFoundError('Không tìm thấy tệp tài liệu.');
   }
   if (row.lesson_status !== 'published' && user?.role !== 'admin') {
@@ -938,10 +938,36 @@ export async function resolveMaterialDownload(user: AuthUser | null, materialId:
     );
   }
 
-  const filePath = resolveSafeMaterialPath(row.storage_name);
+  let fileData: Buffer | null =
+    row.file_data && Buffer.isBuffer(row.file_data) && row.file_data.byteLength > 0
+      ? row.file_data
+      : null;
+
+  if (!fileData && row.storage_name) {
+    try {
+      const filePath = resolveSafeMaterialPath(row.storage_name);
+      const diskBuf = await fs.readFile(filePath);
+      if (diskBuf.byteLength > 0) {
+        fileData = diskBuf;
+        await pool
+          .query(
+            `UPDATE lesson_materials SET file_data = $1, file_size = COALESCE(file_size, $2) WHERE id = $3 AND file_data IS NULL`,
+            [diskBuf, diskBuf.byteLength, row.id],
+          )
+          .catch(() => undefined);
+      }
+    } catch {
+      // ignore missing disk file
+    }
+  }
+
+  if (!fileData) {
+    throw new NotFoundError('Tệp tài liệu không còn dữ liệu khả dụng.');
+  }
+
   return {
-    filePath,
-    fileName: sanitizeDownloadFilename(row.file_name || row.storage_name),
+    fileData,
+    fileName: sanitizeDownloadFilename(row.file_name || row.storage_name || 'tai-lieu'),
     mimeType: row.mime_type || 'application/octet-stream',
   };
 }

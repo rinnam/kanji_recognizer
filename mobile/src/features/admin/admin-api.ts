@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
+import { stripBom } from '../../import-parser';
 import { getCachedAdminSession, readAdminSession } from '../auth/auth-store';
 import {
   getApiBase,
@@ -275,6 +276,16 @@ export async function fileAssetToBase64(uri: string): Promise<string> {
     });
   }
   return FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+}
+
+export async function fileAssetToText(uri: string): Promise<string> {
+  if (Platform.OS === 'web') {
+    const resp = await fetch(uri);
+    const text = await resp.text();
+    return stripBom(text);
+  }
+  const text = await FileSystem.readAsStringAsync(uri, { encoding: 'utf8' });
+  return stripBom(text);
 }
 
 export function fetchAdminOverview(days: 7 | 30 | 90 | 365, kind: 'all' | 'real' | 'demo') {
@@ -585,4 +596,298 @@ export function deleteAdminLessonMaterial(lessonId: string, materialId: string) 
     `/admin/lessons/${encodeURIComponent(lessonId)}/materials/${encodeURIComponent(materialId)}`,
     { method: 'DELETE' },
   );
+}
+
+export type AdminShadowingStatus = 'published' | 'hidden';
+
+export interface AdminShadowingVideoDto {
+  id: string;
+  videoId: string;
+  title: string;
+  channel: string;
+  level: string;
+  duration: string;
+  description: string;
+  status: AdminShadowingStatus;
+  sortOrder: number;
+  source: 'admin';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function fetchAdminShadowingVideos(
+  status: 'all' | AdminShadowingStatus = 'all',
+  q = '',
+) {
+  const qs = new URLSearchParams({ status, q });
+  return adminRequest<{ videos: AdminShadowingVideoDto[] }>(`/admin/shadowing?${qs.toString()}`);
+}
+
+export function createAdminShadowingVideo(payload: {
+  urlOrId: string;
+  title?: string;
+  channel?: string;
+  level?: string;
+  duration?: string;
+  description?: string;
+  status: AdminShadowingStatus;
+  sortOrder: number;
+}) {
+  return adminRequest<{ video: AdminShadowingVideoDto }>('/admin/shadowing', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateAdminShadowingVideo(
+  id: string,
+  payload: Partial<{
+    urlOrId: string;
+    title: string;
+    channel: string;
+    level: string;
+    duration: string;
+    description: string;
+    status: AdminShadowingStatus;
+    sortOrder: number;
+  }>,
+) {
+  return adminRequest<{ video: AdminShadowingVideoDto }>(
+    `/admin/shadowing/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function deleteAdminShadowingVideo(id: string) {
+  return adminRequest<{ ok: boolean }>(`/admin/shadowing/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
+export type AdminGrammarStatus = 'published' | 'hidden';
+
+export interface AdminGrammarExampleDto {
+  ja: string;
+  reading: string;
+  vi: string;
+}
+
+export interface AdminGrammarPointDto {
+  id: string;
+  level: JlptLevel;
+  category: string;
+  pattern: string;
+  structure: string;
+  meaningVi: string;
+  nuanceVi: string;
+  examples: AdminGrammarExampleDto[];
+  status: AdminGrammarStatus;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminGrammarStarDto {
+  id: string;
+  level: JlptLevel;
+  meaningVi: string;
+  prefixJa: string;
+  suffixJa: string;
+  parts: [string, string, string, string];
+  starIndex: 0 | 1 | 2 | 3;
+  explanationVi: string;
+  status: AdminGrammarStatus;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminGrammarBlitzDto {
+  id: string;
+  kind: 'particle' | 'conjugation';
+  level: JlptLevel;
+  promptMain: string;
+  promptSub: string;
+  meaningVi: string;
+  correct: string;
+  choices: [string, string, string, string];
+  tipVi: string;
+  status: AdminGrammarStatus;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function fetchAdminGrammarPoints(params: {
+  level: 'ALL' | JlptLevel;
+  category: string;
+  status: 'all' | AdminGrammarStatus;
+  q: string;
+}) {
+  const qs = new URLSearchParams(params);
+  return adminRequest<{
+    points: AdminGrammarPointDto[];
+    totals: { points: number; star: number; blitz: number };
+  }>(`/admin/grammar?${qs.toString()}`);
+}
+
+export function createAdminGrammarPoint(payload: {
+  level: JlptLevel;
+  category: string;
+  pattern: string;
+  structure: string;
+  meaningVi: string;
+  nuanceVi: string;
+  examples: AdminGrammarExampleDto[];
+  status: AdminGrammarStatus;
+  sortOrder: number;
+}) {
+  return adminRequest<{ point: AdminGrammarPointDto }>('/admin/grammar', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateAdminGrammarPoint(
+  id: string,
+  payload: Partial<{
+    level: JlptLevel;
+    category: string;
+    pattern: string;
+    structure: string;
+    meaningVi: string;
+    nuanceVi: string;
+    examples: AdminGrammarExampleDto[];
+    status: AdminGrammarStatus;
+    sortOrder: number;
+  }>,
+) {
+  return adminRequest<{ point: AdminGrammarPointDto }>(`/admin/grammar/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteAdminGrammarPoint(id: string) {
+  return adminRequest<{ ok: boolean }>(`/admin/grammar/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
+export function fetchAdminGrammarStar(params: {
+  level: 'ALL' | JlptLevel;
+  status: 'all' | AdminGrammarStatus;
+  q: string;
+}) {
+  const qs = new URLSearchParams(params);
+  return adminRequest<{ questions: AdminGrammarStarDto[] }>(`/admin/grammar/star?${qs.toString()}`);
+}
+
+export function createAdminGrammarStar(payload: {
+  level: JlptLevel;
+  meaningVi: string;
+  prefixJa: string;
+  suffixJa: string;
+  parts: [string, string, string, string];
+  starIndex: number;
+  explanationVi: string;
+  status: AdminGrammarStatus;
+  sortOrder: number;
+}) {
+  return adminRequest<{ question: AdminGrammarStarDto }>('/admin/grammar/star', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateAdminGrammarStar(
+  id: string,
+  payload: Partial<{
+    level: JlptLevel;
+    meaningVi: string;
+    prefixJa: string;
+    suffixJa: string;
+    parts: [string, string, string, string];
+    starIndex: number;
+    explanationVi: string;
+    status: AdminGrammarStatus;
+    sortOrder: number;
+  }>,
+) {
+  return adminRequest<{ question: AdminGrammarStarDto }>(
+    `/admin/grammar/star/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function deleteAdminGrammarStar(id: string) {
+  return adminRequest<{ ok: boolean }>(`/admin/grammar/star/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
+export function fetchAdminGrammarBlitz(params: {
+  kind: 'all' | 'particle' | 'conjugation';
+  level: 'ALL' | JlptLevel;
+  status: 'all' | AdminGrammarStatus;
+  q: string;
+}) {
+  const qs = new URLSearchParams(params);
+  return adminRequest<{ questions: AdminGrammarBlitzDto[] }>(
+    `/admin/grammar/blitz?${qs.toString()}`,
+  );
+}
+
+export function createAdminGrammarBlitz(payload: {
+  kind: 'particle' | 'conjugation';
+  level: JlptLevel;
+  promptMain: string;
+  promptSub: string;
+  meaningVi: string;
+  correct: string;
+  choices: [string, string, string, string];
+  tipVi: string;
+  status: AdminGrammarStatus;
+  sortOrder: number;
+}) {
+  return adminRequest<{ question: AdminGrammarBlitzDto }>('/admin/grammar/blitz', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateAdminGrammarBlitz(
+  id: string,
+  payload: Partial<{
+    kind: 'particle' | 'conjugation';
+    level: JlptLevel;
+    promptMain: string;
+    promptSub: string;
+    meaningVi: string;
+    correct: string;
+    choices: [string, string, string, string];
+    tipVi: string;
+    status: AdminGrammarStatus;
+    sortOrder: number;
+  }>,
+) {
+  return adminRequest<{ question: AdminGrammarBlitzDto }>(
+    `/admin/grammar/blitz/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function deleteAdminGrammarBlitz(id: string) {
+  return adminRequest<{ ok: boolean }>(`/admin/grammar/blitz/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
 }

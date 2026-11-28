@@ -24,6 +24,7 @@ export interface ShadowingLine {
 }
 
 export interface SampleVideoItem {
+  id?: string;
   videoId: string;
   title: string;
   channel?: string;
@@ -31,6 +32,7 @@ export interface SampleVideoItem {
   duration?: string;
   description?: string;
   thumbnailUrl?: string;
+  source?: 'admin' | 'user';
 }
 
 export interface ShadowingVideo extends SampleVideoItem {

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
+  ActivityIndicator,
   Modal,
   ScrollView,
   TextInput,
@@ -9,7 +10,7 @@ import {
   Pressable,
   useWindowDimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { AppShell } from '../../../src/components/AppShell';
 import { TopHeader } from '../../../src/components/TopHeader';
 import { nihongoTheme } from '../../../src/theme/nihongo-theme';
@@ -19,66 +20,60 @@ import { TranscriptListView } from '../../../src/features/shadowing/TranscriptLi
 import { ShadowingToolbar } from '../../../src/features/shadowing/ShadowingToolbar';
 import { WordDetailModal } from '../../../src/features/shadowing/WordDetailModal';
 import { VideoCatalogView } from '../../../src/features/shadowing/VideoCatalogView';
-import { SAMPLE_VIDEOS } from '../../../src/features/shadowing/sample-videos';
 import {
-  readShadowingLibrary,
-  saveShadowingLibrary,
-  type SavedVideoItem,
-  type VideoFolder,
+  deleteMyShadowingVideoApi,
+  fetchShadowingCatalog,
+  saveMyShadowingVideoApi,
 } from '../../../src/features/shadowing/video-library-store';
 import { fetchTranscriptApi, parseYouTubeVideoId } from '../../../src/features/shadowing/shadowing-api';
 import { recordMeaningfulStudyAction } from '../../../src/features/study-tracker/use-study-tracker';
 import type { AnalyzedToken, ShadowingLine, SampleVideoItem } from '../../../src/features/shadowing/types';
 
 export default function ListeningScreen() {
-  const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 960;
 
   // Screen mode: 'catalog' shows the list of videos + custom link input; 'player' shows the shadowing workspace
   const [screenMode, setScreenMode] = useState<'catalog' | 'player'>('catalog');
 
-  const [videoFolders, setVideoFolders] = useState<VideoFolder[]>([]);
-  const [customVideos, setCustomVideos] = useState<SavedVideoItem[]>([]);
-  const [selectedVideoFolderId, setSelectedVideoFolderId] = useState<string | null>(null);
-  const [newVideoFolderName, setNewVideoFolderName] = useState<string>('');
-  const [createFolderOpen, setCreateFolderOpen] = useState<boolean>(false);
-  const [currentVideo, setCurrentVideo] = useState<SampleVideoItem>(SAMPLE_VIDEOS[0]);
+  const [activeScope, setActiveScope] = useState<'all' | 'mine'>('all');
+  const [adminVideos, setAdminVideos] = useState<SampleVideoItem[]>([]);
+  const [myVideos, setMyVideos] = useState<SampleVideoItem[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState<boolean>(true);
+  const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
+  const [deleteConfirmVideo, setDeleteConfirmVideo] = useState<SampleVideoItem | null>(null);
 
-  useEffect(() => {
-    void readShadowingLibrary().then((data) => {
-      setVideoFolders(data.folders);
-      setCustomVideos(data.customVideos);
-    });
+  const loadCatalog = useCallback(async () => {
+    try {
+      const data = await fetchShadowingCatalog();
+      setAdminVideos(data.adminVideos);
+      setMyVideos(data.myVideos);
+    } finally {
+      setCatalogLoading(false);
+    }
   }, []);
 
-  const catalogVideos = useMemo<SavedVideoItem[]>(() => {
-    const merged: SavedVideoItem[] = [...customVideos, ...SAMPLE_VIDEOS];
-    if (!selectedVideoFolderId) return merged;
-    return merged.filter((v) => v.folderId === selectedVideoFolderId);
-  }, [customVideos, selectedVideoFolderId]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadCatalog();
+    }, [loadCatalog]),
+  );
 
-  const persistLibrary = (nextFolders: VideoFolder[], nextVideos: SavedVideoItem[]) => {
-    setVideoFolders(nextFolders);
-    setCustomVideos(nextVideos);
-    void saveShadowingLibrary({ folders: nextFolders, customVideos: nextVideos });
-  };
+  const allVideos = useMemo<SampleVideoItem[]>(() => {
+    const myIds = new Set(myVideos.map((v) => v.videoId));
+    const filteredAdmin = adminVideos.filter((v) => !myIds.has(v.videoId));
+    return [...myVideos, ...filteredAdmin];
+  }, [myVideos, adminVideos]);
 
-  const handleCreateVideoFolder = () => {
-    const name = newVideoFolderName.trim();
-    if (!name) return;
-    const created: VideoFolder = { id: `vfolder_${Date.now()}`, name };
-    persistLibrary([...videoFolders, created], customVideos);
-    setNewVideoFolderName('');
-    setSelectedVideoFolderId(created.id);
-    setCreateFolderOpen(false);
-  };
+  const catalogVideos = useMemo<SampleVideoItem[]>(() => {
+    return activeScope === 'mine' ? myVideos : allVideos;
+  }, [activeScope, myVideos, allVideos]);
 
   // In-memory cache for fetched transcript lines to avoid re-fetching the same video within the same session
   const linesCacheRef = useRef<Record<string, ShadowingLine[]>>({});
 
-  const [videoId, setVideoId] = useState<string>(SAMPLE_VIDEOS[0].videoId);
-  const [videoTitle, setVideoTitle] = useState<string>(SAMPLE_VIDEOS[0].title);
+  const [videoId, setVideoId] = useState<string>('');
+  const [videoTitle, setVideoTitle] = useState<string>('');
   const [lines, setLines] = useState<ShadowingLine[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [selectedToken, setSelectedToken] = useState<AnalyzedToken | null>(null);
@@ -222,7 +217,6 @@ export default function ListeningScreen() {
     // If lines are already cached in current session
     if (linesCacheRef.current[video.videoId]) {
       const cached = linesCacheRef.current[video.videoId];
-      setCurrentVideo(video);
       setVideoId(video.videoId);
       setVideoTitle(video.title);
       setLines(cached);
@@ -242,7 +236,6 @@ export default function ListeningScreen() {
       }
 
       linesCacheRef.current[video.videoId] = res.lines;
-      setCurrentVideo(video);
       setVideoId(video.videoId);
       setVideoTitle(video.title);
       setLines(res.lines);
@@ -258,7 +251,7 @@ export default function ListeningScreen() {
     }
   };
 
-  // User submits a custom YouTube link
+  // User submits a custom YouTube link -> saves to "Video của tôi" in DB & opens player
   const handleCustomUrlSubmit = async (url: string) => {
     const extractedId = parseYouTubeVideoId(url);
     if (!extractedId) {
@@ -267,58 +260,52 @@ export default function ListeningScreen() {
     }
 
     setErrorMessage(null);
-
-    // Check if it's already one of our catalog videos
-    const matched = catalogVideos.find((v) => v.videoId === extractedId);
-    if (matched) {
-      handleSelectCatalogVideo(matched);
-      return;
-    }
-
-    // Check session cache
-    if (linesCacheRef.current[extractedId]) {
-      const cached = linesCacheRef.current[extractedId];
-      const newVideo: SavedVideoItem = {
-        videoId: extractedId,
-        title: `YouTube Video (${extractedId})`,
-        channel: 'YouTube (Đã lưu)',
-        folderId: selectedVideoFolderId,
-        isCustom: true,
-      };
-      const nextCustom = [newVideo, ...customVideos.filter((v) => v.videoId !== extractedId)];
-      persistLibrary(videoFolders, nextCustom);
-      setCurrentVideo(newVideo);
-      setVideoId(extractedId);
-      setVideoTitle(newVideo.title);
-      setLines(cached);
-      setCurrentIndex(0);
-      lastPausedLineRef.current = -1;
-      setScreenMode('player');
-      return;
-    }
-
     setLoading(true);
     setLoadingVideoId('custom');
+
+    let savedVideo: SampleVideoItem | null = null;
     try {
+      const existingMine = myVideos.find((v) => v.videoId === extractedId);
+      if (existingMine) {
+        savedVideo = existingMine;
+      } else {
+        try {
+          const savedRes = await saveMyShadowingVideoApi({ urlOrId: url });
+          savedVideo = savedRes.video;
+          setMyVideos((prev) => [
+            savedRes.video,
+            ...prev.filter((v) => v.videoId !== savedRes.video.videoId),
+          ]);
+        } catch {
+          // If unauthenticated or temporary save failure, continue transcript playback gracefully
+          savedVideo = {
+            videoId: extractedId,
+            title: `YouTube Video (${extractedId})`,
+            channel: 'YouTube (Đã lưu)',
+            source: 'user',
+          };
+        }
+      }
+
+      if (linesCacheRef.current[extractedId]) {
+        const cached = linesCacheRef.current[extractedId];
+        setVideoId(extractedId);
+        setVideoTitle(savedVideo.title);
+        setLines(cached);
+        setCurrentIndex(0);
+        lastPausedLineRef.current = -1;
+        setScreenMode('player');
+        return;
+      }
+
       const res = await fetchTranscriptApi(extractedId);
       if (!res.lines || res.lines.length === 0) {
-        throw new Error('Video này không có phụ đề tiếng Nhật. Vui lòng chọn video có CC tiếng Nhật.');
+        throw new Error('Đã lưu vào Video của tôi, nhưng video này không có phụ đề tiếng Nhật (CC) để luyện Shadowing.');
       }
 
       linesCacheRef.current[extractedId] = res.lines;
-      const newVideo: SavedVideoItem = {
-        videoId: extractedId,
-        title: `YouTube Video (${extractedId})`,
-        channel: 'YouTube (Đã lưu)',
-        folderId: selectedVideoFolderId,
-        isCustom: true,
-      };
-
-      const nextCustom = [newVideo, ...customVideos.filter((v) => v.videoId !== extractedId)];
-      persistLibrary(videoFolders, nextCustom);
-      setCurrentVideo(newVideo);
       setVideoId(extractedId);
-      setVideoTitle(newVideo.title);
+      setVideoTitle(savedVideo.title);
       setLines(res.lines);
       setCurrentIndex(0);
       lastPausedLineRef.current = -1;
@@ -329,6 +316,22 @@ export default function ListeningScreen() {
     } finally {
       setLoading(false);
       setLoadingVideoId(null);
+    }
+  };
+
+  const handleConfirmDeleteMyVideo = async () => {
+    if (!deleteConfirmVideo || deletingVideoId) return;
+    const target = deleteConfirmVideo;
+    setDeletingVideoId(target.videoId);
+    setErrorMessage(null);
+    try {
+      await deleteMyShadowingVideoApi(target.videoId);
+      setMyVideos((prev) => prev.filter((v) => v.videoId !== target.videoId));
+      setDeleteConfirmVideo(null);
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Không xóa được video.');
+    } finally {
+      setDeletingVideoId(null);
     }
   };
 
@@ -356,76 +359,84 @@ export default function ListeningScreen() {
             title="Luyện nghe & Shadowing"
           />
 
-          {/* Video Folder Filter & Quick Create Bar */}
+          {/* Strictly 2 tabs: Tất cả (Admin + User) & Video của tôi */}
           <View style={styles.folderStrip}>
-            <View style={styles.folderTopRow}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.folderScroll}
-                contentContainerStyle={styles.folderChips}
-              >
-                <Pressable
-                  style={[styles.folderChip, selectedVideoFolderId === null && styles.folderChipActive]}
-                  onPress={() => setSelectedVideoFolderId(null)}
-                >
-                  <Text style={[styles.folderChipText, selectedVideoFolderId === null && styles.folderChipTextActive]}>
-                    Tất cả ({customVideos.length + SAMPLE_VIDEOS.length})
-                  </Text>
-                </Pressable>
-                {videoFolders.map((f) => {
-                  const active = selectedVideoFolderId === f.id;
-                  const count = customVideos.filter((v) => v.folderId === f.id).length;
-                  return (
-                    <Pressable
-                      key={f.id}
-                      style={[styles.folderChip, active && styles.folderChipActive]}
-                      onPress={() => setSelectedVideoFolderId(f.id)}
-                    >
-                      <Text style={[styles.folderChipText, active && styles.folderChipTextActive]}>
-                        {f.name} ({count})
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-
+            <View style={styles.folderChips}>
               <Pressable
-                style={[styles.addFolderIconBtn, createFolderOpen && styles.folderChipActive]}
-                onPress={() => setCreateFolderOpen((prev) => !prev)}
-                accessibilityLabel="Tạo thư mục mới"
+                style={[styles.folderChip, activeScope === 'all' && styles.folderChipActive]}
+                onPress={() => setActiveScope('all')}
               >
-                <Text style={[styles.addFolderIconText, createFolderOpen && styles.folderChipTextActive]}>
-                  +
+                <Text style={[styles.folderChipText, activeScope === 'all' && styles.folderChipTextActive]}>
+                  Tất cả ({allVideos.length})
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.folderChip, activeScope === 'mine' && styles.folderChipActive]}
+                onPress={() => setActiveScope('mine')}
+              >
+                <Text style={[styles.folderChipText, activeScope === 'mine' && styles.folderChipTextActive]}>
+                  Video của tôi ({myVideos.length})
                 </Text>
               </Pressable>
             </View>
-            {createFolderOpen ? (
-              <View style={styles.folderCreateRow}>
-                <TextInput
-                  value={newVideoFolderName}
-                  onChangeText={setNewVideoFolderName}
-                  onSubmitEditing={handleCreateVideoFolder}
-                  placeholder="Tạo thư mục video mới..."
-                  placeholderTextColor={nihongoTheme.colors.textMuted}
-                  style={styles.pickerInput}
-                  autoFocus
-                />
-                <Pressable style={styles.pickerAddBtn} onPress={handleCreateVideoFolder}>
-                  <Text style={styles.pickerAddText}>Tạo</Text>
-                </Pressable>
-              </View>
-            ) : null}
           </View>
 
-          <VideoCatalogView
-            videos={catalogVideos}
-            onSelectVideo={handleSelectCatalogVideo}
-            onSubmitUrl={handleCustomUrlSubmit}
-            isLoading={loading}
-            loadingVideoId={loadingVideoId}
-            errorMessage={errorMessage}
-          />
+          {catalogLoading && allVideos.length === 0 ? (
+            <View style={styles.catalogLoadingCard}>
+              <ActivityIndicator color={nihongoTheme.colors.accent} />
+              <Text style={styles.pickerItemChannel}>Đang tải danh sách video...</Text>
+            </View>
+          ) : (
+            <VideoCatalogView
+              videos={catalogVideos}
+              activeScope={activeScope}
+              onSelectVideo={(v) => void handleSelectCatalogVideo(v)}
+              onSubmitUrl={(url) => void handleCustomUrlSubmit(url)}
+              onDeleteVideo={(video) => setDeleteConfirmVideo(video)}
+              isLoading={loading}
+              loadingVideoId={loadingVideoId}
+              deletingVideoId={deletingVideoId}
+              errorMessage={errorMessage}
+            />
+          )}
+
+          <Modal
+            visible={Boolean(deleteConfirmVideo)}
+            transparent
+            animationType="fade"
+            onRequestClose={() => {
+              if (!deletingVideoId) setDeleteConfirmVideo(null);
+            }}
+          >
+            <View style={styles.deleteOverlay}>
+              <View style={styles.deleteCard}>
+                <Text style={styles.pickerTitle}>Xóa video khỏi &ldquo;Video của tôi&rdquo;?</Text>
+                <Text style={styles.pickerItemChannel}>
+                  {deleteConfirmVideo
+                    ? `Video "${deleteConfirmVideo.title}" sẽ bị xóa khỏi danh sách đã lưu của bạn.`
+                    : ''}
+                </Text>
+                <View style={styles.deleteActionsRow}>
+                  <Pressable
+                    style={styles.cancelDeleteBtn}
+                    disabled={Boolean(deletingVideoId)}
+                    onPress={() => setDeleteConfirmVideo(null)}
+                  >
+                    <Text style={styles.cancelDeleteText}>Hủy</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.confirmDeleteBtn}
+                    disabled={Boolean(deletingVideoId)}
+                    onPress={() => void handleConfirmDeleteMyVideo()}
+                  >
+                    <Text style={styles.confirmDeleteText}>
+                      {deletingVideoId ? 'Đang xóa...' : 'Xóa video'}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </>
       ) : (
         <>
@@ -920,5 +931,62 @@ const styles = StyleSheet.create({
   pickerItemChannel: {
     fontSize: 11,
     color: nihongoTheme.colors.textSecondary,
+  },
+  catalogLoadingCard: {
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 28,
+    alignItems: 'center',
+    gap: 10,
+  },
+  deleteOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(24, 24, 27, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  deleteCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 18,
+    gap: 10,
+    ...nihongoTheme.shadow.dock,
+  },
+  deleteActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 4,
+  },
+  cancelDeleteBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: nihongoTheme.radius.button,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    backgroundColor: nihongoTheme.colors.surface,
+  },
+  cancelDeleteText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  confirmDeleteBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: nihongoTheme.radius.button,
+    backgroundColor: '#DC2626',
+  },
+  confirmDeleteText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

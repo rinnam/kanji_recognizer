@@ -1,5 +1,3 @@
-import { createReadStream } from 'node:fs';
-import fs from 'node:fs/promises';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
   resolveAuthenticatedToken,
@@ -12,8 +10,22 @@ import {
   saveLessonToUserFlashcards,
 } from '../services/lesson.service.js';
 import { requireAuthUser } from '../utils/admin-guard.js';
-import { NotFoundError } from '../utils/errors.js';
 import { publicLessonsQuerySchema } from '../validators/lesson.js';
+
+function toAsciiFilename(raw: string): string {
+  const dotIdx = raw.lastIndexOf('.');
+  const ext = dotIdx > 0 ? raw.slice(dotIdx).replace(/[^a-zA-Z0-9.]/g, '') : '';
+  const base = dotIdx > 0 ? raw.slice(0, dotIdx) : raw;
+  const asciiBase = base
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._ -]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .trim();
+  const safeBase = asciiBase || 'tai-lieu';
+  return `${safeBase.slice(0, 120)}${ext.slice(0, 16)}`;
+}
 
 export async function handlePublicListLessons(req: FastifyRequest, reply: FastifyReply) {
   const user = await resolveAuthenticatedUser(req.headers.authorization);
@@ -39,19 +51,15 @@ export async function handleDownloadMaterialFile(req: FastifyRequest, reply: Fas
   const user = await resolveAuthenticatedToken(rawToken);
   const info = await resolveMaterialDownload(user, materialId);
 
-  try {
-    await fs.stat(info.filePath);
-  } catch {
-    throw new NotFoundError('Tệp tài liệu không còn tồn tại trên máy chủ.');
-  }
-
+  const asciiName = toAsciiFilename(info.fileName);
   void reply.header('Content-Type', info.mimeType);
+  void reply.header('Content-Length', String(info.fileData.byteLength));
   void reply.header(
     'Content-Disposition',
-    `inline; filename="${info.fileName}"; filename*=UTF-8''${encodeURIComponent(info.fileName)}`,
+    `inline; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(info.fileName)}`,
   );
   void reply.header('X-Content-Type-Options', 'nosniff');
-  return reply.send(createReadStream(info.filePath));
+  return reply.send(info.fileData);
 }
 
 export async function handleSaveLessonToFlashcards(req: FastifyRequest, reply: FastifyReply) {

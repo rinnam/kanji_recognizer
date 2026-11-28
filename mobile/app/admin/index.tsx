@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AdminShell, type AdminTabKey } from '../../src/components/AdminShell';
+import { AdminGrammarTab } from '../../src/features/admin/AdminGrammarTab';
 import { AdminLessonsTab } from '../../src/features/admin/AdminLessonsTab';
 import { AdminOverviewTab } from '../../src/features/admin/AdminOverviewTab';
+import { AdminShadowingTab } from '../../src/features/admin/AdminShadowingTab';
 import { AdminSubscriptionsTab } from '../../src/features/admin/AdminSubscriptionsTab';
 import { AdminUsersTab } from '../../src/features/admin/AdminUsersTab';
 import {
@@ -17,6 +19,8 @@ import { nihongoTheme } from '../../src/theme/nihongo-theme';
 function parseAdminTab(raw?: string): AdminTabKey {
   if (raw === 'subscriptions') return 'subscriptions';
   if (raw === 'lessons') return 'lessons';
+  if (raw === 'shadowing') return 'shadowing';
+  if (raw === 'grammar') return 'grammar';
   if (raw === 'users') return 'users';
   return 'overview';
 }
@@ -37,6 +41,8 @@ export default function AdminPortalScreen() {
     if (
       params.tab === 'subscriptions' ||
       params.tab === 'lessons' ||
+      params.tab === 'shadowing' ||
+      params.tab === 'grammar' ||
       params.tab === 'users' ||
       params.tab === 'overview'
     ) {
@@ -98,6 +104,10 @@ export default function AdminPortalScreen() {
         <AdminSubscriptionsTab initialQuery={subscriptionSearch} refreshSignal={refreshKey} />
       ) : activeTab === 'lessons' ? (
         <AdminLessonsTab refreshSignal={refreshKey} />
+      ) : activeTab === 'shadowing' ? (
+        <AdminShadowingTab refreshSignal={refreshKey} />
+      ) : activeTab === 'grammar' ? (
+        <AdminGrammarTab refreshSignal={refreshKey} />
       ) : (
         <AdminUsersTab
           refreshSignal={refreshKey}

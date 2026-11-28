@@ -1,9 +1,12 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { pool } from '../config/database.js';
 import { ensureStudyStateTables } from './study-state.service.js';
 
 let adminSchemaPromise: Promise<void> | null = null;
+const LESSON_UPLOAD_DIR = path.resolve(process.cwd(), 'uploads', 'materials');
 
-/** Đảm bảo bảng & cột cho Admin RBAC, Đơn hàng doanh thu, Bài học và Tài liệu tồn tại (idempotent). */
+/** Đảm bảo bảng & cột cho Admin RBAC, Đơn hàng doanh thu, Bài học, Tài liệu, Shadowing và Ngữ pháp JLPT tồn tại (idempotent). */
 export function ensureAdminAndLessonTables(): Promise<void> {
   if (!adminSchemaPromise) {
     adminSchemaPromise = (async () => {
@@ -79,6 +82,7 @@ export function ensureAdminAndLessonTables(): Promise<void> {
           file_name     text,
           mime_type     text,
           file_size     integer,
+          file_data     bytea,
           external_url  text,
           description   text NOT NULL DEFAULT '',
           sort_order    integer NOT NULL DEFAULT 0,
@@ -87,7 +91,34 @@ export function ensureAdminAndLessonTables(): Promise<void> {
           deleted_at    timestamptz
         );
       `);
+      await pool.query(`ALTER TABLE lesson_materials ADD COLUMN IF NOT EXISTS file_data bytea;`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_lesson_materials_lesson_order ON lesson_materials(lesson_id, sort_order) WHERE deleted_at IS NULL;`);
+
+      // Auto-backfill legacy uploaded files from local disk into PostgreSQL bytea so all machines can serve them.
+      const legacyFiles = await pool.query<{ id: string; storage_name: string }>(
+        `SELECT id, storage_name
+         FROM lesson_materials
+         WHERE material_type = 'file'
+           AND file_data IS NULL
+           AND storage_name IS NOT NULL
+           AND deleted_at IS NULL`,
+      );
+      for (const row of legacyFiles.rows) {
+        const safeBase = path.basename(row.storage_name);
+        const fullPath = path.resolve(LESSON_UPLOAD_DIR, safeBase);
+        if (!fullPath.startsWith(`${LESSON_UPLOAD_DIR}${path.sep}`)) continue;
+        try {
+          const buf = await fs.readFile(fullPath);
+          if (buf.byteLength > 0) {
+            await pool.query(
+              `UPDATE lesson_materials SET file_data = $1, file_size = COALESCE(file_size, $2) WHERE id = $3 AND file_data IS NULL`,
+              [buf, buf.byteLength, row.id],
+            );
+          }
+        } catch {
+          // Legacy file not present on this machine; runtime download will report NotFound cleanly.
+        }
+      }
 
       await pool.query(`
         CREATE TABLE IF NOT EXISTS admin_audit_logs (
@@ -101,6 +132,112 @@ export function ensureAdminAndLessonTables(): Promise<void> {
         );
       `);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_created ON admin_audit_logs(created_at DESC);`);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS content_seed_meta (
+          seed_key  text PRIMARY KEY,
+          seeded_at timestamptz NOT NULL DEFAULT now()
+        );
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS admin_shadowing_videos (
+          id          text PRIMARY KEY,
+          video_id    text NOT NULL,
+          title       text NOT NULL,
+          channel     text NOT NULL DEFAULT '',
+          level       text NOT NULL DEFAULT '',
+          duration    text NOT NULL DEFAULT '',
+          description text NOT NULL DEFAULT '',
+          status      text NOT NULL DEFAULT 'published' CHECK (status IN ('published', 'hidden')),
+          sort_order  integer NOT NULL DEFAULT 0,
+          created_by  uuid REFERENCES users(id) ON DELETE SET NULL,
+          created_at  timestamptz NOT NULL DEFAULT now(),
+          updated_at  timestamptz NOT NULL DEFAULT now(),
+          deleted_at  timestamptz
+        );
+      `);
+      await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_shadowing_active_vid ON admin_shadowing_videos(video_id) WHERE deleted_at IS NULL;`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_admin_shadowing_status ON admin_shadowing_videos(status, sort_order, created_at DESC) WHERE deleted_at IS NULL;`);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS user_shadowing_videos (
+          id          text PRIMARY KEY,
+          owner_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          video_id    text NOT NULL,
+          title       text NOT NULL,
+          channel     text NOT NULL DEFAULT 'YouTube (Đã lưu)',
+          level       text NOT NULL DEFAULT '',
+          duration    text NOT NULL DEFAULT '',
+          description text NOT NULL DEFAULT '',
+          created_at  timestamptz NOT NULL DEFAULT now(),
+          updated_at  timestamptz NOT NULL DEFAULT now(),
+          deleted_at  timestamptz
+        );
+      `);
+      await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_shadowing_owner_vid ON user_shadowing_videos(owner_id, video_id) WHERE deleted_at IS NULL;`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_shadowing_owner ON user_shadowing_videos(owner_id, created_at DESC) WHERE deleted_at IS NULL;`);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS grammar_points (
+          id          text PRIMARY KEY,
+          jlpt_level  text NOT NULL CHECK (jlpt_level IN ('N5', 'N4', 'N3', 'N2', 'N1')),
+          category    text NOT NULL,
+          pattern     text NOT NULL,
+          structure   text NOT NULL,
+          meaning_vi  text NOT NULL,
+          nuance_vi   text NOT NULL DEFAULT '',
+          examples    jsonb NOT NULL DEFAULT '[]'::jsonb,
+          status      text NOT NULL DEFAULT 'published' CHECK (status IN ('published', 'hidden')),
+          sort_order  integer NOT NULL DEFAULT 0,
+          created_by  uuid REFERENCES users(id) ON DELETE SET NULL,
+          created_at  timestamptz NOT NULL DEFAULT now(),
+          updated_at  timestamptz NOT NULL DEFAULT now(),
+          deleted_at  timestamptz
+        );
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_grammar_points_filter ON grammar_points(jlpt_level, status, sort_order, created_at) WHERE deleted_at IS NULL;`);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS grammar_star_questions (
+          id             text PRIMARY KEY,
+          jlpt_level     text NOT NULL CHECK (jlpt_level IN ('N5', 'N4', 'N3', 'N2', 'N1')),
+          meaning_vi     text NOT NULL,
+          prefix_ja      text NOT NULL DEFAULT '',
+          suffix_ja      text NOT NULL DEFAULT '',
+          parts          jsonb NOT NULL,
+          star_index     integer NOT NULL CHECK (star_index BETWEEN 0 AND 3),
+          explanation_vi text NOT NULL DEFAULT '',
+          status         text NOT NULL DEFAULT 'published' CHECK (status IN ('published', 'hidden')),
+          sort_order     integer NOT NULL DEFAULT 0,
+          created_by     uuid REFERENCES users(id) ON DELETE SET NULL,
+          created_at     timestamptz NOT NULL DEFAULT now(),
+          updated_at     timestamptz NOT NULL DEFAULT now(),
+          deleted_at     timestamptz
+        );
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_grammar_star_filter ON grammar_star_questions(jlpt_level, status, sort_order, created_at) WHERE deleted_at IS NULL;`);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS grammar_blitz_questions (
+          id          text PRIMARY KEY,
+          kind        text NOT NULL CHECK (kind IN ('particle', 'conjugation')),
+          jlpt_level  text NOT NULL CHECK (jlpt_level IN ('N5', 'N4', 'N3', 'N2', 'N1')),
+          prompt_main text NOT NULL,
+          prompt_sub  text NOT NULL DEFAULT '',
+          meaning_vi  text NOT NULL,
+          correct     text NOT NULL,
+          choices     jsonb NOT NULL,
+          tip_vi      text NOT NULL DEFAULT '',
+          status      text NOT NULL DEFAULT 'published' CHECK (status IN ('published', 'hidden')),
+          sort_order  integer NOT NULL DEFAULT 0,
+          created_by  uuid REFERENCES users(id) ON DELETE SET NULL,
+          created_at  timestamptz NOT NULL DEFAULT now(),
+          updated_at  timestamptz NOT NULL DEFAULT now(),
+          deleted_at  timestamptz
+        );
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_grammar_blitz_filter ON grammar_blitz_questions(kind, jlpt_level, status, sort_order, created_at) WHERE deleted_at IS NULL;`);
     })().catch((err) => {
       adminSchemaPromise = null;
       throw err;

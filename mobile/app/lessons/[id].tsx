@@ -75,14 +75,20 @@ export default function LessonDetailScreen() {
     }, [loadDetail]),
   );
 
-  const handleOpenMaterial = async (mat: LessonMaterialDto) => {
+  const handleOpenMaterial = (mat: LessonMaterialDto) => {
     recordMeaningfulStudyAction('lesson_material_open');
     if (mat.materialType === 'link' && mat.externalUrl) {
       openExternalUrl(mat.externalUrl);
       return;
     }
-    const session = getCachedAuthSession() ?? (await readAuthSession());
-    openExternalUrl(buildMaterialFileUrl(mat.id, session?.accessToken ?? null));
+    const cached = getCachedAuthSession();
+    if (cached?.accessToken) {
+      openExternalUrl(buildMaterialFileUrl(mat.id, cached.accessToken));
+      return;
+    }
+    void readAuthSession().then((session) => {
+      openExternalUrl(buildMaterialFileUrl(mat.id, session?.accessToken ?? null));
+    });
   };
 
   const handleSaveToFlashcards = async () => {

@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import {
@@ -16,7 +16,10 @@ import {
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { getUserScopedKey } from '../../src/features/auth/auth-store';
 import { useGameVocabulary } from '../../src/features/games/use-game-vocab';
-import { GRAMMAR_POINTS } from '../../src/features/grammar/grammar-data';
+import {
+  fetchPublicGrammarSummary,
+  type PublicGrammarSummaryResponse,
+} from '../../src/features/grammar/grammar-api';
 import { libraryEndpoint } from '../../src/library-source';
 import { useIsMobilePhone } from '../../src/utils/device';
 
@@ -124,6 +127,10 @@ export default function GamesHubScreen() {
 
   const [roomCode, setRoomCode] = useState('');
   const [rooms, setRooms] = useState<PublicRoomSummary[]>([]);
+  const [grammarSummary, setGrammarSummary] = useState<PublicGrammarSummaryResponse>({
+    totalPoints: 0,
+    levelCounts: { N5: 0, N4: 0, N3: 0, N2: 0, N1: 0 },
+  });
   const [bestScores, setBestScores] = useState<Record<GameKey, number>>({
     momo_boss: 0,
     sushi: 0,
@@ -131,12 +138,12 @@ export default function GamesHubScreen() {
     grammar_blitz: 0,
   });
 
-  const n3Count = useMemo(
-    () => GRAMMAR_POINTS.filter((g) => g.level === 'N3').length,
-    [],
-  );
-
   const apiBase = (libraryEndpoint || 'http://localhost:3000/api').replace(/\/+$/, '');
+
+  const loadGrammarSummary = useCallback(async () => {
+    const summary = await fetchPublicGrammarSummary();
+    setGrammarSummary(summary);
+  }, []);
 
   const loadBestScores = useCallback(async () => {
     try {
@@ -177,6 +184,12 @@ export default function GamesHubScreen() {
     void loadBestScores();
   }, [loadRooms, loadBestScores]);
 
+  useFocusEffect(
+    useCallback(() => {
+      void loadGrammarSummary();
+    }, [loadGrammarSummary]),
+  );
+
   return (
     <AppShell>
       <TopHeader
@@ -189,6 +202,7 @@ export default function GamesHubScreen() {
             onPress={() => {
               void loadRooms();
               void loadBestScores();
+              void loadGrammarSummary();
             }}
           >
             <ResetIcon size={13} color={nihongoTheme.colors.accentHover} />
@@ -207,7 +221,7 @@ export default function GamesHubScreen() {
           <View style={styles.heroDivider} />
           <View style={styles.heroStatBlock}>
             <Text style={styles.heroStatValue}>
-              {GRAMMAR_POINTS.length} mẫu ({n3Count} N3)
+              {grammarSummary.totalPoints} mẫu ({grammarSummary.levelCounts.N3} N3)
             </Text>
             <Text style={styles.heroStatLabel}>Thư viện Ngữ pháp JLPT</Text>
           </View>

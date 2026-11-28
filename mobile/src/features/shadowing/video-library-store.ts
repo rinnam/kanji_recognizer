@@ -1,84 +1,108 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { libraryEndpoint } from '../../library-source';
+import { getCachedAuthSession, getUserScopedKey, readAuthSession } from '../auth/auth-store';
 import type { SampleVideoItem } from './types';
 
-export interface VideoFolder {
-  id: string;
-  name: string;
+export interface ShadowingCatalogResponse {
+  adminVideos: SampleVideoItem[];
+  myVideos: SampleVideoItem[];
 }
 
-export interface SavedVideoItem extends SampleVideoItem {
-  folderId?: string | null;
-  isCustom?: boolean;
-}
-
-export interface ShadowingLibraryData {
-  folders: VideoFolder[];
-  customVideos: SavedVideoItem[];
-}
-
-const STORAGE_KEY = 'kanji_nest_shadowing_library_v1';
-
-const DEFAULT_DATA: ShadowingLibraryData = {
-  folders: [
-    { id: 'vfolder_fav', name: 'Yêu thích' },
-    { id: 'vfolder_podcast', name: 'Podcast luyện nghe' },
-  ],
-  customVideos: [],
-};
+const CACHE_KEY = 'kanji_nest_shadowing_catalog_v2';
 
 function apiBase(): string {
-  return (libraryEndpoint || (Platform.OS === 'web' ? 'http://localhost:3000/api' : 'http://localhost:3000/api')).replace(
-    /\/+$/,
-    '',
-  );
+  return (
+    libraryEndpoint ||
+    (Platform.OS === 'web' ? 'http://localhost:3000/api' : 'http://localhost:3000/api')
+  ).replace(/\/+$/, '');
 }
 
-export async function readShadowingLibrary(): Promise<ShadowingLibraryData> {
-  // 1) Try PostgreSQL backend first so data survives browser clearing & syncs across devices
+async function getAuthHeaders(includeJson = false): Promise<Record<string, string>> {
+  const session = getCachedAuthSession() ?? (await readAuthSession());
+  const headers: Record<string, string> = {};
+  if (includeJson) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (session?.accessToken) {
+    headers.Authorization = `Bearer ${session.accessToken}`;
+  }
+  return headers;
+}
+
+export async function fetchShadowingCatalog(): Promise<ShadowingCatalogResponse> {
+  const headers = await getAuthHeaders(false);
+  const scopedKey = await getUserScopedKey(CACHE_KEY);
+
   try {
-    const resp = await fetch(`${apiBase()}/transcript/library`);
+    const resp = await fetch(`${apiBase()}/shadowing/videos`, { headers });
     if (resp.ok) {
-      const remote = (await resp.json()) as Partial<ShadowingLibraryData>;
-      const merged: ShadowingLibraryData = {
-        folders: remote.folders && remote.folders.length > 0 ? remote.folders : DEFAULT_DATA.folders,
-        customVideos: Array.isArray(remote.customVideos) ? remote.customVideos : [],
+      const remote = (await resp.json()) as Partial<ShadowingCatalogResponse>;
+      const data: ShadowingCatalogResponse = {
+        adminVideos: Array.isArray(remote.adminVideos) ? remote.adminVideos : [],
+        myVideos: Array.isArray(remote.myVideos) ? remote.myVideos : [],
       };
-      void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged)).catch(() => undefined);
-      return merged;
+      void AsyncStorage.setItem(scopedKey, JSON.stringify(data)).catch(() => undefined);
+      return data;
     }
   } catch {
-    // Offline fallback to AsyncStorage
+    // Offline fallback to cached catalog
   }
 
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_DATA;
-    const parsed = JSON.parse(raw) as Partial<ShadowingLibraryData>;
-    return {
-      folders: Array.isArray(parsed.folders) ? parsed.folders : DEFAULT_DATA.folders,
-      customVideos: Array.isArray(parsed.customVideos) ? parsed.customVideos : [],
-    };
+    const raw = await AsyncStorage.getItem(scopedKey);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<ShadowingCatalogResponse>;
+      return {
+        adminVideos: Array.isArray(parsed.adminVideos) ? parsed.adminVideos : [],
+        myVideos: Array.isArray(parsed.myVideos) ? parsed.myVideos : [],
+      };
+    }
   } catch {
-    return DEFAULT_DATA;
+    // ignore storage errors
   }
+
+  return { adminVideos: [], myVideos: [] };
 }
 
-export async function saveShadowingLibrary(data: ShadowingLibraryData): Promise<void> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    // ignore local storage errors
+export async function saveMyShadowingVideoApi(input: {
+  urlOrId: string;
+  title?: string;
+  channel?: string;
+  level?: string;
+  duration?: string;
+  description?: string;
+}): Promise<{ video: SampleVideoItem }> {
+  const headers = await getAuthHeaders(true);
+  if (!headers.Authorization) {
+    throw new Error('Vui lòng đăng nhập để lưu video vào mục "Video của tôi".');
   }
+  const resp = await fetch(`${apiBase()}/shadowing/my-videos`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(input),
+  });
+  const data = (await resp.json().catch(() => ({}))) as {
+    video?: SampleVideoItem;
+    message?: string;
+  };
+  if (!resp.ok || !data.video) {
+    throw new Error(data.message || `Không lưu được video (HTTP ${resp.status}).`);
+  }
+  return { video: data.video };
+}
 
-  try {
-    await fetch(`${apiBase()}/transcript/library`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-  } catch {
-    // offline: remains cached in AsyncStorage
+export async function deleteMyShadowingVideoApi(videoId: string): Promise<void> {
+  const headers = await getAuthHeaders(false);
+  if (!headers.Authorization) {
+    throw new Error('Vui lòng đăng nhập để xóa video.');
+  }
+  const resp = await fetch(`${apiBase()}/shadowing/my-videos/${encodeURIComponent(videoId)}`, {
+    method: 'DELETE',
+    headers,
+  });
+  if (!resp.ok) {
+    const data = (await resp.json().catch(() => ({}))) as { message?: string };
+    throw new Error(data.message || `Không xóa được video (HTTP ${resp.status}).`);
   }
 }
