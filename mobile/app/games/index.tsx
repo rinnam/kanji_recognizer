@@ -53,9 +53,9 @@ interface SoloGameCardConfig {
 const SOLO_GAMES: ReadonlyArray<SoloGameCardConfig> = [
   {
     key: 'momo_boss',
-    badge: 'Từ vựng SRS · Boss Raid',
+    badge: 'Từ vựng · Boss Raid',
     title: 'Công thành Momo',
-    desc: 'Hạ 3 Wave Boss với 3 kiểu đòn phản xạ (Kanji, Nghe âm thanh & Nghĩa). Trả lời nhanh nổ đòn Chí mạng!',
+    desc: 'Hạ 3 đợt Boss qua câu hỏi Kanji, nghe phát âm và nghĩa Việt.',
     ctaLabel: 'Vào Công thành',
     route: '/games/bot',
     accent: '#DC2626',
@@ -66,22 +66,22 @@ const SOLO_GAMES: ReadonlyArray<SoloGameCardConfig> = [
   },
   {
     key: 'sushi',
-    badge: 'Kanji tốc độ · 60fps',
+    badge: 'Kanji tốc độ',
     title: 'Quán Sushi Băng Chuyền',
-    desc: 'Chọn đúng đĩa Kanji lướt mượt trên băng chuyền trước khi khách hết kiên nhẫn. Giữ chuỗi 3 kích hoạt Fever ×2.',
+    desc: 'Chọn đúng đĩa Kanji trên băng chuyền trước khi khách hết giờ.',
     ctaLabel: 'Mở Quán Sushi',
     route: '/games/sushi',
     accent: '#0D9488',
     softBg: '#F0FDFA',
     borderTint: '#99F6E4',
-    pills: ['Băng chuyền 60fps', 'Đếm giờ đơn', 'Fever ×2'],
+    pills: ['2 làn băng chuyền', 'Đếm giờ đơn', 'Fever ×2'],
     hasRecord: true,
   },
   {
     key: 'grammar_star',
-    badge: 'Ngữ pháp JLPT N5–N1',
+    badge: 'Ngữ pháp JLPT',
     title: 'Xếp Câu Dấu Sao (★)',
-    desc: 'Ghép 4 mảnh câu đúng chuẩn đề thi JLPT ★ với bộ đếm phản xạ 25 giây mỗi câu & lời giải chi tiết.',
+    desc: 'Sắp xếp 4 mảnh câu theo định dạng dấu sao ★ của đề JLPT.',
     ctaLabel: 'Luyện Xếp câu ★',
     route: '/practice/grammar?tab=star',
     accent: '#D97706',
@@ -91,9 +91,9 @@ const SOLO_GAMES: ReadonlyArray<SoloGameCardConfig> = [
   },
   {
     key: 'grammar_blitz',
-    badge: 'Phản xạ Ngữ pháp 60s',
+    badge: 'Phản xạ 60s',
     title: 'Bắn Trợ Từ & Chia Thể 60s',
-    desc: 'Trả lời chớp nhoáng trong 8s/câu để giữ 3 tim, nhân điểm Combo ×3 khi bắn trợ từ & chia thể JLPT.',
+    desc: 'Chọn nhanh trợ từ và chia thể trong 60 giây để giữ chuỗi combo.',
     ctaLabel: 'Chiến Blitz 60s',
     route: '/practice/grammar?tab=blitz',
     accent: '#4F46E5',
@@ -182,7 +182,7 @@ export default function GamesHubScreen() {
       <TopHeader
         mode="subpage"
         title="Trung tâm Game Học tập"
-        subtitle={isPhone ? undefined : 'Phản xạ Từ vựng SRS, Ngữ pháp JLPT & Đấu trường Kotoba'}
+        subtitle={isPhone ? undefined : 'Luyện phản xạ từ vựng, ngữ pháp và đấu đối kháng'}
         rightSlot={
           <Pressable
             style={({ pressed }) => [styles.softPill, pressed && styles.pressedSoft]}
@@ -214,7 +214,7 @@ export default function GamesHubScreen() {
         </View>
         <View style={styles.ksRewardPill}>
           <CoinKsIcon size={15} color={nihongoTheme.colors.accentHover} />
-          <Text style={styles.ksRewardText}>+8 Xu KS × hệ số gói / game (tối đa 3 game/ngày)</Text>
+          <Text style={styles.ksRewardText}>Thưởng Xu KS · Tối đa 3 lượt/ngày</Text>
         </View>
       </View>
 
@@ -274,7 +274,7 @@ export default function GamesHubScreen() {
               <TrophyArenaIcon size={24} color={nihongoTheme.colors.accentHover} />
             </View>
             <View style={{ flex: 1, gap: 3 }}>
-              <Text style={styles.arenaTitle}>Đấu trường Kotoba (PvP Real-time)</Text>
+              <Text style={styles.arenaTitle}>Đấu trường Kotoba</Text>
               <Text style={styles.arenaSubtitle}>
                 Tạo phòng hoặc nhập mã 6 ký tự để đấu tốc độ từ vựng trực tiếp với bạn bè
               </Text>
@@ -313,7 +313,7 @@ export default function GamesHubScreen() {
           <View style={styles.emptyBox}>
             <Text style={styles.emptyTitle}>Chưa có phòng công khai nào</Text>
             <Text style={styles.emptyDesc}>
-              Bấm &ldquo;+ Tạo phòng đối kháng Kotoba&rdquo; để mời bạn bè, hoặc luyện 4 chế độ phản xạ Solo ở trên!
+              Tạo phòng mới để mời bạn bè cùng thi đấu.
             </Text>
           </View>
         ) : (

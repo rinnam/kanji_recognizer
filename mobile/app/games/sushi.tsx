@@ -908,7 +908,7 @@ export default function KaitenSushiScreen() {
         subtitle={
           isPhone && phase === 'playing'
             ? undefined
-            : `Nhận diện nhanh Kanji từ kho SRS (${words.length} từ) · Kỷ lục: ${bestScore}đ`
+            : `Nhận diện nhanh Kanji (${words.length} từ) · Kỷ lục: ${bestScore}đ`
         }
         rightSlot={
           <View style={styles.headerBadge}>
@@ -960,10 +960,7 @@ export default function KaitenSushiScreen() {
 
           <View style={styles.rulesCard}>
             <Text style={styles.rulesText}>
-              • Băng chuyền chạy mượt 60fps: chạm đúng đĩa mang chữ Nhật khớp với nghĩa khách gọi trước khi hết giờ hoặc đĩa trôi mất.
-            </Text>
-            <Text style={styles.rulesText}>
-              • Phục vụ trong 45% thời gian đầu nhận thưởng SIÊU TỐC (+5đ). Giữ chuỗi 3 đĩa kích hoạt FEVER ×2 điểm!
+              Chạm đúng đĩa khớp nghĩa khách gọi trước khi hết giờ. Giữ chuỗi 3 đĩa để nhân đôi điểm.
             </Text>
           </View>
 

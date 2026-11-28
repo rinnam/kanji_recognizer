@@ -852,7 +852,7 @@ export default function FlashcardQuizPracticeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Cài đặt học (Options)</Text>
+              <Text style={styles.modalTitle}>Cài đặt học</Text>
               <Pressable onPress={() => setOptionsOpen(false)}>
                 <Text style={styles.modalClose}>Đóng</Text>
               </Pressable>
@@ -860,8 +860,8 @@ export default function FlashcardQuizPracticeScreen() {
 
             <View style={styles.optionRow}>
               <View style={styles.optionInfo}>
-                <Text style={styles.optionLabel}>Sắp xếp thẻ (Flashcard sorting)</Text>
-                <Text style={styles.optionDesc}>Chọn chế độ lặp lại ngắt quãng 4 mức hoặc cơ bản 2 nút</Text>
+                <Text style={styles.optionLabel}>Chế độ ôn thẻ</Text>
+                <Text style={styles.optionDesc}>Chọn lặp lại ngắt quãng 4 mức hoặc cơ bản 2 nút</Text>
               </View>
               <Pressable
                 style={styles.smallPill}
@@ -895,7 +895,7 @@ export default function FlashcardQuizPracticeScreen() {
 
             <View style={styles.optionRow}>
               <View style={styles.optionInfo}>
-                <Text style={styles.optionLabel}>Tự động phát âm (Text to speech)</Text>
+                <Text style={styles.optionLabel}>Tự động phát âm</Text>
                 <Text style={styles.optionDesc}>Tự đọc tiếng Nhật khi hiện thẻ mới</Text>
               </View>
               <Switch
@@ -907,7 +907,7 @@ export default function FlashcardQuizPracticeScreen() {
 
             <View style={styles.optionRow}>
               <View style={styles.optionInfo}>
-                <Text style={styles.optionLabel}>Mặt trước (Front)</Text>
+                <Text style={styles.optionLabel}>Mặt trước thẻ</Text>
                 <Text style={styles.optionDesc}>Chọn ngôn ngữ hiển thị ở mặt trước thẻ</Text>
               </View>
               <Pressable
@@ -931,7 +931,7 @@ export default function FlashcardQuizPracticeScreen() {
                   setOptionsOpen(false);
                 }}
               >
-                <Text style={styles.resetDangerText}>Đặt lại tiến trình SRS (Reset Spaced Repetition)</Text>
+                <Text style={styles.resetDangerText}>Đặt lại tiến trình SRS</Text>
               </Pressable>
             </View>
           </View>
@@ -1473,7 +1473,7 @@ export default function FlashcardQuizPracticeScreen() {
 
           {importOpen ? (
             <View style={styles.card}>
-              <Text style={styles.optionLabel}>Import chuẩn CSV / TSV (giống Frontend)</Text>
+              <Text style={styles.optionLabel}>Nhập danh sách CSV / TSV</Text>
               <Text style={styles.optionDesc}>
                 Cột chuẩn: word, reading, meaning, sinoVietnamese, jlptLevel, example, exampleMeaning
               </Text>

@@ -56,7 +56,7 @@ const FALLBACK_SCENARIOS: ScenarioItem[] = [
     interviewerRole: 'Trưởng phòng Kỹ thuật (開発部長)',
     level: 'N3 – N2',
     description:
-      'Đủ 7 bước chuẩn Nhật: 自己紹介 → 自己PR → 3 câu hỏi đào sâu từ CV/Dự án → 逆質問 (hỏi ngược công ty) → Ra về.',
+      'Phỏng vấn chuẩn Nhật với các câu hỏi đào sâu vào CV và dự án IT của bạn.',
     defaultCv:
       'Chuyên ngành: Công nghệ thông tin (Năm 4). Kỹ năng: TypeScript, React, Node.js, PostgreSQL. Dự án nổi bật: Xây dựng ứng dụng học tiếng Nhật Kanji Smart (Flashcard SRS, game đối kháng WebSocket). Chứng chỉ: JLPT N3. Điểm mạnh: Tự học nhanh, làm việc nhóm tốt.',
   },
@@ -69,7 +69,7 @@ const FALLBACK_SCENARIOS: ScenarioItem[] = [
     interviewerRole: 'Quản lý cửa hàng (店長)',
     level: 'N4 – N3',
     description:
-      'Đủ 7 bước: 自己紹介 → 自己PR → 3 câu hỏi theo CV (kinh nghiệm phục vụ, lịch làm việc, tình huống khách) → 逆質問.',
+      'Luyện trả lời câu hỏi về kinh nghiệm phục vụ, lịch làm việc và xử lý tình huống khách hàng.',
     defaultCv:
       'Du học sinh năm 2 tại Tokyo. Từng làm phục vụ quán cafe 6 tháng ở Việt Nam. Có thể làm 4 buổi/tuần (tối thứ 2, 4, 6 và cuối tuần). Trình độ tiếng Nhật: N3. Điểm mạnh: Luôn đúng giờ, giao tiếp thân thiện và cười tươi với khách.',
   },
@@ -82,7 +82,7 @@ const FALLBACK_SCENARIOS: ScenarioItem[] = [
     interviewerRole: 'Cán bộ tuyển sinh (入試担当)',
     level: 'N4 – N3',
     description:
-      'Đủ 7 bước: 自己紹介 → 自己PR → 3 câu hỏi về hồ sơ học tập, kế hoạch tài chính & mục tiêu tại Nhật → 逆質問.',
+      'Phỏng vấn hồ sơ học tập, kế hoạch tài chính và mục tiêu học tập tại Nhật.',
     defaultCv:
       'Tốt nghiệp THPT loại Giỏi, đã học tiếng Nhật 1 năm (đạt N4, đang ôn N3). Gia đình hỗ trợ tài chính ổn định. Mục tiêu: Học trường Nhật ngữ 1.5 năm đạt N2, sau đó thi vào đại học chuyên ngành Kinh tế hoặc CNTT tại Nhật.',
   },
@@ -95,7 +95,7 @@ const FALLBACK_SCENARIOS: ScenarioItem[] = [
     interviewerRole: 'Quản lý dự án (PM)',
     level: 'N3 – N2',
     description:
-      'Luyện báo cáo tiến độ (報告), liên lạc sự cố trễ deadline (連絡) và xin ý kiến giải pháp (相談) chuẩn văn hóa công sở Nhật.',
+      'Luyện báo cáo tiến độ, thông báo sự cố và xin ý kiến giải pháp chuẩn công sở Nhật.',
     defaultCv: 'Bối cảnh: Báo cáo tiến độ task tuần này và trao đổi về một bug nhỏ có thể làm chậm 1 ngày.',
   },
   {
@@ -107,7 +107,7 @@ const FALLBACK_SCENARIOS: ScenarioItem[] = [
     interviewerRole: 'Bác sĩ nội khoa (医師)',
     level: 'N4 – N3',
     description:
-      'Luyện mô tả triệu chứng (sốt, đau đầu, ho), thời điểm bắt đầu, tiền sử dị ứng thuốc và hỏi cách uống thuốc.',
+      'Luyện mô tả triệu chứng, tiền sử dị ứng thuốc và hỏi cách dùng thuốc tại phòng khám.',
     defaultCv: 'Bối cảnh: Bị sốt 38 độ từ tối hôm qua, đau họng và mệt nên đi khám bác sĩ.',
   },
   {
@@ -119,7 +119,7 @@ const FALLBACK_SCENARIOS: ScenarioItem[] = [
     interviewerRole: 'Nhân viên phục vụ (ホール担当)',
     level: 'N5 – N4',
     description:
-      'Luyện giao tiếp tự nhiên khi đặt bàn, hỏi món gợi ý, báo dị ứng thực phẩm và thanh toán tại quán ăn Nhật.',
+      'Luyện đặt bàn, gọi món gợi ý, báo dị ứng thực phẩm và thanh toán tại nhà hàng.',
     defaultCv: 'Bối cảnh: Đi ăn tối tại quán ăn Nhật, muốn hỏi món đặc sản và báo không ăn được đồ cay.',
   },
 ];
@@ -336,7 +336,7 @@ export default function SpeakingLobbyScreen() {
       <TopHeader
         mode="subpage"
         title="Phỏng vấn & Roleplay 3D cùng AI"
-        subtitle="Phỏng vấn chuẩn Nhật (đủ gõ cửa 3 lần + CV) & Roleplay đời sống/công sở 3D"
+        subtitle="Phỏng vấn chuẩn Nhật & tình huống đời sống 3D"
       />
 
       {/* Membership + KS Wallet Strip */}
@@ -384,19 +384,6 @@ export default function SpeakingLobbyScreen() {
             Roleplay Đời sống &amp; Công sở (3D)
           </Text>
         </Pressable>
-      </View>
-
-      <View style={styles.bannerCard}>
-        <Text style={styles.bannerTitle}>
-          {categoryTab === 'interview'
-            ? 'Lộ trình đầy đủ buổi phỏng vấn chuẩn Nhật'
-            : 'Hội thoại nhập vai thực chiến tại Nhật (Không gian 3D tương tác)'}
-        </Text>
-        <Text style={styles.bannerSteps}>
-          {categoryTab === 'interview'
-            ? '① Gõ cửa 3D (3 lần) & 失礼いたします → ② Đứng cạnh ghế chào 30° & Ngồi xuống → ③ 自己紹介 → ④ 自己PR → ⑤ 3 câu hỏi xoáy trực tiếp vào CV thật của bạn → ⑥ 逆質問 → ⑦ Cúi chào 45° & Ra về'
-            : 'Bước qua cửa 3D từng bối cảnh (Nhà hàng · Phòng khám · Họp Horenso) → Tương tác trực tiếp với Menu / Chuông bàn / Phiếu khám / Kanban 3D → Nói tiếng Nhật qua Mic và nhận chấm điểm theo đúng bối cảnh.'}
-        </Text>
       </View>
 
       {loading ? (
@@ -519,8 +506,8 @@ export default function SpeakingLobbyScreen() {
             ) : (
               <Text style={styles.cvHint}>
                 {categoryTab === 'interview'
-                  ? 'Tải lên CV thật của bạn (PDF tiếng Việt/Anh/Nhật hoặc ảnh chụp 履歴書), AI sẽ tự đọc trích xuất và đặt 3 câu hỏi đào sâu đúng dự án/kinh nghiệm của bạn.'
-                  : 'Nhập bất kỳ tình huống nào bạn muốn luyện (vd: té xe nghi gãy chân thay vì sốt, đi ăn chay 6 người, sập server production...) — AI sẽ tự lái toàn bộ câu hỏi và hóa đơn/đơn thuốc cuối buổi theo đúng tình huống bạn nhập!'}
+                  ? 'Tải lên CV (PDF/ảnh) hoặc chỉnh sửa trực tiếp nội dung bên dưới.'
+                  : 'Mô tả ngắn tình huống bạn muốn AI nhập vai cùng.'}
               </Text>
             )}
 
@@ -543,8 +530,8 @@ export default function SpeakingLobbyScreen() {
               numberOfLines={5}
               placeholder={
                 categoryTab === 'interview'
-                  ? 'Nội dung CV của bạn (hoặc bấm Tải lên CV ở trên để AI tự đọc)...'
-                  : 'Nhập tình huống tùy chỉnh bạn muốn luyện (vd: trật cổ chân khi đá bóng, đi ăn chay 5 người, trễ deadline sprint)...'
+                  ? 'Nhập hoặc dán nội dung CV...'
+                  : 'Ví dụ: đi ăn chay 4 người, báo trễ deadline...'
               }
               placeholderTextColor={nihongoTheme.colors.textMuted}
               style={styles.cvInput}

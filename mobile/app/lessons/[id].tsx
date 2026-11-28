@@ -39,7 +39,7 @@ export default function LessonDetailScreen() {
       <View style={styles.emptyCard}>
         <Text style={styles.emptyTitle}>Chưa có từ vựng trong bài học này</Text>
         <Text style={styles.emptyDesc}>
-          Mỗi thẻ từ sẽ hiển thị Kanji, Kana, Hán Việt, nút phát âm TTS, sao yêu thích và mục Ví dụ & liên quan.
+          Danh sách từ vựng cho bài học này đang được cập nhật.
         </Text>
       </View>
     </AppShell>

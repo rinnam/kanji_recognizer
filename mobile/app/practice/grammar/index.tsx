@@ -1378,7 +1378,7 @@ export default function GrammarPracticeScreen() {
                 </View>
               </View>
               <Text style={styles.summarySub}>
-                Tổng 60 giây · Giới hạn phản xạ {BLITZ_Q_LIMIT_SEC}s mỗi câu · 3 tim · Trả lời dưới 3.5s cộng thêm +5đ · Combo nhân tối đa ×3!
+                60 giây · 3 tim · {BLITZ_Q_LIMIT_SEC}s mỗi câu.
               </Text>
 
               <Text style={styles.label}>Chọn nội dung luyện</Text>

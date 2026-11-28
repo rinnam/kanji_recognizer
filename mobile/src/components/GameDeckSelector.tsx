@@ -131,9 +131,6 @@ export function GameDeckSelector({
     [words, folders, value],
   );
 
-  const effectiveCount =
-    value.limitCount > 0 ? Math.min(value.limitCount, matchedCount) : matchedCount;
-
   const updateSelection = (patch: Partial<GameDeckSelection>) => {
     recordMeaningfulStudyAction('game_deck_filter');
     onChange({ ...value, ...patch });
@@ -163,7 +160,7 @@ export function GameDeckSelector({
       {/* 1. Folder / Deck Selector */}
       <View style={styles.sectionBlock}>
         <Text style={styles.label}>
-          1. Chọn bộ từ / Thư mục học ({value.folderIds.length === 0 ? 'Tất cả' : `${value.folderIds.length} bộ`})
+          Bộ từ / Thư mục ({value.folderIds.length === 0 ? 'Tất cả' : `${value.folderIds.length} bộ`})
         </Text>
 
         {useMobileModal ? (
@@ -316,7 +313,7 @@ export function GameDeckSelector({
 
       {/* 2. JLPT Filter within selected folders */}
       <View style={styles.sectionBlock}>
-        <Text style={styles.label}>2. Lọc cấp JLPT (trong bộ đang chọn)</Text>
+        <Text style={styles.label}>Cấp độ JLPT</Text>
         <View style={styles.row}>
           {JLPT_OPTIONS.map((lv) => {
             const active = value.jlptLevel === lv;
@@ -338,7 +335,7 @@ export function GameDeckSelector({
 
       {/* 3. SRS Focus */}
       <View style={styles.sectionBlock}>
-        <Text style={styles.label}>3. Trọng tâm ôn (SRS)</Text>
+        <Text style={styles.label}>Phạm vi từ vựng</Text>
         <View style={styles.row}>
           {(
             [
@@ -363,7 +360,7 @@ export function GameDeckSelector({
 
       {/* 4. Focused Batch Limit */}
       <View style={styles.sectionBlock}>
-        <Text style={styles.label}>4. Số từ học lượt này (chia nhỏ để nhớ sâu)</Text>
+        <Text style={styles.label}>Số từ mỗi lượt</Text>
         <View style={styles.row}>
           {LIMIT_OPTIONS.map((opt) => {
             const active = value.limitCount === opt.value;
@@ -380,14 +377,8 @@ export function GameDeckSelector({
         </View>
       </View>
 
-      {/* 5. Live Match Preview Banner */}
-      {matchedCount > 0 ? (
-        <View style={styles.previewOk}>
-          <Text style={styles.previewOkText}>
-            Sẵn sàng: {effectiveCount} từ sẽ đưa vào lượt chơi (trên tổng {matchedCount} từ khớp bộ lọc)
-          </Text>
-        </View>
-      ) : (
+      {/* 5. Empty Match Warning */}
+      {matchedCount === 0 ? (
         <View style={styles.previewEmpty}>
           <Text style={styles.previewEmptyText}>
             Không có từ nào khớp bộ lọc hiện tại.
@@ -399,7 +390,7 @@ export function GameDeckSelector({
             <Text style={styles.resetFilterText}>Đặt lại bộ lọc</Text>
           </Pressable>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

@@ -193,7 +193,7 @@ export default function ReadingScreen() {
       setSrsDoneCount(data.updatedCount ?? vocabIds.length);
       setSrsUpdatedWords(data.updatedWords ?? []);
     } catch {
-      setSrsError('Không cập nhật được SRS lên Backend. Hãy kiểm tra Backend cổng 3000 và thử lại.');
+      setSrsError('Không cập nhật được tiến độ ôn tập. Vui lòng thử lại.');
     } finally {
       setSrsUpdating(false);
     }
@@ -262,7 +262,7 @@ export default function ReadingScreen() {
       persistReadingProgress(data.titleJa, {}, false);
       void refreshMembership();
     } catch {
-      setErrorMsg('Không tạo được bài đọc AI (có thể Google AI đang bận). Hãy thử lại sau vài giây.');
+      setErrorMsg('Hệ thống AI đang bận, vui lòng thử lại sau vài giây.');
     } finally {
       if (!keepPolling) setLoading(false);
     }
@@ -580,9 +580,9 @@ export default function ReadingScreen() {
         </View>
       ) : (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>Bài đọc cá nhân hóa theo kho từ của bạn</Text>
+          <Text style={styles.emptyTitle}>Bài đọc theo cấp độ JLPT</Text>
           <Text style={styles.emptyDesc}>
-            Chọn cấp độ JLPT và thể loại phía trên rồi bấm nút tạo bài — AI sẽ lấy 6 từ bạn đang cần ôn nhất trong Flashcard để viết thành đoạn văn hoàn chỉnh kèm 3 câu hỏi đọc hiểu.
+            Chọn cấp độ và thể loại phía trên để tạo bài đọc kèm câu hỏi từ kho từ của bạn.
           </Text>
         </View>
       )}

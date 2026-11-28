@@ -47,10 +47,10 @@ export default function LessonsScreen() {
       <View style={styles.emptyCard}>
         <Text style={styles.emptyTitle}>Chưa có bài học nào cho cấp độ {level}</Text>
         <Text style={styles.emptyDesc}>
-          Danh sách bài học (Danh từ, Động từ, Tính từ, Katakana...) sẽ hiển thị dạng lưới 3 cột khi đổ dữ liệu.
+          Nội dung bài học cấp độ {level} đang được cập nhật.
         </Text>
         <Pressable style={styles.outlineBtn} onPress={() => router.push('/lessons/demo-lesson')}>
-          <Text style={styles.outlineBtnText}>Xem trước khung trang chi tiết bài học →</Text>
+          <Text style={styles.outlineBtnText}>Xem bài học mẫu →</Text>
         </Pressable>
       </View>
     </AppShell>

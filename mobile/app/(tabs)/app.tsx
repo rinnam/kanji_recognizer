@@ -526,7 +526,7 @@ export default function HomeScreen() {
                 ? `Bạn đã hoàn thành thử thách hôm nay (${savedChallengeScore}/${savedChallengeTotal} câu đúng)${
                     membership.todayChallengeClaimed ? ' · ✓ Đã cộng Xu KS' : ''
                   }!`
-                : '+4 KS / câu đúng · +10 KS thưởng hoàn hảo 5/5 câu từ kho từ của bạn.'}
+                : '5 câu hỏi nhanh từ kho từ vựng của bạn.'}
             </Text>
           </View>
           <Pressable

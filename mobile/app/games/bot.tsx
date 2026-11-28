@@ -97,9 +97,9 @@ function buildBossQuestion(
     return {
       kind,
       word: target,
-      promptLabel: 'Đòn 1 · Nhìn Kanji / Từ → Chọn nghĩa Việt',
+      promptLabel: 'Kanji → Nghĩa Việt',
       promptMain: target.word,
-      promptSub: 'Chọn nhanh nghĩa tiếng Việt chính xác',
+      promptSub: '',
       options,
       correctOption: target.meaning,
     };
@@ -110,13 +110,12 @@ function buildBossQuestion(
       target.word,
       ...distractorsPool.map((d) => d.word),
     ]);
-    const levelLabel = target.jlptLevel ?? 'SRS';
     return {
       kind,
       word: target,
-      promptLabel: 'Đòn 2 · Nghe âm thanh → Chọn đúng từ tiếng Nhật',
-      promptMain: 'Nghe phát âm & chọn từ đúng',
-      promptSub: `Nghe kỹ phát âm rồi chọn đúng từ tiếng Nhật (${levelLabel})`,
+      promptLabel: 'Nghe → Chọn từ Nhật',
+      promptMain: '',
+      promptSub: target.jlptLevel ? `Cấp độ ${target.jlptLevel}` : '',
       options,
       correctOption: target.word,
     };
@@ -129,11 +128,11 @@ function buildBossQuestion(
   return {
     kind,
     word: target,
-    promptLabel: 'Đòn 3 · Nhìn nghĩa Việt → Chọn từ tiếng Nhật đúng',
+    promptLabel: 'Nghĩa Việt → Từ Nhật',
     promptMain: target.meaning,
     promptSub: hasValidSino(target.sinoVietnamese)
       ? `Hán Việt: ${target.sinoVietnamese}`
-      : 'Chọn từ tiếng Nhật tương ứng',
+      : '',
     options,
     correctOption: target.word,
   };
@@ -690,14 +689,14 @@ export default function BotGameScreen() {
 
           <View style={styles.rulesCard}>
             <Text style={styles.rulesText}>
-              • Hạ 3 Wave Boss với 3 kiểu đòn: Kanji → Nghĩa, Nghe âm thanh → Từ Nhật, Nghĩa → Từ Nhật.
+              • Hạ 3 đợt Boss qua 3 dạng câu: Kanji, nghe phát âm và nghĩa Việt.
             </Text>
             <Text style={styles.rulesText}>
-              • Mỗi câu có đồng hồ đếm ngược ({questionLimitSec}s). Trả lời trong 40% thời gian đầu nổ đòn CHÍ MẠNG (+35% sát thương)! Hết giờ Boss tự động phản công.
+              • Trả lời càng nhanh sát thương càng cao; hết giờ mỗi câu Boss sẽ phản công.
             </Text>
             {!isPhone ? (
               <Text style={styles.rulesText}>
-                • Phím tắt web: 1–4 chọn đáp án · Q: Mưa tên (50/50) · E: Khiên Momo.
+                • Phím tắt: 1–4 chọn đáp án · Q: Mưa tên · E: Khiên.
               </Text>
             ) : null}
           </View>
@@ -909,7 +908,7 @@ export default function BotGameScreen() {
             ) : (
               <Text style={[styles.qMain, isPhone && styles.qMainPhone]}>{question.promptMain}</Text>
             )}
-            <Text style={styles.qSub}>{question.promptSub}</Text>
+            {question.promptSub ? <Text style={styles.qSub}>{question.promptSub}</Text> : null}
 
             <View style={styles.optionsCol}>
               {question.options.map((opt, idx) => {

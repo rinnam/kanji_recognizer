@@ -99,7 +99,7 @@ export default function ProfileScreen() {
             </View>
             {tier !== 'free' && summary.subscription.expiresAt ? (
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Hạn gói (Demo)</Text>
+                <Text style={styles.infoLabel}>Hạn gói</Text>
                 <Text style={styles.infoValue}>
                   {new Date(summary.subscription.expiresAt).toLocaleDateString('vi-VN')}
                 </Text>
@@ -148,7 +148,7 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Đồng bộ đám mây</Text>
-              <Text style={styles.infoValue}>Tự động (Đám mây)</Text>
+              <Text style={styles.infoValue}>Tự động</Text>
             </View>
           </View>
           <View style={styles.actionsCol}>

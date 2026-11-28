@@ -106,7 +106,7 @@ export function AiFlashcardModal({
       }
       setCards(list);
     } catch {
-      setErrorMsg('Không gọi được AI trích xuất từ (có thể Google AI đang bận). Hãy thử lại sau vài giây.');
+      setErrorMsg('Hệ thống AI đang bận, vui lòng thử lại sau vài giây.');
     } finally {
       setExtracting(false);
     }

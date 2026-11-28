@@ -360,15 +360,12 @@ export default function BillingScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Cách kiếm Xu Kanji Smart (KS)</Text>
             <Text style={styles.cardDesc}>
-              Mức thưởng tính đúng theo mốc mục tiêu thời gian học mỗi ngày bạn chọn và nhân theo hệ số gói (×{summary.subscription.multiplier}).
+              Hoàn thành mục tiêu học mỗi ngày để tích lũy Xu KS.
             </Text>
 
             <View style={[styles.earnGrid, isWide && styles.earnGridWide]}>
               <View style={[styles.earnBox, isWide && styles.earnBoxWide]}>
                 <Text style={styles.earnHeading}>Mục tiêu hôm nay ({summary.todayGoalStatus.goalMinutes} phút)</Text>
-                <Text style={styles.earnRule}>
-                  5p → 5 KS · 10p → 10 KS · 15p → 16 KS · 30p → 35 KS · 60p → 65 KS
-                </Text>
                 <Text style={styles.earnProgress}>
                   Hôm nay: {Math.floor(summary.todayGoalStatus.todaySeconds / 60)}/{summary.todayGoalStatus.goalMinutes} phút · Thưởng: +{summary.todayGoalStatus.rewardKs} KS
                 </Text>
@@ -399,7 +396,9 @@ export default function BillingScreen() {
 
               <View style={[styles.earnBox, isWide && styles.earnBoxWide]}>
                 <Text style={styles.earnHeading}>Thử thách hôm nay (5 câu)</Text>
-                <Text style={styles.earnRule}>+4 KS / câu đúng + thưởng 5/5 câu (+10 KS) → Tối đa 30 KS × hệ số</Text>
+                <Text style={styles.earnRule}>
+                  Hoàn thành 5 câu hỏi nhanh mỗi ngày (tới +{Math.round(30 * summary.subscription.multiplier)} KS).
+                </Text>
                 <Text style={styles.earnProgress}>
                   Hôm nay: {summary.todayChallengeClaimed ? '✓ Đã hoàn thành & nhận Xu' : 'Chưa làm hôm nay'}
                 </Text>
@@ -425,7 +424,8 @@ export default function BillingScreen() {
               <View style={[styles.earnBox, isWide && styles.earnBoxWide]}>
                 <Text style={styles.earnHeading}>Game học tập (Tối đa 3 game/ngày)</Text>
                 <Text style={styles.earnRule}>
-                  +8 KS × hệ số / game thắng (Xếp câu ★, Blitz 60s, Công thành, Sushi)
+                  Thắng mỗi lượt game nhận +{Math.round(5 * summary.subscription.multiplier)} KS (tối đa{' '}
+                  {summary.dailyGameRewardCap ?? 3} lượt/ngày).
                 </Text>
                 <Text style={styles.earnProgress}>
                   Đã nhận hôm nay: {summary.todayGameRewardsClaimed ?? 0}/{summary.dailyGameRewardCap ?? 3} lượt game
@@ -482,9 +482,9 @@ export default function BillingScreen() {
 
           {/* Redeem Shop Section */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Cửa hàng Đổi Xu Kanji Smart (Mở khóa AI Speaking 3D)</Text>
+            <Text style={styles.cardTitle}>Cửa hàng đổi Xu KS</Text>
             <Text style={styles.cardDesc}>
-              Người dùng Miễn phí có thể tích lũy Xu KS để đổi vé lẻ, Combo 4 vé hoặc Dùng thử Plus 7 ngày (điểm đổi cân đối theo mốc 100 KS/ngày tối đa).
+              Dùng Xu KS tích lũy để đổi vé Luyện nói 3D hoặc dùng thử gói Plus 7 ngày.
             </Text>
 
             <View style={[styles.shopGrid, isWide && styles.shopGridWide]}>
@@ -512,7 +512,6 @@ export default function BillingScreen() {
                       </View>
                     </View>
                     <Text style={styles.shopDesc}>{item.description}</Text>
-                    <Text style={styles.effortText}>Công sức ước tính: {item.effortHint}</Text>
 
                     {hasScenarios ? (
                       <>
@@ -653,10 +652,10 @@ export default function BillingScreen() {
             </Text>
 
             <View style={styles.qrMockBox}>
-              <Text style={styles.qrMockTitle}>MÃ THANH TOÁN MÔ PHỎNG (DEMO)</Text>
+              <Text style={styles.qrMockTitle}>XÁC NHẬN DÙNG THỬ</Text>
               <Text style={styles.qrMockCode}>KANJI-SMART-{checkoutTarget?.tier.toUpperCase()}-{cycle.toUpperCase()}</Text>
               <Text style={styles.qrMockNote}>
-                Ở giai đoạn Demo, bấm xác nhận bên dưới sẽ ghi trực tiếp gói cước vào PostgreSQL cho tài khoản hiện tại (không thu tiền thật).
+                Chế độ trải nghiệm: kích hoạt trực tiếp gói cước cho tài khoản hiện tại, không thu phí.
               </Text>
             </View>
 

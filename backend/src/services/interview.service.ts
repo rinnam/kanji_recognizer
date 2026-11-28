@@ -91,7 +91,7 @@ export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
     interviewerRole: 'Trưởng phòng Kỹ thuật (開発部長)',
     level: 'N3 – N2',
     description:
-      'Đủ 6 chặng chuẩn Nhật: 自己紹介 → 自己PR → 3 câu hỏi đào sâu từ CV/Dự án → 逆質問 (hỏi ngược công ty) → Ra về.',
+      'Phỏng vấn chuẩn Nhật với các câu hỏi đào sâu vào CV và dự án IT của bạn.',
     defaultCv:
       'Chuyên ngành: Công nghệ thông tin (Năm 4). Kỹ năng: TypeScript, React, Node.js, PostgreSQL. Dự án nổi bật: Xây dựng ứng dụng học tiếng Nhật Kanji Smart (Flashcard SRS, game đối kháng WebSocket). Chứng chỉ: JLPT N3. Điểm mạnh: Tự học nhanh, làm việc nhóm tốt.',
     openingJa:
@@ -110,7 +110,7 @@ export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
     interviewerRole: 'Quản lý cửa hàng (店長)',
     level: 'N4 – N3',
     description:
-      'Đủ 6 chặng: 自己紹介 → 自己PR → 3 câu hỏi theo CV (kinh nghiệm phục vụ, lịch làm việc, tình huống khách) → 逆質問.',
+      'Luyện trả lời câu hỏi về kinh nghiệm phục vụ, lịch làm việc và xử lý tình huống khách hàng.',
     defaultCv:
       'Du học sinh năm 2 tại Tokyo. Từng làm phục vụ quán cafe 6 tháng ở Việt Nam. Có thể làm 4 buổi/tuần (tối thứ 2, 4, 6 và cuối tuần). Trình độ tiếng Nhật: N3. Điểm mạnh: Luôn đúng giờ, giao tiếp thân thiện và cười tươi với khách.',
     openingJa:
@@ -129,7 +129,7 @@ export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
     interviewerRole: 'Cán bộ tuyển sinh (入試担当)',
     level: 'N4 – N3',
     description:
-      'Đủ 6 chặng: 自己紹介 → 自己PR → 3 câu hỏi về hồ sơ học tập, kế hoạch tài chính & mục tiêu tại Nhật → 逆質問.',
+      'Phỏng vấn hồ sơ học tập, kế hoạch tài chính và mục tiêu học tập tại Nhật.',
     defaultCv:
       'Tốt nghiệp THPT loại Giỏi, đã học tiếng Nhật 1 năm (đạt N4, đang ôn N3). Gia đình hỗ trợ tài chính ổn định. Mục tiêu: Học trường Nhật ngữ 1.5 năm đạt N2, sau đó thi vào đại học chuyên ngành Kinh tế hoặc CNTT tại Nhật.',
     openingJa:
@@ -149,7 +149,7 @@ export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
     interviewerRole: 'Quản lý dự án (PM)',
     level: 'N3 – N2',
     description:
-      'Luyện báo cáo tiến độ (報告), liên lạc sự cố trễ deadline (連絡) và xin ý kiến giải pháp (相談) chuẩn văn hóa công sở Nhật.',
+      'Luyện báo cáo tiến độ, thông báo sự cố và xin ý kiến giải pháp chuẩn công sở Nhật.',
     defaultCv: 'Bối cảnh: Bạn là thành viên nhóm phát triển, cần báo cáo tiến độ task tuần này và trao đổi về một bug nhỏ có thể làm chậm 1 ngày.',
     openingJa:
       'お疲れ様です。今週のタスクの進捗はいかがですか。何か困っていることや相談したいことがあれば教えてください。',
@@ -167,7 +167,7 @@ export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
     interviewerRole: 'Bác sĩ nội khoa (医師)',
     level: 'N4 – N3',
     description:
-      'Luyện mô tả triệu chứng (sốt, đau đầu, ho), thời điểm bắt đầu, tiền sử dị ứng thuốc và hỏi cách uống thuốc tại phòng khám Nhật.',
+      'Luyện mô tả triệu chứng, tiền sử dị ứng thuốc và hỏi cách dùng thuốc tại phòng khám.',
     defaultCv: 'Bối cảnh: Bạn bị cảm nhẹ / sốt 38 độ từ tối hôm qua, đau họng và hơi mệt nên đi khám bác sĩ.',
     openingJa:
       'こんにちは。今日はどうされましたか。いつ頃から、どんな症状がありますか。',
@@ -185,7 +185,7 @@ export const INTERVIEW_SCENARIOS: InterviewScenario[] = [
     interviewerRole: 'Nhân viên phục vụ (ホール担当)',
     level: 'N5 – N4',
     description:
-      'Luyện giao tiếp tự nhiên khi đặt bàn, hỏi món gợi ý, báo dị ứng thực phẩm, gọi thêm đồ uống và thanh toán tại quán ăn Nhật.',
+      'Luyện đặt bàn, gọi món gợi ý, báo dị ứng thực phẩm và thanh toán tại nhà hàng.',
     defaultCv: 'Bối cảnh: Bạn đi ăn tối cùng bạn bè tại quán ăn Nhật, muốn hỏi món đặc sản và lưu ý không ăn được đồ cay/hải sản.',
     openingJa:
       'いらっしゃいませ！何名様でしょうか。お席にご案内いたしますので、ご注文がお決まりになりましたらお呼びください。',

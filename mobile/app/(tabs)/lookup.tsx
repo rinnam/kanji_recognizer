@@ -163,7 +163,7 @@ export default function LookupScreen() {
       } catch (err) {
         if (controller.signal.aborted || seq !== searchSeqRef.current) return;
         if (err instanceof Error && err.name === 'AbortError') return;
-        setErrorMsg('Không kết nối được máy chủ từ điển. Hãy kiểm tra Backend đang chạy ở cổng 3000.');
+        setErrorMsg('Không kết nối được máy chủ từ điển. Vui lòng thử lại sau.');
       } finally {
         if (seq === searchSeqRef.current) {
           setLoading(false);

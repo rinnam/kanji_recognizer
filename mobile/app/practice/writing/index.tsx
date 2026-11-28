@@ -305,7 +305,7 @@ export default function WritingScreen() {
       applyLatestGrade(graded, { promptTitle: selectedPrompt.title, style, text: text.trim() });
       void refreshMembership();
     } catch {
-      setErrorMsg('Không gọi được Sensei AI chấm bài (có thể Google AI đang bận). Hãy thử lại sau vài giây.');
+      setErrorMsg('Hệ thống AI đang bận, vui lòng thử lại sau vài giây.');
     } finally {
       if (!keepPolling) setGrading(false);
     }
