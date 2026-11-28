@@ -60,11 +60,25 @@ export const adminUpdateUserBanSchema = z.object({
 export const adminSetSubscriptionSchema = z.object({
   tier: z.enum(['free', 'plus', 'pro']),
   billingCycle: z.enum(['monthly', 'yearly']).default('monthly'),
+  mode: z.enum(['replace', 'extend']).default('replace'),
   durationDays: z.number().int().min(1).max(3650).optional(),
   recordOrder: z.boolean().default(false),
   amountVnd: z.number().int().min(0).max(100_000_000).optional(),
   isDemo: z.boolean().default(false),
+  provider: z.string().trim().min(1).max(50).optional().default('bank_transfer'),
+  startedAt: z.string().trim().max(40).optional(),
+  expiresAt: z.string().trim().max(40).optional(),
   note: z.string().trim().max(500).optional().default(''),
+});
+
+export const adminSubscriptionsQuerySchema = z.object({
+  q: z.string().trim().max(120).optional().default(''),
+  status: z.enum(['all', 'active', 'expiring_soon', 'expired', 'free']).default('all'),
+  tier: z.enum(['all', 'free', 'plus', 'pro']).default('all'),
+  cycle: z.enum(['all', 'monthly', 'yearly']).default('all'),
+  sort: z.enum(['expires_asc', 'started_desc', 'spent_desc']).default('expires_asc'),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
 });
 
 export const adminAdjustPointsSchema = z.object({

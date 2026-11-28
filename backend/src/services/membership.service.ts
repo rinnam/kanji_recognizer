@@ -1773,22 +1773,32 @@ export async function resolveUserActiveTier(userId: string): Promise<Subscriptio
   return sub.tier;
 }
 
+function parseOptionalIsoDate(raw?: string | undefined): Date | null {
+  if (!raw?.trim()) return null;
+  const parsed = new Date(raw.trim());
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export async function adminSetUserSubscription(input: {
   adminId: string;
   targetUserId: string;
   tier: SubscriptionTier;
   billingCycle: BillingCycle;
+  mode?: 'replace' | 'extend' | undefined;
   durationDays?: number | undefined;
   recordOrder?: boolean | undefined;
   amountVnd?: number | undefined;
   isDemo?: boolean | undefined;
+  provider?: string | undefined;
+  startedAt?: string | undefined;
+  expiresAt?: string | undefined;
   note?: string | undefined;
 }) {
   await ensureMembershipTables();
   await ensureAdminAndLessonTables();
 
   const days = input.durationDays ?? (input.billingCycle === 'yearly' ? 365 : 30);
-  const expiresAt = input.tier === 'free' ? null : new Date(Date.now() + days * 86_400_000);
+  const mode = input.mode ?? 'replace';
   const isDemo = Boolean(input.isDemo);
   const orderCode =
     input.tier === 'free'
@@ -1807,26 +1817,81 @@ export async function adminSetUserSubscription(input: {
       throw new NotFoundError('Không tìm thấy tài khoản người dùng.');
     }
 
+    const existingSubRes = await client.query<{
+      tier: string;
+      billing_cycle: string;
+      started_at: Date;
+      expires_at: Date | null;
+      demo_order_code: string | null;
+      deleted_at: Date | null;
+    }>(
+      `SELECT tier, billing_cycle, started_at, expires_at, demo_order_code, deleted_at
+       FROM user_subscriptions
+       WHERE user_id = $1
+       FOR UPDATE`,
+      [input.targetUserId],
+    );
+    const existingSub = existingSubRes.rows[0];
+    const now = new Date();
+    const customStart = parseOptionalIsoDate(input.startedAt);
+    const customEnd = parseOptionalIsoDate(input.expiresAt);
+
+    let newStartedAt = customStart ?? now;
+    let newExpiresAt: Date | null = null;
+    let subscriptionOrderCode: string | null = null;
+
+    if (input.tier !== 'free') {
+      if (mode === 'extend' && existingSub && existingSub.deleted_at === null) {
+        if (!customStart && existingSub.tier === input.tier) {
+          newStartedAt = existingSub.started_at;
+        }
+        const extendBase =
+          existingSub.expires_at && existingSub.expires_at.getTime() > now.getTime()
+            ? existingSub.expires_at
+            : now;
+        newExpiresAt = customEnd ?? new Date(extendBase.getTime() + days * 86_400_000);
+        subscriptionOrderCode = input.recordOrder
+          ? orderCode
+          : (existingSub.demo_order_code ?? orderCode);
+      } else {
+        newExpiresAt = customEnd ?? new Date(newStartedAt.getTime() + days * 86_400_000);
+        subscriptionOrderCode = orderCode;
+      }
+    }
+
     await client.query(
       `INSERT INTO user_subscriptions (user_id, tier, billing_cycle, started_at, expires_at, demo_order_code, updated_at, deleted_at)
-       VALUES ($1, $2, $3, now(), $4, $5, now(), NULL)
+       VALUES ($1, $2, $3, $4, $5, $6, now(), NULL)
        ON CONFLICT (user_id) DO UPDATE SET
          tier = EXCLUDED.tier,
          billing_cycle = EXCLUDED.billing_cycle,
-         started_at = now(),
+         started_at = EXCLUDED.started_at,
          expires_at = EXCLUDED.expires_at,
          demo_order_code = EXCLUDED.demo_order_code,
          updated_at = now(),
          deleted_at = NULL`,
-      [input.targetUserId, input.tier, input.billingCycle, expiresAt, orderCode],
+      [
+        input.targetUserId,
+        input.tier,
+        input.billingCycle,
+        newStartedAt,
+        newExpiresAt,
+        subscriptionOrderCode,
+      ],
     );
 
+    let recordedAmount = 0;
     if (input.tier !== 'free' && input.recordOrder && orderCode) {
       const plan = PLAN_CATALOG[input.tier];
-      const amount =
+      recordedAmount =
         input.amountVnd ??
         (input.billingCycle === 'yearly' ? plan.yearlyPriceVnd : plan.monthlyPriceVnd);
       const orderId = `order_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+      const provider = isDemo ? 'admin_demo' : (input.provider?.trim() || 'bank_transfer');
+      const defaultNote =
+        mode === 'extend'
+          ? `Gia hạn ${plan.name} (+${days} ngày)`
+          : `Đăng ký ${plan.name} (${days} ngày)`;
       await client.query(
         `INSERT INTO payment_orders
           (id, order_code, user_id, tier, billing_cycle, amount_vnd, status, is_demo, provider, note, created_by, paid_at)
@@ -1837,21 +1902,24 @@ export async function adminSetUserSubscription(input: {
           input.targetUserId,
           input.tier,
           input.billingCycle,
-          amount,
+          recordedAmount,
           isDemo,
-          isDemo ? 'admin_demo' : 'admin_manual',
-          input.note?.trim() || `Admin cấp gói ${plan.name} (${days} ngày)`,
+          provider,
+          input.note?.trim() || defaultNote,
           input.adminId,
         ],
       );
     }
 
+    const expiryAuditText = newExpiresAt
+      ? `hạn ${newExpiresAt.toLocaleDateString('vi-VN')}`
+      : 'không giới hạn';
     await appendAdminAuditLog(client, {
       adminId: input.adminId,
       action: 'user_subscription_set',
       targetType: 'user',
       targetId: input.targetUserId,
-      detail: `Đặt gói ${input.tier} (${input.tier === 'free' ? 'không hạn' : `${days} ngày`}${input.recordOrder && input.tier !== 'free' ? ', có ghi đơn' : ''}) cho ${targetUser.email ?? input.targetUserId}`,
+      detail: `${mode === 'extend' ? 'Gia hạn' : 'Đặt'} gói ${input.tier} (${input.tier === 'free' ? 'miễn phí' : `${days} ngày, ${expiryAuditText}`}${input.recordOrder && input.tier !== 'free' ? `, thu ${recordedAmount.toLocaleString('vi-VN')}đ` : ''}) cho ${targetUser.email ?? input.targetUserId}`,
     });
 
     await client.query('COMMIT');

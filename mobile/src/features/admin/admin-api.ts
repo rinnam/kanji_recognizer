@@ -67,6 +67,8 @@ export interface AdminOrderDto {
   createdAt: string;
 }
 
+export type SubscriptionStatusKind = 'active' | 'expiring_soon' | 'expired' | 'free';
+
 export interface AdminUserRow {
   id: string;
   email: string;
@@ -75,13 +77,104 @@ export interface AdminUserRow {
   isBanned: boolean;
   createdAt: string;
   tier: SubscriptionTier;
+  rawTier?: SubscriptionTier;
+  planName?: string;
   billingCycle: 'monthly' | 'yearly';
+  startedAt?: string | null;
   expiresAt: string | null;
+  listPriceVnd?: number;
+  subscriptionStatus?: SubscriptionStatusKind;
+  daysRemaining?: number | null;
+  isLifetime?: boolean;
+  currentOrderCode?: string | null;
+  totalPaidVnd?: number;
   jlptLevel: string;
   ksBalance: number;
   studyDays: number;
   totalStudyMinutes: number;
   vocabCount: number;
+}
+
+export interface AdminSubscriptionRow {
+  userId: string;
+  email: string;
+  displayName: string;
+  role: 'user' | 'admin';
+  isBanned: boolean;
+  userCreatedAt: string;
+  tier: SubscriptionTier;
+  effectiveTier: SubscriptionTier;
+  planName: string;
+  billingCycle: 'monthly' | 'yearly';
+  listPriceVnd: number;
+  monthlyEquivalentVnd: number;
+  startedAt: string | null;
+  expiresAt: string | null;
+  daysRemaining: number | null;
+  isLifetime: boolean;
+  subscriptionStatus: SubscriptionStatusKind;
+  currentOrderCode: string | null;
+  lastOrderCode: string | null;
+  lastPaidAmountVnd: number | null;
+  lastPaidAt: string | null;
+  lastProvider: string | null;
+  lastIsDemo: boolean | null;
+  totalPaidVnd: number;
+  totalDemoVnd: number;
+  paidOrderCount: number;
+}
+
+export interface AdminSubscriptionsSummary {
+  totalCustomers: number;
+  activePaidCount: number;
+  activePlusCount: number;
+  activeProCount: number;
+  expiringSoonCount: number;
+  expiredCount: number;
+  freeCount: number;
+  estimatedMrrVnd: number;
+  totalRevenueCollectedVnd: number;
+}
+
+export interface AdminPlanPriceInfo {
+  name: string;
+  monthlyPriceVnd: number;
+  yearlyPriceVnd: number;
+  yearlyPerMonthVnd: number;
+}
+
+export interface AdminSubscriptionsResponse {
+  summary: AdminSubscriptionsSummary;
+  planCatalog: {
+    plus: AdminPlanPriceInfo;
+    pro: AdminPlanPriceInfo;
+  };
+  total: number;
+  subscriptions: AdminSubscriptionRow[];
+}
+
+export interface AdminSubscriptionDetailResponse {
+  subscription: AdminSubscriptionRow;
+  orders: Array<{
+    id: string;
+    orderCode: string;
+    tier: 'plus' | 'pro';
+    billingCycle: 'monthly' | 'yearly';
+    amountVnd: number;
+    status: 'paid' | 'pending' | 'refunded';
+    isDemo: boolean;
+    provider: string;
+    note: string;
+    paidAt: string | null;
+    createdAt: string;
+  }>;
+  auditLogs: Array<{
+    id: string;
+    action: string;
+    detail: string;
+    createdAt: string;
+    adminName: string;
+  }>;
 }
 
 export interface AdminLessonDto {
@@ -214,15 +307,43 @@ export function updateAdminUserBan(userId: string, isBanned: boolean) {
   );
 }
 
+export function fetchAdminSubscriptions(params: {
+  q?: string;
+  status?: 'all' | SubscriptionStatusKind;
+  tier?: 'all' | SubscriptionTier;
+  cycle?: 'all' | 'monthly' | 'yearly';
+  sort?: 'expires_asc' | 'started_desc' | 'spent_desc';
+}) {
+  const qs = new URLSearchParams({
+    q: params.q ?? '',
+    status: params.status ?? 'all',
+    tier: params.tier ?? 'all',
+    cycle: params.cycle ?? 'all',
+    sort: params.sort ?? 'expires_asc',
+    limit: '80',
+  });
+  return adminRequest<AdminSubscriptionsResponse>(`/admin/subscriptions?${qs.toString()}`);
+}
+
+export function fetchAdminSubscriptionDetail(userId: string) {
+  return adminRequest<AdminSubscriptionDetailResponse>(
+    `/admin/subscriptions/${encodeURIComponent(userId)}`,
+  );
+}
+
 export function adminSetUserSubscriptionApi(
   userId: string,
   payload: {
     tier: SubscriptionTier;
     billingCycle: 'monthly' | 'yearly';
+    mode?: 'replace' | 'extend';
     durationDays?: number;
     recordOrder: boolean;
     amountVnd?: number;
     isDemo: boolean;
+    provider?: string;
+    startedAt?: string;
+    expiresAt?: string;
     note?: string;
   },
 ) {

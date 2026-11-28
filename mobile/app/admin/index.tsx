@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AdminShell, type AdminTabKey } from '../../src/components/AdminShell';
 import { AdminLessonsTab } from '../../src/features/admin/AdminLessonsTab';
 import { AdminOverviewTab } from '../../src/features/admin/AdminOverviewTab';
+import { AdminSubscriptionsTab } from '../../src/features/admin/AdminSubscriptionsTab';
 import { AdminUsersTab } from '../../src/features/admin/AdminUsersTab';
 import {
   getCachedAuthSession,
@@ -13,20 +14,31 @@ import {
 } from '../../src/features/auth/auth-store';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 
+function parseAdminTab(raw?: string): AdminTabKey {
+  if (raw === 'subscriptions') return 'subscriptions';
+  if (raw === 'lessons') return 'lessons';
+  if (raw === 'users') return 'users';
+  return 'overview';
+}
+
 export default function AdminPortalScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ tab?: string }>();
-  const initialTab: AdminTabKey =
-    params.tab === 'lessons' ? 'lessons' : params.tab === 'users' ? 'users' : 'overview';
 
-  const [activeTab, setActiveTab] = useState<AdminTabKey>(initialTab);
+  const [activeTab, setActiveTab] = useState<AdminTabKey>(() => parseAdminTab(params.tab));
+  const [subscriptionSearch, setSubscriptionSearch] = useState('');
   const [authorized, setAuthorized] = useState<'checking' | 'ok' | 'denied'>('checking');
   const [adminUser, setAdminUser] = useState<AuthUser | null>(
     () => getCachedAuthSession()?.user ?? null,
   );
 
   useEffect(() => {
-    if (params.tab === 'lessons' || params.tab === 'users' || params.tab === 'overview') {
+    if (
+      params.tab === 'subscriptions' ||
+      params.tab === 'lessons' ||
+      params.tab === 'users' ||
+      params.tab === 'overview'
+    ) {
       setActiveTab(params.tab);
     }
   }, [params.tab]);
@@ -53,10 +65,22 @@ export default function AdminPortalScreen() {
     router.replace('/login');
   };
 
+  const handleSelectTab = (tab: AdminTabKey) => {
+    if (tab !== 'subscriptions') {
+      setSubscriptionSearch('');
+    }
+    setActiveTab(tab);
+  };
+
+  const handleInspectSubscription = (email: string) => {
+    setSubscriptionSearch(email);
+    setActiveTab('subscriptions');
+  };
+
   return (
     <AdminShell
       activeTab={activeTab}
-      onSelectTab={setActiveTab}
+      onSelectTab={handleSelectTab}
       adminName={adminUser?.displayName ?? 'Quản trị viên'}
       adminEmail={adminUser?.email ?? ''}
       onLogout={() => void handleLogout()}
@@ -68,10 +92,12 @@ export default function AdminPortalScreen() {
         </View>
       ) : activeTab === 'overview' ? (
         <AdminOverviewTab />
+      ) : activeTab === 'subscriptions' ? (
+        <AdminSubscriptionsTab initialQuery={subscriptionSearch} />
       ) : activeTab === 'lessons' ? (
         <AdminLessonsTab />
       ) : (
-        <AdminUsersTab />
+        <AdminUsersTab onInspectSubscription={handleInspectSubscription} />
       )}
     </AdminShell>
   );

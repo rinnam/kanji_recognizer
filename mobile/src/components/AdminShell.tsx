@@ -12,12 +12,13 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { DESKTOP_BREAKPOINT } from './AppShell';
 import {
   AdminDashboardIcon,
+  CrownIcon,
   LessonsNavIcon,
   LogoutIcon,
   ProfileNavIcon,
 } from './AppIcons';
 
-export type AdminTabKey = 'overview' | 'lessons' | 'users';
+export type AdminTabKey = 'overview' | 'subscriptions' | 'lessons' | 'users';
 
 interface AdminShellProps {
   activeTab: AdminTabKey;
@@ -33,7 +34,7 @@ const ADMIN_NAV: readonly {
   label: string;
   shortLabel: string;
   subtitle: string;
-  Icon: typeof AdminDashboardIcon;
+  Icon: React.ComponentType<{ size?: number; color?: string; active?: boolean }>;
 }[] = [
   {
     key: 'overview',
@@ -41,6 +42,13 @@ const ADMIN_NAV: readonly {
     shortLabel: 'Doanh thu',
     subtitle: 'Theo dõi doanh thu gói cước, đơn hàng và số lượng học viên',
     Icon: AdminDashboardIcon,
+  },
+  {
+    key: 'subscriptions',
+    label: 'Quản lý gói',
+    shortLabel: 'Quản lý gói',
+    subtitle: 'Theo dõi thời hạn gói, giá gói, gia hạn và lịch sử thanh toán',
+    Icon: CrownIcon,
   },
   {
     key: 'lessons',

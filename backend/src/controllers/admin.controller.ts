@@ -2,6 +2,8 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
   createManualOrder,
   getAdminOverview,
+  getAdminUserSubscriptionDetail,
+  listAdminSubscriptions,
   listAdminUsers,
   listPaymentOrders,
   updatePaymentOrderStatus,
@@ -32,6 +34,7 @@ import {
   adminOrdersQuerySchema,
   adminOverviewQuerySchema,
   adminSetSubscriptionSchema,
+  adminSubscriptionsQuerySchema,
   adminUpdateOrderSchema,
   adminUpdateUserBanSchema,
   adminUpdateUserRoleSchema,
@@ -78,6 +81,22 @@ export async function handleAdminUpdateOrder(req: FastifyRequest, reply: Fastify
   const parsed = adminUpdateOrderSchema.parse(req.body ?? {});
   const result = await updatePaymentOrderStatus(admin.id, id, parsed);
   return reply.send(result);
+}
+
+export async function handleAdminListSubscriptions(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const parsed = adminSubscriptionsQuerySchema.parse(req.query ?? {});
+  const data = await listAdminSubscriptions(parsed);
+  return reply.send(data);
+}
+
+export async function handleAdminGetSubscriptionDetail(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const { userId } = req.params as { userId: string };
+  const data = await getAdminUserSubscriptionDetail(userId);
+  return reply.send(data);
 }
 
 export async function handleAdminListUsers(req: FastifyRequest, reply: FastifyReply) {

@@ -50,6 +50,17 @@ export default function ProfileScreen() {
   const email = session?.user.email || 'Chưa đăng nhập';
   const roleLabel = 'Thành viên';
 
+  const activePlan = summary.plans.find((p) => p.tier === tier);
+  const subExpiryDate = summary.subscription.expiresAt
+    ? new Date(summary.subscription.expiresAt)
+    : null;
+  const isLifetimeSub =
+    !subExpiryDate || Number.isNaN(subExpiryDate.getTime()) || subExpiryDate.getUTCFullYear() >= 2090;
+  const subDaysLeft =
+    subExpiryDate && !isLifetimeSub
+      ? Math.max(0, Math.ceil((subExpiryDate.getTime() - Date.now()) / 86_400_000))
+      : null;
+
   return (
     <AppShell>
       <TopHeader
@@ -88,6 +99,24 @@ export default function ProfileScreen() {
                 <Text style={styles.accentPillText}>{summary.subscription.planName}</Text>
               </View>
             </View>
+            {tier !== 'free' && activePlan ? (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Chu kỳ &amp; Giá gói</Text>
+                <Text style={styles.infoValue}>
+                  {summary.subscription.billingCycle === 'yearly'
+                    ? `${activePlan.yearlyPriceVnd.toLocaleString('vi-VN')}đ/năm`
+                    : `${activePlan.monthlyPriceVnd.toLocaleString('vi-VN')}đ/tháng`}
+                </Text>
+              </View>
+            ) : null}
+            {tier !== 'free' && summary.subscription.startedAt ? (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Ngày đăng ký</Text>
+                <Text style={styles.infoValue}>
+                  {new Date(summary.subscription.startedAt).toLocaleDateString('vi-VN')}
+                </Text>
+              </View>
+            ) : null}
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Hệ số tích Xu KS</Text>
               <Text style={styles.infoValue}>×{summary.subscription.multiplier}</Text>
@@ -101,11 +130,13 @@ export default function ProfileScreen() {
                 </Text>
               </View>
             </View>
-            {tier !== 'free' && summary.subscription.expiresAt ? (
+            {tier !== 'free' ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Hạn gói</Text>
                 <Text style={styles.infoValue}>
-                  {new Date(summary.subscription.expiresAt).toLocaleDateString('vi-VN')}
+                  {isLifetimeSub
+                    ? 'Không giới hạn'
+                    : `${subExpiryDate.toLocaleDateString('vi-VN')} (còn ${subDaysLeft} ngày)`}
                 </Text>
               </View>
             ) : null}

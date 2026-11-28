@@ -10,8 +10,10 @@ import {
   handleAdminDeleteLessonItem,
   handleAdminDeleteMaterial,
   handleAdminGetLesson,
+  handleAdminGetSubscriptionDetail,
   handleAdminListLessons,
   handleAdminListOrders,
+  handleAdminListSubscriptions,
   handleAdminListUsers,
   handleAdminOverview,
   handleAdminSetSubscription,
@@ -28,6 +30,9 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
   app.get('/admin/orders', handleAdminListOrders);
   app.post('/admin/orders', handleAdminCreateOrder);
   app.patch('/admin/orders/:id', handleAdminUpdateOrder);
+
+  app.get('/admin/subscriptions', handleAdminListSubscriptions);
+  app.get('/admin/subscriptions/:userId', handleAdminGetSubscriptionDetail);
 
   app.get('/admin/users', handleAdminListUsers);
   app.patch('/admin/users/:id/role', handleAdminUpdateUserRole);

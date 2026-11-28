@@ -21,7 +21,36 @@ import {
   type AdminUserRow,
 } from './admin-api';
 
-export function AdminUsersTab() {
+function formatUserSubscriptionSummary(u: AdminUserRow): string {
+  const effectiveTier = u.rawTier ?? u.tier;
+  if (effectiveTier === 'free') {
+    return `Gói Miễn phí · 0đ · Tạo TK ${new Date(u.createdAt).toLocaleDateString('vi-VN')}`;
+  }
+  const tierName = effectiveTier === 'pro' ? 'Pro AI' : 'Plus';
+  const priceText =
+    u.listPriceVnd && u.listPriceVnd > 0
+      ? `${u.listPriceVnd.toLocaleString('vi-VN')}đ/${u.billingCycle === 'yearly' ? 'năm' : 'tháng'}`
+      : u.billingCycle === 'yearly'
+        ? 'Chu kỳ năm'
+        : 'Chu kỳ tháng';
+  const regText = u.startedAt
+    ? `ĐK ${new Date(u.startedAt).toLocaleDateString('vi-VN')}`
+    : null;
+  const expText = u.isLifetime
+    ? 'Hạn Không giới hạn'
+    : u.expiresAt
+      ? u.subscriptionStatus === 'expired'
+        ? `Hết hạn ${new Date(u.expiresAt).toLocaleDateString('vi-VN')}`
+        : `Hạn ${new Date(u.expiresAt).toLocaleDateString('vi-VN')} (còn ${Math.max(0, u.daysRemaining ?? 0)} ngày)`
+      : null;
+  return [tierName, priceText, regText, expText].filter(Boolean).join(' · ');
+}
+
+interface AdminUsersTabProps {
+  onInspectSubscription?: (email: string) => void;
+}
+
+export function AdminUsersTab({ onInspectSubscription }: AdminUsersTabProps) {
   const [q, setQ] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'user' | 'admin'>('all');
   const [tierFilter, setTierFilter] = useState<'all' | 'free' | 'plus' | 'pro'>('all');
@@ -249,17 +278,23 @@ export function AdminUsersTab() {
                   </View>
                   <Text style={styles.userEmail}>{u.email}</Text>
                   <Text style={styles.userStats}>
-                    {u.role === 'admin'
+                    {u.role === 'admin' && (u.rawTier ?? u.tier) === 'free'
                       ? 'Tài khoản quản trị hệ thống'
-                      : `${u.jlptLevel} · ${u.ksBalance.toLocaleString('vi-VN')} KS · ${u.studyDays} ngày học (${u.totalStudyMinutes}p) · ${u.vocabCount} từ${
-                          u.expiresAt ? ` · Hạn ${new Date(u.expiresAt).toLocaleDateString('vi-VN')}` : ''
-                        }`}
+                      : `${formatUserSubscriptionSummary(u)} · ${u.jlptLevel} · ${u.ksBalance.toLocaleString('vi-VN')} KS · ${u.vocabCount} từ`}
                   </Text>
                 </View>
 
-                <Pressable style={styles.manageBtn} onPress={() => openManageModal(u)}>
-                  <Text style={styles.manageBtnText}>Quản lý</Text>
-                </Pressable>
+                <View style={styles.filterGroup}>
+                  {onInspectSubscription &&
+                  (u.role === 'user' || ((u.rawTier ?? u.tier) !== 'free')) ? (
+                    <Pressable style={styles.chip} onPress={() => onInspectSubscription(u.email)}>
+                      <Text style={styles.chipText}>Xem gói</Text>
+                    </Pressable>
+                  ) : null}
+                  <Pressable style={styles.manageBtn} onPress={() => openManageModal(u)}>
+                    <Text style={styles.manageBtnText}>Quản lý</Text>
+                  </Pressable>
+                </View>
               </View>
             ))}
           </View>

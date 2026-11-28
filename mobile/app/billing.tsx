@@ -159,6 +159,23 @@ export default function BillingScreen() {
     pro: { bg: '#FFF0DF', border: nihongoTheme.colors.accent, text: nihongoTheme.colors.accentHover },
   };
 
+  const activePlanDef = summary.plans.find((p) => p.tier === tier);
+  const activePlanPrice =
+    tier === 'free' || !activePlanDef
+      ? '0đ'
+      : summary.subscription.billingCycle === 'yearly'
+        ? `${formatVnd(activePlanDef.yearlyPriceVnd)}/năm`
+        : `${formatVnd(activePlanDef.monthlyPriceVnd)}/tháng`;
+  const subExpiryDate = summary.subscription.expiresAt
+    ? new Date(summary.subscription.expiresAt)
+    : null;
+  const isLifetimeSub =
+    !subExpiryDate || Number.isNaN(subExpiryDate.getTime()) || subExpiryDate.getUTCFullYear() >= 2090;
+  const remainingDays =
+    subExpiryDate && !isLifetimeSub
+      ? Math.max(0, Math.ceil((subExpiryDate.getTime() - Date.now()) / 86_400_000))
+      : null;
+
   return (
     <AppShell>
       <TopHeader
@@ -192,11 +209,20 @@ export default function BillingScreen() {
           <Text style={styles.summaryMeta}>
             {tier === 'free'
               ? 'Nâng cấp gói Plus hoặc Pro AI để mở Luyện nói 3D & tăng tốc tích Xu KS.'
-              : `Đang kích hoạt${summary.subscription.demoOrderCode ? ` · Mã ${summary.subscription.demoOrderCode}` : ''}${
-                  summary.subscription.expiresAt
-                    ? ` · Hạn ${new Date(summary.subscription.expiresAt).toLocaleDateString('vi-VN')}`
-                    : ''
-                }`}
+              : [
+                  `Giá ${activePlanPrice}`,
+                  summary.subscription.startedAt
+                    ? `ĐK ${new Date(summary.subscription.startedAt).toLocaleDateString('vi-VN')}`
+                    : null,
+                  isLifetimeSub
+                    ? 'Hạn: Không giới hạn'
+                    : `Hạn ${subExpiryDate.toLocaleDateString('vi-VN')} (còn ${remainingDays} ngày)`,
+                  summary.subscription.demoOrderCode
+                    ? `Mã ${summary.subscription.demoOrderCode}`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
           </Text>
         </View>
 
