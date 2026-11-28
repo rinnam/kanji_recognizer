@@ -1,14 +1,33 @@
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
+import { getCachedAdminSession, readAdminSession } from '../auth/auth-store';
 import {
   getApiBase,
-  getAuthHeaders,
   type JlptLevel,
   type LessonItemDto,
   type LessonMaterialDto,
   type LessonStatus,
   type SubscriptionTier,
 } from '../lessons/lessons-api';
+
+export interface AdminPlanDefinition {
+  tier: SubscriptionTier;
+  name: string;
+  tagline: string;
+  monthlyPriceVnd: number;
+  yearlyPriceVnd: number;
+  yearlyPerMonthVnd: number;
+  multiplier: number;
+  shadowingCustomPerDay: number | null;
+  readingPerWeek: number | null;
+  writingPerWeek: number | null;
+  speakingLifePerDay: number | null;
+  speakingWorkPerDay: number | null;
+  itEngineerAllowed: boolean;
+  uploadCvAllowed: boolean;
+  fullRubricAllowed: boolean;
+  highlights: string[];
+}
 
 export interface AdminOverviewKpi {
   totalUsers: number;
@@ -193,8 +212,16 @@ export interface AdminLessonDto {
   updatedAt: string;
 }
 
+async function getAdminAuthHeaders(includeJson = false): Promise<Record<string, string>> {
+  const session = getCachedAdminSession() ?? (await readAdminSession());
+  const headers: Record<string, string> = {};
+  if (includeJson) headers['Content-Type'] = 'application/json';
+  if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+  return headers;
+}
+
 async function adminRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers = await getAuthHeaders(Boolean(init?.body));
+  const headers = await getAdminAuthHeaders(Boolean(init?.body));
   const res = await fetch(`${getApiBase()}${path}`, {
     ...init,
     headers: {
@@ -207,6 +234,29 @@ async function adminRequest<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(data.message || `Lỗi máy chủ (${res.status}).`);
   }
   return data;
+}
+
+export function fetchAdminPlans() {
+  return adminRequest<{ plans: AdminPlanDefinition[]; defaults: AdminPlanDefinition[] }>(
+    '/admin/plans',
+  );
+}
+
+export function updateAdminPlan(
+  tier: SubscriptionTier,
+  payload: Omit<AdminPlanDefinition, 'tier'>,
+) {
+  return adminRequest<{ plan: AdminPlanDefinition }>(`/admin/plans/${encodeURIComponent(tier)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function resetAdminPlan(tier: SubscriptionTier) {
+  return adminRequest<{ plan: AdminPlanDefinition }>(
+    `/admin/plans/${encodeURIComponent(tier)}/reset`,
+    { method: 'POST' },
+  );
 }
 
 export async function fileAssetToBase64(uri: string): Promise<string> {

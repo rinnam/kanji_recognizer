@@ -16,7 +16,7 @@ import { DownloadIcon, LinkExternalIcon, TrashIcon, UploadIcon, VolumeIcon } fro
 import { parseCsv } from '../../import-parser';
 import { nihongoTheme } from '../../theme/nihongo-theme';
 import { speakJapanese } from '../../utils/speak-japanese';
-import { getCachedAuthSession, readAuthSession } from '../auth/auth-store';
+import { getCachedAdminSession, readAdminSession } from '../auth/auth-store';
 import {
   buildMaterialFileUrl,
   type JlptLevel,
@@ -331,7 +331,7 @@ export function AdminLessonsTab() {
       openExternalUrl(mat.externalUrl);
       return;
     }
-    const session = getCachedAuthSession() ?? (await readAuthSession());
+    const session = getCachedAdminSession() ?? (await readAdminSession());
     openExternalUrl(buildMaterialFileUrl(mat.id, session?.accessToken ?? null));
   };
 

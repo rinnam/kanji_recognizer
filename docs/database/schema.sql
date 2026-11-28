@@ -420,3 +420,25 @@ CREATE TABLE IF NOT EXISTS admin_audit_logs (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_created ON admin_audit_logs(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS subscription_plans (
+  tier                     text PRIMARY KEY CHECK (tier IN ('free', 'plus', 'pro')),
+  name                     text NOT NULL,
+  tagline                  text NOT NULL,
+  monthly_price_vnd        integer NOT NULL CHECK (monthly_price_vnd >= 0),
+  yearly_price_vnd         integer NOT NULL CHECK (yearly_price_vnd >= 0),
+  yearly_per_month_vnd     integer NOT NULL CHECK (yearly_per_month_vnd >= 0),
+  multiplier               double precision NOT NULL DEFAULT 1.0,
+  shadowing_custom_per_day integer,
+  reading_per_week         integer,
+  writing_per_week         integer,
+  speaking_life_per_day    integer,
+  speaking_work_per_day    integer,
+  it_engineer_allowed      boolean NOT NULL DEFAULT false,
+  upload_cv_allowed        boolean NOT NULL DEFAULT false,
+  full_rubric_allowed      boolean NOT NULL DEFAULT false,
+  highlights               jsonb NOT NULL DEFAULT '[]'::jsonb,
+  updated_by               uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at               timestamptz NOT NULL DEFAULT now(),
+  updated_at               timestamptz NOT NULL DEFAULT now()
+);

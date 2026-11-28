@@ -7,9 +7,9 @@ import { AdminOverviewTab } from '../../src/features/admin/AdminOverviewTab';
 import { AdminSubscriptionsTab } from '../../src/features/admin/AdminSubscriptionsTab';
 import { AdminUsersTab } from '../../src/features/admin/AdminUsersTab';
 import {
-  getCachedAuthSession,
-  refreshAuthMe,
-  saveAuthSession,
+  getCachedAdminSession,
+  refreshAdminAuthMe,
+  saveAdminSession,
   type AuthUser,
 } from '../../src/features/auth/auth-store';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
@@ -29,7 +29,7 @@ export default function AdminPortalScreen() {
   const [subscriptionSearch, setSubscriptionSearch] = useState('');
   const [authorized, setAuthorized] = useState<'checking' | 'ok' | 'denied'>('checking');
   const [adminUser, setAdminUser] = useState<AuthUser | null>(
-    () => getCachedAuthSession()?.user ?? null,
+    () => getCachedAdminSession()?.user ?? null,
   );
 
   useEffect(() => {
@@ -45,11 +45,11 @@ export default function AdminPortalScreen() {
 
   useEffect(() => {
     let active = true;
-    void refreshAuthMe().then((session) => {
+    void refreshAdminAuthMe().then((session) => {
       if (!active) return;
-      if (!session || session.user.role !== 'admin') {
+      if (!session || session.user.role !== 'admin' || session.portal !== 'admin') {
         setAuthorized('denied');
-        router.replace(session ? '/app' : '/login');
+        router.replace('/admin/login');
         return;
       }
       setAdminUser(session.user);
@@ -61,8 +61,8 @@ export default function AdminPortalScreen() {
   }, [router]);
 
   const handleLogout = async () => {
-    await saveAuthSession(null);
-    router.replace('/login');
+    await saveAdminSession(null);
+    router.replace('/admin/login');
   };
 
   const handleSelectTab = (tab: AdminTabKey) => {

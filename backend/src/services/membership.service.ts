@@ -57,7 +57,11 @@ export interface PlanDefinition {
   highlights: string[];
 }
 
-export const PLAN_CATALOG: Record<SubscriptionTier, PlanDefinition> = {
+function clonePlanDefinition(plan: PlanDefinition): PlanDefinition {
+  return { ...plan, highlights: [...plan.highlights] };
+}
+
+export const DEFAULT_PLAN_CATALOG: Record<SubscriptionTier, PlanDefinition> = {
   free: {
     tier: 'free',
     name: 'Miễn phí (Free)',
@@ -131,6 +135,12 @@ export const PLAN_CATALOG: Record<SubscriptionTier, PlanDefinition> = {
       'Hệ số tích Xu Kanji Smart: ×1.5',
     ],
   },
+};
+
+export const PLAN_CATALOG: Record<SubscriptionTier, PlanDefinition> = {
+  free: clonePlanDefinition(DEFAULT_PLAN_CATALOG.free),
+  plus: clonePlanDefinition(DEFAULT_PLAN_CATALOG.plus),
+  pro: clonePlanDefinition(DEFAULT_PLAN_CATALOG.pro),
 };
 
 export interface ShopItemDefinition {
@@ -346,12 +356,264 @@ export function ensureMembershipTables(): Promise<void> {
           PRIMARY KEY (user_id, feature_key)
         );
       `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS subscription_plans (
+          tier                     text PRIMARY KEY CHECK (tier IN ('free', 'plus', 'pro')),
+          name                     text NOT NULL,
+          tagline                  text NOT NULL,
+          monthly_price_vnd        integer NOT NULL CHECK (monthly_price_vnd >= 0),
+          yearly_price_vnd         integer NOT NULL CHECK (yearly_price_vnd >= 0),
+          yearly_per_month_vnd     integer NOT NULL CHECK (yearly_per_month_vnd >= 0),
+          multiplier               double precision NOT NULL DEFAULT 1.0,
+          shadowing_custom_per_day integer,
+          reading_per_week         integer,
+          writing_per_week         integer,
+          speaking_life_per_day    integer,
+          speaking_work_per_day    integer,
+          it_engineer_allowed      boolean NOT NULL DEFAULT false,
+          upload_cv_allowed        boolean NOT NULL DEFAULT false,
+          full_rubric_allowed      boolean NOT NULL DEFAULT false,
+          highlights               jsonb NOT NULL DEFAULT '[]'::jsonb,
+          updated_by               uuid REFERENCES users(id) ON DELETE SET NULL,
+          created_at               timestamptz NOT NULL DEFAULT now(),
+          updated_at               timestamptz NOT NULL DEFAULT now()
+        );
+      `);
+      for (const def of Object.values(DEFAULT_PLAN_CATALOG)) {
+        await pool.query(
+          `INSERT INTO subscription_plans (
+             tier, name, tagline, monthly_price_vnd, yearly_price_vnd, yearly_per_month_vnd,
+             multiplier, shadowing_custom_per_day, reading_per_week, writing_per_week,
+             speaking_life_per_day, speaking_work_per_day,
+             it_engineer_allowed, upload_cv_allowed, full_rubric_allowed, highlights
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb)
+           ON CONFLICT (tier) DO NOTHING`,
+          [
+            def.tier,
+            def.name,
+            def.tagline,
+            def.monthlyPriceVnd,
+            def.yearlyPriceVnd,
+            def.yearlyPerMonthVnd,
+            def.multiplier,
+            def.shadowingCustomPerDay,
+            def.readingPerWeek,
+            def.writingPerWeek,
+            def.speakingLifePerDay,
+            def.speakingWorkPerDay,
+            def.itEngineerAllowed,
+            def.uploadCvAllowed,
+            def.fullRubricAllowed,
+            JSON.stringify(def.highlights),
+          ],
+        );
+      }
+      await hydratePlanCatalogFromDb();
     })().catch((err) => {
       membershipTablesPromise = null;
       throw err;
     });
   }
   return membershipTablesPromise;
+}
+
+interface DbPlanRow {
+  tier: string;
+  name: string;
+  tagline: string;
+  monthly_price_vnd: number;
+  yearly_price_vnd: number;
+  yearly_per_month_vnd: number;
+  multiplier: number;
+  shadowing_custom_per_day: number | null;
+  reading_per_week: number | null;
+  writing_per_week: number | null;
+  speaking_life_per_day: number | null;
+  speaking_work_per_day: number | null;
+  it_engineer_allowed: boolean;
+  upload_cv_allowed: boolean;
+  full_rubric_allowed: boolean;
+  highlights: unknown;
+}
+
+function mapDbPlanRow(r: DbPlanRow): PlanDefinition {
+  const tier: SubscriptionTier = r.tier === 'pro' ? 'pro' : r.tier === 'plus' ? 'plus' : 'free';
+  return {
+    tier,
+    name: r.name,
+    tagline: r.tagline,
+    monthlyPriceVnd: Number(r.monthly_price_vnd) || 0,
+    yearlyPriceVnd: Number(r.yearly_price_vnd) || 0,
+    yearlyPerMonthVnd: Number(r.yearly_per_month_vnd) || 0,
+    multiplier: Number(r.multiplier) || 1.0,
+    shadowingCustomPerDay: r.shadowing_custom_per_day !== null ? Number(r.shadowing_custom_per_day) : null,
+    readingPerWeek: r.reading_per_week !== null ? Number(r.reading_per_week) : null,
+    writingPerWeek: r.writing_per_week !== null ? Number(r.writing_per_week) : null,
+    speakingLifePerDay: r.speaking_life_per_day !== null ? Number(r.speaking_life_per_day) : null,
+    speakingWorkPerDay: r.speaking_work_per_day !== null ? Number(r.speaking_work_per_day) : null,
+    itEngineerAllowed: Boolean(r.it_engineer_allowed),
+    uploadCvAllowed: Boolean(r.upload_cv_allowed),
+    fullRubricAllowed: Boolean(r.full_rubric_allowed),
+    highlights: Array.isArray(r.highlights) ? r.highlights.map((x) => String(x)) : [],
+  };
+}
+
+async function hydratePlanCatalogFromDb(): Promise<void> {
+  const res = await pool.query<DbPlanRow>(`SELECT * FROM subscription_plans`);
+  for (const row of res.rows) {
+    const mapped = mapDbPlanRow(row);
+    PLAN_CATALOG[mapped.tier] = mapped;
+  }
+}
+
+export async function getPlanCatalogSnapshot(): Promise<{
+  plans: PlanDefinition[];
+  defaults: PlanDefinition[];
+}> {
+  await ensureMembershipTables();
+  await hydratePlanCatalogFromDb();
+  return {
+    plans: [PLAN_CATALOG.free, PLAN_CATALOG.plus, PLAN_CATALOG.pro].map(clonePlanDefinition),
+    defaults: [
+      DEFAULT_PLAN_CATALOG.free,
+      DEFAULT_PLAN_CATALOG.plus,
+      DEFAULT_PLAN_CATALOG.pro,
+    ].map(clonePlanDefinition),
+  };
+}
+
+export interface UpdatePlanDefinitionInput {
+  name: string;
+  tagline: string;
+  monthlyPriceVnd: number;
+  yearlyPriceVnd: number;
+  yearlyPerMonthVnd?: number | undefined;
+  multiplier: number;
+  shadowingCustomPerDay: number | null;
+  readingPerWeek: number | null;
+  writingPerWeek: number | null;
+  speakingLifePerDay: number | null;
+  speakingWorkPerDay: number | null;
+  itEngineerAllowed: boolean;
+  uploadCvAllowed: boolean;
+  fullRubricAllowed: boolean;
+  highlights: string[];
+}
+
+export async function adminUpdatePlanDefinition(
+  adminId: string,
+  tier: SubscriptionTier,
+  input: UpdatePlanDefinitionInput,
+): Promise<PlanDefinition> {
+  await ensureMembershipTables();
+  await ensureAdminAndLessonTables();
+
+  const monthlyPrice = tier === 'free' ? 0 : Math.max(0, Math.round(input.monthlyPriceVnd));
+  const yearlyPrice = tier === 'free' ? 0 : Math.max(0, Math.round(input.yearlyPriceVnd));
+  const yearlyPerMonth =
+    tier === 'free'
+      ? 0
+      : Math.max(
+          0,
+          Math.round(
+            input.yearlyPerMonthVnd !== undefined ? input.yearlyPerMonthVnd : yearlyPrice / 12,
+          ),
+        );
+  const multiplier = Math.round(input.multiplier * 100) / 100;
+  const highlights = input.highlights.map((h) => h.trim()).filter(Boolean);
+
+  const client = await pool.connect();
+  let updated: PlanDefinition;
+  try {
+    await client.query('BEGIN');
+    const res = await client.query<DbPlanRow>(
+      `UPDATE subscription_plans
+       SET name = $2,
+           tagline = $3,
+           monthly_price_vnd = $4,
+           yearly_price_vnd = $5,
+           yearly_per_month_vnd = $6,
+           multiplier = $7,
+           shadowing_custom_per_day = $8,
+           reading_per_week = $9,
+           writing_per_week = $10,
+           speaking_life_per_day = $11,
+           speaking_work_per_day = $12,
+           it_engineer_allowed = $13,
+           upload_cv_allowed = $14,
+           full_rubric_allowed = $15,
+           highlights = $16::jsonb,
+           updated_by = $17,
+           updated_at = now()
+       WHERE tier = $1
+       RETURNING *`,
+      [
+        tier,
+        input.name.trim(),
+        input.tagline.trim(),
+        monthlyPrice,
+        yearlyPrice,
+        yearlyPerMonth,
+        multiplier,
+        input.shadowingCustomPerDay,
+        input.readingPerWeek,
+        input.writingPerWeek,
+        input.speakingLifePerDay,
+        input.speakingWorkPerDay,
+        input.itEngineerAllowed,
+        input.uploadCvAllowed,
+        input.fullRubricAllowed,
+        JSON.stringify(highlights),
+        adminId,
+      ],
+    );
+    const row = res.rows[0];
+    if (!row) {
+      throw new NotFoundError('Không tìm thấy cấu hình gói.');
+    }
+    updated = mapDbPlanRow(row);
+
+    await appendAdminAuditLog(client, {
+      adminId,
+      action: 'plan_config_update',
+      targetType: 'subscription_plan',
+      targetId: tier,
+      detail: `Cập nhật gói ${tier.toUpperCase()}: ${updated.name} · Tháng ${updated.monthlyPriceVnd.toLocaleString('vi-VN')}đ · Năm ${updated.yearlyPriceVnd.toLocaleString('vi-VN')}đ · ×${updated.multiplier}`,
+    });
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  PLAN_CATALOG[tier] = updated;
+  return clonePlanDefinition(updated);
+}
+
+export async function adminResetPlanDefinition(
+  adminId: string,
+  tier: SubscriptionTier,
+): Promise<PlanDefinition> {
+  const def = clonePlanDefinition(DEFAULT_PLAN_CATALOG[tier]);
+  return adminUpdatePlanDefinition(adminId, tier, {
+    name: def.name,
+    tagline: def.tagline,
+    monthlyPriceVnd: def.monthlyPriceVnd,
+    yearlyPriceVnd: def.yearlyPriceVnd,
+    yearlyPerMonthVnd: def.yearlyPerMonthVnd,
+    multiplier: def.multiplier,
+    shadowingCustomPerDay: def.shadowingCustomPerDay,
+    readingPerWeek: def.readingPerWeek,
+    writingPerWeek: def.writingPerWeek,
+    speakingLifePerDay: def.speakingLifePerDay,
+    speakingWorkPerDay: def.speakingWorkPerDay,
+    itEngineerAllowed: def.itEngineerAllowed,
+    uploadCvAllowed: def.uploadCvAllowed,
+    fullRubricAllowed: def.fullRubricAllowed,
+    highlights: def.highlights,
+  });
 }
 
 async function resolveActiveTier(

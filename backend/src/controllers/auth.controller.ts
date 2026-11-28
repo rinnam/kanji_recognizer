@@ -1,10 +1,12 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
   extractBearerUser,
+  loginAdmin,
   loginUser,
   registerUser,
-  resolveAuthenticatedUser,
+  resolveAuthRecordByHeader,
 } from '../services/auth.service.js';
+import { ForbiddenError } from '../utils/errors.js';
 import {
   getUserStudyState,
   saveUserStudyState,
@@ -28,14 +30,28 @@ export async function handleLogin(req: FastifyRequest, reply: FastifyReply) {
     const result = await loginUser(body.email ?? '', body.password ?? '');
     return reply.send(result);
   } catch (err) {
-    return reply.status(401).send({ message: err instanceof Error ? err.message : 'Đăng nhập thất bại.' });
+    const status = err instanceof ForbiddenError ? 403 : 401;
+    return reply.status(status).send({ message: err instanceof Error ? err.message : 'Đăng nhập thất bại.' });
+  }
+}
+
+export async function handleAdminLogin(req: FastifyRequest, reply: FastifyReply) {
+  const body = (req.body ?? {}) as { email?: string; password?: string };
+  try {
+    const result = await loginAdmin(body.email ?? '', body.password ?? '');
+    return reply.send(result);
+  } catch (err) {
+    const status = err instanceof ForbiddenError ? 403 : 401;
+    return reply.status(status).send({ message: err instanceof Error ? err.message : 'Đăng nhập thất bại.' });
   }
 }
 
 export async function handleMe(req: FastifyRequest, reply: FastifyReply) {
-  const user = await resolveAuthenticatedUser(req.headers.authorization);
-  if (!user) return reply.status(401).send({ message: 'Chưa đăng nhập, tài khoản bị khóa hoặc token hết hạn.' });
-  return reply.send({ user });
+  const record = await resolveAuthRecordByHeader(req.headers.authorization);
+  if (!record || record.isBanned) {
+    return reply.status(401).send({ message: 'Chưa đăng nhập, tài khoản bị khóa hoặc token hết hạn.' });
+  }
+  return reply.send({ user: record.user, portal: record.portal });
 }
 
 export async function handleGetStudyState(req: FastifyRequest, reply: FastifyReply) {

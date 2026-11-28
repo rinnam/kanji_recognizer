@@ -13,6 +13,7 @@ import {
 import { nihongoTheme } from '../../theme/nihongo-theme';
 import { useIsMobilePhone } from '../../utils/device';
 import type { SubscriptionTier } from '../lessons/lessons-api';
+import { AdminPlanConfigPanel } from './AdminPlanConfigPanel';
 import {
   adminSetUserSubscriptionApi,
   fetchAdminSubscriptionDetail,
@@ -138,6 +139,7 @@ interface AdminSubscriptionsTabProps {
 
 export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabProps) {
   const isPhone = useIsMobilePhone();
+  const [subView, setSubView] = useState<'customers' | 'plans'>('customers');
   const [q, setQ] = useState(initialQuery ?? '');
   const [statusFilter, setStatusFilter] = useState<'all' | SubscriptionStatusKind>('all');
   const [tierFilter, setTierFilter] = useState<'all' | SubscriptionTier>('all');
@@ -167,6 +169,7 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
   useEffect(() => {
     if (initialQuery !== undefined) {
       setQ(initialQuery);
+      if (initialQuery) setSubView('customers');
     }
   }, [initialQuery]);
 
@@ -298,8 +301,37 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
   const catalog = data?.planCatalog;
   const rows = data?.subscriptions ?? [];
 
+  const renderSubViewBar = () => (
+    <View style={styles.filterGroup}>
+      {(
+        [
+          ['customers', 'Khách hàng & Thời hạn'],
+          ['plans', 'Cấu hình giá & Chức năng gói'],
+        ] as const
+      ).map(([k, lbl]) => (
+        <Pressable
+          key={k}
+          style={[styles.chip, subView === k && styles.chipDarkActive]}
+          onPress={() => setSubView(k)}
+        >
+          <Text style={[styles.chipText, subView === k && styles.chipTextActive]}>{lbl}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+
+  if (subView === 'plans') {
+    return (
+      <View style={styles.container}>
+        {renderSubViewBar()}
+        <AdminPlanConfigPanel onPlanSaved={() => void loadList()} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
+      {renderSubViewBar()}
       {errorMsg ? (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{errorMsg}</Text>

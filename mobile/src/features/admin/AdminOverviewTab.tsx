@@ -16,12 +16,13 @@ import {
   createAdminManualOrder,
   fetchAdminOrders,
   fetchAdminOverview,
+  fetchAdminPlans,
   updateAdminOrderStatus,
   type AdminOrderDto,
   type AdminOverviewResponse,
 } from './admin-api';
 
-const PLAN_PRICES: Record<'plus' | 'pro', Record<'monthly' | 'yearly', number>> = {
+const DEFAULT_PLAN_PRICES: Record<'plus' | 'pro', Record<'monthly' | 'yearly', number>> = {
   plus: { monthly: 79000, yearly: 708000 },
   pro: { monthly: 149000, yearly: 1428000 },
 };
@@ -42,6 +43,7 @@ const ACTION_LABELS: Record<string, string> = {
   user_ban: 'Khóa tài khoản',
   user_unban: 'Mở khóa tài khoản',
   user_subscription_set: 'Cập nhật gói cước',
+  plan_config_update: 'Cập nhật cấu hình gói',
   user_points_adjust: 'Điều chỉnh Xu KS',
   lesson_create: 'Tạo bài học',
   lesson_update: 'Cập nhật bài học',
@@ -66,6 +68,7 @@ export function AdminOverviewTab() {
   const [overview, setOverview] = useState<AdminOverviewResponse | null>(null);
   const [orders, setOrders] = useState<AdminOrderDto[]>([]);
   const [totalOrders, setTotalOrders] = useState(0);
+  const [planPrices, setPlanPrices] = useState(DEFAULT_PLAN_PRICES);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [noticeMsg, setNoticeMsg] = useState<string | null>(null);
@@ -76,7 +79,7 @@ export function AdminOverviewTab() {
   const [mEmail, setMEmail] = useState('');
   const [mTier, setMTier] = useState<'plus' | 'pro'>('plus');
   const [mCycle, setMCycle] = useState<'monthly' | 'yearly'>('monthly');
-  const [mAmountInput, setMAmountInput] = useState(String(PLAN_PRICES.plus.monthly));
+  const [mAmountInput, setMAmountInput] = useState(String(DEFAULT_PLAN_PRICES.plus.monthly));
   const [mIsDemo, setMIsDemo] = useState(false);
   const [mNote, setMNote] = useState('');
   const [savingOrder, setSavingOrder] = useState(false);
@@ -85,13 +88,28 @@ export function AdminOverviewTab() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const [ov, ord] = await Promise.all([
+      const [ov, ord, planSnap] = await Promise.all([
         fetchAdminOverview(days, kind),
         fetchAdminOrders({ status: orderStatus, kind, q: orderQuery }),
+        fetchAdminPlans().catch(() => null),
       ]);
       setOverview(ov);
       setOrders(ord.orders);
       setTotalOrders(ord.total);
+      if (planSnap) {
+        const plusPlan = planSnap.plans.find((p) => p.tier === 'plus');
+        const proPlan = planSnap.plans.find((p) => p.tier === 'pro');
+        setPlanPrices({
+          plus: {
+            monthly: plusPlan?.monthlyPriceVnd ?? DEFAULT_PLAN_PRICES.plus.monthly,
+            yearly: plusPlan?.yearlyPriceVnd ?? DEFAULT_PLAN_PRICES.plus.yearly,
+          },
+          pro: {
+            monthly: proPlan?.monthlyPriceVnd ?? DEFAULT_PLAN_PRICES.pro.monthly,
+            yearly: proPlan?.yearlyPriceVnd ?? DEFAULT_PLAN_PRICES.pro.yearly,
+          },
+        });
+      }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Không tải được dữ liệu thống kê.');
     } finally {
@@ -122,7 +140,7 @@ export function AdminOverviewTab() {
   const handleSelectPlanOption = (nextTier: 'plus' | 'pro', nextCycle: 'monthly' | 'yearly') => {
     setMTier(nextTier);
     setMCycle(nextCycle);
-    setMAmountInput(String(PLAN_PRICES[nextTier][nextCycle]));
+    setMAmountInput(String(planPrices[nextTier][nextCycle]));
   };
 
   const handleCreateOrder = async () => {
@@ -136,7 +154,7 @@ export function AdminOverviewTab() {
         email: mEmail.trim(),
         tier: mTier,
         billingCycle: mCycle,
-        amountVnd: Number.isFinite(amount) ? amount : PLAN_PRICES[mTier][mCycle],
+        amountVnd: Number.isFinite(amount) ? amount : planPrices[mTier][mCycle],
         status: 'paid',
         isDemo: mIsDemo,
         note: mNote.trim() || undefined,

@@ -87,3 +87,23 @@ export const adminAdjustPointsSchema = z.object({
   }),
   reason: z.string().trim().min(2).max(240),
 });
+
+export const adminPlanTierParamSchema = z.enum(['free', 'plus', 'pro']);
+
+export const adminUpdatePlanSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  tagline: z.string().trim().min(2).max(200),
+  monthlyPriceVnd: z.number().int().min(0).max(100_000_000),
+  yearlyPriceVnd: z.number().int().min(0).max(100_000_000),
+  yearlyPerMonthVnd: z.number().int().min(0).max(100_000_000).optional(),
+  multiplier: z.number().min(0.5).max(10),
+  shadowingCustomPerDay: z.number().int().min(0).max(10000).nullable(),
+  readingPerWeek: z.number().int().min(0).max(10000).nullable(),
+  writingPerWeek: z.number().int().min(0).max(10000).nullable(),
+  speakingLifePerDay: z.number().int().min(0).max(10000).nullable(),
+  speakingWorkPerDay: z.number().int().min(0).max(10000).nullable(),
+  itEngineerAllowed: z.boolean(),
+  uploadCvAllowed: z.boolean(),
+  fullRubricAllowed: z.boolean(),
+  highlights: z.array(z.string().trim().min(1).max(240)).max(20),
+});

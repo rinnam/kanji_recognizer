@@ -5,9 +5,13 @@ import { AntiAfkPromptModal } from '../src/components/AntiAfkPromptModal';
 import { FloatingBottomDock } from '../src/components/FloatingBottomDock';
 import { FloatingUtilityDock } from '../src/components/FloatingUtilityDock';
 import {
+  getCachedAdminSession,
   getCachedAuthSession,
+  readAdminSession,
   readAuthSession,
+  refreshAdminAuthMe,
   refreshAuthMe,
+  subscribeAdminSession,
   subscribeAuthSession,
   type AuthSession,
 } from '../src/features/auth/auth-store';
@@ -22,16 +26,24 @@ export default function RootLayout() {
   const router = useRouter();
   const rootNavState = useRootNavigationState();
   const [checked, setChecked] = useState(false);
-  const [session, setSession] = useState<AuthSession | null>(() => getCachedAuthSession());
+  const [learnerSession, setLearnerSession] = useState<AuthSession | null>(
+    () => getCachedAuthSession(),
+  );
+  const [adminSession, setAdminSession] = useState<AuthSession | null>(
+    () => getCachedAdminSession(),
+  );
   const [dailyMinutes, setDailyMinutes] = useState(DEFAULT_PROFILE.dailyMinutes);
 
-  const isAuthPage = pathname === '/login' || pathname === '/register';
+  const isLearnerAuthPage = pathname === '/login' || pathname === '/register';
   const isOnboardingPage = pathname === '/onboarding';
+  const isAdminLoginPage = pathname === '/admin/login';
   const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
-  const hasSession = Boolean(session);
-  const isAdminUser = session?.user.role === 'admin';
-  const isRoleMismatch =
-    hasSession && !isAuthPage && ((isAdminUser && !isAdminRoute) || (!isAdminUser && isAdminRoute));
+
+  const needsAdminRedirect =
+    checked &&
+    isAdminRoute &&
+    ((!adminSession && !isAdminLoginPage) || (Boolean(adminSession) && isAdminLoginPage));
+  const needsLearnerRedirect = checked && !isAdminRoute && !learnerSession && !isLearnerAuthPage;
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -40,25 +52,31 @@ export default function RootLayout() {
   }, [isAdminRoute]);
 
   useEffect(() => {
-    const unsub = subscribeAuthSession((s) => {
-      setSession(s);
-    });
-    return unsub;
+    const unsubLearner = subscribeAuthSession((s) => setLearnerSession(s));
+    const unsubAdmin = subscribeAdminSession((s) => setAdminSession(s));
+    return () => {
+      unsubLearner();
+      unsubAdmin();
+    };
   }, []);
 
   useEffect(() => {
     let active = true;
     void (async () => {
-      const local = await readAuthSession();
+      const [localLearner, localAdmin] = await Promise.all([
+        readAuthSession(),
+        readAdminSession(),
+      ]);
       if (!active) return;
-      if (local) {
-        setSession(local);
-        const fresh = await refreshAuthMe();
-        if (!active) return;
-        setSession(fresh);
-      } else {
-        setSession(null);
-      }
+      setLearnerSession(localLearner);
+      setAdminSession(localAdmin);
+      const [freshLearner, freshAdmin] = await Promise.all([
+        localLearner ? refreshAuthMe() : Promise.resolve(null),
+        localAdmin ? refreshAdminAuthMe() : Promise.resolve(null),
+      ]);
+      if (!active) return;
+      setLearnerSession(freshLearner);
+      setAdminSession(freshAdmin);
       setChecked(true);
     })();
     return () => {
@@ -68,48 +86,71 @@ export default function RootLayout() {
 
   useEffect(() => {
     let active = true;
-    void readAuthSession().then((current) => {
-      if (!active) return;
-      setSession(current);
-      if (!current || current.user.role !== 'admin') {
-        void readLearningProfile().then((p) => {
-          if (active) setDailyMinutes(p.dailyMinutes);
-        });
-      }
-    });
+    if (isAdminRoute) {
+      void readAdminSession().then((s) => {
+        if (active) setAdminSession(s);
+      });
+    } else {
+      void readAuthSession().then((s) => {
+        if (!active) return;
+        setLearnerSession(s);
+        if (s) {
+          void readLearningProfile().then((p) => {
+            if (active) setDailyMinutes(p.dailyMinutes);
+          });
+        }
+      });
+    }
     return () => {
       active = false;
     };
-  }, [pathname]);
+  }, [isAdminRoute, pathname]);
 
   useEffect(() => {
     if (!checked || !rootNavState?.key) return;
-    if (!hasSession && !isAuthPage) {
+    if (isAdminRoute) {
+      if (!adminSession && !isAdminLoginPage) {
+        router.replace('/admin/login');
+        return;
+      }
+      if (adminSession && isAdminLoginPage) {
+        router.replace('/admin');
+      }
+      return;
+    }
+    if (!learnerSession && !isLearnerAuthPage) {
       router.replace('/login');
-      return;
     }
-    if (hasSession && isAdminUser && !isAdminRoute && !isAuthPage) {
-      router.replace('/admin');
-      return;
-    }
-    if (hasSession && !isAdminUser && isAdminRoute) {
-      router.replace('/app');
-    }
-  }, [checked, hasSession, isAdminUser, isAdminRoute, isAuthPage, rootNavState?.key, router]);
+  }, [
+    adminSession,
+    checked,
+    isAdminLoginPage,
+    isAdminRoute,
+    isLearnerAuthPage,
+    learnerSession,
+    rootNavState?.key,
+    router,
+  ]);
 
   useGlobalStudyTimer({
-    enabled: checked && hasSession && !isAuthPage && !isOnboardingPage && !isAdminUser && !isAdminRoute,
+    enabled:
+      checked &&
+      Boolean(learnerSession) &&
+      !isLearnerAuthPage &&
+      !isOnboardingPage &&
+      !isAdminRoute,
     pathname,
     goalSeconds: Math.max(1, dailyMinutes) * 60,
   });
 
-  const showLearnerChrome = checked && hasSession && !isAuthPage && !isAdminUser && !isAdminRoute;
+  const showLearnerChrome =
+    checked && Boolean(learnerSession) && !isLearnerAuthPage && !isAdminRoute;
 
   return (
     <View style={styles.root} onTouchStart={markStudyInteraction}>
       <View style={styles.contentArea}>
         <Stack screenOptions={{ headerShown: false }} />
-        {!checked || (!hasSession && !isAuthPage) || isRoleMismatch ? (
+        {!checked || needsAdminRedirect || needsLearnerRedirect ? (
           <View style={styles.authGateOverlay} />
         ) : null}
       </View>

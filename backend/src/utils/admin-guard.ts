@@ -33,19 +33,39 @@ export async function requireAuthUser(
   return record.user;
 }
 
-/** Bắt buộc người dùng có quyền admin đang hoạt động (kiểm tra trực tiếp trên DB). */
+/** Bắt buộc người dùng có quyền admin đang hoạt động VÀ đăng nhập từ cổng Quản trị. */
 export async function requireAdminUser(
   req: FastifyRequest,
   reply: FastifyReply,
 ): Promise<AuthUser | null> {
-  const user = await requireAuthUser(req, reply);
-  if (!user) return null;
-  if (user.role !== 'admin') {
+  const record = await resolveAuthRecordByToken(extractBearerToken(req.headers.authorization));
+  if (!record) {
+    void reply.status(401).send({
+      error: 'Unauthorized',
+      message: 'Vui lòng đăng nhập để tiếp tục.',
+    });
+    return null;
+  }
+  if (record.isBanned) {
+    void reply.status(403).send({
+      error: 'Forbidden',
+      message: 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.',
+    });
+    return null;
+  }
+  if (record.user.role !== 'admin') {
     void reply.status(403).send({
       error: 'Forbidden',
       message: 'Bạn không có quyền quản trị viên.',
     });
     return null;
   }
-  return user;
+  if (record.portal !== 'admin') {
+    void reply.status(403).send({
+      error: 'Forbidden',
+      message: 'Phiên đăng nhập học viên không có quyền truy cập cổng quản trị. Vui lòng đăng nhập tại trang quản trị.',
+    });
+    return null;
+  }
+  return record.user;
 }

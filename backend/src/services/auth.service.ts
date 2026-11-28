@@ -1,8 +1,10 @@
 import crypto from 'node:crypto';
 import { pool } from '../config/database.js';
+import { ForbiddenError } from '../utils/errors.js';
 import { ensureAdminAndLessonTables } from './admin-schema.service.js';
 
 export type UserRole = 'user' | 'admin';
+export type AuthPortal = 'user' | 'admin';
 
 export interface AuthUser {
   id: string;
@@ -14,6 +16,7 @@ export interface AuthUser {
 export interface LiveAuthRecord {
   user: AuthUser;
   isBanned: boolean;
+  portal: AuthPortal;
 }
 
 const JWT_TTL_SECONDS = 7 * 24 * 3600; // 7 days
@@ -46,7 +49,7 @@ function base64UrlDecode(input: string): string {
   return Buffer.from(input, 'base64url').toString('utf8');
 }
 
-export function signToken(user: AuthUser): string {
+export function signToken(user: AuthUser, portal: AuthPortal = 'user'): string {
   const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const now = Math.floor(Date.now() / 1000);
   const payload = base64UrlEncode(
@@ -55,6 +58,7 @@ export function signToken(user: AuthUser): string {
       email: user.email,
       displayName: user.displayName,
       role: user.role,
+      portal,
       iat: now,
       exp: now + JWT_TTL_SECONDS,
     }),
@@ -63,7 +67,7 @@ export function signToken(user: AuthUser): string {
   return `${header}.${payload}.${sig}`;
 }
 
-export function verifyToken(token: string): AuthUser | null {
+export function verifyTokenWithPortal(token: string): { user: AuthUser; portal: AuthPortal } | null {
   const parts = token.split('.');
   if (parts.length !== 3) return null;
   const header = parts[0];
@@ -80,20 +84,28 @@ export function verifyToken(token: string): AuthUser | null {
       email?: string;
       displayName?: string;
       role?: UserRole;
+      portal?: AuthPortal;
       exp?: number;
     };
     if (!parsed.sub || !parsed.email || !parsed.exp || parsed.exp < Math.floor(Date.now() / 1000)) {
       return null;
     }
     return {
-      id: parsed.sub,
-      email: parsed.email,
-      displayName: parsed.displayName || parsed.email.split('@')[0] || 'User',
-      role: parsed.role === 'admin' ? 'admin' : 'user',
+      portal: parsed.portal === 'admin' ? 'admin' : 'user',
+      user: {
+        id: parsed.sub,
+        email: parsed.email,
+        displayName: parsed.displayName || parsed.email.split('@')[0] || 'User',
+        role: parsed.role === 'admin' ? 'admin' : 'user',
+      },
     };
   } catch {
     return null;
   }
+}
+
+export function verifyToken(token: string): AuthUser | null {
+  return verifyTokenWithPortal(token)?.user ?? null;
 }
 
 export async function registerUser(emailRaw: string, password: string, displayNameRaw?: string) {
@@ -113,30 +125,30 @@ export async function registerUser(emailRaw: string, password: string, displayNa
     [email, passwordHash, displayName],
   );
   const user = res.rows[0] as AuthUser;
-  return { accessToken: signToken(user), user };
+  return { accessToken: signToken(user, 'user'), user, portal: 'user' as const };
 }
 
-export async function loginUser(emailRaw: string, password: string) {
+async function authenticateCredentials(emailRaw: string, password: string) {
   await ensureAdminAndLessonTables();
   const email = emailRaw.trim().toLowerCase();
-  const res = await pool.query(
-    'SELECT id, email, password_hash, display_name AS "displayName", role, is_banned FROM users WHERE email = $1',
-    [email],
-  );
-  if (res.rows.length === 0) throw new Error('Sai email hoặc mật khẩu.');
-  const row = res.rows[0] as {
+  const res = await pool.query<{
     id: string;
     email: string;
     password_hash: string | null;
     displayName: string | null;
     role: UserRole;
     is_banned?: boolean;
-  };
-  if (row.is_banned) {
-    throw new Error('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.');
-  }
+  }>(
+    'SELECT id, email, password_hash, display_name AS "displayName", role, is_banned FROM users WHERE email = $1',
+    [email],
+  );
+  if (res.rows.length === 0) throw new Error('Sai email hoặc mật khẩu.');
+  const row = res.rows[0]!;
   if (!verifyPassword(password, row.password_hash)) {
     throw new Error('Sai email hoặc mật khẩu.');
+  }
+  if (row.is_banned) {
+    throw new ForbiddenError('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.');
   }
   const user: AuthUser = {
     id: row.id,
@@ -144,7 +156,22 @@ export async function loginUser(emailRaw: string, password: string) {
     displayName: row.displayName || row.email.split('@')[0] || 'User',
     role: row.role === 'admin' ? 'admin' : 'user',
   };
-  return { accessToken: signToken(user), user };
+  return user;
+}
+
+/** Đăng nhập cổng Học viên: luôn cấp phiên portal='user' (kể cả khi tài khoản có role='admin'). */
+export async function loginUser(emailRaw: string, password: string) {
+  const user = await authenticateCredentials(emailRaw, password);
+  return { accessToken: signToken(user, 'user'), user, portal: 'user' as const };
+}
+
+/** Đăng nhập cổng Quản trị: bắt buộc tài khoản đang có role='admin', cấp phiên portal='admin'. */
+export async function loginAdmin(emailRaw: string, password: string) {
+  const user = await authenticateCredentials(emailRaw, password);
+  if (user.role !== 'admin') {
+    throw new ForbiddenError('Tài khoản này không có quyền quản trị viên.');
+  }
+  return { accessToken: signToken(user, 'admin'), user, portal: 'admin' as const };
 }
 
 export function extractBearerUser(authHeader?: string): AuthUser | null {
@@ -152,11 +179,11 @@ export function extractBearerUser(authHeader?: string): AuthUser | null {
   return verifyToken(authHeader.slice(7).trim());
 }
 
-/** Kiểm tra token + đối chiếu quyền và trạng thái khóa trực tiếp từ DB. */
+/** Kiểm tra token + đối chiếu quyền, cổng đăng nhập và trạng thái khóa trực tiếp từ DB. */
 export async function resolveAuthRecordByToken(rawToken?: string): Promise<LiveAuthRecord | null> {
   const token = (rawToken ?? '').trim();
   if (!token) return null;
-  const decoded = verifyToken(token);
+  const decoded = verifyTokenWithPortal(token);
   if (!decoded) return null;
 
   await ensureAdminAndLessonTables();
@@ -170,13 +197,14 @@ export async function resolveAuthRecordByToken(rawToken?: string): Promise<LiveA
     `SELECT id, email, display_name, role, is_banned
      FROM users
      WHERE id = $1`,
-    [decoded.id],
+    [decoded.user.id],
   );
   const row = res.rows[0];
   if (!row || !row.email) return null;
 
   return {
     isBanned: Boolean(row.is_banned),
+    portal: decoded.portal,
     user: {
       id: row.id,
       email: row.email,
@@ -184,6 +212,11 @@ export async function resolveAuthRecordByToken(rawToken?: string): Promise<LiveA
       role: row.role === 'admin' ? 'admin' : 'user',
     },
   };
+}
+
+export async function resolveAuthRecordByHeader(authHeader?: string): Promise<LiveAuthRecord | null> {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  return resolveAuthRecordByToken(authHeader.slice(7).trim());
 }
 
 export async function resolveAuthenticatedToken(rawToken?: string): Promise<AuthUser | null> {

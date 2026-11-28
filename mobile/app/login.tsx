@@ -26,8 +26,8 @@ export default function LoginScreen() {
     setError(null);
     setBusy(true);
     try {
-      const session = await loginApi(trimmedEmail, password);
-      router.replace(session.user.role === 'admin' ? '/admin' : '/app');
+      await loginApi(trimmedEmail, password);
+      router.replace('/app');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Đăng nhập thất bại.');
     } finally {

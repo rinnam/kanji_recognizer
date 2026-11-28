@@ -25,7 +25,10 @@ import {
 } from '../services/lesson.service.js';
 import {
   adminAdjustUserKs,
+  adminResetPlanDefinition,
   adminSetUserSubscription,
+  adminUpdatePlanDefinition,
+  getPlanCatalogSnapshot,
 } from '../services/membership.service.js';
 import { requireAdminUser } from '../utils/admin-guard.js';
 import {
@@ -33,9 +36,11 @@ import {
   adminCreateOrderSchema,
   adminOrdersQuerySchema,
   adminOverviewQuerySchema,
+  adminPlanTierParamSchema,
   adminSetSubscriptionSchema,
   adminSubscriptionsQuerySchema,
   adminUpdateOrderSchema,
+  adminUpdatePlanSchema,
   adminUpdateUserBanSchema,
   adminUpdateUserRoleSchema,
   adminUsersQuerySchema,
@@ -97,6 +102,32 @@ export async function handleAdminGetSubscriptionDetail(req: FastifyRequest, repl
   const { userId } = req.params as { userId: string };
   const data = await getAdminUserSubscriptionDetail(userId);
   return reply.send(data);
+}
+
+export async function handleAdminListPlans(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const data = await getPlanCatalogSnapshot();
+  return reply.send(data);
+}
+
+export async function handleAdminUpdatePlan(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const { tier: rawTier } = req.params as { tier: string };
+  const tier = adminPlanTierParamSchema.parse(rawTier);
+  const parsed = adminUpdatePlanSchema.parse(req.body ?? {});
+  const plan = await adminUpdatePlanDefinition(admin.id, tier, parsed);
+  return reply.send({ plan });
+}
+
+export async function handleAdminResetPlan(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const { tier: rawTier } = req.params as { tier: string };
+  const tier = adminPlanTierParamSchema.parse(rawTier);
+  const plan = await adminResetPlanDefinition(admin.id, tier);
+  return reply.send({ plan });
 }
 
 export async function handleAdminListUsers(req: FastifyRequest, reply: FastifyReply) {
