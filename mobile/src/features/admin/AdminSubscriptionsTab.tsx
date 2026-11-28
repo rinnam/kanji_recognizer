@@ -1,19 +1,26 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { nihongoTheme } from '../../theme/nihongo-theme';
 import { useIsMobilePhone } from '../../utils/device';
 import type { SubscriptionTier } from '../lessons/lessons-api';
+import { AdminConfirmBanner } from './AdminConfirmModal';
 import { AdminPlanConfigPanel } from './AdminPlanConfigPanel';
+import { AdminSwitch } from './AdminSwitch';
+import {
+  adminTheme,
+  downloadCsvFile,
+  formatDateTimeVn,
+  formatDateVn,
+  formatVnd,
+} from './admin-theme';
 import {
   adminSetUserSubscriptionApi,
   fetchAdminSubscriptionDetail,
@@ -25,11 +32,10 @@ import {
 } from './admin-api';
 
 const PROVIDER_OPTIONS = [
-  { key: 'bank_transfer', label: 'Chuyển khoản', isDemo: false },
-  { key: 'momo', label: 'MoMo', isDemo: false },
-  { key: 'vnpay', label: 'VNPay', isDemo: false },
-  { key: 'cash', label: 'Tiền mặt', isDemo: false },
-  { key: 'admin_demo', label: 'Demo', isDemo: true },
+  { key: 'bank_transfer', label: 'Chuyển khoản' },
+  { key: 'momo', label: 'MoMo' },
+  { key: 'vnpay', label: 'VNPay' },
+  { key: 'cash', label: 'Tiền mặt' },
 ] as const;
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -47,9 +53,21 @@ const ORDER_STATUS_META: Record<
   'paid' | 'pending' | 'refunded',
   { label: string; bg: string; text: string }
 > = {
-  paid: { label: 'Đã thu', bg: '#ECFDF5', text: '#1B873F' },
-  pending: { label: 'Chờ duyệt', bg: '#FFF7ED', text: '#C25E00' },
-  refunded: { label: 'Hoàn tiền', bg: '#FEF2F2', text: '#DC2626' },
+  paid: {
+    label: 'Đã thu',
+    bg: adminTheme.colors.successBg,
+    text: adminTheme.colors.successText,
+  },
+  pending: {
+    label: 'Chờ duyệt',
+    bg: adminTheme.colors.warningBg,
+    text: adminTheme.colors.warningText,
+  },
+  refunded: {
+    label: 'Hoàn tiền',
+    bg: adminTheme.colors.dangerBg,
+    text: adminTheme.colors.dangerText,
+  },
 };
 
 const DURATION_PRESETS = [
@@ -58,64 +76,44 @@ const DURATION_PRESETS = [
   { label: '1 năm (365 ngày)', days: 365, cycle: 'yearly' as const },
 ];
 
-function formatVnd(amount: number): string {
-  return `${Math.round(amount).toLocaleString('vi-VN')}đ`;
-}
-
-function formatDateShort(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-}
-
-function formatDateTimeShort(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 function formatSubStatusBadge(row: AdminSubscriptionRow): {
   label: string;
   bg: string;
   text: string;
 } {
   if (row.subscriptionStatus === 'free') {
-    return { label: 'Miễn phí', bg: '#F4F4F5', text: '#52525B' };
+    return {
+      label: 'Miễn phí',
+      bg: adminTheme.colors.chipBg,
+      text: adminTheme.colors.textSecondary,
+    };
   }
   if (row.isLifetime) {
-    return { label: 'Hoạt động · Không giới hạn', bg: '#ECFDF5', text: '#1B873F' };
+    return {
+      label: 'Hoạt động · Không giới hạn',
+      bg: adminTheme.colors.successBg,
+      text: adminTheme.colors.successText,
+    };
   }
   if (row.subscriptionStatus === 'expired') {
     const overdueDays = Math.abs(row.daysRemaining ?? 0);
     return {
       label: overdueDays > 0 ? `Hết hạn ${overdueDays} ngày` : 'Đã hết hạn',
-      bg: '#FEF2F2',
-      text: '#DC2626',
+      bg: adminTheme.colors.dangerBg,
+      text: adminTheme.colors.dangerText,
     };
   }
   if (row.subscriptionStatus === 'expiring_soon') {
     return {
       label: `Sắp hết hạn · còn ${Math.max(0, row.daysRemaining ?? 0)} ngày`,
-      bg: '#FFF7ED',
-      text: '#C25E00',
+      bg: adminTheme.colors.warningBg,
+      text: adminTheme.colors.warningText,
     };
   }
   return {
     label: `Hoạt động · còn ${row.daysRemaining ?? 0} ngày`,
-    bg: '#ECFDF5',
-    text: '#1B873F',
+    bg: adminTheme.colors.successBg,
+    text: adminTheme.colors.successText,
   };
 }
 
@@ -135,9 +133,13 @@ function computeDefaultPrice(
 
 interface AdminSubscriptionsTabProps {
   initialQuery?: string;
+  refreshSignal?: number;
 }
 
-export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabProps) {
+export function AdminSubscriptionsTab({
+  initialQuery,
+  refreshSignal = 0,
+}: AdminSubscriptionsTabProps) {
   const isPhone = useIsMobilePhone();
   const [subView, setSubView] = useState<'customers' | 'plans'>('customers');
   const [q, setQ] = useState(initialQuery ?? '');
@@ -150,12 +152,10 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [noticeMsg, setNoticeMsg] = useState<string | null>(null);
 
-  // Selected customer modal + detail
   const [selectedRow, setSelectedRow] = useState<AdminSubscriptionRow | null>(null);
   const [detail, setDetail] = useState<AdminSubscriptionDetailResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  // Form state for renew / upgrade
   const [actionMode, setActionMode] = useState<'extend' | 'replace'>('extend');
   const [formTier, setFormTier] = useState<'plus' | 'pro'>('plus');
   const [formCycle, setFormCycle] = useState<'monthly' | 'yearly'>('monthly');
@@ -165,6 +165,8 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
   const [provider, setProvider] = useState<string>('bank_transfer');
   const [orderNote, setOrderNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirmDowngrade, setConfirmDowngrade] = useState(false);
+  const [modalTab, setModalTab] = useState<'manage' | 'history'>('manage');
 
   useEffect(() => {
     if (initialQuery !== undefined) {
@@ -195,10 +197,24 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
     void loadList();
   }, [loadList]);
 
+  const prevRefreshRef = useRef(refreshSignal);
+  useEffect(() => {
+    if (prevRefreshRef.current === refreshSignal) return;
+    prevRefreshRef.current = refreshSignal;
+    void loadList();
+  }, [refreshSignal, loadList]);
+
+  const closeDetailModal = () => {
+    setSelectedRow(null);
+    setConfirmDowngrade(false);
+  };
+
   const openDetailModal = async (row: AdminSubscriptionRow) => {
     setSelectedRow(row);
     setDetail(null);
     setDetailLoading(true);
+    setConfirmDowngrade(false);
+    setModalTab('manage');
     setErrorMsg(null);
 
     const hasPaidActive =
@@ -216,7 +232,9 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
     setDurationDaysInput(String(defaultDays));
     setRecordOrder(true);
     setProvider('bank_transfer');
-    setAmountInput(String(computeDefaultPrice(data?.planCatalog, defaultTier, defaultCycle, defaultDays)));
+    setAmountInput(
+      String(computeDefaultPrice(data?.planCatalog, defaultTier, defaultCycle, defaultDays)),
+    );
     setOrderNote('');
 
     try {
@@ -236,8 +254,7 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
     if (!selectedRow) return '—';
     const nowMs = Date.now();
     const curExpiryMs = selectedRow.expiresAt ? new Date(selectedRow.expiresAt).getTime() : 0;
-    const baseMs =
-      actionMode === 'extend' && curExpiryMs > nowMs ? curExpiryMs : nowMs;
+    const baseMs = actionMode === 'extend' && curExpiryMs > nowMs ? curExpiryMs : nowMs;
     const targetDate = new Date(baseMs + parsedDays * 86_400_000);
     return targetDate.toLocaleDateString('vi-VN', {
       day: '2-digit',
@@ -264,7 +281,6 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
     setNoticeMsg(null);
 
     try {
-      const isDemo = provider === 'admin_demo';
       const parsedAmount = Math.max(0, Number(amountInput.replace(/[^0-9]/g, '')) || 0);
       await adminSetUserSubscriptionApi(selectedRow.userId, {
         tier: targetTier,
@@ -273,7 +289,7 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
         durationDays: parsedDays,
         recordOrder: targetTier !== 'free' && recordOrder,
         amountVnd: parsedAmount,
-        isDemo,
+        isDemo: false,
         provider,
         note: orderNote.trim() || undefined,
       });
@@ -283,6 +299,7 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
           ? `Đã chuyển ${selectedRow.email} về gói Miễn phí.`
           : `${actionMode === 'extend' ? 'Đã gia hạn' : 'Đã kích hoạt'} gói ${targetTier.toUpperCase()} (+${parsedDays} ngày) cho ${selectedRow.email}.`,
       );
+      setConfirmDowngrade(false);
       const [freshDetail] = await Promise.all([
         fetchAdminSubscriptionDetail(selectedRow.userId),
         loadList(),
@@ -298,8 +315,43 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
   };
 
   const summary = data?.summary;
-  const catalog = data?.planCatalog;
   const rows = data?.subscriptions ?? [];
+
+  const handleExportCsv = () => {
+    if (rows.length === 0) return;
+    const ok = downloadCsvFile(
+      'kanjismart-goi-khach-hang.csv',
+      [
+        'Khách hàng',
+        'Email',
+        'Gói',
+        'Chu kỳ',
+        'Trạng thái',
+        'Giá niêm yết (VNĐ)',
+        'Ngày đăng ký',
+        'Ngày hết hạn',
+        'Mã đơn gần nhất',
+        'Tổng đã thu (VNĐ)',
+        'Số đơn',
+      ],
+      rows.map((r) => [
+        r.displayName,
+        r.email,
+        r.tier === 'pro' ? 'Pro AI' : r.tier === 'plus' ? 'Plus' : 'Free',
+        r.tier === 'free' ? '' : r.billingCycle === 'yearly' ? 'Năm' : 'Tháng',
+        formatSubStatusBadge(r).label,
+        r.tier === 'free' ? 0 : r.listPriceVnd,
+        formatDateVn(r.tier === 'free' ? r.userCreatedAt : r.startedAt),
+        r.tier === 'free' ? '' : r.isLifetime ? 'Không giới hạn' : formatDateVn(r.expiresAt),
+        r.currentOrderCode ?? '',
+        r.totalPaidVnd,
+        r.paidOrderCount,
+      ]),
+    );
+    if (ok) {
+      setNoticeMsg(`Đã xuất ${rows.length} khách hàng ra tệp CSV.`);
+    }
+  };
 
   const renderSubViewBar = () => (
     <View style={styles.filterGroup}>
@@ -324,7 +376,10 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
     return (
       <View style={styles.container}>
         {renderSubViewBar()}
-        <AdminPlanConfigPanel onPlanSaved={() => void loadList()} />
+        <AdminPlanConfigPanel
+          refreshSignal={refreshSignal}
+          onPlanSaved={() => void loadList()}
+        />
       </View>
     );
   }
@@ -354,44 +409,35 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
         </View>
         <View style={[styles.kpiCard, isPhone && styles.kpiCardPhone]}>
           <Text style={styles.kpiLabel}>Sắp hết hạn (≤ 7 ngày)</Text>
-          <Text style={[styles.kpiValue, (summary?.expiringSoonCount ?? 0) > 0 && { color: '#C25E00' }]}>
+          <Text
+            style={[
+              styles.kpiValue,
+              (summary?.expiringSoonCount ?? 0) > 0 && { color: adminTheme.colors.warningText },
+            ]}
+          >
             {summary?.expiringSoonCount ?? 0}
           </Text>
           <Text style={styles.kpiSub}>Cần nhắc gia hạn</Text>
         </View>
         <View style={[styles.kpiCard, isPhone && styles.kpiCardPhone]}>
           <Text style={styles.kpiLabel}>Đã hết hạn</Text>
-          <Text style={[styles.kpiValue, (summary?.expiredCount ?? 0) > 0 && { color: '#DC2626' }]}>
+          <Text
+            style={[
+              styles.kpiValue,
+              (summary?.expiredCount ?? 0) > 0 && { color: adminTheme.colors.dangerText },
+            ]}
+          >
             {summary?.expiredCount ?? 0}
           </Text>
           <Text style={styles.kpiSub}>Free hiện tại: {summary?.freeCount ?? 0}</Text>
         </View>
         <View style={[styles.kpiCard, styles.kpiCardAccent, isPhone && styles.kpiCardPhone]}>
           <Text style={styles.kpiLabel}>Doanh thu định kỳ (MRR)</Text>
-          <Text style={[styles.kpiValue, { color: nihongoTheme.colors.accentHover }]}>
+          <Text style={[styles.kpiValue, { color: adminTheme.colors.accentHover }]}>
             {formatVnd(summary?.estimatedMrrVnd ?? 0)}
           </Text>
           <Text style={styles.kpiSub}>
-            Thực thu đơn thật: {formatVnd(summary?.totalRevenueCollectedVnd ?? 0)}
-          </Text>
-        </View>
-      </View>
-
-      {/* Catalog Price Strip */}
-      <View style={styles.catalogCard}>
-        <Text style={styles.catalogTitle}>Bảng giá niêm yết</Text>
-        <View style={styles.catalogRow}>
-          <Text style={styles.catalogItem}>
-            Plus Tháng: <Text style={styles.catalogPrice}>{formatVnd(catalog?.plus.monthlyPriceVnd ?? 79000)}</Text>
-          </Text>
-          <Text style={styles.catalogItem}>
-            Plus Năm: <Text style={styles.catalogPrice}>{formatVnd(catalog?.plus.yearlyPriceVnd ?? 708000)}</Text>
-          </Text>
-          <Text style={styles.catalogItem}>
-            Pro AI Tháng: <Text style={styles.catalogPrice}>{formatVnd(catalog?.pro.monthlyPriceVnd ?? 149000)}</Text>
-          </Text>
-          <Text style={styles.catalogItem}>
-            Pro AI Năm: <Text style={styles.catalogPrice}>{formatVnd(catalog?.pro.yearlyPriceVnd ?? 1428000)}</Text>
+            Thực thu: {formatVnd(summary?.totalRevenueCollectedVnd ?? 0)}
           </Text>
         </View>
       </View>
@@ -400,18 +446,25 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
       <View style={styles.card}>
         <View style={styles.rowBetweenWrap}>
           <Text style={styles.cardTitle}>Danh sách gói khách hàng ({data?.total ?? 0})</Text>
-          {q ? (
-            <Pressable onPress={() => setQ('')}>
-              <Text style={styles.clearLink}>Xóa tìm kiếm</Text>
-            </Pressable>
-          ) : null}
+          <View style={styles.filterGroup}>
+            {rows.length > 0 ? (
+              <Pressable style={styles.outlineBtn} onPress={handleExportCsv}>
+                <Text style={styles.outlineBtnText}>Xuất CSV</Text>
+              </Pressable>
+            ) : null}
+            {q ? (
+              <Pressable style={styles.outlineBtn} onPress={() => setQ('')}>
+                <Text style={styles.outlineBtnText}>Xóa tìm kiếm</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
         <TextInput
           value={q}
           onChangeText={setQ}
           placeholder="Tìm tên khách hàng, email hoặc mã đơn..."
-          placeholderTextColor={nihongoTheme.colors.textMuted}
+          placeholderTextColor={adminTheme.colors.textMuted}
           style={styles.searchInput}
         />
 
@@ -484,7 +537,7 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
 
         {loading && !data ? (
           <View style={styles.loadingWrap}>
-            <ActivityIndicator color={nihongoTheme.colors.accent} />
+            <ActivityIndicator color={adminTheme.colors.accent} />
           </View>
         ) : rows.length === 0 ? (
           <Text style={styles.emptyText}>Không có khách hàng nào khớp bộ lọc.</Text>
@@ -541,7 +594,7 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
                           ? 'Gói cơ bản'
                           : row.lastPaidAmountVnd !== null
                             ? `Thực thu gần nhất: ${formatVnd(row.lastPaidAmountVnd)}`
-                            : `${row.planName}`}
+                            : row.planName}
                       </Text>
                     </View>
 
@@ -549,13 +602,13 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
                       <Text style={styles.metaLabel}>NGÀY ĐĂNG KÝ</Text>
                       <Text style={styles.metaValue}>
                         {row.tier === 'free'
-                          ? formatDateShort(row.userCreatedAt)
-                          : formatDateShort(row.startedAt)}
+                          ? formatDateVn(row.userCreatedAt)
+                          : formatDateVn(row.startedAt)}
                       </Text>
                       <Text style={styles.metaHint}>
                         {row.tier === 'free'
                           ? 'Ngày tạo tài khoản'
-                          : formatDateTimeShort(row.startedAt)}
+                          : formatDateTimeVn(row.startedAt)}
                       </Text>
                     </View>
 
@@ -566,7 +619,7 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
                           ? '—'
                           : row.isLifetime
                             ? 'Không giới hạn'
-                            : formatDateShort(row.expiresAt)}
+                            : formatDateVn(row.expiresAt)}
                       </Text>
                       <Text style={styles.metaHint}>
                         {row.tier === 'free'
@@ -601,7 +654,7 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
         visible={Boolean(selectedRow)}
         transparent
         animationType="fade"
-        onRequestClose={() => setSelectedRow(null)}
+        onRequestClose={closeDetailModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -614,252 +667,265 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
                   {selectedRow?.email}
                 </Text>
               </View>
-              <Pressable onPress={() => setSelectedRow(null)}>
+              <Pressable style={styles.closeBtn} onPress={closeDetailModal}>
                 <Text style={styles.closeText}>Đóng</Text>
               </Pressable>
             </View>
 
+            {/* Compact Contract Summary Strip */}
+            {selectedRow ? (
+              <View style={styles.summaryStrip}>
+                <View style={styles.summaryCell}>
+                  <Text style={styles.metaLabel}>GÓI &amp; GIÁ</Text>
+                  <Text style={styles.metaValue} numberOfLines={1}>
+                    {selectedRow.planName}
+                  </Text>
+                  <Text style={styles.metaHint}>
+                    {selectedRow.tier === 'free'
+                      ? '0đ'
+                      : `${formatVnd(selectedRow.listPriceVnd)}/${
+                          selectedRow.billingCycle === 'yearly' ? 'năm' : 'tháng'
+                        }`}
+                  </Text>
+                </View>
+
+                <View style={styles.summaryCell}>
+                  <Text style={styles.metaLabel}>HIỆU LỰC</Text>
+                  <Text style={styles.metaValue} numberOfLines={1}>
+                    {selectedRow.tier === 'free'
+                      ? formatDateVn(selectedRow.userCreatedAt)
+                      : `${formatDateVn(selectedRow.startedAt)} → ${
+                          selectedRow.isLifetime ? 'Vĩnh viễn' : formatDateVn(selectedRow.expiresAt)
+                        }`}
+                  </Text>
+                  <Text style={styles.metaHint}>
+                    {selectedRow.tier === 'free'
+                      ? 'Chưa nâng cấp'
+                      : selectedRow.isLifetime
+                        ? 'Không giới hạn'
+                        : selectedRow.subscriptionStatus === 'expired'
+                          ? 'Đã hết hạn'
+                          : `Còn ${selectedRow.daysRemaining ?? 0} ngày`}
+                  </Text>
+                </View>
+
+                <View style={styles.summaryCell}>
+                  <Text style={styles.metaLabel}>MÃ ĐƠN &amp; TỔNG CHI</Text>
+                  <Text style={styles.metaValue} numberOfLines={1}>
+                    {selectedRow.currentOrderCode || '—'}
+                  </Text>
+                  <Text style={styles.metaHint}>
+                    {formatVnd(selectedRow.totalPaidVnd)} ({selectedRow.paidOrderCount} đơn)
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
+            {/* Segmented Modal Tabs */}
+            <View style={styles.filterGroup}>
+              <Pressable
+                style={[styles.chip, modalTab === 'manage' && styles.chipDarkActive]}
+                onPress={() => setModalTab('manage')}
+              >
+                <Text style={[styles.chipText, modalTab === 'manage' && styles.chipTextActive]}>
+                  Gia hạn / Cấp gói
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.chip, modalTab === 'history' && styles.chipDarkActive]}
+                onPress={() => setModalTab('history')}
+              >
+                <Text style={[styles.chipText, modalTab === 'history' && styles.chipTextActive]}>
+                  Lịch sử đơn hàng ({detail?.orders.length ?? 0})
+                </Text>
+              </Pressable>
+            </View>
+
             <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalBody}>
-              {/* Contract Summary */}
-              {selectedRow ? (
+              {modalTab === 'manage' ? (
+                /* Renew / Upgrade Form */
                 <View style={styles.sectionBox}>
-                  <Text style={styles.sectionLabel}>Thông tin gói hiện tại</Text>
-                  <View style={styles.contractGrid}>
-                    <View style={styles.contractItem}>
-                      <Text style={styles.metaLabel}>GÓI HIỆN TẠI</Text>
-                      <Text style={styles.metaValue}>{selectedRow.planName}</Text>
-                    </View>
-                    <View style={styles.contractItem}>
-                      <Text style={styles.metaLabel}>GIÁ NIÊM YẾT</Text>
-                      <Text style={styles.metaValue}>
-                        {selectedRow.tier === 'free'
-                          ? '0đ'
-                          : `${formatVnd(selectedRow.listPriceVnd)}/${
-                              selectedRow.billingCycle === 'yearly' ? 'năm' : 'tháng'
-                            }`}
-                      </Text>
-                    </View>
-                    <View style={styles.contractItem}>
-                      <Text style={styles.metaLabel}>NGÀY ĐĂNG KÝ</Text>
-                      <Text style={styles.metaValue}>
-                        {selectedRow.tier === 'free'
-                          ? formatDateShort(selectedRow.userCreatedAt)
-                          : formatDateTimeShort(selectedRow.startedAt)}
-                      </Text>
-                    </View>
-                    <View style={styles.contractItem}>
-                      <Text style={styles.metaLabel}>NGÀY HẾT HẠN</Text>
-                      <Text style={styles.metaValue}>
-                        {selectedRow.tier === 'free'
-                          ? '—'
-                          : selectedRow.isLifetime
-                            ? 'Không giới hạn'
-                            : formatDateShort(selectedRow.expiresAt)}
-                      </Text>
-                    </View>
-                    <View style={styles.contractItem}>
-                      <Text style={styles.metaLabel}>MÃ ĐƠN HIỆN TẠI</Text>
-                      <Text style={styles.metaValue}>{selectedRow.currentOrderCode || '—'}</Text>
-                    </View>
-                    <View style={styles.contractItem}>
-                      <Text style={styles.metaLabel}>TỔNG CHI TIÊU</Text>
-                      <Text style={styles.metaValue}>
-                        {formatVnd(selectedRow.totalPaidVnd)} ({selectedRow.paidOrderCount} đơn)
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              ) : null}
-
-              {/* Renew / Upgrade Form */}
-              <View style={styles.sectionBox}>
-                <Text style={styles.sectionLabel}>Gia hạn hoặc Cấp / Đổi gói</Text>
-
-                <View style={styles.filterGroup}>
-                  {(
-                    [
-                      ['extend', 'Gia hạn cộng dồn'],
-                      ['replace', 'Cấp / Đổi gói mới'],
-                    ] as const
-                  ).map(([m, lbl]) => (
-                    <Pressable
-                      key={m}
-                      style={[styles.chip, actionMode === m && styles.chipDarkActive]}
-                      onPress={() => setActionMode(m)}
-                    >
-                      <Text style={[styles.chipText, actionMode === m && styles.chipTextActive]}>
-                        {lbl}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-
-                <View style={styles.filterGroup}>
-                  {(['plus', 'pro'] as const).map((t) => (
-                    <Pressable
-                      key={t}
-                      style={[styles.chip, formTier === t && styles.chipActive]}
-                      onPress={() => handleSelectPlanForm(t, formCycle, parsedDays)}
-                    >
-                      <Text style={[styles.chipText, formTier === t && styles.chipTextActive]}>
-                        {t === 'plus' ? 'Gói Plus' : 'Gói Pro AI'}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-
-                <View style={styles.filterGroup}>
-                  {DURATION_PRESETS.map((p) => {
-                    const active = parsedDays === p.days && formCycle === p.cycle;
-                    return (
+                  <View style={styles.filterGroup}>
+                    {(
+                      [
+                        ['extend', 'Gia hạn cộng dồn'],
+                        ['replace', 'Cấp / Đổi gói mới'],
+                      ] as const
+                    ).map(([m, lbl]) => (
                       <Pressable
-                        key={p.label}
-                        style={[styles.chip, active && styles.chipActive]}
-                        onPress={() => handleSelectPlanForm(formTier, p.cycle, p.days)}
+                        key={m}
+                        style={[styles.chip, actionMode === m && styles.chipDarkActive]}
+                        onPress={() => setActionMode(m)}
                       >
-                        <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                          {p.label}
+                        <Text style={[styles.chipText, actionMode === m && styles.chipTextActive]}>
+                          {lbl}
                         </Text>
                       </Pressable>
-                    );
-                  })}
-                </View>
+                    ))}
+                  </View>
 
-                <View style={styles.rowBetween}>
-                  <Text style={styles.inputLabel}>Số ngày cấp thêm:</Text>
-                  <TextInput
-                    value={durationDaysInput}
-                    onChangeText={(v) => setDurationDaysInput(v.replace(/[^0-9]/g, ''))}
-                    keyboardType="numeric"
-                    style={[styles.modalInput, { width: 110, textAlign: 'right' }]}
-                  />
-                </View>
-
-                <Text style={styles.previewText}>
-                  Hạn mới dự kiến: <Text style={styles.previewStrong}>{previewNewExpiryText}</Text>
-                </Text>
-
-                <View style={styles.rowBetween}>
-                  <Text style={styles.mutedLabel}>Ghi nhận đơn vào sổ doanh thu</Text>
-                  <Switch
-                    value={recordOrder}
-                    onValueChange={setRecordOrder}
-                    trackColor={{ false: '#E4E4E7', true: nihongoTheme.colors.accent }}
-                  />
-                </View>
-
-                {recordOrder ? (
-                  <>
-                    <View style={styles.rowBetween}>
-                      <Text style={styles.inputLabel}>Số tiền thực thu (VNĐ):</Text>
-                      <TextInput
-                        value={amountInput}
-                        onChangeText={(v) => setAmountInput(v.replace(/[^0-9]/g, ''))}
-                        keyboardType="numeric"
-                        style={[styles.modalInput, { width: 150, textAlign: 'right' }]}
-                      />
-                    </View>
-
-                    <View style={styles.filterGroup}>
-                      {PROVIDER_OPTIONS.map((p) => (
+                  <View style={styles.filterGroup}>
+                    {(['plus', 'pro'] as const).map((t) => (
+                      <Pressable
+                        key={t}
+                        style={[styles.chip, formTier === t && styles.chipActive]}
+                        onPress={() => handleSelectPlanForm(t, formCycle, parsedDays)}
+                      >
+                        <Text style={[styles.chipText, formTier === t && styles.chipTextActive]}>
+                          {t === 'plus' ? 'Gói Plus' : 'Gói Pro AI'}
+                        </Text>
+                      </Pressable>
+                    ))}
+                    {DURATION_PRESETS.map((p) => {
+                      const active = parsedDays === p.days && formCycle === p.cycle;
+                      return (
                         <Pressable
-                          key={p.key}
-                          style={[styles.chip, provider === p.key && styles.chipActive]}
-                          onPress={() => setProvider(p.key)}
+                          key={p.label}
+                          style={[styles.chip, active && styles.chipActive]}
+                          onPress={() => handleSelectPlanForm(formTier, p.cycle, p.days)}
                         >
-                          <Text style={[styles.chipText, provider === p.key && styles.chipTextActive]}>
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
                             {p.label}
                           </Text>
                         </Pressable>
-                      ))}
-                    </View>
-
-                    <TextInput
-                      value={orderNote}
-                      onChangeText={setOrderNote}
-                      placeholder="Ghi chú giao dịch (tùy chọn)..."
-                      placeholderTextColor={nihongoTheme.colors.textMuted}
-                      style={styles.modalInput}
-                    />
-                  </>
-                ) : null}
-
-                <Pressable
-                  style={styles.primaryBtn}
-                  disabled={saving}
-                  onPress={() => void handleSaveSubscription(formTier)}
-                >
-                  <Text style={styles.primaryBtnText}>
-                    {saving
-                      ? 'Đang lưu...'
-                      : actionMode === 'extend'
-                        ? `Gia hạn +${parsedDays} ngày (${formTier === 'pro' ? 'Pro AI' : 'Plus'})`
-                        : `Kích hoạt gói ${formTier === 'pro' ? 'Pro AI' : 'Plus'} (${parsedDays} ngày)`}
-                  </Text>
-                </Pressable>
-
-                {selectedRow && selectedRow.tier !== 'free' ? (
-                  <Pressable
-                    style={styles.downgradeBtn}
-                    disabled={saving}
-                    onPress={() => void handleSaveSubscription('free')}
-                  >
-                    <Text style={styles.downgradeBtnText}>Hạ về gói Miễn phí</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-
-              {/* Payment History */}
-              <View style={styles.sectionBox}>
-                <Text style={styles.sectionLabel}>
-                  Lịch sử đơn hàng &amp; thanh toán ({detail?.orders.length ?? 0})
-                </Text>
-                {detailLoading ? (
-                  <ActivityIndicator color={nihongoTheme.colors.accent} />
-                ) : (detail?.orders.length ?? 0) === 0 ? (
-                  <Text style={styles.emptyText}>Chưa có giao dịch thanh toán nào được ghi nhận.</Text>
-                ) : (
-                  <View style={styles.listGap}>
-                    {detail?.orders.map((ord) => {
-                      const st = ORDER_STATUS_META[ord.status];
-                      return (
-                        <View key={ord.id} style={styles.orderHistoryRow}>
-                          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                            <View style={styles.badgeRow}>
-                              <Text style={styles.orderCode}>{ord.orderCode}</Text>
-                              <View style={[styles.pill, { backgroundColor: st.bg }]}>
-                                <Text style={[styles.pillText, { color: st.text }]}>{st.label}</Text>
-                              </View>
-                              <View
-                                style={[
-                                  styles.pill,
-                                  ord.isDemo ? styles.pillNeutral : styles.pillReal,
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.pillText,
-                                    ord.isDemo ? styles.pillNeutralText : styles.pillRealText,
-                                  ]}
-                                >
-                                  {ord.isDemo ? 'Demo' : 'Đơn thật'}
-                                </Text>
-                              </View>
-                            </View>
-                            <Text style={styles.metaHint}>
-                              Gói {ord.tier.toUpperCase()} ({ord.billingCycle === 'yearly' ? 'Năm' : 'Tháng'}) ·{' '}
-                              {PROVIDER_LABELS[ord.provider] ?? ord.provider} ·{' '}
-                              {formatDateTimeShort(ord.paidAt ?? ord.createdAt)}
-                            </Text>
-                            {ord.note ? <Text style={styles.orderNote}>{ord.note}</Text> : null}
-                          </View>
-                          <Text style={styles.orderAmount}>{formatVnd(ord.amountVnd)}</Text>
-                        </View>
                       );
                     })}
                   </View>
-                )}
-              </View>
+
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.inputLabel}>
+                      Số ngày thêm (hạn mới:{' '}
+                      <Text style={styles.previewStrong}>{previewNewExpiryText}</Text>)
+                    </Text>
+                    <TextInput
+                      value={durationDaysInput}
+                      onChangeText={(v) => setDurationDaysInput(v.replace(/[^0-9]/g, ''))}
+                      keyboardType="numeric"
+                      style={[styles.modalInput, { width: 96, textAlign: 'right' }]}
+                    />
+                  </View>
+
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.mutedLabel}>Ghi nhận đơn vào sổ doanh thu</Text>
+                    <AdminSwitch
+                      value={recordOrder}
+                      onValueChange={setRecordOrder}
+                      accessibilityLabel="Ghi nhận đơn vào sổ doanh thu"
+                    />
+                  </View>
+
+                  {recordOrder ? (
+                    <>
+                      <View style={styles.rowBetween}>
+                        <Text style={styles.inputLabel}>Số tiền thực thu (VNĐ):</Text>
+                        <TextInput
+                          value={amountInput}
+                          onChangeText={(v) => setAmountInput(v.replace(/[^0-9]/g, ''))}
+                          keyboardType="numeric"
+                          style={[styles.modalInput, { width: 150, textAlign: 'right' }]}
+                        />
+                      </View>
+
+                      <View style={styles.filterGroup}>
+                        {PROVIDER_OPTIONS.map((p) => (
+                          <Pressable
+                            key={p.key}
+                            style={[styles.chip, provider === p.key && styles.chipActive]}
+                            onPress={() => setProvider(p.key)}
+                          >
+                            <Text style={[styles.chipText, provider === p.key && styles.chipTextActive]}>
+                              {p.label}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+
+                      <TextInput
+                        value={orderNote}
+                        onChangeText={setOrderNote}
+                        placeholder="Ghi chú giao dịch..."
+                        placeholderTextColor={adminTheme.colors.textMuted}
+                        style={styles.modalInput}
+                      />
+                    </>
+                  ) : null}
+
+                  <Pressable
+                    style={styles.primaryBtn}
+                    disabled={saving}
+                    onPress={() => void handleSaveSubscription(formTier)}
+                  >
+                    <Text style={styles.primaryBtnText}>
+                      {saving
+                        ? 'Đang lưu...'
+                        : actionMode === 'extend'
+                          ? `Gia hạn +${parsedDays} ngày (${formTier === 'pro' ? 'Pro AI' : 'Plus'})`
+                          : `Kích hoạt gói ${formTier === 'pro' ? 'Pro AI' : 'Plus'} (${parsedDays} ngày)`}
+                    </Text>
+                  </Pressable>
+
+                  {selectedRow && selectedRow.tier !== 'free' ? (
+                    confirmDowngrade ? (
+                      <AdminConfirmBanner
+                        visible
+                        message={`Hạ tài khoản ${selectedRow.email} về gói Miễn phí ngay lập tức? Khách sẽ mất quyền lợi gói trả phí hiện tại.`}
+                        confirmLabel="Xác nhận hạ về Free"
+                        tone="danger"
+                        busy={saving}
+                        onCancel={() => setConfirmDowngrade(false)}
+                        onConfirm={() => void handleSaveSubscription('free')}
+                      />
+                    ) : (
+                      <Pressable
+                        style={styles.downgradeBtn}
+                        disabled={saving}
+                        onPress={() => setConfirmDowngrade(true)}
+                      >
+                        <Text style={styles.downgradeBtnText}>Hạ về gói Miễn phí</Text>
+                      </Pressable>
+                    )
+                  ) : null}
+                </View>
+              ) : (
+                /* Payment History Tab */
+                <View style={styles.sectionBox}>
+                  {detailLoading ? (
+                    <ActivityIndicator color={adminTheme.colors.accent} />
+                  ) : (detail?.orders.length ?? 0) === 0 ? (
+                    <Text style={styles.emptyText}>Chưa có giao dịch thanh toán nào được ghi nhận.</Text>
+                  ) : (
+                    <View style={styles.listGap}>
+                      {detail?.orders.map((ord) => {
+                        const st = ORDER_STATUS_META[ord.status];
+                        return (
+                          <View key={ord.id} style={styles.orderHistoryRow}>
+                            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                              <View style={styles.badgeRow}>
+                                <Text style={styles.orderCode}>{ord.orderCode}</Text>
+                                <View style={[styles.pill, { backgroundColor: st.bg }]}>
+                                  <Text style={[styles.pillText, { color: st.text }]}>{st.label}</Text>
+                                </View>
+                                {ord.isDemo ? (
+                                  <View style={[styles.pill, styles.pillNeutral]}>
+                                    <Text style={[styles.pillText, styles.pillNeutralText]}>Demo</Text>
+                                  </View>
+                                ) : null}
+                              </View>
+                              <Text style={styles.metaHint}>
+                                Gói {ord.tier.toUpperCase()} ({ord.billingCycle === 'yearly' ? 'Năm' : 'Tháng'}) ·{' '}
+                                {PROVIDER_LABELS[ord.provider] ?? ord.provider} ·{' '}
+                                {formatDateTimeVn(ord.paidAt ?? ord.createdAt)}
+                              </Text>
+                              {ord.note ? <Text style={styles.orderNote}>{ord.note}</Text> : null}
+                            </View>
+                            <Text style={styles.orderAmount}>{formatVnd(ord.amountVnd)}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              )}
             </ScrollView>
           </View>
         </View>
@@ -871,70 +937,68 @@ export function AdminSubscriptionsTab({ initialQuery }: AdminSubscriptionsTabPro
 const styles = StyleSheet.create({
   container: { gap: 14 },
   errorBanner: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: adminTheme.colors.dangerBg,
     borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: nihongoTheme.radius.md,
+    borderColor: adminTheme.colors.dangerBorder,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
   },
-  errorText: { color: '#DC2626', fontSize: 13, fontWeight: '600' },
+  errorText: { color: adminTheme.colors.dangerText, fontSize: 13, fontWeight: '600' },
   noticeBanner: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: adminTheme.colors.successBg,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
-    borderRadius: nihongoTheme.radius.md,
+    borderColor: adminTheme.colors.successBorder,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
   },
-  noticeText: { color: '#1B873F', fontSize: 13, fontWeight: '700' },
+  noticeText: { color: adminTheme.colors.successText, fontSize: 13, fontWeight: '700' },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   kpiGridPhone: { gap: 8 },
   kpiCard: {
     flex: 1,
     minWidth: 200,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.card,
     borderWidth: 1,
-    borderColor: '#E4E4E7',
+    borderColor: adminTheme.colors.border,
     padding: 14,
     gap: 4,
   },
   kpiCardPhone: { minWidth: '47%' },
-  kpiCardAccent: { backgroundColor: '#FFF7ED', borderColor: '#FDBA74' },
-  kpiLabel: { fontSize: 12, fontWeight: '700', color: '#52525B' },
-  kpiValue: { fontSize: 22, fontWeight: '800', color: '#18181B' },
-  kpiSub: { fontSize: 11, color: '#71717A' },
-  catalogCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 6,
+  kpiCardAccent: {
+    backgroundColor: adminTheme.colors.accentSoft,
+    borderColor: adminTheme.colors.accentBorder,
   },
-  catalogTitle: { fontSize: 12, fontWeight: '800', color: '#52525B' },
-  catalogRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
-  catalogItem: { fontSize: 12, color: '#52525B' },
-  catalogPrice: { fontWeight: '800', color: '#18181B' },
+  kpiLabel: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textSecondary },
+  kpiValue: { fontSize: 22, fontWeight: '800', color: adminTheme.colors.textPrimary },
+  kpiSub: { fontSize: 11, color: adminTheme.colors.textMuted },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.card,
     borderWidth: 1,
-    borderColor: '#E4E4E7',
+    borderColor: adminTheme.colors.border,
     padding: 16,
     gap: 12,
   },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: '#18181B' },
-  clearLink: { fontSize: 12, fontWeight: '700', color: nihongoTheme.colors.accentHover },
-  searchInput: {
-    backgroundColor: '#F9FAFB',
+  cardTitle: { fontSize: 16, fontWeight: '800', color: adminTheme.colors.textPrimary },
+  outlineBtn: {
     borderWidth: 1,
-    borderColor: '#E4E4E7',
-    borderRadius: 12,
+    borderColor: adminTheme.colors.borderStrong,
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.input,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
+  outlineBtnText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textPrimary },
+  searchInput: {
+    backgroundColor: adminTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: adminTheme.colors.border,
+    borderRadius: adminTheme.radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 13,
-    color: '#18181B',
+    color: adminTheme.colors.textPrimary,
   },
   filtersStack: { gap: 8 },
   rowBetweenWrap: {
@@ -954,20 +1018,20 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 11,
     paddingVertical: 6,
-    borderRadius: 9999,
-    backgroundColor: '#F4F4F5',
+    borderRadius: adminTheme.radius.pill,
+    backgroundColor: adminTheme.colors.chipBg,
   },
-  chipActive: { backgroundColor: nihongoTheme.colors.accent },
-  chipDarkActive: { backgroundColor: '#18181B' },
-  chipText: { fontSize: 12, fontWeight: '700', color: '#52525B' },
+  chipActive: { backgroundColor: adminTheme.colors.accent },
+  chipDarkActive: { backgroundColor: adminTheme.colors.textPrimary },
+  chipText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textSecondary },
   chipTextActive: { color: '#FFFFFF' },
   loadingWrap: { paddingVertical: 24, alignItems: 'center' },
-  emptyText: { fontSize: 13, color: '#71717A', paddingVertical: 8 },
+  emptyText: { fontSize: 13, color: adminTheme.colors.textMuted, paddingVertical: 8 },
   listGap: { gap: 10 },
   subCard: {
     borderWidth: 1,
-    borderColor: '#E4E4E7',
-    backgroundColor: '#FAFAFA',
+    borderColor: adminTheme.colors.border,
+    backgroundColor: adminTheme.colors.surfaceSubtle,
     borderRadius: 14,
     padding: 14,
     gap: 12,
@@ -981,19 +1045,17 @@ const styles = StyleSheet.create({
   },
   subIdentity: { flex: 1, minWidth: 220, gap: 2 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
-  userName: { fontSize: 14, fontWeight: '800', color: '#18181B' },
-  userEmail: { fontSize: 12, color: '#52525B' },
-  pill: { borderRadius: 9999, paddingHorizontal: 8, paddingVertical: 2 },
+  userName: { fontSize: 14, fontWeight: '800', color: adminTheme.colors.textPrimary },
+  userEmail: { fontSize: 12, color: adminTheme.colors.textSecondary },
+  pill: { borderRadius: adminTheme.radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   pillText: { fontSize: 11, fontWeight: '700' },
-  pillNeutral: { backgroundColor: '#E4E4E7' },
-  pillNeutralText: { color: '#52525B' },
-  pillTier: { backgroundColor: '#FFF7ED' },
-  pillTierText: { color: '#C25E00' },
-  pillReal: { backgroundColor: '#EFF6FF' },
-  pillRealText: { color: '#1D4ED8' },
+  pillNeutral: { backgroundColor: adminTheme.colors.border },
+  pillNeutralText: { color: adminTheme.colors.textSecondary },
+  pillTier: { backgroundColor: adminTheme.colors.warningBg },
+  pillTierText: { color: adminTheme.colors.warningText },
   detailBtn: {
-    backgroundColor: nihongoTheme.colors.accent,
-    borderRadius: 10,
+    backgroundColor: adminTheme.colors.accent,
+    borderRadius: adminTheme.radius.input,
     paddingHorizontal: 13,
     paddingVertical: 8,
   },
@@ -1003,16 +1065,23 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E4E4E7',
+    borderTopColor: adminTheme.colors.border,
     paddingTop: 10,
   },
   metaGridPhone: { gap: 10 },
   metaCell: { flex: 1, minWidth: 170, gap: 2 },
-  metaLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5, color: '#71717A' },
-  metaValue: { fontSize: 13, fontWeight: '700', color: '#18181B' },
-  metaHint: { fontSize: 11, color: '#52525B' },
+  metaLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    color: adminTheme.colors.textMuted,
+  },
+  metaValue: { fontSize: 13, fontWeight: '700', color: adminTheme.colors.textPrimary },
+  metaHint: { fontSize: 11, color: adminTheme.colors.textSecondary },
   modalOverlay: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: 'rgba(24, 24, 27, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1020,71 +1089,91 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: '100%',
-    maxWidth: 640,
-    maxHeight: '90%',
-    backgroundColor: '#FFFFFF',
+    maxWidth: 600,
+    maxHeight: '92%',
+    alignSelf: 'center',
+    overflow: 'hidden',
+    backgroundColor: adminTheme.colors.surface,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E4E4E7',
-    padding: 18,
-    gap: 12,
-  },
-  closeText: { fontSize: 13, fontWeight: '700', color: nihongoTheme.colors.accentHover },
-  modalScroll: { maxHeight: 540 },
-  modalBody: { gap: 12 },
-  sectionBox: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
-    borderRadius: 14,
-    padding: 12,
+    borderColor: adminTheme.colors.border,
+    padding: 16,
     gap: 10,
   },
-  sectionLabel: { fontSize: 13, fontWeight: '800', color: '#18181B' },
-  contractGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  contractItem: { width: '47%', minWidth: 180, gap: 2 },
-  inputLabel: { fontSize: 12, fontWeight: '700', color: '#3F3F46' },
-  mutedLabel: { fontSize: 12, fontWeight: '600', color: '#52525B', flex: 1 },
-  modalInput: {
-    backgroundColor: '#FFFFFF',
+  summaryStrip: {
+    backgroundColor: adminTheme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: '#D4D4D8',
-    borderRadius: 10,
+    borderColor: adminTheme.colors.border,
+    borderRadius: adminTheme.radius.md,
+    padding: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  summaryCell: {
+    flex: 1,
+    minWidth: 150,
+    gap: 2,
+  },
+  closeBtn: {
+    backgroundColor: adminTheme.colors.chipBg,
+    borderRadius: adminTheme.radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  closeText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textPrimary },
+  modalScroll: { flexShrink: 1 },
+  modalBody: { gap: 10, paddingRight: 4, paddingBottom: 4 },
+  sectionBox: {
+    backgroundColor: adminTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: adminTheme.colors.border,
+    borderRadius: 14,
+    padding: 12,
+    gap: 8,
+  },
+  inputLabel: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textPrimary },
+  mutedLabel: { fontSize: 12, fontWeight: '600', color: adminTheme.colors.textSecondary, flex: 1 },
+  modalInput: {
+    backgroundColor: adminTheme.colors.surface,
+    borderWidth: 1,
+    borderColor: adminTheme.colors.borderStrong,
+    borderRadius: adminTheme.radius.input,
     paddingHorizontal: 11,
     paddingVertical: 8,
     fontSize: 13,
-    color: '#18181B',
+    color: adminTheme.colors.textPrimary,
   },
-  previewText: { fontSize: 12, color: '#52525B' },
-  previewStrong: { fontWeight: '800', color: '#1B873F' },
+  previewText: { fontSize: 12, color: adminTheme.colors.textSecondary },
+  previewStrong: { fontWeight: '800', color: adminTheme.colors.successText },
   primaryBtn: {
-    backgroundColor: nihongoTheme.colors.accent,
-    borderRadius: 10,
+    backgroundColor: adminTheme.colors.accent,
+    borderRadius: adminTheme.radius.input,
     paddingVertical: 11,
     alignItems: 'center',
   },
   primaryBtnText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
   downgradeBtn: {
     borderWidth: 1,
-    borderColor: '#FECACA',
-    backgroundColor: '#FEF2F2',
-    borderRadius: 10,
+    borderColor: adminTheme.colors.dangerBorder,
+    backgroundColor: adminTheme.colors.dangerBg,
+    borderRadius: adminTheme.radius.input,
     paddingVertical: 9,
     alignItems: 'center',
   },
-  downgradeBtnText: { fontSize: 12, fontWeight: '700', color: '#DC2626' },
+  downgradeBtnText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.dangerText },
   orderHistoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminTheme.colors.surface,
     borderWidth: 1,
-    borderColor: '#E4E4E7',
-    borderRadius: 10,
+    borderColor: adminTheme.colors.border,
+    borderRadius: adminTheme.radius.input,
     padding: 10,
   },
-  orderCode: { fontSize: 12, fontWeight: '800', color: '#18181B' },
-  orderNote: { fontSize: 11, color: '#71717A', fontStyle: 'italic' },
-  orderAmount: { fontSize: 13, fontWeight: '800', color: '#18181B' },
+  orderCode: { fontSize: 12, fontWeight: '800', color: adminTheme.colors.textPrimary },
+  orderNote: { fontSize: 11, color: adminTheme.colors.textMuted, fontStyle: 'italic' },
+  orderAmount: { fontSize: 13, fontWeight: '800', color: adminTheme.colors.textPrimary },
 });

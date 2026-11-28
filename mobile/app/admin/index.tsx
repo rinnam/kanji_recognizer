@@ -27,6 +27,7 @@ export default function AdminPortalScreen() {
 
   const [activeTab, setActiveTab] = useState<AdminTabKey>(() => parseAdminTab(params.tab));
   const [subscriptionSearch, setSubscriptionSearch] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
   const [authorized, setAuthorized] = useState<'checking' | 'ok' | 'denied'>('checking');
   const [adminUser, setAdminUser] = useState<AuthUser | null>(
     () => getCachedAdminSession()?.user ?? null,
@@ -83,6 +84,7 @@ export default function AdminPortalScreen() {
       onSelectTab={handleSelectTab}
       adminName={adminUser?.displayName ?? 'Quản trị viên'}
       adminEmail={adminUser?.email ?? ''}
+      onRefresh={() => setRefreshKey((k) => k + 1)}
       onLogout={() => void handleLogout()}
     >
       {authorized !== 'ok' ? (
@@ -91,13 +93,16 @@ export default function AdminPortalScreen() {
           <Text style={styles.hintText}>Đang xác thực quyền quản trị...</Text>
         </View>
       ) : activeTab === 'overview' ? (
-        <AdminOverviewTab />
+        <AdminOverviewTab refreshSignal={refreshKey} />
       ) : activeTab === 'subscriptions' ? (
-        <AdminSubscriptionsTab initialQuery={subscriptionSearch} />
+        <AdminSubscriptionsTab initialQuery={subscriptionSearch} refreshSignal={refreshKey} />
       ) : activeTab === 'lessons' ? (
-        <AdminLessonsTab />
+        <AdminLessonsTab refreshSignal={refreshKey} />
       ) : (
-        <AdminUsersTab onInspectSubscription={handleInspectSubscription} />
+        <AdminUsersTab
+          refreshSignal={refreshKey}
+          onInspectSubscription={handleInspectSubscription}
+        />
       )}
     </AdminShell>
   );

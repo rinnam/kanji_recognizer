@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -12,9 +12,14 @@ import {
   View,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import { DownloadIcon, LinkExternalIcon, TrashIcon, UploadIcon, VolumeIcon } from '../../components/AppIcons';
+import {
+  DownloadIcon,
+  LinkExternalIcon,
+  TrashIcon,
+  UploadIcon,
+  VolumeIcon,
+} from '../../components/AppIcons';
 import { parseCsv } from '../../import-parser';
-import { nihongoTheme } from '../../theme/nihongo-theme';
 import { speakJapanese } from '../../utils/speak-japanese';
 import { getCachedAdminSession, readAdminSession } from '../auth/auth-store';
 import {
@@ -25,6 +30,8 @@ import {
   type LessonStatus,
   type SubscriptionTier,
 } from '../lessons/lessons-api';
+import { AdminConfirmModal } from './AdminConfirmModal';
+import { adminTheme } from './admin-theme';
 import {
   addAdminLessonItem,
   addAdminLessonMaterialLink,
@@ -37,6 +44,7 @@ import {
   fetchAdminLessons,
   fileAssetToBase64,
   updateAdminLesson,
+  updateAdminLessonItem,
   uploadAdminLessonMaterialFile,
   type AdminLessonDto,
 } from './admin-api';
@@ -48,6 +56,11 @@ const SAMPLE_LESSON_CSV =
   'word,reading,meaning,sinoVietnamese,example,exampleMeaning\n' +
   '準備,じゅんび,"chuẩn bị",CHUẨN BỊ,試験の準備をします。,Tôi chuẩn bị cho kỳ thi.\n' +
   '復習,ふくしゅう,"ôn tập",PHỤC TẬP,毎日単語を復習します。,Mỗi ngày tôi đều ôn tập từ vựng.';
+
+type DeleteConfirmTarget =
+  | { kind: 'lesson'; lesson: AdminLessonDto }
+  | { kind: 'material'; material: LessonMaterialDto }
+  | { kind: 'item'; item: LessonItemDto };
 
 function inferMimeType(fileName: string, rawMime?: string | null): string {
   const clean = (rawMime ?? '').trim().toLowerCase();
@@ -86,10 +99,18 @@ function openExternalUrl(url: string) {
   void Linking.openURL(url);
 }
 
-export function AdminLessonsTab() {
+interface AdminLessonsTabProps {
+  refreshSignal?: number;
+}
+
+export function AdminLessonsTab({ refreshSignal = 0 }: AdminLessonsTabProps) {
   const [levelFilter, setLevelFilter] = useState<'ALL' | JlptLevel>('ALL');
   const [statusFilter, setStatusFilter] = useState<'all' | LessonStatus>('all');
+  const [q, setQ] = useState('');
+  const [debouncedQ, setDebouncedQ] = useState('');
+
   const [lessons, setLessons] = useState<AdminLessonDto[]>([]);
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -117,7 +138,8 @@ export function AdminLessonsTab() {
   const [items, setItems] = useState<LessonItemDto[]>([]);
   const [materials, setMaterials] = useState<LessonMaterialDto[]>([]);
 
-  // Material Forms
+  // Material Forms (Progressive Disclosure)
+  const [showUploadMeta, setShowUploadMeta] = useState(false);
   const [matFileTitle, setMatFileTitle] = useState('');
   const [matFileDesc, setMatFileDesc] = useState('');
   const [matLinkTitle, setMatLinkTitle] = useState('');
@@ -125,7 +147,9 @@ export function AdminLessonsTab() {
   const [matLinkDesc, setMatLinkDesc] = useState('');
   const [showLinkForm, setShowLinkForm] = useState(false);
 
-  // Single Vocab & CSV Bulk Import Forms
+  // Single Vocab (Add / Inline Edit) & CSV Bulk Import Forms
+  const [showVocabForm, setShowVocabForm] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [vWord, setVWord] = useState('');
   const [vReading, setVReading] = useState('');
   const [vMeaning, setVMeaning] = useState('');
@@ -135,22 +159,54 @@ export function AdminLessonsTab() {
   const [csvOpen, setCsvOpen] = useState(false);
   const [csvText, setCsvText] = useState('');
 
+  // Confirm Dialog Target
+  const [confirmTarget, setConfirmTarget] = useState<DeleteConfirmTarget | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQ(q.trim());
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [q]);
+
+  const clearVocabInputs = () => {
+    setEditingItemId(null);
+    setVWord('');
+    setVReading('');
+    setVMeaning('');
+    setVSino('');
+    setVExample('');
+    setVExampleVi('');
+  };
+
+  const resetDetailDisclosure = () => {
+    setShowUploadMeta(false);
+    setShowLinkForm(false);
+    setShowVocabForm(false);
+    setCsvOpen(false);
+    clearVocabInputs();
+  };
+
   const loadList = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await fetchAdminLessons(levelFilter, statusFilter);
+      const res = await fetchAdminLessons(levelFilter, statusFilter, debouncedQ);
       setLessons(res.lessons);
+      setLoadedOnce(true);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Không tải được danh sách bài học.');
     } finally {
       setLoading(false);
     }
-  }, [levelFilter, statusFilter]);
+  }, [levelFilter, statusFilter, debouncedQ]);
 
-  const loadDetail = useCallback(async (lessonId: string) => {
+  const loadDetail = useCallback(async (lessonId: string, resetPanels = false) => {
     setBusy(true);
     setErrorMsg(null);
+    if (resetPanels) {
+      resetDetailDisclosure();
+    }
     try {
       const data = await fetchAdminLessonDetail(lessonId);
       const l = data.lesson;
@@ -176,6 +232,21 @@ export function AdminLessonsTab() {
     void loadList();
   }, [loadList]);
 
+  const prevRefreshRef = useRef(refreshSignal);
+  useEffect(() => {
+    if (prevRefreshRef.current === refreshSignal) return;
+    prevRefreshRef.current = refreshSignal;
+    void loadList();
+    if (activeLessonId) {
+      void loadDetail(activeLessonId);
+    }
+  }, [refreshSignal, loadList, loadDetail, activeLessonId]);
+
+  const handleExitEditor = () => {
+    setActiveLessonId(null);
+    resetDetailDisclosure();
+  };
+
   const handleCreateLesson = async () => {
     if (!newTitle.trim() || busy) return;
     setBusy(true);
@@ -197,7 +268,7 @@ export function AdminLessonsTab() {
       setNewSummary('');
       setNoticeMsg(`Đã tạo bài học "${res.lesson.title}".`);
       await loadList();
-      await loadDetail(res.lesson.id);
+      await loadDetail(res.lesson.id, true);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Không tạo được bài học.');
     } finally {
@@ -225,23 +296,6 @@ export function AdminLessonsTab() {
       await loadList();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Không lưu được bài học.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleDeleteLesson = async (lesson: AdminLessonDto) => {
-    if (busy) return;
-    setBusy(true);
-    setErrorMsg(null);
-    setNoticeMsg(null);
-    try {
-      await deleteAdminLesson(lesson.id);
-      if (activeLessonId === lesson.id) setActiveLessonId(null);
-      setNoticeMsg(`Đã xóa bài học "${lesson.title}".`);
-      await loadList();
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Không xóa được bài học.');
     } finally {
       setBusy(false);
     }
@@ -279,6 +333,7 @@ export function AdminLessonsTab() {
       });
       setMatFileTitle('');
       setMatFileDesc('');
+      setShowUploadMeta(false);
       setNoticeMsg(`Đã tải lên tài liệu "${title}".`);
       await Promise.all([loadDetail(activeLessonId), loadList()]);
     } catch (err) {
@@ -312,20 +367,6 @@ export function AdminLessonsTab() {
     }
   };
 
-  const handleDeleteMaterial = async (materialId: string) => {
-    if (!activeLessonId || busy) return;
-    setBusy(true);
-    setErrorMsg(null);
-    try {
-      await deleteAdminLessonMaterial(activeLessonId, materialId);
-      await Promise.all([loadDetail(activeLessonId), loadList()]);
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Không xóa được tài liệu.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const handleOpenMaterial = async (mat: LessonMaterialDto) => {
     if (mat.materialType === 'link' && mat.externalUrl) {
       openExternalUrl(mat.externalUrl);
@@ -335,28 +376,63 @@ export function AdminLessonsTab() {
     openExternalUrl(buildMaterialFileUrl(mat.id, session?.accessToken ?? null));
   };
 
-  const handleAddSingleItem = async () => {
+  const handleStartEditItem = (item: LessonItemDto) => {
+    setEditingItemId(item.id);
+    setVWord(item.word);
+    setVReading(item.reading ?? '');
+    setVMeaning(item.meaning);
+    setVSino(item.sinoVietnamese ?? '');
+    setVExample(item.example ?? '');
+    setVExampleVi(item.exampleMeaning ?? '');
+    setCsvOpen(false);
+    setShowVocabForm(true);
+  };
+
+  const handleToggleVocabForm = () => {
+    if (showVocabForm) {
+      setShowVocabForm(false);
+      clearVocabInputs();
+      return;
+    }
+    clearVocabInputs();
+    setCsvOpen(false);
+    setShowVocabForm(true);
+  };
+
+  const handleSaveVocabItem = async () => {
     if (!activeLessonId || !vWord.trim() || !vMeaning.trim() || busy) return;
     setBusy(true);
     setErrorMsg(null);
+    setNoticeMsg(null);
+    const payload = {
+      word: vWord.trim(),
+      reading: vReading.trim() || null,
+      meaning: vMeaning.trim(),
+      sinoVietnamese: vSino.trim() || null,
+      example: vExample.trim() || null,
+      exampleMeaning: vExampleVi.trim() || null,
+    };
+
     try {
-      await addAdminLessonItem(activeLessonId, {
-        word: vWord.trim(),
-        reading: vReading.trim() || null,
-        meaning: vMeaning.trim(),
-        sinoVietnamese: vSino.trim() || null,
-        example: vExample.trim() || null,
-        exampleMeaning: vExampleVi.trim() || null,
-      });
-      setVWord('');
-      setVReading('');
-      setVMeaning('');
-      setVSino('');
-      setVExample('');
-      setVExampleVi('');
+      if (editingItemId) {
+        await updateAdminLessonItem(activeLessonId, editingItemId, payload);
+        clearVocabInputs();
+        setShowVocabForm(false);
+        setNoticeMsg(`Đã cập nhật từ "${payload.word}".`);
+      } else {
+        await addAdminLessonItem(activeLessonId, payload);
+        clearVocabInputs();
+        setNoticeMsg(`Đã thêm từ "${payload.word}" vào bài học.`);
+      }
       await Promise.all([loadDetail(activeLessonId), loadList()]);
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Không thêm được từ vựng.');
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : editingItemId
+            ? 'Không cập nhật được từ vựng.'
+            : 'Không thêm được từ vựng.',
+      );
     } finally {
       setBusy(false);
     }
@@ -400,14 +476,37 @@ export function AdminLessonsTab() {
     }
   };
 
-  const handleDeleteItem = async (itemId: string) => {
-    if (!activeLessonId || busy) return;
+  const handleExecuteConfirmDelete = async () => {
+    if (!confirmTarget || busy) return;
+    const target = confirmTarget;
     setBusy(true);
+    setErrorMsg(null);
+    setNoticeMsg(null);
+
     try {
-      await deleteAdminLessonItem(activeLessonId, itemId);
-      await Promise.all([loadDetail(activeLessonId), loadList()]);
+      if (target.kind === 'lesson') {
+        await deleteAdminLesson(target.lesson.id);
+        if (activeLessonId === target.lesson.id) {
+          handleExitEditor();
+        }
+        setNoticeMsg(`Đã xóa bài học "${target.lesson.title}".`);
+        await loadList();
+      } else if (target.kind === 'material' && activeLessonId) {
+        await deleteAdminLessonMaterial(activeLessonId, target.material.id);
+        setNoticeMsg(`Đã xóa tài liệu "${target.material.title}".`);
+        await Promise.all([loadDetail(activeLessonId), loadList()]);
+      } else if (target.kind === 'item' && activeLessonId) {
+        await deleteAdminLessonItem(activeLessonId, target.item.id);
+        if (editingItemId === target.item.id) {
+          clearVocabInputs();
+          setShowVocabForm(false);
+        }
+        setNoticeMsg(`Đã xóa từ "${target.item.word}".`);
+        await Promise.all([loadDetail(activeLessonId), loadList()]);
+      }
+      setConfirmTarget(null);
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Không xóa được từ vựng.');
+      setErrorMsg(err instanceof Error ? err.message : 'Thao tác xóa thất bại.');
     } finally {
       setBusy(false);
     }
@@ -429,7 +528,7 @@ export function AdminLessonsTab() {
       {activeLessonId ? (
         /* Selected Lesson Content & Materials Editor */
         <View style={styles.editorStack}>
-          <Pressable style={styles.backLinkBtn} onPress={() => setActiveLessonId(null)}>
+          <Pressable style={styles.backLinkBtn} onPress={handleExitEditor}>
             <Text style={styles.backLinkText}>← Quay lại danh sách bài học</Text>
           </Pressable>
 
@@ -440,6 +539,7 @@ export function AdminLessonsTab() {
               value={editTitle}
               onChangeText={setEditTitle}
               placeholder="Tiêu đề bài học"
+              placeholderTextColor={adminTheme.colors.textMuted}
               style={styles.input}
             />
             <View style={styles.filterGroup}>
@@ -449,7 +549,9 @@ export function AdminLessonsTab() {
                   style={[styles.chip, editLevel === lv && styles.chipActive]}
                   onPress={() => setEditLevel(lv)}
                 >
-                  <Text style={[styles.chipText, editLevel === lv && styles.chipTextActive]}>{lv}</Text>
+                  <Text style={[styles.chipText, editLevel === lv && styles.chipTextActive]}>
+                    {lv}
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -460,7 +562,9 @@ export function AdminLessonsTab() {
                   style={[styles.chip, editCategory === cat && styles.chipActive]}
                   onPress={() => setEditCategory(cat)}
                 >
-                  <Text style={[styles.chipText, editCategory === cat && styles.chipTextActive]}>{cat}</Text>
+                  <Text style={[styles.chipText, editCategory === cat && styles.chipTextActive]}>
+                    {cat}
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -493,10 +597,12 @@ export function AdminLessonsTab() {
                 ).map(([st, lbl]) => (
                   <Pressable
                     key={st}
-                    style={[styles.chip, editStatus === st && styles.chipActive]}
+                    style={[styles.chip, editStatus === st && styles.chipDarkActive]}
                     onPress={() => setEditStatus(st)}
                   >
-                    <Text style={[styles.chipText, editStatus === st && styles.chipTextActive]}>{lbl}</Text>
+                    <Text style={[styles.chipText, editStatus === st && styles.chipTextActive]}>
+                      {lbl}
+                    </Text>
                   </Pressable>
                 ))}
               </View>
@@ -504,14 +610,16 @@ export function AdminLessonsTab() {
             <TextInput
               value={editSummary}
               onChangeText={setEditSummary}
-              placeholder="Tóm tắt ngắn gọn nội dung bài..."
+              placeholder="Tóm tắt ngắn gọn nội dung bài"
+              placeholderTextColor={adminTheme.colors.textMuted}
               style={styles.input}
             />
             <TextInput
               value={editContentMd}
               onChangeText={setEditContentMd}
               multiline
-              placeholder="Ghi chú bài giảng / điểm ngữ pháp cần nhớ cho học viên..."
+              placeholder="Ghi chú bài giảng / điểm ngữ pháp cần nhớ..."
+              placeholderTextColor={adminTheme.colors.textMuted}
               style={[styles.input, styles.textArea]}
             />
             <View style={styles.rowBetween}>
@@ -530,44 +638,65 @@ export function AdminLessonsTab() {
 
           {/* Materials Upload & Link Card */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Tài liệu đính kèm ({materials.length})</Text>
-            <TextInput
-              value={matFileTitle}
-              onChangeText={setMatFileTitle}
-              placeholder="Tên hiển thị tài liệu (tùy chọn, mặc định lấy tên tệp)"
-              style={styles.input}
-            />
-            <TextInput
-              value={matFileDesc}
-              onChangeText={setMatFileDesc}
-              placeholder="Mô tả ngắn (tùy chọn)"
-              style={styles.input}
-            />
-            <View style={styles.filterGroup}>
-              <Pressable style={styles.uploadBtn} disabled={busy} onPress={() => void handleUploadFile()}>
-                <UploadIcon size={15} color={nihongoTheme.colors.accentHover} />
-                <Text style={styles.uploadBtnText}>Tải lên tệp (PDF, Ảnh, DOCX, Audio...)</Text>
-              </Pressable>
-              <Pressable
-                style={styles.outlineBtn}
-                onPress={() => setShowLinkForm((v) => !v)}
-              >
-                <Text style={styles.outlineBtnText}>{showLinkForm ? 'Đóng thêm link' : '+ Gắn link tài liệu'}</Text>
-              </Pressable>
+            <View style={styles.rowBetweenWrap}>
+              <Text style={styles.cardTitle}>Tài liệu đính kèm ({materials.length})</Text>
+              <View style={styles.filterGroup}>
+                <Pressable
+                  style={styles.outlineBtn}
+                  onPress={() => setShowUploadMeta((v) => !v)}
+                >
+                  <Text style={styles.outlineBtnText}>
+                    {showUploadMeta ? 'Ẩn tùy chọn tệp' : 'Tên / Mô tả tệp'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={styles.outlineBtn}
+                  onPress={() => setShowLinkForm((v) => !v)}
+                >
+                  <Text style={styles.outlineBtnText}>
+                    {showLinkForm ? 'Đóng gắn link' : '+ Gắn link'}
+                  </Text>
+                </Pressable>
+                <Pressable style={styles.uploadBtn} disabled={busy} onPress={() => void handleUploadFile()}>
+                  <UploadIcon size={14} color={adminTheme.colors.accentHover} />
+                  <Text style={styles.uploadBtnText}>Tải lên tệp</Text>
+                </Pressable>
+              </View>
             </View>
+
+            {showUploadMeta ? (
+              <View style={styles.subBox}>
+                <TextInput
+                  value={matFileTitle}
+                  onChangeText={setMatFileTitle}
+                  placeholder="Tên hiển thị (mặc định: tên tệp)"
+                  placeholderTextColor={adminTheme.colors.textMuted}
+                  style={styles.input}
+                />
+                <TextInput
+                  value={matFileDesc}
+                  onChangeText={setMatFileDesc}
+                  placeholder="Mô tả ngắn"
+                  placeholderTextColor={adminTheme.colors.textMuted}
+                  style={styles.input}
+                />
+              </View>
+            ) : null}
 
             {showLinkForm ? (
               <View style={styles.subBox}>
                 <TextInput
                   value={matLinkTitle}
                   onChangeText={setMatLinkTitle}
-                  placeholder="Tên tài liệu (vd: Đề cương ngữ pháp N3)"
+                  placeholder="Tên tài liệu (vd: Đề cương N3)"
+                  placeholderTextColor={adminTheme.colors.textMuted}
                   style={styles.input}
                 />
                 <TextInput
                   value={matLinkUrl}
                   onChangeText={setMatLinkUrl}
                   placeholder="https://drive.google.com/..."
+                  placeholderTextColor={adminTheme.colors.textMuted}
                   autoCapitalize="none"
                   style={styles.input}
                 />
@@ -575,6 +704,7 @@ export function AdminLessonsTab() {
                   value={matLinkDesc}
                   onChangeText={setMatLinkDesc}
                   placeholder="Ghi chú ngắn"
+                  placeholderTextColor={adminTheme.colors.textMuted}
                   style={styles.input}
                 />
                 <Pressable style={styles.primaryBtn} disabled={busy} onPress={() => void handleAddLink()}>
@@ -583,38 +713,60 @@ export function AdminLessonsTab() {
               </View>
             ) : null}
 
-            {materials.map((m) => (
-              <View key={m.id} style={styles.itemRow}>
-                <Pressable style={styles.itemLeft} onPress={() => void handleOpenMaterial(m)}>
-                  <View style={styles.badgeRow}>
-                    {m.materialType === 'file' ? (
-                      <DownloadIcon size={15} color={nihongoTheme.colors.accentHover} />
-                    ) : (
-                      <LinkExternalIcon size={15} color={nihongoTheme.colors.accentHover} />
-                    )}
-                    <Text style={styles.itemTitle}>{m.title}</Text>
-                  </View>
-                  <Text style={styles.itemSub}>
-                    {m.materialType === 'file'
-                      ? `${m.fileName ?? 'Tệp'} ${formatBytes(m.fileSize) ? `· ${formatBytes(m.fileSize)}` : ''}`
-                      : m.externalUrl}
-                    {m.description ? ` · ${m.description}` : ''}
-                  </Text>
-                </Pressable>
-                <Pressable onPress={() => void handleDeleteMaterial(m.id)}>
-                  <TrashIcon size={16} color="#DC2626" />
-                </Pressable>
-              </View>
-            ))}
+            {materials.length === 0 ? (
+              <Text style={styles.emptyText}>Chưa có tài liệu đính kèm nào.</Text>
+            ) : (
+              materials.map((m) => (
+                <View key={m.id} style={styles.itemRow}>
+                  <Pressable style={styles.itemLeft} onPress={() => void handleOpenMaterial(m)}>
+                    <View style={styles.badgeRow}>
+                      {m.materialType === 'file' ? (
+                        <DownloadIcon size={15} color={adminTheme.colors.accentHover} />
+                      ) : (
+                        <LinkExternalIcon size={15} color={adminTheme.colors.accentHover} />
+                      )}
+                      <Text style={styles.itemTitle}>{m.title}</Text>
+                    </View>
+                    <Text style={styles.itemSub}>
+                      {m.materialType === 'file'
+                        ? `${m.fileName ?? 'Tệp'} ${formatBytes(m.fileSize) ? `· ${formatBytes(m.fileSize)}` : ''}`
+                        : m.externalUrl}
+                      {m.description ? ` · ${m.description}` : ''}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Xóa tài liệu ${m.title}`}
+                    style={styles.dangerIconBtn}
+                    onPress={() => setConfirmTarget({ kind: 'material', material: m })}
+                  >
+                    <TrashIcon size={15} color={adminTheme.colors.dangerText} />
+                  </Pressable>
+                </View>
+              ))
+            )}
           </View>
 
           {/* Vocabulary Items Card */}
           <View style={styles.card}>
-            <View style={styles.rowBetween}>
+            <View style={styles.rowBetweenWrap}>
               <Text style={styles.cardTitle}>Từ vựng trong bài ({items.length})</Text>
-              <Pressable style={styles.outlineBtn} onPress={() => setCsvOpen((v) => !v)}>
-                <Text style={styles.outlineBtnText}>{csvOpen ? 'Đóng CSV' : 'Nhập nhanh CSV'}</Text>
-              </Pressable>
+              <View style={styles.filterGroup}>
+                <Pressable
+                  style={styles.outlineBtn}
+                  onPress={() => {
+                    setShowVocabForm(false);
+                    setCsvOpen((v) => !v);
+                  }}
+                >
+                  <Text style={styles.outlineBtnText}>{csvOpen ? 'Đóng CSV' : 'Nhập CSV'}</Text>
+                </Pressable>
+                <Pressable style={styles.primaryBtnSmall} onPress={handleToggleVocabForm}>
+                  <Text style={styles.primaryBtnText}>
+                    {showVocabForm ? 'Đóng' : '+ Thêm từ'}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
 
             {csvOpen ? (
@@ -630,6 +782,7 @@ export function AdminLessonsTab() {
                   onChangeText={setCsvText}
                   multiline
                   placeholder={SAMPLE_LESSON_CSV}
+                  placeholderTextColor={adminTheme.colors.textMuted}
                   style={[styles.input, styles.textArea]}
                 />
                 <Pressable style={styles.primaryBtn} disabled={busy} onPress={() => void handleBulkImportCsv()}>
@@ -638,72 +791,120 @@ export function AdminLessonsTab() {
               </View>
             ) : null}
 
-            <View style={styles.subBox}>
-              <View style={styles.rowPair}>
+            {showVocabForm ? (
+              <View style={styles.subBox}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.sectionSubTitle}>
+                    {editingItemId ? 'Chỉnh sửa từ vựng' : 'Thêm từ vựng mới'}
+                  </Text>
+                  <Pressable
+                    style={styles.outlineBtnSmall}
+                    onPress={() => {
+                      clearVocabInputs();
+                      setShowVocabForm(false);
+                    }}
+                  >
+                    <Text style={styles.outlineBtnText}>Hủy</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.rowPair}>
+                  <TextInput
+                    value={vWord}
+                    onChangeText={setVWord}
+                    placeholder="Từ Nhật / Kanji *"
+                    placeholderTextColor={adminTheme.colors.textMuted}
+                    style={[styles.input, { flex: 1 }]}
+                  />
+                  <TextInput
+                    value={vReading}
+                    onChangeText={setVReading}
+                    placeholder="Cách đọc (Kana)"
+                    placeholderTextColor={adminTheme.colors.textMuted}
+                    style={[styles.input, { flex: 1 }]}
+                  />
+                </View>
+                <View style={styles.rowPair}>
+                  <TextInput
+                    value={vMeaning}
+                    onChangeText={setVMeaning}
+                    placeholder="Nghĩa tiếng Việt *"
+                    placeholderTextColor={adminTheme.colors.textMuted}
+                    style={[styles.input, { flex: 2 }]}
+                  />
+                  <TextInput
+                    value={vSino}
+                    onChangeText={setVSino}
+                    placeholder="Hán Việt"
+                    placeholderTextColor={adminTheme.colors.textMuted}
+                    style={[styles.input, { flex: 1 }]}
+                  />
+                </View>
                 <TextInput
-                  value={vWord}
-                  onChangeText={setVWord}
-                  placeholder="Từ Nhật / Kanji *"
-                  style={[styles.input, { flex: 1 }]}
+                  value={vExample}
+                  onChangeText={setVExample}
+                  placeholder="Câu ví dụ tiếng Nhật"
+                  placeholderTextColor={adminTheme.colors.textMuted}
+                  style={styles.input}
                 />
                 <TextInput
-                  value={vReading}
-                  onChangeText={setVReading}
-                  placeholder="Cách đọc (Kana)"
-                  style={[styles.input, { flex: 1 }]}
+                  value={vExampleVi}
+                  onChangeText={setVExampleVi}
+                  placeholder="Nghĩa câu ví dụ"
+                  placeholderTextColor={adminTheme.colors.textMuted}
+                  style={styles.input}
                 />
+                <Pressable
+                  style={[styles.primaryBtn, (!vWord.trim() || !vMeaning.trim() || busy) && styles.disabledBtn]}
+                  disabled={!vWord.trim() || !vMeaning.trim() || busy}
+                  onPress={() => void handleSaveVocabItem()}
+                >
+                  <Text style={styles.primaryBtnText}>
+                    {busy ? 'Đang lưu...' : editingItemId ? 'Lưu thay đổi' : '+ Thêm từ vào bài'}
+                  </Text>
+                </Pressable>
               </View>
-              <View style={styles.rowPair}>
-                <TextInput
-                  value={vMeaning}
-                  onChangeText={setVMeaning}
-                  placeholder="Nghĩa tiếng Việt *"
-                  style={[styles.input, { flex: 2 }]}
-                />
-                <TextInput
-                  value={vSino}
-                  onChangeText={setVSino}
-                  placeholder="Hán Việt"
-                  style={[styles.input, { flex: 1 }]}
-                />
-              </View>
-              <TextInput
-                value={vExample}
-                onChangeText={setVExample}
-                placeholder="Câu ví dụ tiếng Nhật (tùy chọn)"
-                style={styles.input}
-              />
-              <TextInput
-                value={vExampleVi}
-                onChangeText={setVExampleVi}
-                placeholder="Nghĩa câu ví dụ (tùy chọn)"
-                style={styles.input}
-              />
-              <Pressable style={styles.primaryBtn} disabled={busy} onPress={() => void handleAddSingleItem()}>
-                <Text style={styles.primaryBtnText}>+ Thêm từ vào bài</Text>
-              </Pressable>
-            </View>
+            ) : null}
 
-            {items.map((it) => (
-              <View key={it.id} style={styles.itemRow}>
-                <View style={styles.itemLeft}>
-                  <View style={styles.badgeRow}>
-                    <Text style={styles.itemTitle}>{it.word}</Text>
-                    {it.reading ? <Text style={styles.itemSub}>({it.reading})</Text> : null}
-                    {it.sinoVietnamese ? <Text style={styles.sinoTag}>{it.sinoVietnamese}</Text> : null}
+            {items.length === 0 ? (
+              <Text style={styles.emptyText}>Chưa có từ vựng nào trong bài học này.</Text>
+            ) : (
+              items.map((it) => (
+                <View key={it.id} style={styles.itemRow}>
+                  <View style={styles.itemLeft}>
+                    <View style={styles.badgeRow}>
+                      <Text style={styles.itemTitle}>{it.word}</Text>
+                      {it.reading ? <Text style={styles.itemSub}>({it.reading})</Text> : null}
+                      {it.sinoVietnamese ? <Text style={styles.sinoTag}>{it.sinoVietnamese}</Text> : null}
+                    </View>
+                    <Text style={styles.itemMeaning}>{it.meaning}</Text>
                   </View>
-                  <Text style={styles.itemMeaning}>{it.meaning}</Text>
+                  <View style={styles.rowActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Nghe phát âm ${it.word}`}
+                      style={styles.iconBtn}
+                      onPress={() => void speakJapanese(it.reading || it.word)}
+                    >
+                      <VolumeIcon size={15} color={adminTheme.colors.accentHover} />
+                    </Pressable>
+                    <Pressable
+                      style={styles.outlineBtnSmall}
+                      onPress={() => handleStartEditItem(it)}
+                    >
+                      <Text style={styles.outlineBtnText}>Sửa</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Xóa từ ${it.word}`}
+                      style={styles.dangerIconBtn}
+                      onPress={() => setConfirmTarget({ kind: 'item', item: it })}
+                    >
+                      <TrashIcon size={15} color={adminTheme.colors.dangerText} />
+                    </Pressable>
+                  </View>
                 </View>
-                <View style={styles.rowActions}>
-                  <Pressable onPress={() => void speakJapanese(it.reading || it.word)}>
-                    <VolumeIcon size={16} color={nihongoTheme.colors.accentHover} />
-                  </Pressable>
-                  <Pressable onPress={() => void handleDeleteItem(it.id)}>
-                    <TrashIcon size={16} color="#DC2626" />
-                  </Pressable>
-                </View>
-              </View>
-            ))}
+              ))
+            )}
           </View>
         </View>
       ) : (
@@ -711,10 +912,25 @@ export function AdminLessonsTab() {
         <View style={styles.card}>
           <View style={styles.rowBetweenWrap}>
             <Text style={styles.cardTitle}>Bài học &amp; Tài liệu ({lessons.length})</Text>
-            <Pressable style={styles.primaryBtnSmall} onPress={() => setCreateOpen(true)}>
-              <Text style={styles.primaryBtnText}>+ Tạo bài học mới</Text>
-            </Pressable>
+            <View style={styles.filterGroup}>
+              {q ? (
+                <Pressable style={styles.outlineBtn} onPress={() => setQ('')}>
+                  <Text style={styles.outlineBtnText}>Xóa tìm kiếm</Text>
+                </Pressable>
+              ) : null}
+              <Pressable style={styles.primaryBtnSmall} onPress={() => setCreateOpen(true)}>
+                <Text style={styles.primaryBtnText}>+ Tạo bài học mới</Text>
+              </Pressable>
+            </View>
           </View>
+
+          <TextInput
+            value={q}
+            onChangeText={setQ}
+            placeholder="Tìm tên bài học, chủ đề..."
+            placeholderTextColor={adminTheme.colors.textMuted}
+            style={styles.input}
+          />
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterGroup}>
             {(['ALL', ...JLPT_OPTIONS] as const).map((lv) => (
@@ -740,7 +956,7 @@ export function AdminLessonsTab() {
             ).map(([st, lbl]) => (
               <Pressable
                 key={st}
-                style={[styles.chip, statusFilter === st && styles.chipActive]}
+                style={[styles.chip, statusFilter === st && styles.chipDarkActive]}
                 onPress={() => setStatusFilter(st)}
               >
                 <Text style={[styles.chipText, statusFilter === st && styles.chipTextActive]}>{lbl}</Text>
@@ -748,12 +964,16 @@ export function AdminLessonsTab() {
             ))}
           </View>
 
-          {loading ? (
+          {loading && !loadedOnce ? (
             <View style={styles.loadingWrap}>
-              <ActivityIndicator color={nihongoTheme.colors.accent} />
+              <ActivityIndicator color={adminTheme.colors.accent} />
             </View>
           ) : lessons.length === 0 ? (
-            <Text style={styles.emptyText}>Chưa có bài học nào. Hãy bấm &ldquo;+ Tạo bài học mới&rdquo;.</Text>
+            <Text style={styles.emptyText}>
+              {q.trim()
+                ? 'Không tìm thấy bài học phù hợp.'
+                : 'Chưa có bài học nào. Hãy bấm "+ Tạo bài học mới".'}
+            </Text>
           ) : (
             <View style={styles.listGap}>
               {lessons.map((l) => (
@@ -783,11 +1003,16 @@ export function AdminLessonsTab() {
                     </Text>
                   </View>
                   <View style={styles.rowActions}>
-                    <Pressable style={styles.outlineBtn} onPress={() => void loadDetail(l.id)}>
+                    <Pressable style={styles.outlineBtn} onPress={() => void loadDetail(l.id, true)}>
                       <Text style={styles.outlineBtnText}>Nội dung</Text>
                     </Pressable>
-                    <Pressable onPress={() => void handleDeleteLesson(l)}>
-                      <TrashIcon size={16} color="#DC2626" />
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Xóa bài học ${l.title}`}
+                      style={styles.dangerIconBtn}
+                      onPress={() => setConfirmTarget({ kind: 'lesson', lesson: l })}
+                    >
+                      <TrashIcon size={15} color={adminTheme.colors.dangerText} />
                     </Pressable>
                   </View>
                 </View>
@@ -808,7 +1033,7 @@ export function AdminLessonsTab() {
           <View style={styles.modalCard}>
             <View style={styles.rowBetween}>
               <Text style={styles.cardTitle}>Tạo bài học mới</Text>
-              <Pressable onPress={() => setCreateOpen(false)}>
+              <Pressable style={styles.closeBtn} onPress={() => setCreateOpen(false)}>
                 <Text style={styles.closeText}>Đóng</Text>
               </Pressable>
             </View>
@@ -816,7 +1041,8 @@ export function AdminLessonsTab() {
             <TextInput
               value={newTitle}
               onChangeText={setNewTitle}
-              placeholder="Tên bài học (vd: Từ vựng công sở N3 - Bài 1)"
+              placeholder="Tên bài học (vd: Từ vựng công sở N3)"
+              placeholderTextColor={adminTheme.colors.textMuted}
               style={styles.input}
             />
 
@@ -871,7 +1097,7 @@ export function AdminLessonsTab() {
               ).map(([st, lbl]) => (
                 <Pressable
                   key={st}
-                  style={[styles.chip, newStatus === st && styles.chipActive]}
+                  style={[styles.chip, newStatus === st && styles.chipDarkActive]}
                   onPress={() => setNewStatus(st)}
                 >
                   <Text style={[styles.chipText, newStatus === st && styles.chipTextActive]}>{lbl}</Text>
@@ -883,6 +1109,7 @@ export function AdminLessonsTab() {
               value={newSummary}
               onChangeText={setNewSummary}
               placeholder="Mô tả ngắn bài học"
+              placeholderTextColor={adminTheme.colors.textMuted}
               style={styles.input}
             />
 
@@ -898,6 +1125,37 @@ export function AdminLessonsTab() {
           </View>
         </View>
       </Modal>
+
+      <AdminConfirmModal
+        visible={Boolean(confirmTarget)}
+        title={
+          confirmTarget?.kind === 'lesson'
+            ? 'Xác nhận xóa bài học'
+            : confirmTarget?.kind === 'material'
+              ? 'Xác nhận xóa tài liệu'
+              : 'Xác nhận xóa từ vựng'
+        }
+        message={
+          confirmTarget?.kind === 'lesson'
+            ? `Bài học "${confirmTarget.lesson.title}" cùng toàn bộ từ vựng và tài liệu đính kèm sẽ bị xóa vĩnh viễn.`
+            : confirmTarget?.kind === 'material'
+              ? `Xóa tài liệu "${confirmTarget.material.title}" khỏi bài học này?`
+              : confirmTarget?.kind === 'item'
+                ? `Xóa từ "${confirmTarget.item.word}" (${confirmTarget.item.meaning}) khỏi bài học?`
+                : ''
+        }
+        confirmLabel={
+          confirmTarget?.kind === 'lesson'
+            ? 'Xóa bài học'
+            : confirmTarget?.kind === 'material'
+              ? 'Xóa tài liệu'
+              : 'Xóa từ vựng'
+        }
+        tone="danger"
+        busy={busy}
+        onCancel={() => setConfirmTarget(null)}
+        onConfirm={() => void handleExecuteConfirmDelete()}
+      />
     </View>
   );
 }
@@ -906,31 +1164,31 @@ const styles = StyleSheet.create({
   container: { gap: 14 },
   editorStack: { gap: 14 },
   errorBanner: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: adminTheme.colors.dangerBg,
     borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: nihongoTheme.radius.md,
+    borderColor: adminTheme.colors.dangerBorder,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
   },
-  errorText: { color: '#DC2626', fontSize: 13, fontWeight: '600' },
+  errorText: { color: adminTheme.colors.dangerText, fontSize: 13, fontWeight: '600' },
   noticeBanner: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: adminTheme.colors.successBg,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
-    borderRadius: nihongoTheme.radius.md,
+    borderColor: adminTheme.colors.successBorder,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
   },
-  noticeText: { color: '#1B873F', fontSize: 13, fontWeight: '700' },
+  noticeText: { color: adminTheme.colors.successText, fontSize: 13, fontWeight: '700' },
   card: {
-    backgroundColor: nihongoTheme.colors.surface,
-    borderRadius: nihongoTheme.radius.card,
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.card,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    padding: 18,
+    borderColor: adminTheme.colors.border,
+    padding: 16,
     gap: 12,
-    ...nihongoTheme.shadow.card,
   },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: nihongoTheme.colors.textPrimary },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: adminTheme.colors.textPrimary },
+  sectionSubTitle: { fontSize: 13, fontWeight: '800', color: adminTheme.colors.textPrimary },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   rowBetweenWrap: {
     flexDirection: 'row',
@@ -943,20 +1201,21 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 11,
     paddingVertical: 6,
-    borderRadius: nihongoTheme.radius.pill,
-    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+    borderRadius: adminTheme.radius.pill,
+    backgroundColor: adminTheme.colors.chipBg,
   },
-  chipActive: { backgroundColor: nihongoTheme.colors.accent },
-  chipText: { fontSize: 12, fontWeight: '700', color: nihongoTheme.colors.textSecondary },
+  chipActive: { backgroundColor: adminTheme.colors.accent },
+  chipDarkActive: { backgroundColor: adminTheme.colors.textPrimary },
+  chipText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textSecondary },
   chipTextActive: { color: '#FFFFFF' },
   loadingWrap: { paddingVertical: 24, alignItems: 'center' },
-  emptyText: { fontSize: 13, color: nihongoTheme.colors.textMuted, paddingVertical: 12 },
+  emptyText: { fontSize: 13, color: adminTheme.colors.textMuted, paddingVertical: 8 },
   listGap: { gap: 10 },
   lessonRow: {
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderLight,
-    backgroundColor: nihongoTheme.colors.surfaceSubtle,
-    borderRadius: nihongoTheme.radius.md,
+    borderColor: adminTheme.colors.border,
+    backgroundColor: adminTheme.colors.surfaceSubtle,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -965,9 +1224,9 @@ const styles = StyleSheet.create({
   },
   itemRow: {
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderLight,
-    backgroundColor: nihongoTheme.colors.surfaceSubtle,
-    borderRadius: nihongoTheme.radius.md,
+    borderColor: adminTheme.colors.border,
+    backgroundColor: adminTheme.colors.surfaceSubtle,
+    borderRadius: adminTheme.radius.md,
     padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -977,54 +1236,89 @@ const styles = StyleSheet.create({
   itemLeft: { flex: 1, minWidth: 0, gap: 3 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
   levelBadge: {
-    backgroundColor: nihongoTheme.colors.accentSoft,
-    borderRadius: nihongoTheme.radius.pill,
+    backgroundColor: adminTheme.colors.accentSoft,
+    borderRadius: adminTheme.radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  levelBadgeText: { fontSize: 11, fontWeight: '800', color: nihongoTheme.colors.accentHover },
-  neutralBadge: { backgroundColor: '#EFEAE4', borderRadius: nihongoTheme.radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
-  neutralBadgeText: { fontSize: 11, fontWeight: '700', color: nihongoTheme.colors.textSecondary },
-  tierBadge: { backgroundColor: '#EEF2FF', borderRadius: nihongoTheme.radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
-  tierBadgeText: { fontSize: 11, fontWeight: '700', color: '#4338CA' },
-  draftBadge: { backgroundColor: '#FFF7ED', borderRadius: nihongoTheme.radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
-  draftBadgeText: { fontSize: 11, fontWeight: '700', color: '#C25E00' },
-  itemTitle: { fontSize: 14, fontWeight: '800', color: nihongoTheme.colors.textPrimary },
-  itemSub: { fontSize: 12, color: nihongoTheme.colors.textSecondary },
-  itemMeaning: { fontSize: 13, color: nihongoTheme.colors.textPrimary },
-  sinoTag: { fontSize: 11, fontWeight: '700', color: nihongoTheme.colors.accentHover },
-  rowActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  backLinkBtn: { alignSelf: 'flex-start', paddingVertical: 4 },
-  backLinkText: { fontSize: 13, fontWeight: '700', color: nihongoTheme.colors.accentHover },
-  input: {
-    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+  levelBadgeText: { fontSize: 11, fontWeight: '800', color: adminTheme.colors.accentHover },
+  neutralBadge: {
+    backgroundColor: adminTheme.colors.chipBg,
+    borderRadius: adminTheme.radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  neutralBadgeText: { fontSize: 11, fontWeight: '700', color: adminTheme.colors.textSecondary },
+  tierBadge: {
+    backgroundColor: adminTheme.colors.infoBg,
+    borderRadius: adminTheme.radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  tierBadgeText: { fontSize: 11, fontWeight: '700', color: adminTheme.colors.infoText },
+  draftBadge: {
+    backgroundColor: adminTheme.colors.warningBg,
+    borderRadius: adminTheme.radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  draftBadgeText: { fontSize: 11, fontWeight: '700', color: adminTheme.colors.warningText },
+  itemTitle: { fontSize: 14, fontWeight: '800', color: adminTheme.colors.textPrimary },
+  itemSub: { fontSize: 12, color: adminTheme.colors.textSecondary },
+  itemMeaning: { fontSize: 13, color: adminTheme.colors.textPrimary },
+  sinoTag: { fontSize: 11, fontWeight: '700', color: adminTheme.colors.accentHover },
+  rowActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    borderRadius: nihongoTheme.radius.button,
+    borderColor: adminTheme.colors.border,
+    backgroundColor: adminTheme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dangerIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: adminTheme.colors.dangerBorder,
+    backgroundColor: adminTheme.colors.dangerBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backLinkBtn: { alignSelf: 'flex-start', paddingVertical: 4 },
+  backLinkText: { fontSize: 13, fontWeight: '700', color: adminTheme.colors.accentHover },
+  input: {
+    backgroundColor: adminTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: adminTheme.colors.border,
+    borderRadius: adminTheme.radius.input,
     paddingHorizontal: 12,
     paddingVertical: 9,
     fontSize: 13,
-    color: nihongoTheme.colors.textPrimary,
+    color: adminTheme.colors.textPrimary,
   },
   textArea: { minHeight: 96, textAlignVertical: 'top' },
   orderInput: {
     width: 78,
-    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    backgroundColor: adminTheme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    borderRadius: nihongoTheme.radius.button,
+    borderColor: adminTheme.colors.border,
+    borderRadius: adminTheme.radius.input,
     paddingHorizontal: 10,
     paddingVertical: 7,
     fontSize: 13,
     textAlign: 'center',
-    color: nihongoTheme.colors.textPrimary,
+    color: adminTheme.colors.textPrimary,
   },
-  mutedLabel: { fontSize: 12, fontWeight: '700', color: nihongoTheme.colors.textSecondary },
+  mutedLabel: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textSecondary },
   subBox: {
-    backgroundColor: '#FAF7F3',
+    backgroundColor: adminTheme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderLight,
-    borderRadius: nihongoTheme.radius.md,
+    borderColor: adminTheme.colors.border,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
     gap: 8,
   },
@@ -1033,39 +1327,58 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: nihongoTheme.colors.accentSoft,
-    borderRadius: nihongoTheme.radius.button,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
-  uploadBtnText: { fontSize: 12, fontWeight: '700', color: nihongoTheme.colors.accentHover },
-  outlineBtn: {
+    backgroundColor: adminTheme.colors.accentSoft,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    borderRadius: nihongoTheme.radius.button,
+    borderColor: adminTheme.colors.accentBorder,
+    borderRadius: adminTheme.radius.input,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  outlineBtnText: { fontSize: 12, fontWeight: '700', color: nihongoTheme.colors.textPrimary },
-  sampleLink: { fontSize: 12, fontWeight: '700', color: nihongoTheme.colors.accentHover },
+  uploadBtnText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.accentHover },
+  outlineBtn: {
+    borderWidth: 1,
+    borderColor: adminTheme.colors.borderStrong,
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.input,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
+  outlineBtnSmall: {
+    borderWidth: 1,
+    borderColor: adminTheme.colors.borderStrong,
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  outlineBtnText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textPrimary },
+  sampleLink: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.accentHover },
   primaryBtnSmall: {
-    backgroundColor: nihongoTheme.colors.accent,
-    borderRadius: nihongoTheme.radius.button,
+    backgroundColor: adminTheme.colors.accent,
+    borderRadius: adminTheme.radius.input,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   primaryBtn: {
-    backgroundColor: nihongoTheme.colors.accent,
-    borderRadius: nihongoTheme.radius.button,
+    backgroundColor: adminTheme.colors.accent,
+    borderRadius: adminTheme.radius.input,
     paddingVertical: 11,
     alignItems: 'center',
   },
   disabledBtn: { opacity: 0.55 },
   primaryBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
-  closeText: { fontSize: 13, fontWeight: '700', color: nihongoTheme.colors.accentHover },
+  closeBtn: {
+    backgroundColor: adminTheme.colors.chipBg,
+    borderRadius: adminTheme.radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  closeText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textPrimary },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(28,25,23,0.4)',
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(24, 24, 27, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
@@ -1073,12 +1386,13 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 480,
-    backgroundColor: nihongoTheme.colors.surface,
-    borderRadius: nihongoTheme.radius.card,
+    alignSelf: 'center',
+    overflow: 'hidden',
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.card,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
+    borderColor: adminTheme.colors.border,
     padding: 18,
     gap: 10,
-    ...nihongoTheme.shadow.dock,
   },
 });

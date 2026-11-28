@@ -20,6 +20,7 @@ import {
   handleAdminResetPlan,
   handleAdminSetSubscription,
   handleAdminUpdateLesson,
+  handleAdminUpdateLessonItem,
   handleAdminUpdateOrder,
   handleAdminUpdatePlan,
   handleAdminUpdateUserBan,
@@ -55,6 +56,7 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/admin/lessons/:id/items', handleAdminAddLessonItem);
   app.post('/admin/lessons/:id/items/bulk', handleAdminBulkAddLessonItems);
+  app.patch('/admin/lessons/:id/items/:itemId', handleAdminUpdateLessonItem);
   app.delete('/admin/lessons/:id/items/:itemId', handleAdminDeleteLessonItem);
 
   app.post(

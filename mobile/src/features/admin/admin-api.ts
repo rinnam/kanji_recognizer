@@ -413,10 +413,17 @@ export function adminAdjustUserPointsApi(userId: string, delta: number, reason: 
   );
 }
 
-export function fetchAdminLessons(level: 'ALL' | JlptLevel = 'ALL', status: 'all' | LessonStatus = 'all') {
-  return adminRequest<{ lessons: AdminLessonDto[] }>(
-    `/admin/lessons?level=${encodeURIComponent(level)}&status=${encodeURIComponent(status)}`,
-  );
+export function fetchAdminLessons(
+  level: 'ALL' | JlptLevel = 'ALL',
+  status: 'all' | LessonStatus = 'all',
+  q = '',
+) {
+  const qs = new URLSearchParams({
+    level,
+    status,
+    q,
+  });
+  return adminRequest<{ lessons: AdminLessonDto[] }>(`/admin/lessons?${qs.toString()}`);
 }
 
 export function fetchAdminLessonDetail(id: string) {
@@ -483,6 +490,28 @@ export function addAdminLessonItem(
     `/admin/lessons/${encodeURIComponent(lessonId)}/items`,
     {
       method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function updateAdminLessonItem(
+  lessonId: string,
+  itemId: string,
+  payload: Partial<{
+    word: string;
+    reading: string | null;
+    meaning: string;
+    sinoVietnamese: string | null;
+    example: string | null;
+    exampleMeaning: string | null;
+    sortOrder: number;
+  }>,
+) {
+  return adminRequest<{ item: LessonItemDto }>(
+    `/admin/lessons/${encodeURIComponent(lessonId)}/items/${encodeURIComponent(itemId)}`,
+    {
+      method: 'PATCH',
       body: JSON.stringify(payload),
     },
   );

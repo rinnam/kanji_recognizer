@@ -1,17 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { nihongoTheme } from '../../theme/nihongo-theme';
 import { useIsMobilePhone } from '../../utils/device';
+import { AdminConfirmModal } from './AdminConfirmModal';
+import { adminTheme, downloadCsvFile, formatDateTimeVn, formatVnd } from './admin-theme';
 import {
   createAdminManualOrder,
   fetchAdminOrders,
@@ -31,9 +31,9 @@ const ORDER_STATUS_META: Record<
   AdminOrderDto['status'],
   { label: string; bg: string; text: string }
 > = {
-  paid: { label: 'Đã thu', bg: '#ECFDF5', text: '#1B873F' },
-  pending: { label: 'Chờ duyệt', bg: '#FFF7ED', text: '#C25E00' },
-  refunded: { label: 'Hoàn tiền', bg: '#FEF2F2', text: '#DC2626' },
+  paid: { label: 'Đã thu', bg: adminTheme.colors.successBg, text: adminTheme.colors.successText },
+  pending: { label: 'Chờ duyệt', bg: adminTheme.colors.warningBg, text: adminTheme.colors.warningText },
+  refunded: { label: 'Hoàn tiền', bg: adminTheme.colors.dangerBg, text: adminTheme.colors.dangerText },
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -54,16 +54,17 @@ const ACTION_LABELS: Record<string, string> = {
   lesson_material_delete: 'Xóa tài liệu',
 };
 
-function formatVnd(amount: number): string {
-  return `${Math.round(amount).toLocaleString('vi-VN')}đ`;
+interface AdminOverviewTabProps {
+  refreshSignal?: number;
 }
 
-export function AdminOverviewTab() {
+export function AdminOverviewTab({ refreshSignal = 0 }: AdminOverviewTabProps) {
   const isPhone = useIsMobilePhone();
   const [days, setDays] = useState<7 | 30 | 90 | 365>(30);
   const [kind, setKind] = useState<'all' | 'real' | 'demo'>('all');
   const [orderStatus, setOrderStatus] = useState<'all' | 'paid' | 'pending' | 'refunded'>('all');
   const [orderQuery, setOrderQuery] = useState('');
+  const [showAllLogs, setShowAllLogs] = useState(false);
 
   const [overview, setOverview] = useState<AdminOverviewResponse | null>(null);
   const [orders, setOrders] = useState<AdminOrderDto[]>([]);
@@ -73,6 +74,14 @@ export function AdminOverviewTab() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [noticeMsg, setNoticeMsg] = useState<string | null>(null);
   const [selectedBarKey, setSelectedBarKey] = useState<string | null>(null);
+  const chartScrollRef = useRef<React.ComponentRef<typeof ScrollView> | null>(null);
+
+  // Order status confirm modal state
+  const [confirmOrderAction, setConfirmOrderAction] = useState<{
+    order: AdminOrderDto;
+    nextStatus: 'paid' | 'refunded';
+  } | null>(null);
+  const [updatingOrder, setUpdatingOrder] = useState(false);
 
   // Manual order modal state
   const [orderModalOpen, setOrderModalOpen] = useState(false);
@@ -80,7 +89,6 @@ export function AdminOverviewTab() {
   const [mTier, setMTier] = useState<'plus' | 'pro'>('plus');
   const [mCycle, setMCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [mAmountInput, setMAmountInput] = useState(String(DEFAULT_PLAN_PRICES.plus.monthly));
-  const [mIsDemo, setMIsDemo] = useState(false);
   const [mNote, setMNote] = useState('');
   const [savingOrder, setSavingOrder] = useState(false);
 
@@ -119,7 +127,7 @@ export function AdminOverviewTab() {
 
   useEffect(() => {
     void loadData();
-  }, [loadData]);
+  }, [loadData, refreshSignal]);
 
   const maxBarAmount = useMemo(() => {
     if (!overview) return 1;
@@ -156,7 +164,7 @@ export function AdminOverviewTab() {
         billingCycle: mCycle,
         amountVnd: Number.isFinite(amount) ? amount : planPrices[mTier][mCycle],
         status: 'paid',
-        isDemo: mIsDemo,
+        isDemo: false,
         note: mNote.trim() || undefined,
       });
       setNoticeMsg(`Đã tạo đơn ${res.orderCode} và kích hoạt gói ${mTier.toUpperCase()}.`);
@@ -171,23 +179,54 @@ export function AdminOverviewTab() {
     }
   };
 
-  const handleChangeOrderStatus = async (
-    order: AdminOrderDto,
-    nextStatus: 'paid' | 'refunded',
-  ) => {
+  const handleConfirmOrderStatus = async () => {
+    if (!confirmOrderAction || updatingOrder) return;
+    const { order, nextStatus } = confirmOrderAction;
+    setUpdatingOrder(true);
     setErrorMsg(null);
     setNoticeMsg(null);
     try {
       await updateAdminOrderStatus(order.id, nextStatus);
       setNoticeMsg(`Đã cập nhật đơn ${order.orderCode} → ${ORDER_STATUS_META[nextStatus].label}.`);
+      setConfirmOrderAction(null);
       await loadData();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Không cập nhật được đơn hàng.');
+    } finally {
+      setUpdatingOrder(false);
+    }
+  };
+
+  const handleExportOrdersCsv = () => {
+    if (orders.length === 0) return;
+    const ok = downloadCsvFile(
+      `kanjismart-don-hang-${new Date().toISOString().slice(0, 10)}.csv`,
+      ['Mã đơn', 'Khách hàng', 'Email', 'Gói', 'Chu kỳ', 'Số tiền VNĐ', 'Trạng thái', 'Loại', 'Kênh', 'Thời gian', 'Ghi chú'],
+      orders.map((o) => [
+        o.orderCode,
+        o.userName,
+        o.userEmail,
+        o.tier.toUpperCase(),
+        o.billingCycle === 'yearly' ? 'Năm' : 'Tháng',
+        o.amountVnd,
+        ORDER_STATUS_META[o.status].label,
+        o.isDemo ? 'Demo' : 'Đơn thật',
+        o.provider,
+        formatDateTimeVn(o.paidAt ?? o.createdAt),
+        o.note,
+      ]),
+    );
+    if (!ok) {
+      setNoticeMsg('Xuất CSV hiện khả dụng trên trình duyệt web.');
     }
   };
 
   const kpi = overview?.kpi;
-  const totalUsers = kpi?.totalUsers ?? 0;
+  const hasDemoOrders = (kpi?.revenueDemoVnd ?? 0) > 0;
+  const auditLogs = overview?.recentAuditLogs ?? [];
+  const visibleLogs = showAllLogs ? auditLogs : auditLogs.slice(0, 5);
+  const series = overview?.revenueSeries ?? [];
+  const useHorizontalScroll = isPhone ? series.length > 10 : series.length > 31;
 
   return (
     <View style={styles.container}>
@@ -204,67 +243,39 @@ export function AdminOverviewTab() {
 
       {loading && !overview ? (
         <View style={styles.loadingCard}>
-          <ActivityIndicator color={nihongoTheme.colors.accent} />
-          <Text style={styles.mutedText}>Đang tổng hợp số liệu quản trị...</Text>
+          <ActivityIndicator color={adminTheme.colors.accent} />
+          <Text style={styles.mutedText}>Đang tải số liệu...</Text>
         </View>
       ) : (
         <>
           {/* KPI Summary Row */}
           <View style={[styles.kpiGrid, isPhone && styles.kpiGridPhone]}>
             <View style={[styles.kpiCard, isPhone && styles.kpiCardPhone]}>
-              <Text style={styles.kpiLabel}>Người dùng</Text>
+              <Text style={styles.kpiLabel}>Học viên</Text>
               <Text style={styles.kpiValue}>{kpi?.totalUsers ?? 0}</Text>
               <Text style={styles.kpiSub}>+{kpi?.newUsers30d ?? 0} trong 30 ngày</Text>
             </View>
             <View style={[styles.kpiCard, isPhone && styles.kpiCardPhone]}>
               <Text style={styles.kpiLabel}>Học hôm nay</Text>
               <Text style={styles.kpiValue}>{kpi?.activeUsersToday ?? 0}</Text>
-              <Text style={styles.kpiSub}>Có thời lượng học thực</Text>
+              <Text style={styles.kpiSub}>
+                {kpi?.publishedLessonCount ?? 0} bài học · {kpi?.materialCount ?? 0} tài liệu
+              </Text>
             </View>
             <View style={[styles.kpiCard, isPhone && styles.kpiCardPhone]}>
               <Text style={styles.kpiLabel}>Hội viên trả phí</Text>
               <Text style={styles.kpiValue}>{kpi?.paidUsersCount ?? 0}</Text>
               <Text style={styles.kpiSub}>
-                Plus: {kpi?.tierCounts.plus ?? 0} · Pro: {kpi?.tierCounts.pro ?? 0}
+                Plus: {kpi?.tierCounts.plus ?? 0} · Pro AI: {kpi?.tierCounts.pro ?? 0}
               </Text>
             </View>
             <View style={[styles.kpiCard, styles.kpiCardHighlight, isPhone && styles.kpiCardPhone]}>
-              <Text style={styles.kpiLabel}>Doanh thu đơn thật</Text>
-              <Text style={[styles.kpiValue, { color: nihongoTheme.colors.accentHover }]}>
+              <Text style={styles.kpiLabel}>{hasDemoOrders ? 'Doanh thu đơn thật' : 'Doanh thu'}</Text>
+              <Text style={[styles.kpiValue, { color: adminTheme.colors.accentHover }]}>
                 {formatVnd(kpi?.revenueRealVnd ?? 0)}
               </Text>
               <Text style={styles.kpiSub}>
-                Demo: {formatVnd(kpi?.revenueDemoVnd ?? 0)} · {kpi?.paidOrderCount ?? 0} đơn
-              </Text>
-            </View>
-          </View>
-
-          {/* Tier & Content Breakdown Strip */}
-          <View style={styles.card}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.cardTitle}>Cơ cấu gói &amp; Học liệu</Text>
-              <Text style={styles.mutedText}>
-                Tháng này: {formatVnd(kpi?.revenueThisMonthRealVnd ?? 0)} (thật) ·{' '}
-                {formatVnd(kpi?.revenueThisMonthDemoVnd ?? 0)} (demo)
-              </Text>
-            </View>
-            <View style={styles.ratioBar}>
-              {(['free', 'plus', 'pro'] as const).map((t) => {
-                const count = kpi?.tierCounts[t] ?? 0;
-                const pct = totalUsers > 0 ? Math.max(count > 0 ? 4 : 0, (count / totalUsers) * 100) : 0;
-                const color = t === 'pro' ? '#EA7A1E' : t === 'plus' ? '#F59E0B' : '#E7DED4';
-                return pct > 0 ? (
-                  <View key={t} style={{ width: `${pct}%`, height: '100%', backgroundColor: color }} />
-                ) : null;
-              })}
-            </View>
-            <View style={styles.legendRow}>
-              <Text style={styles.legendText}>Free: {kpi?.tierCounts.free ?? 0}</Text>
-              <Text style={styles.legendText}>Plus: {kpi?.tierCounts.plus ?? 0}</Text>
-              <Text style={styles.legendText}>Pro AI: {kpi?.tierCounts.pro ?? 0}</Text>
-              <Text style={styles.legendText}>
-                Bài học: {kpi?.publishedLessonCount ?? 0} công khai / {kpi?.draftLessonCount ?? 0} nháp ·{' '}
-                {kpi?.materialCount ?? 0} tài liệu
+                Tháng này: {formatVnd(kpi?.revenueThisMonthRealVnd ?? 0)} · {kpi?.paidOrderCount ?? 0} đơn
               </Text>
             </View>
           </View>
@@ -289,23 +300,27 @@ export function AdminOverviewTab() {
             </View>
 
             <View style={styles.rowBetweenWrap}>
-              <View style={styles.filterGroup}>
-                {(
-                  [
-                    ['all', 'Tất cả đơn'],
-                    ['real', 'Đơn thật'],
-                    ['demo', 'Đơn demo'],
-                  ] as const
-                ).map(([k, lbl]) => (
-                  <Pressable
-                    key={k}
-                    style={[styles.chip, kind === k && styles.chipActive]}
-                    onPress={() => setKind(k)}
-                  >
-                    <Text style={[styles.chipText, kind === k && styles.chipTextActive]}>{lbl}</Text>
-                  </Pressable>
-                ))}
-              </View>
+              {hasDemoOrders ? (
+                <View style={styles.filterGroup}>
+                  {(
+                    [
+                      ['all', 'Tất cả đơn'],
+                      ['real', 'Đơn thật'],
+                      ['demo', 'Đơn demo'],
+                    ] as const
+                  ).map(([k, lbl]) => (
+                    <Pressable
+                      key={k}
+                      style={[styles.chip, kind === k && styles.chipActive]}
+                      onPress={() => setKind(k)}
+                    >
+                      <Text style={[styles.chipText, kind === k && styles.chipTextActive]}>{lbl}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <View />
+              )}
 
               {selectedPoint ? (
                 <View style={styles.chartFocusPill}>
@@ -317,35 +332,48 @@ export function AdminOverviewTab() {
             </View>
 
             <ScrollView
-              horizontal={(overview?.revenueSeries.length ?? 0) > 14}
+              ref={chartScrollRef}
+              horizontal={useHorizontalScroll}
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chartRow}
+              onContentSizeChange={() => {
+                if (useHorizontalScroll) {
+                  chartScrollRef.current?.scrollToEnd({ animated: false });
+                }
+              }}
+              contentContainerStyle={[
+                styles.chartRow,
+                !useHorizontalScroll && styles.chartRowFit,
+              ]}
             >
-              {(overview?.revenueSeries ?? []).map((point) => {
+              {series.map((point, idx) => {
                 const ratio = point.amountVnd > 0 ? Math.max(0.08, point.amountVnd / maxBarAmount) : 0.03;
                 const barHeight = Math.round(ratio * 116);
                 const isSelected = selectedPoint?.dateKey === point.dateKey;
+                const showLabel =
+                  useHorizontalScroll ||
+                  series.length <= 14 ||
+                  idx === 0 ||
+                  idx === series.length - 1 ||
+                  idx % 5 === 0 ||
+                  isSelected;
                 return (
                   <Pressable
                     key={point.dateKey}
-                    style={[
-                      styles.chartCol,
-                      (overview?.revenueSeries.length ?? 0) <= 14 && styles.chartColFlex,
-                    ]}
+                    style={[styles.chartCol, !useHorizontalScroll && styles.chartColFlex]}
                     onPress={() => setSelectedBarKey(point.dateKey)}
                   >
                     <View style={styles.barTrack}>
                       <View
                         style={[
                           styles.barFill,
-                          { height: barHeight },
+                          { height: barHeight, minWidth: useHorizontalScroll ? 10 : 6 },
                           point.amountVnd === 0 && styles.barFillEmpty,
                           isSelected && styles.barFillSelected,
                         ]}
                       />
                     </View>
                     <Text style={[styles.barLabel, isSelected && styles.barLabelSelected]} numberOfLines={1}>
-                      {point.label}
+                      {showLabel ? point.label : ' '}
                     </Text>
                   </Pressable>
                 );
@@ -357,9 +385,22 @@ export function AdminOverviewTab() {
           <View style={styles.card}>
             <View style={styles.rowBetweenWrap}>
               <Text style={styles.cardTitle}>Đơn hàng &amp; Doanh thu ({totalOrders})</Text>
-              <Pressable style={styles.primaryBtnSmall} onPress={() => setOrderModalOpen(true)}>
-                <Text style={styles.primaryBtnText}>+ Ghi nhận đơn thủ công</Text>
-              </Pressable>
+              <View style={styles.filterGroup}>
+                {orders.length > 0 ? (
+                  <Pressable style={styles.outlineBtn} onPress={handleExportOrdersCsv}>
+                    <Text style={styles.outlineBtnText}>Xuất CSV</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  style={styles.primaryBtnSmall}
+                  onPress={() => {
+                    setMAmountInput(String(planPrices[mTier][mCycle]));
+                    setOrderModalOpen(true);
+                  }}
+                >
+                  <Text style={styles.primaryBtnText}>+ Ghi nhận đơn</Text>
+                </Pressable>
+              </View>
             </View>
 
             <View style={styles.rowBetweenWrap}>
@@ -367,7 +408,7 @@ export function AdminOverviewTab() {
                 value={orderQuery}
                 onChangeText={setOrderQuery}
                 placeholder="Tìm mã đơn hoặc email..."
-                placeholderTextColor={nihongoTheme.colors.textMuted}
+                placeholderTextColor={adminTheme.colors.textMuted}
                 style={styles.searchInput}
               />
               <View style={styles.filterGroup}>
@@ -406,17 +447,17 @@ export function AdminOverviewTab() {
                           <View style={[styles.pill, { backgroundColor: st.bg }]}>
                             <Text style={[styles.pillText, { color: st.text }]}>{st.label}</Text>
                           </View>
-                          <View style={[styles.pill, ord.isDemo ? styles.pillMuted : styles.pillReal]}>
-                            <Text style={[styles.pillText, ord.isDemo ? styles.pillMutedText : styles.pillRealText]}>
-                              {ord.isDemo ? 'Demo' : 'Đơn thật'}
-                            </Text>
-                          </View>
+                          {ord.isDemo ? (
+                            <View style={[styles.pill, styles.pillMuted]}>
+                              <Text style={[styles.pillText, styles.pillMutedText]}>Demo</Text>
+                            </View>
+                          ) : null}
                         </View>
                         <Text style={styles.orderCustomer}>
-                          {ord.userName} ({ord.userEmail}) · Gói {ord.tier.toUpperCase()} ({ord.billingCycle === 'yearly' ? 'Năm' : 'Tháng'})
+                          {ord.userName} ({ord.userEmail}) · {ord.tier.toUpperCase()} ({ord.billingCycle === 'yearly' ? 'Năm' : 'Tháng'})
                         </Text>
                         <Text style={styles.orderMeta}>
-                          {new Date(ord.createdAt).toLocaleString('vi-VN')}
+                          {formatDateTimeVn(ord.paidAt ?? ord.createdAt)}
                           {ord.note ? ` · ${ord.note}` : ''}
                         </Text>
                       </View>
@@ -426,7 +467,9 @@ export function AdminOverviewTab() {
                           {ord.status === 'pending' ? (
                             <Pressable
                               style={styles.miniBtn}
-                              onPress={() => void handleChangeOrderStatus(ord, 'paid')}
+                              onPress={() =>
+                                setConfirmOrderAction({ order: ord, nextStatus: 'paid' })
+                              }
                             >
                               <Text style={styles.miniBtnText}>Xác nhận thu</Text>
                             </Pressable>
@@ -434,7 +477,9 @@ export function AdminOverviewTab() {
                           {ord.status === 'paid' ? (
                             <Pressable
                               style={styles.miniDangerBtn}
-                              onPress={() => void handleChangeOrderStatus(ord, 'refunded')}
+                              onPress={() =>
+                                setConfirmOrderAction({ order: ord, nextStatus: 'refunded' })
+                              }
                             >
                               <Text style={styles.miniDangerText}>Hoàn tiền</Text>
                             </Pressable>
@@ -448,18 +493,27 @@ export function AdminOverviewTab() {
             )}
           </View>
 
-          {/* Recent Admin Audit Log */}
+          {/* Recent Admin Audit Log (Progressive Disclosure: 5 by default) */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Nhật ký quản trị gần đây</Text>
-            {(overview?.recentAuditLogs.length ?? 0) === 0 ? (
+            <View style={styles.rowBetween}>
+              <Text style={styles.cardTitle}>Nhật ký quản trị gần đây</Text>
+              {auditLogs.length > 5 ? (
+                <Pressable style={styles.outlineBtn} onPress={() => setShowAllLogs((v) => !v)}>
+                  <Text style={styles.outlineBtnText}>
+                    {showAllLogs ? 'Thu gọn' : `Xem thêm (${auditLogs.length - 5})`}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {auditLogs.length === 0 ? (
               <Text style={styles.emptyText}>Chưa có thao tác quản trị nào.</Text>
             ) : (
               <View style={styles.listGap}>
-                {overview?.recentAuditLogs.map((log) => (
+                {visibleLogs.map((log) => (
                   <View key={log.id} style={styles.auditRow}>
                     <View style={styles.auditTop}>
                       <Text style={styles.auditAction}>{ACTION_LABELS[log.action] ?? log.action}</Text>
-                      <Text style={styles.auditTime}>{new Date(log.createdAt).toLocaleString('vi-VN')}</Text>
+                      <Text style={styles.auditTime}>{formatDateTimeVn(log.createdAt)}</Text>
                     </View>
                     <Text style={styles.auditDetail}>{log.detail}</Text>
                     <Text style={styles.auditActor}>Bởi: {log.adminName}</Text>
@@ -482,7 +536,7 @@ export function AdminOverviewTab() {
           <View style={styles.modalCard}>
             <View style={styles.rowBetween}>
               <Text style={styles.cardTitle}>Ghi nhận đơn nâng cấp gói</Text>
-              <Pressable onPress={() => setOrderModalOpen(false)}>
+              <Pressable style={styles.closeBtn} onPress={() => setOrderModalOpen(false)}>
                 <Text style={styles.closeText}>Đóng</Text>
               </Pressable>
             </View>
@@ -492,7 +546,7 @@ export function AdminOverviewTab() {
               value={mEmail}
               onChangeText={setMEmail}
               placeholder="vd: student@gmail.com"
-              placeholderTextColor={nihongoTheme.colors.textMuted}
+              placeholderTextColor={adminTheme.colors.textMuted}
               autoCapitalize="none"
               keyboardType="email-address"
               style={styles.modalInput}
@@ -532,21 +586,12 @@ export function AdminOverviewTab() {
               style={styles.modalInput}
             />
 
-            <View style={styles.rowBetween}>
-              <Text style={styles.inputLabel}>Đánh dấu là đơn Demo (không tính doanh thu thật)</Text>
-              <Switch
-                value={mIsDemo}
-                onValueChange={setMIsDemo}
-                trackColor={{ false: '#E5DDD4', true: nihongoTheme.colors.accent }}
-              />
-            </View>
-
             <Text style={styles.inputLabel}>Ghi chú</Text>
             <TextInput
               value={mNote}
               onChangeText={setMNote}
-              placeholder="Chuyển khoản ngân hàng, ưu đãi..."
-              placeholderTextColor={nihongoTheme.colors.textMuted}
+              placeholder="Chuyển khoản, tiền mặt..."
+              placeholderTextColor={adminTheme.colors.textMuted}
               style={styles.modalInput}
             />
 
@@ -562,6 +607,27 @@ export function AdminOverviewTab() {
           </View>
         </View>
       </Modal>
+
+      <AdminConfirmModal
+        visible={Boolean(confirmOrderAction)}
+        title={
+          confirmOrderAction?.nextStatus === 'refunded'
+            ? 'Xác nhận hoàn tiền đơn hàng'
+            : 'Xác nhận đã thu tiền'
+        }
+        message={
+          confirmOrderAction?.nextStatus === 'refunded'
+            ? `Đơn ${confirmOrderAction.order.orderCode} (${formatVnd(confirmOrderAction.order.amountVnd)}) sẽ chuyển sang Hoàn tiền và tự động thu hồi gói nếu đơn đang kích hoạt.`
+            : `Xác nhận đã thu ${formatVnd(confirmOrderAction?.order.amountVnd ?? 0)} cho đơn ${confirmOrderAction?.order.orderCode ?? ''} và kích hoạt gói cho ${confirmOrderAction?.order.userEmail ?? ''}.`
+        }
+        confirmLabel={
+          confirmOrderAction?.nextStatus === 'refunded' ? 'Hoàn tiền' : 'Xác nhận thu'
+        }
+        tone={confirmOrderAction?.nextStatus === 'refunded' ? 'danger' : 'primary'}
+        busy={updatingOrder}
+        onCancel={() => setConfirmOrderAction(null)}
+        onConfirm={() => void handleConfirmOrderStatus()}
+      />
     </View>
   );
 }
@@ -569,59 +635,60 @@ export function AdminOverviewTab() {
 const styles = StyleSheet.create({
   container: { gap: 14 },
   loadingCard: {
-    backgroundColor: nihongoTheme.colors.surface,
-    borderRadius: nihongoTheme.radius.card,
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.card,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
+    borderColor: adminTheme.colors.border,
     padding: 32,
     alignItems: 'center',
     gap: 10,
   },
   errorBanner: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: adminTheme.colors.dangerBg,
     borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: nihongoTheme.radius.md,
+    borderColor: adminTheme.colors.dangerBorder,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
   },
-  errorText: { color: '#DC2626', fontSize: 13, fontWeight: '600' },
+  errorText: { color: adminTheme.colors.dangerText, fontSize: 13, fontWeight: '600' },
   noticeBanner: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: adminTheme.colors.successBg,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
-    borderRadius: nihongoTheme.radius.md,
+    borderColor: adminTheme.colors.successBorder,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
   },
-  noticeText: { color: '#1B873F', fontSize: 13, fontWeight: '700' },
+  noticeText: { color: adminTheme.colors.successText, fontSize: 13, fontWeight: '700' },
   kpiGrid: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
-  kpiGridPhone: { gap: 10 },
+  kpiGridPhone: { gap: 8 },
   kpiCard: {
     flex: 1,
     minWidth: 190,
-    backgroundColor: nihongoTheme.colors.surface,
-    borderRadius: nihongoTheme.radius.card,
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.card,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
+    borderColor: adminTheme.colors.border,
     padding: 16,
     gap: 4,
-    ...nihongoTheme.shadow.card,
   },
   kpiCardPhone: { minWidth: '47%' },
-  kpiCardHighlight: { backgroundColor: '#FFFBF5', borderColor: '#F6D5B0' },
-  kpiLabel: { fontSize: 12, fontWeight: '700', color: nihongoTheme.colors.textSecondary },
-  kpiValue: { fontSize: 24, fontWeight: '800', color: nihongoTheme.colors.textPrimary },
-  kpiSub: { fontSize: 12, color: nihongoTheme.colors.textMuted },
-  card: {
-    backgroundColor: nihongoTheme.colors.surface,
-    borderRadius: nihongoTheme.radius.card,
-    borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    padding: 18,
-    gap: 12,
-    ...nihongoTheme.shadow.card,
+  kpiCardHighlight: {
+    backgroundColor: adminTheme.colors.accentSoft,
+    borderColor: adminTheme.colors.accentBorder,
   },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: nihongoTheme.colors.textPrimary },
-  mutedText: { fontSize: 12, color: nihongoTheme.colors.textSecondary },
+  kpiLabel: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textSecondary },
+  kpiValue: { fontSize: 23, fontWeight: '800', color: adminTheme.colors.textPrimary },
+  kpiSub: { fontSize: 11, color: adminTheme.colors.textMuted },
+  card: {
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.card,
+    borderWidth: 1,
+    borderColor: adminTheme.colors.border,
+    padding: 16,
+    gap: 12,
+  },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: adminTheme.colors.textPrimary },
+  mutedText: { fontSize: 12, color: adminTheme.colors.textSecondary },
   rowBetween: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -635,32 +702,23 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
   },
-  ratioBar: {
-    height: 10,
-    borderRadius: 6,
-    overflow: 'hidden',
-    backgroundColor: '#F3EEE8',
-    flexDirection: 'row',
-  },
-  legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
-  legendText: { fontSize: 12, fontWeight: '700', color: nihongoTheme.colors.textSecondary },
-  filterGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  filterGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
   chip: {
     paddingHorizontal: 11,
     paddingVertical: 6,
-    borderRadius: nihongoTheme.radius.pill,
-    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+    borderRadius: adminTheme.radius.pill,
+    backgroundColor: adminTheme.colors.chipBg,
   },
-  chipActive: { backgroundColor: nihongoTheme.colors.accent },
-  chipText: { fontSize: 12, fontWeight: '700', color: nihongoTheme.colors.textSecondary },
+  chipActive: { backgroundColor: adminTheme.colors.accent },
+  chipText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textSecondary },
   chipTextActive: { color: '#FFFFFF' },
   chartFocusPill: {
-    backgroundColor: nihongoTheme.colors.accentSoft,
-    borderRadius: nihongoTheme.radius.pill,
+    backgroundColor: adminTheme.colors.accentSoft,
+    borderRadius: adminTheme.radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  chartFocusText: { fontSize: 12, fontWeight: '700', color: nihongoTheme.colors.accentHover },
+  chartFocusText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.accentHover },
   chartRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -669,39 +727,39 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 4,
   },
+  chartRowFit: { gap: 4, width: '100%' },
   chartCol: { alignItems: 'center', gap: 5, width: 32 },
-  chartColFlex: { flex: 1, width: undefined, minWidth: 22 },
+  chartColFlex: { flex: 1, width: undefined, minWidth: 0 },
   barTrack: { height: 120, justifyContent: 'flex-end', alignItems: 'center', width: '100%' },
   barFill: {
     width: '72%',
     maxWidth: 28,
-    minWidth: 10,
     borderRadius: 5,
     backgroundColor: '#F59E0B',
   },
-  barFillEmpty: { backgroundColor: '#EFE8DF' },
-  barFillSelected: { backgroundColor: nihongoTheme.colors.accentHover },
-  barLabel: { fontSize: 10, color: nihongoTheme.colors.textMuted, fontWeight: '600' },
-  barLabelSelected: { color: nihongoTheme.colors.accentHover, fontWeight: '800' },
+  barFillEmpty: { backgroundColor: adminTheme.colors.border },
+  barFillSelected: { backgroundColor: adminTheme.colors.accentHover },
+  barLabel: { fontSize: 10, color: adminTheme.colors.textMuted, fontWeight: '600' },
+  barLabelSelected: { color: adminTheme.colors.accentHover, fontWeight: '800' },
   searchInput: {
     flex: 1,
     minWidth: 200,
-    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    backgroundColor: adminTheme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    borderRadius: nihongoTheme.radius.button,
+    borderColor: adminTheme.colors.border,
+    borderRadius: adminTheme.radius.input,
     paddingHorizontal: 12,
     paddingVertical: 9,
     fontSize: 13,
-    color: nihongoTheme.colors.textPrimary,
+    color: adminTheme.colors.textPrimary,
   },
-  emptyText: { fontSize: 13, color: nihongoTheme.colors.textMuted, paddingVertical: 12 },
+  emptyText: { fontSize: 13, color: adminTheme.colors.textMuted, paddingVertical: 10 },
   listGap: { gap: 10 },
   orderRow: {
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderLight,
-    backgroundColor: nihongoTheme.colors.surfaceSubtle,
-    borderRadius: nihongoTheme.radius.md,
+    borderColor: adminTheme.colors.border,
+    backgroundColor: adminTheme.colors.surfaceSubtle,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -710,61 +768,76 @@ const styles = StyleSheet.create({
   },
   orderInfo: { flex: 1, minWidth: 220, gap: 4 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
-  orderCode: { fontSize: 13, fontWeight: '800', color: nihongoTheme.colors.textPrimary },
-  pill: { borderRadius: nihongoTheme.radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
+  orderCode: { fontSize: 13, fontWeight: '800', color: adminTheme.colors.textPrimary },
+  pill: { borderRadius: adminTheme.radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   pillText: { fontSize: 11, fontWeight: '700' },
-  pillMuted: { backgroundColor: '#EFEAE4' },
-  pillMutedText: { color: nihongoTheme.colors.textSecondary },
-  pillReal: { backgroundColor: '#EEF2FF' },
-  pillRealText: { color: '#4338CA' },
-  orderCustomer: { fontSize: 13, fontWeight: '600', color: nihongoTheme.colors.textPrimary },
-  orderMeta: { fontSize: 11, color: nihongoTheme.colors.textMuted },
+  pillMuted: { backgroundColor: adminTheme.colors.border },
+  pillMutedText: { color: adminTheme.colors.textSecondary },
+  orderCustomer: { fontSize: 13, fontWeight: '600', color: adminTheme.colors.textPrimary },
+  orderMeta: { fontSize: 11, color: adminTheme.colors.textMuted },
   orderRight: { alignItems: 'flex-end', justifyContent: 'space-between', gap: 6 },
-  orderAmount: { fontSize: 15, fontWeight: '800', color: nihongoTheme.colors.accentHover },
+  orderAmount: { fontSize: 15, fontWeight: '800', color: adminTheme.colors.accentHover },
   actionLinks: { flexDirection: 'row', gap: 8 },
   miniBtn: {
-    backgroundColor: '#ECFDF5',
-    borderRadius: nihongoTheme.radius.pill,
+    backgroundColor: adminTheme.colors.successBg,
+    borderRadius: adminTheme.radius.pill,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
-  miniBtnText: { fontSize: 11, fontWeight: '700', color: '#1B873F' },
+  miniBtnText: { fontSize: 11, fontWeight: '700', color: adminTheme.colors.successText },
   miniDangerBtn: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: nihongoTheme.radius.pill,
+    backgroundColor: adminTheme.colors.dangerBg,
+    borderRadius: adminTheme.radius.pill,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
-  miniDangerText: { fontSize: 11, fontWeight: '700', color: '#DC2626' },
+  miniDangerText: { fontSize: 11, fontWeight: '700', color: adminTheme.colors.dangerText },
   auditRow: {
     borderBottomWidth: 1,
-    borderBottomColor: nihongoTheme.colors.borderLight,
+    borderBottomColor: adminTheme.colors.border,
     paddingBottom: 8,
     gap: 2,
   },
   auditTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-  auditAction: { fontSize: 13, fontWeight: '700', color: nihongoTheme.colors.textPrimary },
-  auditTime: { fontSize: 11, color: nihongoTheme.colors.textMuted },
-  auditDetail: { fontSize: 12, color: nihongoTheme.colors.textSecondary },
-  auditActor: { fontSize: 11, color: nihongoTheme.colors.textMuted },
+  auditAction: { fontSize: 13, fontWeight: '700', color: adminTheme.colors.textPrimary },
+  auditTime: { fontSize: 11, color: adminTheme.colors.textMuted },
+  auditDetail: { fontSize: 12, color: adminTheme.colors.textSecondary },
+  auditActor: { fontSize: 11, color: adminTheme.colors.textMuted },
+  outlineBtn: {
+    borderWidth: 1,
+    borderColor: adminTheme.colors.borderStrong,
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.input,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
+  outlineBtnText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textPrimary },
   primaryBtnSmall: {
-    backgroundColor: nihongoTheme.colors.accent,
-    borderRadius: nihongoTheme.radius.button,
+    backgroundColor: adminTheme.colors.accent,
+    borderRadius: adminTheme.radius.input,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   primaryBtn: {
-    backgroundColor: nihongoTheme.colors.accent,
-    borderRadius: nihongoTheme.radius.button,
+    backgroundColor: adminTheme.colors.accent,
+    borderRadius: adminTheme.radius.input,
     paddingVertical: 12,
     alignItems: 'center',
   },
   disabledBtn: { opacity: 0.55 },
   primaryBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
-  closeText: { fontSize: 13, fontWeight: '700', color: nihongoTheme.colors.accentHover },
+  closeBtn: {
+    backgroundColor: adminTheme.colors.chipBg,
+    borderRadius: adminTheme.radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  closeText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textPrimary },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(28,25,23,0.4)',
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(24, 24, 27, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 18,
@@ -772,23 +845,24 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 460,
-    backgroundColor: nihongoTheme.colors.surface,
-    borderRadius: nihongoTheme.radius.card,
+    alignSelf: 'center',
+    overflow: 'hidden',
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.card,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    padding: 20,
+    borderColor: adminTheme.colors.border,
+    padding: 18,
     gap: 10,
-    ...nihongoTheme.shadow.dock,
   },
-  inputLabel: { fontSize: 12, fontWeight: '700', color: nihongoTheme.colors.textSecondary },
+  inputLabel: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textSecondary },
   modalInput: {
-    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    backgroundColor: adminTheme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    borderRadius: nihongoTheme.radius.button,
+    borderColor: adminTheme.colors.borderStrong,
+    borderRadius: adminTheme.radius.input,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: nihongoTheme.colors.textPrimary,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: adminTheme.colors.textPrimary,
   },
 });

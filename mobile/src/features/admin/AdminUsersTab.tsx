@@ -5,52 +5,60 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { nihongoTheme } from '../../theme/nihongo-theme';
-import type { SubscriptionTier } from '../lessons/lessons-api';
+import { AdminConfirmBanner } from './AdminConfirmModal';
+import { adminTheme, formatDateVn, formatVnd } from './admin-theme';
 import {
   adminAdjustUserPointsApi,
-  adminSetUserSubscriptionApi,
   fetchAdminUsers,
   updateAdminUserBan,
   updateAdminUserRole,
   type AdminUserRow,
 } from './admin-api';
 
-function formatUserSubscriptionSummary(u: AdminUserRow): string {
+function formatUserPlanSummary(u: AdminUserRow): string {
   const effectiveTier = u.rawTier ?? u.tier;
   if (effectiveTier === 'free') {
-    return `Gói Miễn phí · 0đ · Tạo TK ${new Date(u.createdAt).toLocaleDateString('vi-VN')}`;
+    return `Miễn phí · Tạo TK ${formatDateVn(u.createdAt)}`;
   }
   const tierName = effectiveTier === 'pro' ? 'Pro AI' : 'Plus';
   const priceText =
     u.listPriceVnd && u.listPriceVnd > 0
-      ? `${u.listPriceVnd.toLocaleString('vi-VN')}đ/${u.billingCycle === 'yearly' ? 'năm' : 'tháng'}`
+      ? `${formatVnd(u.listPriceVnd)}/${u.billingCycle === 'yearly' ? 'năm' : 'tháng'}`
       : u.billingCycle === 'yearly'
         ? 'Chu kỳ năm'
         : 'Chu kỳ tháng';
-  const regText = u.startedAt
-    ? `ĐK ${new Date(u.startedAt).toLocaleDateString('vi-VN')}`
-    : null;
+  const regText = u.startedAt ? `ĐK ${formatDateVn(u.startedAt)}` : null;
   const expText = u.isLifetime
-    ? 'Hạn Không giới hạn'
+    ? 'Không giới hạn'
     : u.expiresAt
       ? u.subscriptionStatus === 'expired'
-        ? `Hết hạn ${new Date(u.expiresAt).toLocaleDateString('vi-VN')}`
-        : `Hạn ${new Date(u.expiresAt).toLocaleDateString('vi-VN')} (còn ${Math.max(0, u.daysRemaining ?? 0)} ngày)`
+        ? `Hết hạn ${formatDateVn(u.expiresAt)}`
+        : `Hạn ${formatDateVn(u.expiresAt)} (còn ${Math.max(0, u.daysRemaining ?? 0)} ngày)`
       : null;
   return [tierName, priceText, regText, expText].filter(Boolean).join(' · ');
 }
 
+function hasLearnerActivity(u: AdminUserRow): boolean {
+  return (
+    u.role === 'user' ||
+    (u.rawTier !== undefined && u.rawTier !== 'free') ||
+    u.tier !== 'free' ||
+    u.ksBalance > 0 ||
+    u.vocabCount > 0 ||
+    u.studyDays > 0
+  );
+}
+
 interface AdminUsersTabProps {
+  refreshSignal?: number;
   onInspectSubscription?: (email: string) => void;
 }
 
-export function AdminUsersTab({ onInspectSubscription }: AdminUsersTabProps) {
+export function AdminUsersTab({ refreshSignal = 0, onInspectSubscription }: AdminUsersTabProps) {
   const [q, setQ] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'user' | 'admin'>('all');
   const [tierFilter, setTierFilter] = useState<'all' | 'free' | 'plus' | 'pro'>('all');
@@ -62,11 +70,11 @@ export function AdminUsersTab({ onInspectSubscription }: AdminUsersTabProps) {
 
   // Selected user modal state
   const [selectedUser, setSelectedUser] = useState<AdminUserRow | null>(null);
-  const [subTier, setSubTier] = useState<SubscriptionTier>('free');
-  const [subCycle, setSubCycle] = useState<'monthly' | 'yearly'>('monthly');
-  const [subDaysInput, setSubDaysInput] = useState('30');
-  const [recordOrder, setRecordOrder] = useState(false);
-  const [orderAmountInput, setOrderAmountInput] = useState('79000');
+  const [pendingAction, setPendingAction] = useState<
+    | { type: 'role'; nextRole: 'user' | 'admin' }
+    | { type: 'ban'; nextBan: boolean }
+    | null
+  >(null);
   const [ksDeltaInput, setKsDeltaInput] = useState('100');
   const [ksReason, setKsReason] = useState('Thưởng học tập');
   const [busy, setBusy] = useState(false);
@@ -87,73 +95,36 @@ export function AdminUsersTab({ onInspectSubscription }: AdminUsersTabProps) {
 
   useEffect(() => {
     void loadUsers();
-  }, [loadUsers]);
+  }, [loadUsers, refreshSignal]);
 
   const openManageModal = (u: AdminUserRow) => {
     setSelectedUser(u);
-    setSubTier(u.tier);
-    setSubCycle(u.billingCycle);
-    setSubDaysInput(u.billingCycle === 'yearly' ? '365' : '30');
-    setRecordOrder(false);
-    setOrderAmountInput(u.tier === 'pro' ? '149000' : '79000');
+    setPendingAction(null);
     setKsDeltaInput('100');
     setKsReason('Thưởng học tập');
     setErrorMsg(null);
   };
 
-  const handleRoleToggle = async (nextRole: 'user' | 'admin') => {
-    if (!selectedUser || busy) return;
+  const handleConfirmPendingAction = async () => {
+    if (!selectedUser || !pendingAction || busy) return;
     setBusy(true);
     setErrorMsg(null);
     try {
-      await updateAdminUserRole(selectedUser.id, nextRole);
-      setSelectedUser({ ...selectedUser, role: nextRole });
-      setNoticeMsg(`Đã đổi quyền ${selectedUser.email} → ${nextRole}.`);
+      if (pendingAction.type === 'role') {
+        await updateAdminUserRole(selectedUser.id, pendingAction.nextRole);
+        setSelectedUser({ ...selectedUser, role: pendingAction.nextRole });
+        setNoticeMsg(`Đã đổi quyền ${selectedUser.email} → ${pendingAction.nextRole}.`);
+      } else {
+        await updateAdminUserBan(selectedUser.id, pendingAction.nextBan);
+        setSelectedUser({ ...selectedUser, isBanned: pendingAction.nextBan });
+        setNoticeMsg(
+          `${pendingAction.nextBan ? 'Đã khóa' : 'Đã mở khóa'} tài khoản ${selectedUser.email}.`,
+        );
+      }
+      setPendingAction(null);
       await loadUsers();
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Không đổi được phân quyền.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleBanToggle = async () => {
-    if (!selectedUser || busy) return;
-    setBusy(true);
-    setErrorMsg(null);
-    try {
-      const nextBan = !selectedUser.isBanned;
-      await updateAdminUserBan(selectedUser.id, nextBan);
-      setSelectedUser({ ...selectedUser, isBanned: nextBan });
-      setNoticeMsg(`${nextBan ? 'Đã khóa' : 'Đã mở khóa'} tài khoản ${selectedUser.email}.`);
-      await loadUsers();
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Không cập nhật được trạng thái khóa.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleSaveSubscription = async () => {
-    if (!selectedUser || busy) return;
-    setBusy(true);
-    setErrorMsg(null);
-    try {
-      const days = Number(subDaysInput.replace(/[^0-9]/g, '')) || 30;
-      const amt = Number(orderAmountInput.replace(/[^0-9]/g, '')) || 0;
-      await adminSetUserSubscriptionApi(selectedUser.id, {
-        tier: subTier,
-        billingCycle: subCycle,
-        durationDays: days,
-        recordOrder: subTier !== 'free' && recordOrder,
-        amountVnd: amt,
-        isDemo: false,
-      });
-      setSelectedUser({ ...selectedUser, tier: subTier, billingCycle: subCycle });
-      setNoticeMsg(`Đã cập nhật gói ${subTier.toUpperCase()} cho ${selectedUser.email}.`);
-      await loadUsers();
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Không cập nhật được gói cước.');
+      setErrorMsg(err instanceof Error ? err.message : 'Thao tác thất bại.');
     } finally {
       setBusy(false);
     }
@@ -173,7 +144,7 @@ export function AdminUsersTab({ onInspectSubscription }: AdminUsersTabProps) {
       );
       setSelectedUser({ ...selectedUser, ksBalance: res.balanceAfter });
       setNoticeMsg(
-        `Đã ${sign > 0 ? 'cộng' : 'trừ'} ${rawAbs} Xu KS cho ${selectedUser.email} (số dư mới: ${res.balanceAfter} KS).`,
+        `Đã ${sign > 0 ? 'cộng' : 'trừ'} ${rawAbs} Xu KS cho ${selectedUser.email} (số dư mới: ${res.balanceAfter.toLocaleString('vi-VN')} KS).`,
       );
       await loadUsers();
     } catch (err) {
@@ -202,7 +173,7 @@ export function AdminUsersTab({ onInspectSubscription }: AdminUsersTabProps) {
           value={q}
           onChangeText={setQ}
           placeholder="Tìm theo tên hoặc email..."
-          placeholderTextColor={nihongoTheme.colors.textMuted}
+          placeholderTextColor={adminTheme.colors.textMuted}
           style={styles.searchInput}
         />
 
@@ -247,56 +218,86 @@ export function AdminUsersTab({ onInspectSubscription }: AdminUsersTabProps) {
 
         {loading && users.length === 0 ? (
           <View style={styles.loadingWrap}>
-            <ActivityIndicator color={nihongoTheme.colors.accent} />
+            <ActivityIndicator color={adminTheme.colors.accent} />
           </View>
         ) : users.length === 0 ? (
           <Text style={styles.emptyText}>Không tìm thấy tài khoản phù hợp.</Text>
         ) : (
           <View style={styles.listGap}>
-            {users.map((u) => (
-              <View key={u.id} style={styles.userRow}>
-                <View style={styles.userMain}>
-                  <View style={styles.badgeRow}>
-                    <Text style={styles.userName}>{u.displayName}</Text>
-                    <View style={[styles.pill, u.role === 'admin' ? styles.pillAdmin : styles.pillNeutral]}>
-                      <Text style={[styles.pillText, u.role === 'admin' ? styles.pillAdminText : styles.pillNeutralText]}>
-                        {u.role === 'admin' ? 'Admin' : 'Học viên'}
-                      </Text>
-                    </View>
-                    {u.role === 'user' ? (
-                      <View style={[styles.pill, u.tier === 'free' ? styles.pillNeutral : styles.pillPaid]}>
-                        <Text style={[styles.pillText, u.tier === 'free' ? styles.pillNeutralText : styles.pillPaidText]}>
-                          {u.tier.toUpperCase()}
+            {users.map((u) => {
+              const showLearnerMeta = hasLearnerActivity(u);
+              return (
+                <View key={u.id} style={styles.userRow}>
+                  <View style={styles.userMain}>
+                    <View style={styles.badgeRow}>
+                      <Text style={styles.userName}>{u.displayName}</Text>
+                      <View
+                        style={[
+                          styles.pill,
+                          u.role === 'admin' ? styles.pillAdmin : styles.pillNeutral,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.pillText,
+                            u.role === 'admin' ? styles.pillAdminText : styles.pillNeutralText,
+                          ]}
+                        >
+                          {u.role === 'admin' ? 'Admin' : 'Học viên'}
                         </Text>
                       </View>
-                    ) : null}
-                    {u.isBanned ? (
-                      <View style={styles.pillBan}>
-                        <Text style={styles.pillBanText}>Đã khóa</Text>
-                      </View>
-                    ) : null}
+                      {showLearnerMeta ? (
+                        <View
+                          style={[
+                            styles.pill,
+                            u.tier === 'free' ? styles.pillNeutral : styles.pillPaid,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.pillText,
+                              u.tier === 'free' ? styles.pillNeutralText : styles.pillPaidText,
+                            ]}
+                          >
+                            {u.tier.toUpperCase()}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {u.isBanned ? (
+                        <View style={styles.pillBan}>
+                          <Text style={styles.pillBanText}>Đã khóa</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={styles.userEmail}>{u.email}</Text>
+                    {showLearnerMeta ? (
+                      <>
+                        <Text style={styles.userSubLine}>{formatUserPlanSummary(u)}</Text>
+                        <Text style={styles.userStats}>
+                          {u.jlptLevel} · {u.ksBalance.toLocaleString('vi-VN')} KS · {u.studyDays} ngày học · {u.vocabCount} từ
+                        </Text>
+                      </>
+                    ) : (
+                      <Text style={styles.userStats}>Tài khoản quản trị hệ thống</Text>
+                    )}
                   </View>
-                  <Text style={styles.userEmail}>{u.email}</Text>
-                  <Text style={styles.userStats}>
-                    {u.role === 'admin' && (u.rawTier ?? u.tier) === 'free'
-                      ? 'Tài khoản quản trị hệ thống'
-                      : `${formatUserSubscriptionSummary(u)} · ${u.jlptLevel} · ${u.ksBalance.toLocaleString('vi-VN')} KS · ${u.vocabCount} từ`}
-                  </Text>
-                </View>
 
-                <View style={styles.filterGroup}>
-                  {onInspectSubscription &&
-                  (u.role === 'user' || ((u.rawTier ?? u.tier) !== 'free')) ? (
-                    <Pressable style={styles.chip} onPress={() => onInspectSubscription(u.email)}>
-                      <Text style={styles.chipText}>Xem gói</Text>
+                  <View style={styles.filterGroup}>
+                    {onInspectSubscription && showLearnerMeta ? (
+                      <Pressable
+                        style={styles.outlineChip}
+                        onPress={() => onInspectSubscription(u.email)}
+                      >
+                        <Text style={styles.outlineChipText}>Xem gói</Text>
+                      </Pressable>
+                    ) : null}
+                    <Pressable style={styles.manageBtn} onPress={() => openManageModal(u)}>
+                      <Text style={styles.manageBtnText}>Quản lý</Text>
                     </Pressable>
-                  ) : null}
-                  <Pressable style={styles.manageBtn} onPress={() => openManageModal(u)}>
-                    <Text style={styles.manageBtnText}>Quản lý</Text>
-                  </Pressable>
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </View>
@@ -315,24 +316,29 @@ export function AdminUsersTab({ onInspectSubscription }: AdminUsersTabProps) {
                 <Text style={styles.cardTitle}>{selectedUser?.displayName}</Text>
                 <Text style={styles.userEmail}>{selectedUser?.email}</Text>
               </View>
-              <Pressable onPress={() => setSelectedUser(null)}>
+              <Pressable style={styles.closeBtn} onPress={() => setSelectedUser(null)}>
                 <Text style={styles.closeText}>Đóng</Text>
               </Pressable>
             </View>
 
             <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalBody}>
-              {/* Role & Ban */}
+              {/* Role & Ban with Inline Confirm */}
               <View style={styles.sectionBox}>
                 <Text style={styles.sectionLabel}>Phân quyền &amp; Trạng thái</Text>
                 <View style={styles.filterGroup}>
                   {(['user', 'admin'] as const).map((r) => (
                     <Pressable
                       key={r}
-                      disabled={busy}
+                      disabled={busy || selectedUser?.role === r}
                       style={[styles.chip, selectedUser?.role === r && styles.chipActive]}
-                      onPress={() => void handleRoleToggle(r)}
+                      onPress={() => setPendingAction({ type: 'role', nextRole: r })}
                     >
-                      <Text style={[styles.chipText, selectedUser?.role === r && styles.chipTextActive]}>
+                      <Text
+                        style={[
+                          styles.chipText,
+                          selectedUser?.role === r && styles.chipTextActive,
+                        ]}
+                      >
                         {r === 'admin' ? 'Quản trị viên' : 'Học viên'}
                       </Text>
                     </Pressable>
@@ -340,102 +346,66 @@ export function AdminUsersTab({ onInspectSubscription }: AdminUsersTabProps) {
                   <Pressable
                     disabled={busy}
                     style={[styles.chip, selectedUser?.isBanned ? styles.unbanBtn : styles.banBtn]}
-                    onPress={() => void handleBanToggle()}
+                    onPress={() =>
+                      selectedUser &&
+                      setPendingAction({ type: 'ban', nextBan: !selectedUser.isBanned })
+                    }
                   >
                     <Text style={selectedUser?.isBanned ? styles.unbanText : styles.banText}>
                       {selectedUser?.isBanned ? 'Mở khóa tài khoản' : 'Khóa tài khoản'}
                     </Text>
                   </Pressable>
                 </View>
+
+                <AdminConfirmBanner
+                  visible={Boolean(pendingAction)}
+                  message={
+                    pendingAction?.type === 'role'
+                      ? `Chuyển quyền tài khoản ${selectedUser?.email ?? ''} thành ${
+                          pendingAction.nextRole === 'admin' ? 'Quản trị viên' : 'Học viên'
+                        }?`
+                      : pendingAction?.nextBan
+                        ? `Khóa tài khoản ${selectedUser?.email ?? ''}? Người dùng sẽ bị đăng xuất và không thể truy cập.`
+                        : `Mở khóa tài khoản ${selectedUser?.email ?? ''}?`
+                  }
+                  confirmLabel={
+                    pendingAction?.type === 'ban' && pendingAction.nextBan
+                      ? 'Xác nhận khóa'
+                      : 'Xác nhận'
+                  }
+                  tone={pendingAction?.type === 'ban' && pendingAction.nextBan ? 'danger' : 'primary'}
+                  busy={busy}
+                  onCancel={() => setPendingAction(null)}
+                  onConfirm={() => void handleConfirmPendingAction()}
+                />
               </View>
 
-              {selectedUser?.role === 'admin' ? (
-                <View style={styles.sectionBox}>
-                  <Text style={styles.sectionLabel}>Phân tách gói &amp; ví học viên</Text>
-                  <Text style={styles.mutedText}>
-                    Tài khoản quản trị tách biệt khỏi gói học viên và ví Xu KS.
-                  </Text>
-                </View>
-              ) : (
+              {selectedUser && hasLearnerActivity(selectedUser) ? (
                 <>
-                  {/* Subscription Tier */}
+                  {/* Direct link to Subscriptions CRM */}
                   <View style={styles.sectionBox}>
-                    <Text style={styles.sectionLabel}>Cấp / Đổi gói sử dụng</Text>
-                    <View style={styles.filterGroup}>
-                      {(['free', 'plus', 'pro'] as const).map((t) => (
-                        <Pressable
-                          key={t}
-                          style={[styles.chip, subTier === t && styles.chipActive]}
-                          onPress={() => {
-                            setSubTier(t);
-                            setOrderAmountInput(t === 'pro' ? '149000' : '79000');
-                          }}
-                        >
-                          <Text style={[styles.chipText, subTier === t && styles.chipTextActive]}>
-                            {t.toUpperCase()}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-
-                    {subTier !== 'free' ? (
-                      <>
-                        <View style={styles.filterGroup}>
-                          <TextInput
-                            value={subDaysInput}
-                            onChangeText={(v) => setSubDaysInput(v.replace(/[^0-9]/g, ''))}
-                            keyboardType="numeric"
-                            placeholder="Số ngày (vd: 30)"
-                            style={[styles.modalInput, { flex: 1 }]}
-                          />
-                          {(['monthly', 'yearly'] as const).map((c) => (
-                            <Pressable
-                              key={c}
-                              style={[styles.chip, subCycle === c && styles.chipActive]}
-                              onPress={() => {
-                                setSubCycle(c);
-                                setSubDaysInput(c === 'yearly' ? '365' : '30');
-                              }}
-                            >
-                              <Text style={[styles.chipText, subCycle === c && styles.chipTextActive]}>
-                                {c === 'monthly' ? 'Tháng' : 'Năm'}
-                              </Text>
-                            </Pressable>
-                          ))}
-                        </View>
-                        <View style={styles.rowBetween}>
-                          <Text style={styles.mutedText}>Ghi nhận vào sổ doanh thu (đơn thật)</Text>
-                          <Switch
-                            value={recordOrder}
-                            onValueChange={setRecordOrder}
-                            trackColor={{ false: '#E5DDD4', true: nihongoTheme.colors.accent }}
-                          />
-                        </View>
-                        {recordOrder ? (
-                          <TextInput
-                            value={orderAmountInput}
-                            onChangeText={(v) => setOrderAmountInput(v.replace(/[^0-9]/g, ''))}
-                            keyboardType="numeric"
-                            placeholder="Số tiền VNĐ"
-                            style={styles.modalInput}
-                          />
-                        ) : null}
-                      </>
+                    <Text style={styles.sectionLabel}>Gói sử dụng hiện tại</Text>
+                    <Text style={styles.mutedText}>{formatUserPlanSummary(selectedUser)}</Text>
+                    {onInspectSubscription ? (
+                      <Pressable
+                        style={styles.primaryBtn}
+                        onPress={() => {
+                          const targetEmail = selectedUser.email;
+                          setSelectedUser(null);
+                          onInspectSubscription(targetEmail);
+                        }}
+                      >
+                        <Text style={styles.primaryBtnText}>
+                          Mở Quản lý gói &amp; Lịch sử thanh toán →
+                        </Text>
+                      </Pressable>
                     ) : null}
-
-                    <Pressable
-                      style={styles.primaryBtn}
-                      disabled={busy}
-                      onPress={() => void handleSaveSubscription()}
-                    >
-                      <Text style={styles.primaryBtnText}>Lưu gói sử dụng</Text>
-                    </Pressable>
                   </View>
 
                   {/* Adjust KS Balance */}
                   <View style={styles.sectionBox}>
                     <Text style={styles.sectionLabel}>
-                      Điều chỉnh Xu KS (Hiện có: {selectedUser?.ksBalance.toLocaleString('vi-VN') ?? 0} KS)
+                      Điều chỉnh Xu KS (Hiện có: {selectedUser.ksBalance.toLocaleString('vi-VN')} KS)
                     </Text>
                     <TextInput
                       value={ksDeltaInput}
@@ -447,7 +417,7 @@ export function AdminUsersTab({ onInspectSubscription }: AdminUsersTabProps) {
                     <TextInput
                       value={ksReason}
                       onChangeText={setKsReason}
-                      placeholder="Lý do điều chỉnh..."
+                      placeholder="Lý do điều chỉnh"
                       style={styles.modalInput}
                     />
                     <View style={styles.rowBetween}>
@@ -468,6 +438,13 @@ export function AdminUsersTab({ onInspectSubscription }: AdminUsersTabProps) {
                     </View>
                   </View>
                 </>
+              ) : (
+                <View style={styles.sectionBox}>
+                  <Text style={styles.sectionLabel}>Tài khoản quản trị hệ thống</Text>
+                  <Text style={styles.mutedText}>
+                    Tài khoản quản trị thuần không sử dụng gói học viên hoặc ví Xu KS.
+                  </Text>
+                </View>
               )}
             </ScrollView>
           </View>
@@ -480,94 +457,117 @@ export function AdminUsersTab({ onInspectSubscription }: AdminUsersTabProps) {
 const styles = StyleSheet.create({
   container: { gap: 14 },
   errorBanner: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: adminTheme.colors.dangerBg,
     borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: nihongoTheme.radius.md,
+    borderColor: adminTheme.colors.dangerBorder,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
   },
-  errorText: { color: '#DC2626', fontSize: 13, fontWeight: '600' },
+  errorText: { color: adminTheme.colors.dangerText, fontSize: 13, fontWeight: '600' },
   noticeBanner: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: adminTheme.colors.successBg,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
-    borderRadius: nihongoTheme.radius.md,
+    borderColor: adminTheme.colors.successBorder,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
   },
-  noticeText: { color: '#1B873F', fontSize: 13, fontWeight: '700' },
+  noticeText: { color: adminTheme.colors.successText, fontSize: 13, fontWeight: '700' },
   card: {
-    backgroundColor: nihongoTheme.colors.surface,
-    borderRadius: nihongoTheme.radius.card,
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.card,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    padding: 18,
+    borderColor: adminTheme.colors.border,
+    padding: 16,
     gap: 12,
-    ...nihongoTheme.shadow.card,
   },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: nihongoTheme.colors.textPrimary },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: adminTheme.colors.textPrimary },
   searchInput: {
-    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    backgroundColor: adminTheme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    borderRadius: nihongoTheme.radius.button,
+    borderColor: adminTheme.colors.border,
+    borderRadius: adminTheme.radius.input,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 13,
-    color: nihongoTheme.colors.textPrimary,
+    color: adminTheme.colors.textPrimary,
   },
   filterRows: { gap: 8 },
   filterGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
   chip: {
     paddingHorizontal: 11,
     paddingVertical: 6,
-    borderRadius: nihongoTheme.radius.pill,
-    backgroundColor: nihongoTheme.colors.chipNeutralBg,
+    borderRadius: adminTheme.radius.pill,
+    backgroundColor: adminTheme.colors.chipBg,
   },
-  chipActive: { backgroundColor: nihongoTheme.colors.accent },
-  chipText: { fontSize: 12, fontWeight: '700', color: nihongoTheme.colors.textSecondary },
+  chipActive: { backgroundColor: adminTheme.colors.accent },
+  chipText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textSecondary },
   chipTextActive: { color: '#FFFFFF' },
+  outlineChip: {
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: adminTheme.radius.input,
+    borderWidth: 1,
+    borderColor: adminTheme.colors.borderStrong,
+    backgroundColor: adminTheme.colors.surface,
+  },
+  outlineChipText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textPrimary },
   loadingWrap: { paddingVertical: 24, alignItems: 'center' },
-  emptyText: { fontSize: 13, color: nihongoTheme.colors.textMuted, paddingVertical: 12 },
+  emptyText: { fontSize: 13, color: adminTheme.colors.textMuted, paddingVertical: 12 },
   listGap: { gap: 10 },
   userRow: {
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderLight,
-    backgroundColor: nihongoTheme.colors.surfaceSubtle,
-    borderRadius: nihongoTheme.radius.md,
+    borderColor: adminTheme.colors.border,
+    backgroundColor: adminTheme.colors.surfaceSubtle,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: 12,
   },
-  userMain: { flex: 1, minWidth: 0, gap: 3 },
+  userMain: { flex: 1, minWidth: 220, gap: 3 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
-  userName: { fontSize: 14, fontWeight: '800', color: nihongoTheme.colors.textPrimary },
-  userEmail: { fontSize: 12, color: nihongoTheme.colors.textSecondary },
-  userStats: { fontSize: 11, color: nihongoTheme.colors.textMuted },
-  pill: { borderRadius: nihongoTheme.radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
+  userName: { fontSize: 14, fontWeight: '800', color: adminTheme.colors.textPrimary },
+  userEmail: { fontSize: 12, color: adminTheme.colors.textSecondary },
+  userSubLine: { fontSize: 12, fontWeight: '600', color: adminTheme.colors.textPrimary },
+  userStats: { fontSize: 11, color: adminTheme.colors.textMuted },
+  pill: { borderRadius: adminTheme.radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   pillText: { fontSize: 11, fontWeight: '700' },
-  pillAdmin: { backgroundColor: nihongoTheme.colors.accentSoft },
-  pillAdminText: { color: nihongoTheme.colors.accentHover },
-  pillNeutral: { backgroundColor: '#EFEAE4' },
-  pillNeutralText: { color: nihongoTheme.colors.textSecondary },
-  pillPaid: { backgroundColor: '#ECFDF5' },
-  pillPaidText: { color: '#1B873F' },
-  pillBan: { backgroundColor: '#FEF2F2', borderRadius: nihongoTheme.radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
-  pillBanText: { fontSize: 11, fontWeight: '700', color: '#DC2626' },
+  pillAdmin: { backgroundColor: adminTheme.colors.accentSoft },
+  pillAdminText: { color: adminTheme.colors.accentHover },
+  pillNeutral: { backgroundColor: adminTheme.colors.border },
+  pillNeutralText: { color: adminTheme.colors.textSecondary },
+  pillPaid: { backgroundColor: adminTheme.colors.successBg },
+  pillPaidText: { color: adminTheme.colors.successText },
+  pillBan: {
+    backgroundColor: adminTheme.colors.dangerBg,
+    borderRadius: adminTheme.radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  pillBanText: { fontSize: 11, fontWeight: '700', color: adminTheme.colors.dangerText },
   manageBtn: {
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.accent,
-    borderRadius: nihongoTheme.radius.button,
+    borderColor: adminTheme.colors.accent,
+    borderRadius: adminTheme.radius.input,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 7,
   },
-  manageBtnText: { fontSize: 12, fontWeight: '700', color: nihongoTheme.colors.accentHover },
+  manageBtnText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.accentHover },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  closeText: { fontSize: 13, fontWeight: '700', color: nihongoTheme.colors.accentHover },
+  closeBtn: {
+    backgroundColor: adminTheme.colors.chipBg,
+    borderRadius: adminTheme.radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  closeText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textPrimary },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(28,25,23,0.4)',
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(24, 24, 27, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
@@ -575,51 +575,52 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 480,
-    maxHeight: '88%',
-    backgroundColor: nihongoTheme.colors.surface,
-    borderRadius: nihongoTheme.radius.card,
+    maxHeight: '92%',
+    alignSelf: 'center',
+    overflow: 'hidden',
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.card,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    padding: 18,
-    gap: 12,
-    ...nihongoTheme.shadow.dock,
+    borderColor: adminTheme.colors.border,
+    padding: 16,
+    gap: 10,
   },
-  modalScroll: { maxHeight: 460 },
-  modalBody: { gap: 12 },
+  modalScroll: { flexShrink: 1 },
+  modalBody: { gap: 10, paddingRight: 4, paddingBottom: 4 },
   sectionBox: {
-    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    backgroundColor: adminTheme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderLight,
-    borderRadius: nihongoTheme.radius.md,
+    borderColor: adminTheme.colors.border,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
     gap: 8,
   },
-  sectionLabel: { fontSize: 13, fontWeight: '800', color: nihongoTheme.colors.textPrimary },
-  mutedText: { fontSize: 12, color: nihongoTheme.colors.textSecondary, flex: 1 },
-  banBtn: { backgroundColor: '#FEF2F2' },
-  banText: { fontSize: 12, fontWeight: '700', color: '#DC2626' },
-  unbanBtn: { backgroundColor: '#ECFDF5' },
-  unbanText: { fontSize: 12, fontWeight: '700', color: '#1B873F' },
+  sectionLabel: { fontSize: 13, fontWeight: '800', color: adminTheme.colors.textPrimary },
+  mutedText: { fontSize: 12, color: adminTheme.colors.textSecondary },
+  banBtn: { backgroundColor: adminTheme.colors.dangerBg },
+  banText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.dangerText },
+  unbanBtn: { backgroundColor: adminTheme.colors.successBg },
+  unbanText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.successText },
   modalInput: {
-    backgroundColor: nihongoTheme.colors.surface,
+    backgroundColor: adminTheme.colors.surface,
     borderWidth: 1,
-    borderColor: nihongoTheme.colors.borderWarm,
-    borderRadius: nihongoTheme.radius.button,
+    borderColor: adminTheme.colors.borderStrong,
+    borderRadius: adminTheme.radius.input,
     paddingHorizontal: 12,
     paddingVertical: 9,
     fontSize: 13,
-    color: nihongoTheme.colors.textPrimary,
+    color: adminTheme.colors.textPrimary,
   },
   primaryBtn: {
-    backgroundColor: nihongoTheme.colors.accent,
-    borderRadius: nihongoTheme.radius.button,
+    backgroundColor: adminTheme.colors.accent,
+    borderRadius: adminTheme.radius.input,
     paddingVertical: 11,
     alignItems: 'center',
   },
   primaryBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
-  adjustBtn: { flex: 1, borderRadius: nihongoTheme.radius.button, paddingVertical: 10, alignItems: 'center' },
-  adjustPlus: { backgroundColor: '#ECFDF5' },
-  adjustPlusText: { fontSize: 13, fontWeight: '700', color: '#1B873F' },
-  adjustMinus: { backgroundColor: '#FEF2F2' },
-  adjustMinusText: { fontSize: 13, fontWeight: '700', color: '#DC2626' },
+  adjustBtn: { flex: 1, borderRadius: adminTheme.radius.input, paddingVertical: 10, alignItems: 'center' },
+  adjustPlus: { backgroundColor: adminTheme.colors.successBg },
+  adjustPlusText: { fontSize: 13, fontWeight: '700', color: adminTheme.colors.successText },
+  adjustMinus: { backgroundColor: adminTheme.colors.dangerBg },
+  adjustMinusText: { fontSize: 13, fontWeight: '700', color: adminTheme.colors.dangerText },
 });

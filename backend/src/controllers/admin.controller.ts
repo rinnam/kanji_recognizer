@@ -21,6 +21,7 @@ import {
   getAdminLessonDetail,
   listAdminLessons,
   updateLesson,
+  updateLessonItem,
   uploadLessonMaterialFile,
 } from '../services/lesson.service.js';
 import {
@@ -51,6 +52,7 @@ import {
   bulkLessonItemsSchema,
   createLessonItemSchema,
   createLessonSchema,
+  updateLessonItemSchema,
   updateLessonSchema,
   uploadLessonMaterialFileSchema,
 } from '../validators/lesson.js';
@@ -240,6 +242,15 @@ export async function handleAdminBulkAddLessonItems(req: FastifyRequest, reply: 
   const parsed = bulkLessonItemsSchema.parse(req.body ?? {});
   const result = await bulkAddLessonItems(admin.id, id, parsed.items);
   return reply.status(201).send(result);
+}
+
+export async function handleAdminUpdateLessonItem(req: FastifyRequest, reply: FastifyReply) {
+  const admin = await requireAdminUser(req, reply);
+  if (!admin) return;
+  const { id, itemId } = req.params as { id: string; itemId: string };
+  const parsed = updateLessonItemSchema.parse(req.body ?? {});
+  const item = await updateLessonItem(id, itemId, parsed);
+  return reply.send({ item });
 }
 
 export async function handleAdminDeleteLessonItem(req: FastifyRequest, reply: FastifyReply) {

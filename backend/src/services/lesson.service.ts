@@ -165,6 +165,7 @@ function mapLessonMaterial(r: LessonMaterialRow) {
 export async function listAdminLessons(params: {
   level: 'ALL' | JlptLevel;
   status: 'all' | LessonStatus;
+  q?: string | undefined;
 }) {
   await ensureAdminAndLessonTables();
   const clauses = ['l.deleted_at IS NULL'];
@@ -177,6 +178,13 @@ export async function listAdminLessons(params: {
   if (params.status !== 'all') {
     values.push(params.status);
     clauses.push(`l.status = $${values.length}`);
+  }
+  const qClean = (params.q ?? '').trim();
+  if (qClean) {
+    values.push(`%${qClean}%`);
+    clauses.push(
+      `(l.title ILIKE $${values.length} OR l.summary ILIKE $${values.length} OR l.category ILIKE $${values.length})`,
+    );
   }
 
   const res = await pool.query<LessonRow>(
@@ -515,6 +523,73 @@ export async function bulkAddLessonItems(
   } finally {
     client.release();
   }
+}
+
+export async function updateLessonItem(
+  lessonId: string,
+  itemId: string,
+  input: {
+    word?: string | undefined;
+    reading?: string | null | undefined;
+    meaning?: string | undefined;
+    sinoVietnamese?: string | null | undefined;
+    example?: string | null | undefined;
+    exampleMeaning?: string | null | undefined;
+    sortOrder?: number | undefined;
+  },
+) {
+  await ensureAdminAndLessonTables();
+  const existingRes = await pool.query<LessonItemRow>(
+    `SELECT * FROM lesson_items WHERE id = $1 AND lesson_id = $2 AND deleted_at IS NULL`,
+    [itemId, lessonId],
+  );
+  const existing = existingRes.rows[0];
+  if (!existing) {
+    throw new NotFoundError('Không tìm thấy từ vựng trong bài học.');
+  }
+
+  const nextWord = input.word !== undefined ? input.word.trim() : existing.word;
+  const nextReading =
+    input.reading !== undefined ? (input.reading?.trim() || null) : existing.reading;
+  const nextMeaning = input.meaning !== undefined ? input.meaning.trim() : existing.meaning;
+  const nextSino =
+    input.sinoVietnamese !== undefined
+      ? (input.sinoVietnamese?.trim() || null)
+      : existing.sino_vietnamese;
+  const nextExample =
+    input.example !== undefined ? (input.example?.trim() || null) : existing.example;
+  const nextExampleMeaning =
+    input.exampleMeaning !== undefined
+      ? (input.exampleMeaning?.trim() || null)
+      : existing.example_meaning;
+  const nextOrder = input.sortOrder !== undefined ? input.sortOrder : existing.sort_order;
+
+  const updatedRes = await pool.query<LessonItemRow>(
+    `UPDATE lesson_items
+     SET word = $3,
+         reading = $4,
+         meaning = $5,
+         sino_vietnamese = $6,
+         example = $7,
+         example_meaning = $8,
+         sort_order = $9,
+         updated_at = now()
+     WHERE id = $1 AND lesson_id = $2 AND deleted_at IS NULL
+     RETURNING *`,
+    [
+      itemId,
+      lessonId,
+      nextWord,
+      nextReading,
+      nextMeaning,
+      nextSino,
+      nextExample,
+      nextExampleMeaning,
+      nextOrder,
+    ],
+  );
+
+  return mapLessonItem(updatedRes.rows[0]!);
 }
 
 export async function deleteLessonItem(lessonId: string, itemId: string) {

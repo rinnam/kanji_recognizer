@@ -3,13 +3,14 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { nihongoTheme } from '../../theme/nihongo-theme';
 import type { SubscriptionTier } from '../lessons/lessons-api';
+import { AdminConfirmModal } from './AdminConfirmModal';
+import { AdminSwitch } from './AdminSwitch';
+import { adminTheme, formatVnd } from './admin-theme';
 import {
   fetchAdminPlans,
   resetAdminPlan,
@@ -24,20 +25,20 @@ type QuotaKey =
   | 'speakingLifePerDay'
   | 'speakingWorkPerDay';
 
-const QUOTA_FIELDS: readonly { key: QuotaKey; label: string; hint: string }[] = [
-  { key: 'shadowingCustomPerDay', label: 'Shadowing link tự dán / ngày', hint: '0 = Khóa' },
-  { key: 'readingPerWeek', label: 'Luyện đọc AI / tuần', hint: '0 = Khóa' },
-  { key: 'writingPerWeek', label: 'Luyện viết AI / tuần', hint: '0 = Khóa' },
-  { key: 'speakingLifePerDay', label: 'Nói 3D Đời sống / ngày', hint: '0 = Khóa' },
-  { key: 'speakingWorkPerDay', label: 'Nói 3D Công sở & PV / ngày', hint: '0 = Khóa' },
+const QUOTA_FIELDS: readonly { key: QuotaKey; label: string }[] = [
+  { key: 'shadowingCustomPerDay', label: 'Shadowing link tự dán / ngày' },
+  { key: 'readingPerWeek', label: 'Luyện đọc AI / tuần' },
+  { key: 'writingPerWeek', label: 'Luyện viết AI / tuần' },
+  { key: 'speakingLifePerDay', label: 'Nói 3D Đời sống / ngày' },
+  { key: 'speakingWorkPerDay', label: 'Nói 3D Công sở & PV / ngày' },
 ];
 
 const FEATURE_FLAGS: readonly {
   key: 'itEngineerAllowed' | 'uploadCvAllowed' | 'fullRubricAllowed';
   label: string;
 }[] = [
-  { key: 'itEngineerAllowed', label: 'Mở Phỏng vấn Kỹ sư IT 3D (6 chặng)' },
-  { key: 'uploadCvAllowed', label: 'Cho phép Upload CV (PDF / Ảnh)' },
+  { key: 'itEngineerAllowed', label: 'Phỏng vấn Kỹ sư IT 3D (6 chặng)' },
+  { key: 'uploadCvAllowed', label: 'Upload CV (PDF / Ảnh)' },
   { key: 'fullRubricAllowed', label: 'Chấm điểm chuẩn Nhật (PREP / STAR / HORENSO)' },
 ];
 
@@ -79,20 +80,18 @@ function planToDraft(plan: AdminPlanDefinition): PlanFormDraft {
   };
 }
 
-function formatVnd(amount: number): string {
-  return `${Math.round(amount).toLocaleString('vi-VN')}đ`;
-}
-
 interface AdminPlanConfigPanelProps {
+  refreshSignal?: number;
   onPlanSaved?: () => void;
 }
 
-export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps) {
+export function AdminPlanConfigPanel({ refreshSignal = 0, onPlanSaved }: AdminPlanConfigPanelProps) {
   const [plans, setPlans] = useState<AdminPlanDefinition[]>([]);
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('plus');
   const [draft, setDraft] = useState<PlanFormDraft | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [noticeMsg, setNoticeMsg] = useState<string | null>(null);
 
@@ -119,8 +118,8 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
   );
 
   useEffect(() => {
-    void loadPlans();
-  }, []);
+    void loadPlans(selectedTier);
+  }, [refreshSignal]);
 
   const handleSelectTier = (tier: SubscriptionTier) => {
     setSelectedTier(tier);
@@ -178,7 +177,7 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
 
       setPlans((prev) => prev.map((p) => (p.tier === res.plan.tier ? res.plan : p)));
       setDraft(planToDraft(res.plan));
-      setNoticeMsg(`Đã lưu cấu hình gói ${res.plan.name}. Bảng giá và quyền năng đã cập nhật tức thì.`);
+      setNoticeMsg(`Đã lưu cấu hình gói ${res.plan.name}.`);
       onPlanSaved?.();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Không lưu được cấu hình gói.');
@@ -187,7 +186,7 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
     }
   };
 
-  const handleReset = async () => {
+  const handleConfirmReset = async () => {
     if (saving) return;
     setSaving(true);
     setErrorMsg(null);
@@ -196,7 +195,8 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
       const res = await resetAdminPlan(selectedTier);
       setPlans((prev) => prev.map((p) => (p.tier === res.plan.tier ? res.plan : p)));
       setDraft(planToDraft(res.plan));
-      setNoticeMsg(`Đã khôi phục mặc định cho gói ${res.plan.name}.`);
+      setResetConfirmOpen(false);
+      setNoticeMsg(`Đã khôi phục mặc định gói ${res.plan.name}.`);
       onPlanSaved?.();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Không khôi phục được gói mặc định.');
@@ -208,8 +208,8 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
   if (loading && !draft) {
     return (
       <View style={styles.loadingCard}>
-        <ActivityIndicator color={nihongoTheme.colors.accent} />
-        <Text style={styles.mutedText}>Đang tải cấu hình 3 gói sử dụng...</Text>
+        <ActivityIndicator color={adminTheme.colors.accent} />
+        <Text style={styles.mutedText}>Đang tải cấu hình bảng giá...</Text>
       </View>
     );
   }
@@ -232,7 +232,6 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
         </View>
       ) : null}
 
-      {/* Tier selector cards */}
       <View style={styles.tierCardsRow}>
         {plans.map((p) => {
           const active = p.tier === selectedTier;
@@ -258,15 +257,18 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
       {draft ? (
         <View style={styles.card}>
           <View style={styles.rowBetweenWrap}>
-            <Text style={styles.cardTitle}>Chỉnh sửa gói: {selectedTier.toUpperCase()}</Text>
-            <Pressable style={styles.resetBtn} disabled={saving} onPress={() => void handleReset()}>
+            <Text style={styles.cardTitle}>Chỉnh sửa gói {selectedTier.toUpperCase()}</Text>
+            <Pressable
+              style={styles.resetBtn}
+              disabled={saving}
+              onPress={() => setResetConfirmOpen(true)}
+            >
               <Text style={styles.resetBtnText}>Khôi phục mặc định</Text>
             </Pressable>
           </View>
 
-          {/* Identity & Pricing */}
           <View style={styles.sectionBox}>
-            <Text style={styles.sectionLabel}>Tên gọi, Giá bán &amp; Hệ số tích Xu</Text>
+            <Text style={styles.sectionLabel}>Tên gọi, Giá bán &amp; Hệ số Xu</Text>
 
             <View style={styles.fieldRow}>
               <Text style={styles.fieldLabel}>Tên hiển thị gói</Text>
@@ -287,7 +289,7 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
             </View>
 
             {selectedTier === 'free' ? (
-              <Text style={styles.mutedText}>Gói Miễn phí luôn giữ giá 0đ.</Text>
+              <Text style={styles.mutedText}>Gói Miễn phí giữ mức 0đ.</Text>
             ) : (
               <View style={styles.priceGrid}>
                 <View style={styles.priceCol}>
@@ -318,7 +320,7 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
             )}
 
             <View style={styles.rowBetween}>
-              <Text style={styles.fieldLabel}>Hệ số tích Xu Kanji Smart (×)</Text>
+              <Text style={styles.fieldLabel}>Hệ số tích Xu KS (×)</Text>
               <TextInput
                 value={draft.multiplierInput}
                 onChangeText={(v) =>
@@ -330,7 +332,6 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
             </View>
           </View>
 
-          {/* Feature Quotas */}
           <View style={styles.sectionBox}>
             <Text style={styles.sectionLabel}>Giới hạn lượt dùng chức năng AI</Text>
             {QUOTA_FIELDS.map((q) => {
@@ -338,15 +339,9 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
               const isUnlimited = val === null;
               return (
                 <View key={q.key} style={styles.quotaRow}>
-                  <View style={{ flex: 1, minWidth: 160 }}>
+                  <View style={{ flex: 1, minWidth: 160, gap: 2 }}>
                     <Text style={styles.quotaLabel}>{q.label}</Text>
-                    <Text style={styles.quotaHint}>
-                      {isUnlimited
-                        ? 'Không giới hạn lượt'
-                        : val === 0
-                          ? 'Đang khóa chức năng này (0 lượt)'
-                          : `Tối đa ${val} lượt`}
-                    </Text>
+                    {val === 0 ? <Text style={styles.lockedHint}>Đang khóa (0 lượt)</Text> : null}
                   </View>
 
                   <View style={styles.quotaControls}>
@@ -374,7 +369,7 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
                           });
                         }}
                         keyboardType="numeric"
-                        placeholder={q.hint}
+                        placeholder="0 = Khóa"
                         style={[styles.input, styles.quotaNumInput]}
                       />
                     ) : null}
@@ -384,13 +379,12 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
             })}
           </View>
 
-          {/* Premium Feature Flags */}
           <View style={styles.sectionBox}>
-            <Text style={styles.sectionLabel}>Quyền mở khóa tính năng cao cấp</Text>
+            <Text style={styles.sectionLabel}>Quyền tính năng cao cấp</Text>
             {FEATURE_FLAGS.map((f) => (
               <View key={f.key} style={styles.rowBetween}>
                 <Text style={styles.flagLabel}>{f.label}</Text>
-                <Switch
+                <AdminSwitch
                   value={draft.flags[f.key]}
                   onValueChange={(next) =>
                     setDraft({
@@ -398,17 +392,14 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
                       flags: { ...draft.flags, [f.key]: next },
                     })
                   }
-                  trackColor={{ false: '#E4E4E7', true: nihongoTheme.colors.accent }}
+                  accessibilityLabel={f.label}
                 />
               </View>
             ))}
           </View>
 
-          {/* Pricing Highlights */}
           <View style={styles.sectionBox}>
-            <Text style={styles.sectionLabel}>
-              Danh sách quyền lợi hiển thị trên Bảng giá (mỗi dòng 1 ý)
-            </Text>
+            <Text style={styles.sectionLabel}>Quyền lợi hiển thị trên Bảng giá (mỗi dòng 1 ý)</Text>
             <TextInput
               value={draft.highlightsText}
               onChangeText={(v) => setDraft({ ...draft, highlightsText: v })}
@@ -421,11 +412,22 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
 
           <Pressable style={styles.saveBtn} disabled={saving} onPress={() => void handleSave()}>
             <Text style={styles.saveBtnText}>
-              {saving ? 'Đang lưu cấu hình...' : `Lưu cấu hình gói ${draft.name}`}
+              {saving ? 'Đang lưu...' : `Lưu cấu hình gói ${draft.name}`}
             </Text>
           </Pressable>
         </View>
       ) : null}
+
+      <AdminConfirmModal
+        visible={resetConfirmOpen}
+        title="Khôi phục cấu hình mặc định"
+        message={`Đặt lại toàn bộ giá bán, hệ số Xu KS và hạn mức AI của gói ${draft?.name ?? selectedTier.toUpperCase()} về mặc định ban đầu?`}
+        confirmLabel="Khôi phục"
+        tone="danger"
+        busy={saving}
+        onCancel={() => setResetConfirmOpen(false)}
+        onConfirm={() => void handleConfirmReset()}
+      />
     </View>
   );
 }
@@ -433,30 +435,30 @@ export function AdminPlanConfigPanel({ onPlanSaved }: AdminPlanConfigPanelProps)
 const styles = StyleSheet.create({
   container: { gap: 14 },
   loadingCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.card,
     borderWidth: 1,
-    borderColor: '#E4E4E7',
+    borderColor: adminTheme.colors.border,
     padding: 28,
     alignItems: 'center',
     gap: 10,
   },
   errorBanner: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: adminTheme.colors.dangerBg,
     borderWidth: 1,
-    borderColor: '#FECACA',
-    borderRadius: 12,
+    borderColor: adminTheme.colors.dangerBorder,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
   },
-  errorText: { color: '#DC2626', fontSize: 13, fontWeight: '600' },
+  errorText: { color: adminTheme.colors.dangerText, fontSize: 13, fontWeight: '600' },
   noticeBanner: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: adminTheme.colors.successBg,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
-    borderRadius: 12,
+    borderColor: adminTheme.colors.successBorder,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
   },
-  noticeText: { color: '#1B873F', fontSize: 13, fontWeight: '700' },
+  noticeText: { color: adminTheme.colors.successText, fontSize: 13, fontWeight: '700' },
   tierCardsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -465,25 +467,25 @@ const styles = StyleSheet.create({
   tierSummaryCard: {
     flex: 1,
     minWidth: 200,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminTheme.colors.surface,
     borderWidth: 1,
-    borderColor: '#E4E4E7',
-    borderRadius: 14,
+    borderColor: adminTheme.colors.border,
+    borderRadius: adminTheme.radius.md,
     padding: 14,
     gap: 4,
   },
   tierSummaryCardActive: {
-    backgroundColor: '#FFF7ED',
-    borderColor: nihongoTheme.colors.accent,
+    backgroundColor: adminTheme.colors.accentSoft,
+    borderColor: adminTheme.colors.accent,
   },
-  tierSummaryTitle: { fontSize: 14, fontWeight: '800', color: '#18181B' },
-  tierSummaryTitleActive: { color: nihongoTheme.colors.accentHover },
-  tierSummaryMeta: { fontSize: 12, color: '#52525B' },
+  tierSummaryTitle: { fontSize: 14, fontWeight: '800', color: adminTheme.colors.textPrimary },
+  tierSummaryTitleActive: { color: adminTheme.colors.accentHover },
+  tierSummaryMeta: { fontSize: 12, color: adminTheme.colors.textSecondary },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminTheme.colors.surface,
+    borderRadius: adminTheme.radius.card,
     borderWidth: 1,
-    borderColor: '#E4E4E7',
+    borderColor: adminTheme.colors.border,
     padding: 16,
     gap: 12,
   },
@@ -500,39 +502,39 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: '#18181B' },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: adminTheme.colors.textPrimary },
   resetBtn: {
     borderWidth: 1,
-    borderColor: '#D4D4D8',
-    borderRadius: 10,
+    borderColor: adminTheme.colors.borderStrong,
+    borderRadius: adminTheme.radius.input,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: adminTheme.colors.surfaceSubtle,
   },
-  resetBtnText: { fontSize: 12, fontWeight: '700', color: '#3F3F46' },
+  resetBtnText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textPrimary },
   sectionBox: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: adminTheme.colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: '#E4E4E7',
-    borderRadius: 14,
+    borderColor: adminTheme.colors.border,
+    borderRadius: adminTheme.radius.md,
     padding: 12,
     gap: 10,
   },
-  sectionLabel: { fontSize: 13, fontWeight: '800', color: '#18181B' },
+  sectionLabel: { fontSize: 13, fontWeight: '800', color: adminTheme.colors.textPrimary },
   fieldRow: { gap: 4 },
-  fieldLabel: { fontSize: 12, fontWeight: '700', color: '#3F3F46' },
-  mutedText: { fontSize: 12, color: '#71717A' },
+  fieldLabel: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textSecondary },
+  mutedText: { fontSize: 12, color: adminTheme.colors.textMuted },
   priceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   priceCol: { flex: 1, minWidth: 200, gap: 4 },
   input: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminTheme.colors.surface,
     borderWidth: 1,
-    borderColor: '#D4D4D8',
-    borderRadius: 10,
+    borderColor: adminTheme.colors.borderStrong,
+    borderRadius: adminTheme.radius.input,
     paddingHorizontal: 11,
     paddingVertical: 8,
     fontSize: 13,
-    color: '#18181B',
+    color: adminTheme.colors.textPrimary,
   },
   quotaRow: {
     flexDirection: 'row',
@@ -540,28 +542,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#E4E4E7',
+    borderBottomColor: adminTheme.colors.border,
   },
-  quotaLabel: { fontSize: 13, fontWeight: '700', color: '#18181B' },
-  quotaHint: { fontSize: 11, color: '#71717A' },
+  quotaLabel: { fontSize: 13, fontWeight: '700', color: adminTheme.colors.textPrimary },
+  lockedHint: { fontSize: 11, fontWeight: '600', color: adminTheme.colors.dangerText },
   quotaControls: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   quotaNumInput: { width: 84, textAlign: 'right' },
   chip: {
     paddingHorizontal: 11,
     paddingVertical: 7,
-    borderRadius: 9999,
-    backgroundColor: '#E4E4E7',
+    borderRadius: adminTheme.radius.pill,
+    backgroundColor: adminTheme.colors.border,
   },
-  chipActive: { backgroundColor: '#18181B' },
-  chipText: { fontSize: 12, fontWeight: '700', color: '#3F3F46' },
+  chipActive: { backgroundColor: adminTheme.colors.textPrimary },
+  chipText: { fontSize: 12, fontWeight: '700', color: adminTheme.colors.textSecondary },
   chipTextActive: { color: '#FFFFFF' },
-  flagLabel: { fontSize: 13, fontWeight: '600', color: '#18181B', flex: 1 },
+  flagLabel: { fontSize: 13, fontWeight: '600', color: adminTheme.colors.textPrimary, flex: 1 },
   highlightsInput: { minHeight: 112 },
   saveBtn: {
-    backgroundColor: nihongoTheme.colors.accent,
-    borderRadius: 12,
+    backgroundColor: adminTheme.colors.accent,
+    borderRadius: adminTheme.radius.md,
     paddingVertical: 12,
     alignItems: 'center',
   },

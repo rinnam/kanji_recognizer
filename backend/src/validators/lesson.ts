@@ -7,6 +7,7 @@ export const lessonStatusSchema = z.enum(['draft', 'published']);
 export const adminLessonsQuerySchema = z.object({
   level: z.enum(['ALL', 'N5', 'N4', 'N3', 'N2', 'N1']).default('ALL'),
   status: z.enum(['all', 'draft', 'published']).default('all'),
+  q: z.string().trim().max(120).optional().default(''),
 });
 
 export const createLessonSchema = z.object({
@@ -31,6 +32,8 @@ export const createLessonItemSchema = z.object({
   exampleMeaning: z.string().trim().max(1000).nullable().optional(),
   sortOrder: z.coerce.number().int().min(0).max(10_000).optional(),
 });
+
+export const updateLessonItemSchema = createLessonItemSchema.partial();
 
 export const bulkLessonItemsSchema = z.object({
   items: z.array(createLessonItemSchema).min(1).max(500),

@@ -68,6 +68,14 @@ export async function getAdminOverview(params: {
 
   const kindWhere =
     params.kind === 'real' ? 'AND is_demo = false' : params.kind === 'demo' ? 'AND is_demo = true' : '';
+  const customerFilterSql = `
+    u.role = 'user' OR EXISTS (
+      SELECT 1 FROM user_subscriptions s2
+      WHERE s2.user_id = u.id
+        AND s2.deleted_at IS NULL
+        AND s2.tier IN ('plus', 'pro')
+    )
+  `;
 
   const [
     userStatsRes,
@@ -82,15 +90,15 @@ export async function getAdminOverview(params: {
     pool.query<{ total_users: number; new_users_30d: number }>(
       `SELECT
          COUNT(*)::int AS total_users,
-         COUNT(*) FILTER (WHERE created_at >= now() - interval '30 days')::int AS new_users_30d
-       FROM users
-       WHERE role = 'user'`,
+         COUNT(*) FILTER (WHERE u.created_at >= now() - interval '30 days')::int AS new_users_30d
+       FROM users u
+       WHERE ${customerFilterSql}`,
     ),
     pool.query<{ active_today: number }>(
       `SELECT COUNT(DISTINCT l.user_id)::int AS active_today
        FROM user_study_logs l
        INNER JOIN users u ON u.id = l.user_id
-       WHERE u.role = 'user'
+       WHERE (${customerFilterSql})
          AND l.study_date = $1
          AND l.seconds > 0
          AND l.deleted_at IS NULL`,
@@ -108,7 +116,7 @@ export async function getAdminOverview(params: {
          COUNT(*)::int AS cnt
        FROM users u
        LEFT JOIN user_subscriptions s ON s.user_id = u.id
-       WHERE u.role = 'user'
+       WHERE ${customerFilterSql}
        GROUP BY 1`,
     ),
     pool.query<{
@@ -487,12 +495,30 @@ export async function updatePaymentOrderStatus(
       );
     }
 
+    let revokedSub = false;
+    if (input.status === 'refunded' && existing.status !== 'refunded') {
+      const revokeRes = await client.query<{ user_id: string }>(
+        `UPDATE user_subscriptions
+         SET tier = 'free',
+             billing_cycle = 'monthly',
+             expires_at = NULL,
+             demo_order_code = NULL,
+             updated_at = now()
+         WHERE user_id = $1
+           AND deleted_at IS NULL
+           AND demo_order_code = $2
+         RETURNING user_id`,
+        [existing.user_id, existing.order_code],
+      );
+      revokedSub = revokeRes.rows.length > 0;
+    }
+
     await appendAdminAuditLog(client, {
       adminId,
       action: 'order_status_update',
       targetType: 'payment_order',
       targetId: existing.order_code,
-      detail: `Đổi trạng thái đơn ${existing.order_code}: ${existing.status} → ${input.status}`,
+      detail: `Đổi trạng thái đơn ${existing.order_code}: ${existing.status} → ${input.status}${revokedSub ? ' (đã thu hồi gói)' : ''}`,
     });
     await client.query('COMMIT');
   } catch (err) {

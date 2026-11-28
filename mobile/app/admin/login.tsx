@@ -46,11 +46,7 @@ export default function AdminLoginScreen() {
             <View style={styles.brandBadge}>
               <AdminDashboardIcon size={24} color="#FFFFFF" active />
             </View>
-            <View style={styles.portalPill}>
-              <Text style={styles.portalPillText}>ADMIN PORTAL</Text>
-            </View>
             <Text style={styles.title}>Kanji Smart · Quản trị</Text>
-            <Text style={styles.subtitle}>Đăng nhập cổng điều hành hệ thống</Text>
           </View>
 
           <TextInput
@@ -132,27 +128,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  portalPill: {
-    backgroundColor: 'rgba(244, 138, 52, 0.16)',
-    borderRadius: 9999,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  portalPillText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    color: '#FDBA74',
-  },
   title: {
     fontSize: 21,
     fontWeight: '800',
     color: '#FAFAFA',
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#A1A1AA',
     textAlign: 'center',
   },
   input: {

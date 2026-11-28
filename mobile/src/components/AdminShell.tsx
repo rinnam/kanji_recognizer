@@ -16,6 +16,7 @@ import {
   LessonsNavIcon,
   LogoutIcon,
   ProfileNavIcon,
+  ResetIcon,
 } from './AppIcons';
 
 export type AdminTabKey = 'overview' | 'subscriptions' | 'lessons' | 'users';
@@ -25,6 +26,7 @@ interface AdminShellProps {
   onSelectTab: (tab: AdminTabKey) => void;
   adminName: string;
   adminEmail: string;
+  onRefresh?: () => void;
   onLogout: () => void;
   children: React.ReactNode;
 }
@@ -33,35 +35,30 @@ const ADMIN_NAV: readonly {
   key: AdminTabKey;
   label: string;
   shortLabel: string;
-  subtitle: string;
   Icon: React.ComponentType<{ size?: number; color?: string; active?: boolean }>;
 }[] = [
   {
     key: 'overview',
     label: 'Doanh thu & Tổng quan',
     shortLabel: 'Doanh thu',
-    subtitle: 'Theo dõi doanh thu gói cước, đơn hàng và số lượng học viên',
     Icon: AdminDashboardIcon,
   },
   {
     key: 'subscriptions',
     label: 'Quản lý gói',
     shortLabel: 'Quản lý gói',
-    subtitle: 'Theo dõi thời hạn gói, giá gói, gia hạn và lịch sử thanh toán',
     Icon: CrownIcon,
   },
   {
     key: 'lessons',
     label: 'Bài học & Tài liệu',
-    shortLabel: 'Bài học & Tài liệu',
-    subtitle: 'Soạn bài học JLPT, nhập từ vựng và đính kèm tài liệu học',
+    shortLabel: 'Bài học',
     Icon: LessonsNavIcon,
   },
   {
     key: 'users',
     label: 'Người dùng',
     shortLabel: 'Người dùng',
-    subtitle: 'Quản lý tài khoản học viên, gói sử dụng và số dư Xu KS',
     Icon: ProfileNavIcon,
   },
 ];
@@ -72,6 +69,7 @@ export function AdminShell({
   onSelectTab,
   adminName,
   adminEmail,
+  onRefresh,
   onLogout,
   children,
 }: AdminShellProps) {
@@ -94,12 +92,12 @@ export function AdminShell({
                 <View style={styles.brandTextCol}>
                   <Text style={styles.brandTitle}>Kanji Smart</Text>
                   <View style={styles.adminPill}>
-                    <Text style={styles.adminPillText}>ADMIN PORTAL</Text>
+                    <Text style={styles.adminPillText}>QUẢN TRỊ</Text>
                   </View>
                 </View>
               </View>
 
-              <Text style={styles.sectionLabel}>ĐIỀU HÀNH HỆ THỐNG</Text>
+              <Text style={styles.sectionLabel}>DANH MỤC</Text>
               <View style={styles.navList}>
                 {ADMIN_NAV.map((item) => {
                   const active = item.key === activeTab;
@@ -137,7 +135,6 @@ export function AdminShell({
                   <Text style={styles.adminEmail} numberOfLines={1}>
                     {adminEmail}
                   </Text>
-                  <Text style={styles.adminRoleTag}>Quản trị viên</Text>
                 </View>
               </View>
 
@@ -155,7 +152,7 @@ export function AdminShell({
                   <AdminDashboardIcon size={15} color="#FFFFFF" active />
                 </View>
                 <View style={styles.mobileBrandMeta}>
-                  <Text style={styles.mobileBrandTitle}>Kanji Smart · ADMIN</Text>
+                  <Text style={styles.mobileBrandTitle}>Kanji Smart · Quản trị</Text>
                   <Text style={styles.mobileBrandEmail} numberOfLines={1}>
                     {adminEmail}
                   </Text>
@@ -206,7 +203,12 @@ export function AdminShell({
           <View style={styles.container}>
             <View style={styles.pageHeader}>
               <Text style={styles.pageTitle}>{activeMeta.label}</Text>
-              <Text style={styles.pageSubtitle}>{activeMeta.subtitle}</Text>
+              {onRefresh ? (
+                <Pressable accessibilityRole="button" style={styles.refreshBtn} onPress={onRefresh}>
+                  <ResetIcon size={14} color="#3F3F46" />
+                  <Text style={styles.refreshBtnText}>Làm mới</Text>
+                </Pressable>
+              ) : null}
             </View>
             {children}
           </View>
@@ -347,11 +349,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#A1A1AA',
   },
-  adminRoleTag: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FDBA74',
-  },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -474,8 +471,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   pageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
     marginBottom: 16,
-    gap: 3,
   },
   pageTitle: {
     fontSize: 22,
@@ -483,8 +483,20 @@ const styles = StyleSheet.create({
     color: '#18181B',
     letterSpacing: -0.3,
   },
-  pageSubtitle: {
-    fontSize: 13,
-    color: '#52525B',
+  refreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+  },
+  refreshBtnText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#18181B',
   },
 });
