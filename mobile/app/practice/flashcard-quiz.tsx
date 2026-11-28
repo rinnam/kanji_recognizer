@@ -13,7 +13,16 @@ import { parseCsv } from '../../src/import-parser';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { CatFrame } from '../../src/CatFrame';
-import { BulbIcon, ClockIcon, ResetIcon, ShuffleIcon, VolumeIcon } from '../../src/components/AppIcons';
+import {
+  BulbIcon,
+  ClockIcon,
+  FileTextIcon,
+  FolderIcon,
+  ResetIcon,
+  ShuffleIcon,
+  UploadIcon,
+  VolumeIcon,
+} from '../../src/components/AppIcons';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { sampleLibrary } from '../../src/sample-library';
 import {
@@ -950,7 +959,9 @@ export default function FlashcardQuizPracticeScreen() {
       {/* Compact Folder Picker Bar */}
       <Pressable style={styles.folderBar} onPress={() => setFolderModalOpen(true)}>
         <View style={styles.folderBarLeft}>
-          <Text style={styles.folderBarIcon}>📁</Text>
+          <View style={styles.folderBarIconWrap}>
+            <FolderIcon size={18} color={nihongoTheme.colors.accentHover} />
+          </View>
           <View>
             <Text style={styles.folderBarLabel}>Thư mục đang học</Text>
             <Text style={styles.folderBarValue}>
@@ -959,7 +970,7 @@ export default function FlashcardQuizPracticeScreen() {
           </View>
         </View>
         <View style={styles.folderBarBtn}>
-          <Text style={styles.folderBarBtnText}>Quản lý & Chọn ▾</Text>
+          <Text style={styles.folderBarBtnText}>Đổi thư mục</Text>
         </View>
       </Pressable>
 
@@ -1055,8 +1066,15 @@ export default function FlashcardQuizPracticeScreen() {
                           style={styles.treeSelectArea}
                           onPress={() => (movingFolderId ? void handleMoveFolder(folder.id) : selectFolder(folder.id))}
                         >
-                          <Text style={[styles.treeName, active && styles.treeNameActive]}>
-                            {depth > 0 ? '└ ' : '📁 '}
+                          {depth > 0 ? (
+                            <Text style={styles.treeIndent}>└</Text>
+                          ) : (
+                            <FolderIcon
+                              size={15}
+                              color={active ? nihongoTheme.colors.accentHover : nihongoTheme.colors.textSecondary}
+                            />
+                          )}
+                          <Text style={[styles.treeName, active && styles.treeNameActive]} numberOfLines={1}>
                             {folder.name}
                           </Text>
                           <Text style={styles.treeCount}>{count}</Text>
@@ -1166,8 +1184,9 @@ export default function FlashcardQuizPracticeScreen() {
                       </View>
                     )}
                   </View>
-                  <Pressable style={styles.ttsBtn} onPress={() => speak(currentCard.reading || currentCard.word)}>
-                    <Text style={styles.ttsText}>🔊 Nghe</Text>
+                  <Pressable style={[styles.ttsBtn, styles.iconPillBtn]} onPress={() => speak(currentCard.reading || currentCard.word)}>
+                    <VolumeIcon size={14} color={nihongoTheme.colors.accentHover} />
+                    <Text style={styles.ttsText}>Nghe</Text>
                   </Pressable>
                 </View>
 
@@ -1352,12 +1371,13 @@ export default function FlashcardQuizPracticeScreen() {
             <View style={styles.hintSlot}>
               {showHint ? (
                 <View style={styles.hintBox}>
+                  <BulbIcon size={14} color={nihongoTheme.colors.accentHover} />
                   <Text style={styles.hintText} numberOfLines={1}>
-                    💡 Âm Hán Việt:{' '}
+                    Âm Hán Việt:{' '}
                     {currentQuiz.sinoVietnamese
                       ? currentQuiz.sinoVietnamese
                       : currentQuiz.reading
-                        ? `(Không có Hán Việt · Gợi ý chữ đầu: ${currentQuiz.reading.slice(0, 2)}…)`
+                        ? `(Không có · Gợi ý chữ đầu: ${currentQuiz.reading.slice(0, 2)}…)`
                         : 'Chưa có gợi ý'}
                   </Text>
                 </View>
@@ -1459,13 +1479,15 @@ export default function FlashcardQuizPracticeScreen() {
               </Text>
               <View style={styles.quizModeRow}>
                 <Pressable style={styles.smallPill} onPress={() => void handlePickImportFile()}>
-                  <Text style={styles.smallPillText}>📂 Chọn file .csv / .txt</Text>
+                  <UploadIcon size={13} color={nihongoTheme.colors.accentHover} />
+                  <Text style={styles.smallPillText}>Chọn file .csv / .txt</Text>
                 </Pressable>
                 <Pressable style={styles.smallPill} onPress={() => setImportText(SAMPLE_CSV)}>
-                  <Text style={styles.smallPillText}>📋 Điền mẫu CSV</Text>
+                  <FileTextIcon size={13} color={nihongoTheme.colors.accentHover} />
+                  <Text style={styles.smallPillText}>Điền mẫu CSV</Text>
                 </Pressable>
                 <Pressable style={styles.smallPill} onPress={handleDownloadSampleCsv}>
-                  <Text style={styles.smallPillText}>⬇ Tải file mẫu (.csv)</Text>
+                  <Text style={styles.smallPillText}>Tải file mẫu (.csv)</Text>
                 </Pressable>
               </View>
               <TextInput
@@ -1545,7 +1567,7 @@ export default function FlashcardQuizPracticeScreen() {
                     </View>
                     <View style={styles.rowActions}>
                       <Pressable style={styles.ttsBtn} onPress={() => speak(item.reading || item.word)}>
-                        <Text style={styles.ttsText}>🔊</Text>
+                        <VolumeIcon size={15} color={nihongoTheme.colors.accentHover} />
                       </Pressable>
                       <Pressable
                         onPress={() => {
@@ -1673,8 +1695,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: nihongoTheme.colors.borderWarm,
     paddingHorizontal: 14,
-    paddingVertical: 11,
-    marginBottom: 16,
+    paddingVertical: 9,
+    marginBottom: 12,
     ...nihongoTheme.shadow.card,
   },
   folderBarLeft: {
@@ -1683,8 +1705,13 @@ const styles = StyleSheet.create({
     gap: 10,
     flexShrink: 1,
   },
-  folderBarIcon: {
-    fontSize: 18,
+  folderBarIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   folderBarLabel: {
     fontSize: 11,
@@ -1781,6 +1808,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   smallPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     backgroundColor: nihongoTheme.colors.accentSoft,
     borderRadius: nihongoTheme.radius.pill,
     paddingHorizontal: 10,
@@ -1817,6 +1847,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  treeIndent: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textMuted,
+    marginRight: 2,
   },
   treeName: {
     fontSize: 14,
@@ -2345,12 +2381,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   hintBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: nihongoTheme.colors.accentSoft,
     borderRadius: nihongoTheme.radius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   hintText: {
+    flexShrink: 1,
     fontSize: 13,
     fontWeight: '700',
     color: nihongoTheme.colors.accentHover,

@@ -482,7 +482,7 @@ export default function BotGameScreen() {
       triggerShake(bossShakeAnim);
       triggerFloatPopup(isCrit ? `-${dmg} CHÍ MẠNG!` : `-${dmg} HP`, isCrit ? 'crit' : 'hit');
       setBattleLog(
-        `${isCrit ? '⚡ CHÍ MẠNG! ' : ''}Gây ${dmg} sát thương!${nextCombo >= 3 ? ` (Combo ×${nextCombo})` : ''} · "${formatWordWithReading(question.word)}" = ${question.word.meaning}`,
+        `${isCrit ? 'CHÍ MẠNG! ' : ''}Gây ${dmg} sát thương!${nextCombo >= 3 ? ` (Combo ×${nextCombo})` : ''} · "${formatWordWithReading(question.word)}" = ${question.word.meaning}`,
       );
       if (question.kind !== 'audio_to_word') {
         void speakJapanese(question.word.reading || question.word.word);
@@ -492,7 +492,7 @@ export default function BotGameScreen() {
       const incoming = difficulty === 'Dễ' ? 12 : difficulty === 'Khó' ? 24 : 18;
       if (shieldActive) {
         hapticSuccess();
-        triggerFloatPopup('🛡️ ĐỠ ĐÒN!', 'block');
+        triggerFloatPopup('ĐỠ ĐÒN!', 'block');
         setBattleLog(`Khiên Momo đã đỡ trọn đòn phản công! Đáp án đúng: "${formatWordWithReading(question.word)}" = ${question.word.meaning}`);
       } else {
         hapticError();
@@ -526,7 +526,7 @@ export default function BotGameScreen() {
 
     if (shieldActive) {
       hapticSuccess();
-      triggerFloatPopup('🛡️ ĐỠ ĐÒN!', 'block');
+      triggerFloatPopup('ĐỠ ĐÒN!', 'block');
       setBattleLog(`Hết giờ câu này! Khiên Momo đã chặn sát thương. Đáp án: "${formatWordWithReading(question.word)}" = ${question.word.meaning}`);
     } else {
       hapticError();
@@ -693,7 +693,7 @@ export default function BotGameScreen() {
               • Hạ 3 Wave Boss với 3 kiểu đòn: Kanji → Nghĩa, Nghe âm thanh → Từ Nhật, Nghĩa → Từ Nhật.
             </Text>
             <Text style={styles.rulesText}>
-              • Mỗi câu có đồng hồ đếm ngược ({questionLimitSec}s). Trả lời trong 40% thời gian đầu nổ đòn ⚡ CHÍ MẠNG (+35% sát thương)! Hết giờ Boss tự động phản công.
+              • Mỗi câu có đồng hồ đếm ngược ({questionLimitSec}s). Trả lời trong 40% thời gian đầu nổ đòn CHÍ MẠNG (+35% sát thương)! Hết giờ Boss tự động phản công.
             </Text>
             {!isPhone ? (
               <Text style={styles.rulesText}>

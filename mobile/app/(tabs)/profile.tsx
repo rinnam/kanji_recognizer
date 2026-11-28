@@ -48,7 +48,11 @@ export default function ProfileScreen() {
 
   return (
     <AppShell>
-      <TopHeader mode="subpage" title="Cá nhân" subtitle="Quản lý tài khoản và lộ trình học tập" />
+      <TopHeader
+        mode="subpage"
+        title="Cá nhân"
+        subtitle={isPhone ? undefined : 'Quản lý tài khoản và lộ trình học tập'}
+      />
 
       {/* Hero Profile Banner */}
       <View style={styles.heroCard}>
@@ -144,7 +148,7 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Đồng bộ đám mây</Text>
-              <Text style={styles.infoValue}>PostgreSQL · Tự động</Text>
+              <Text style={styles.infoValue}>Tự động (Đám mây)</Text>
             </View>
           </View>
           <View style={styles.actionsCol}>

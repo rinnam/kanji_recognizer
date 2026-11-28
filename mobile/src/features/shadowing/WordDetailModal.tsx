@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { nihongoTheme } from '../../theme/nihongo-theme';
+import { VolumeIcon } from '../../components/AppIcons';
 import type { AnalyzedToken } from './types';
 import { speakJapanese } from '../../utils/speak-japanese';
 
@@ -56,7 +57,7 @@ export function WordDetailModal({ token, onClose }: WordDetailModalProps) {
             style={styles.ttsBtn}
             onPress={() => speakJapanese(token.surface)}
           >
-            <Text style={styles.ttsIcon}>🔊</Text>
+            <VolumeIcon size={16} color={nihongoTheme.colors.accent} />
             <Text style={styles.ttsText}>Nghe phát âm</Text>
           </Pressable>
         </View>
@@ -168,9 +169,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: nihongoTheme.radius.button,
     gap: 6,
-  },
-  ttsIcon: {
-    fontSize: 16,
   },
   ttsText: {
     fontSize: 14,

@@ -182,7 +182,7 @@ export default function GamesHubScreen() {
       <TopHeader
         mode="subpage"
         title="Trung tâm Game Học tập"
-        subtitle="Rèn phản xạ Từ vựng SRS, Kanji, Ngữ pháp JLPT & Đấu trường Kotoba"
+        subtitle={isPhone ? undefined : 'Phản xạ Từ vựng SRS, Ngữ pháp JLPT & Đấu trường Kotoba'}
         rightSlot={
           <Pressable
             style={({ pressed }) => [styles.softPill, pressed && styles.pressedSoft]}
@@ -256,14 +256,6 @@ export default function GamesHubScreen() {
                 </View>
 
                 <Text style={[styles.gameDesc, !isPhone && styles.gameDescDesktop]}>{g.desc}</Text>
-
-                <View style={styles.mechanicsRow}>
-                  {g.pills.map((pill) => (
-                    <View key={pill} style={styles.mechanicChip}>
-                      <Text style={styles.mechanicChipText}>{pill}</Text>
-                    </View>
-                  ))}
-                </View>
 
                 <View style={[styles.ctaBar, { backgroundColor: g.accent }]}>
                   <Text style={styles.ctaBarText}>{g.ctaLabel} →</Text>
@@ -534,22 +526,6 @@ const styles = StyleSheet.create({
   },
   gameDescDesktop: {
     flexGrow: 1,
-  },
-  mechanicsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  mechanicChip: {
-    backgroundColor: nihongoTheme.colors.chipNeutralBg,
-    borderRadius: nihongoTheme.radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  mechanicChipText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: nihongoTheme.colors.textPrimary,
   },
   ctaBar: {
     borderRadius: 12,

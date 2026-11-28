@@ -19,6 +19,7 @@ import { libraryEndpoint, loadLibrary } from '../../src/library-source';
 import { getUserScopedKey, readAuthSession } from '../../src/features/auth/auth-store';
 import { recordMeaningfulStudyAction } from '../../src/features/study-tracker/use-study-tracker';
 import { speakJapanese } from '../../src/utils/speak-japanese';
+import { useIsMobilePhone } from '../../src/utils/device';
 
 interface SimpleFolder {
   id: string;
@@ -56,6 +57,7 @@ const TABS = [
 ] as const;
 
 export default function LookupScreen() {
+  const isPhone = useIsMobilePhone();
   const params = useLocalSearchParams<{ q?: string; kind?: string }>();
   const [query, setQuery] = useState(params.q ?? '');
   const [activeTab, setActiveTab] = useState<'words' | 'kanji'>(
@@ -249,7 +251,7 @@ export default function LookupScreen() {
       <TopHeader
         mode="subpage"
         title="Tra cứu"
-        subtitle="Từ điển Nhật - Việt (Jisho + KanjiAPI + kho từ cá nhân) & vẽ tay Kanji"
+        subtitle={isPhone ? undefined : 'Tra từ Nhật–Việt & vẽ tay nhận diện Kanji'}
       />
 
       <View style={styles.searchCard}>

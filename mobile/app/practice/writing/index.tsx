@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -314,21 +315,20 @@ export default function WritingScreen() {
     <AppShell>
       <TopHeader
         mode="subpage"
-        title="Luyện viết & Sửa Email AI"
-        subtitle="Sensei AI chấm thang 100 điểm · Sửa lỗi Keigo & ngữ pháp · Viết lại chuẩn người Nhật"
+        title="Luyện viết AI"
       />
 
       <View style={styles.quotaStrip}>
         <Text style={styles.quotaText}>
           {summary.usage.writingLimitWeek === null
-            ? `${summary.subscription.planName}: Không giới hạn chấm bài AI`
-            : `${summary.subscription.planName}: Đã dùng ${summary.usage.writingUsedWeek}/${summary.usage.writingLimitWeek} bài tuần này`}
+            ? `${summary.subscription.planName} · Không giới hạn chấm AI`
+            : `${summary.subscription.planName} · Đã dùng ${summary.usage.writingUsedWeek}/${summary.usage.writingLimitWeek} bài tuần này`}
         </Text>
-        <Pressable style={styles.quotaUpgradeBtn} onPress={() => router.push('/billing?tab=plans')}>
-          <Text style={styles.quotaUpgradeText}>
-            {tier === 'pro' ? 'Xem gói' : 'Nâng cấp gói'}
-          </Text>
-        </Pressable>
+        {tier !== 'pro' ? (
+          <Pressable style={styles.quotaUpgradeBtn} onPress={() => router.push('/billing?tab=plans')}>
+            <Text style={styles.quotaUpgradeText}>Nâng cấp</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.tabsRow}>
@@ -353,8 +353,12 @@ export default function WritingScreen() {
         <View style={styles.sectionGap}>
           {/* Prompt Picker */}
           <View style={styles.card}>
-            <Text style={styles.sectionLabel}>Chọn đề luyện viết</Text>
-            <View style={styles.chipsRow}>
+            <Text style={styles.sectionLabel}>Đề luyện viết</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalChipsRow}
+            >
               {WRITING_PROMPTS.map((p) => {
                 const active = p.id === selectedPrompt.id;
                 return (
@@ -370,11 +374,15 @@ export default function WritingScreen() {
                   </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
             <Text style={styles.promptHint}>{selectedPrompt.hint}</Text>
 
-            <Text style={styles.sectionLabel}>Phong cách văn bản</Text>
-            <View style={styles.chipsRow}>
+            <Text style={styles.sectionLabel}>Văn phong</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalChipsRow}
+            >
               {STYLES.map((st) => (
                 <Pressable
                   key={st}
@@ -384,7 +392,7 @@ export default function WritingScreen() {
                   <Text style={[styles.chipText, style === st && styles.chipTextActive]}>{st}</Text>
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
           </View>
 
           {/* Editor */}
@@ -625,6 +633,11 @@ const styles = StyleSheet.create({
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 8,
+  },
+  horizontalChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   chip: {

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { nihongoTheme } from '../../theme/nihongo-theme';
+import { AlertCircleIcon, SearchNavIcon, TrashIcon, UndoIcon } from '../../components/AppIcons';
 
 declare global {
   interface Window {
@@ -189,7 +190,10 @@ export function HandwritingModal({
               </View>
             ) : loadError ? (
               <View style={styles.loadingBox}>
-                <Text style={styles.errorText}>⚠️ {loadError}</Text>
+                <View style={styles.errorRow}>
+                  <AlertCircleIcon size={16} color="#DC2626" />
+                  <Text style={styles.errorText}>{loadError}</Text>
+                </View>
               </View>
             ) : null}
 
@@ -246,7 +250,10 @@ export function HandwritingModal({
               onPress={handleDeleteLast}
               disabled={strokeCount === 0}
             >
-              <Text style={styles.toolBtnText}>↩️ Lùi 1 nét</Text>
+              <View style={styles.toolBtnInner}>
+                <UndoIcon size={15} color={nihongoTheme.colors.textPrimary} />
+                <Text style={styles.toolBtnText}>Lùi 1 nét</Text>
+              </View>
             </Pressable>
 
             <Pressable
@@ -254,14 +261,20 @@ export function HandwritingModal({
               onPress={handleClearAll}
               disabled={strokeCount === 0}
             >
-              <Text style={styles.toolBtnText}>🗑️ Xóa hết</Text>
+              <View style={styles.toolBtnInner}>
+                <TrashIcon size={15} color={nihongoTheme.colors.textPrimary} />
+                <Text style={styles.toolBtnText}>Xóa hết</Text>
+              </View>
             </Pressable>
 
             <Pressable
               style={[styles.toolBtn, styles.recognizeBtn]}
               onPress={runRecognition}
             >
-              <Text style={styles.recognizeBtnText}>🔍 Nhận diện</Text>
+              <View style={styles.toolBtnInner}>
+                <SearchNavIcon size={15} color={nihongoTheme.colors.accentHover} />
+                <Text style={styles.recognizeBtnText}>Nhận diện</Text>
+              </View>
             </Pressable>
           </View>
 
@@ -376,6 +389,11 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     fontWeight: '600',
   },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   toolbar: {
     flexDirection: 'row',
     gap: 8,
@@ -387,6 +405,11 @@ const styles = StyleSheet.create({
     backgroundColor: nihongoTheme.colors.chipNeutralBg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  toolBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   toolBtnDisabled: {
     opacity: 0.5,

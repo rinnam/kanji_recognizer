@@ -16,6 +16,7 @@ import {
   ReadingSkillIcon,
   ShieldCheckIcon,
   SpeakingSkillIcon,
+  TrophyArenaIcon,
   WritingSkillIcon,
 } from '../../src/components/AppIcons';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
@@ -356,11 +357,14 @@ export default function HomeScreen() {
           </Text>
         </View>
         <View style={styles.antiAfkStrip}>
-          <ShieldCheckIcon size={14} color={nihongoTheme.colors.successText} />
-          <Text style={styles.antiAfkText}>
+          <ShieldCheckIcon
+            size={14}
+            color={study.timerStatus === 'counting' ? nihongoTheme.colors.successText : nihongoTheme.colors.textMuted}
+          />
+          <Text style={styles.antiAfkText} numberOfLines={1}>
             {study.timerStatus === 'counting'
-              ? 'Đang tính giờ học hợp lệ (Anti-AFK bật)'
-              : 'Đang tạm dừng trên Trang chủ — vào Flashcard, Nghe, Đọc, Viết hoặc Thử thách để tính giờ thật.'}
+              ? 'Đang tính giờ học hợp lệ'
+              : 'Vào bài học bất kỳ để bắt đầu tính giờ'}
           </Text>
         </View>
         {canClaimGoalKs ? (
@@ -429,8 +433,9 @@ export default function HomeScreen() {
               void handleClaimStreakKs(claimableMilestone.days as 3 | 7 | 14 | 30)
             }
           >
+            <TrophyArenaIcon size={15} color={nihongoTheme.colors.successText} />
             <Text style={styles.milestoneClaimText}>
-              🎉 Đạt mốc chuỗi {claimableMilestone.days} ngày liên tiếp — Bấm nhận +{claimableMilestone.rewardKs} Xu KS!
+              Đạt mốc chuỗi {claimableMilestone.days} ngày liên tiếp — Nhận +{claimableMilestone.rewardKs} Xu KS!
             </Text>
           </Pressable>
         ) : null}
@@ -1116,13 +1121,16 @@ const styles = StyleSheet.create({
     color: nihongoTheme.colors.successText,
   },
   milestoneClaimBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
     backgroundColor: nihongoTheme.colors.successBg,
     borderWidth: 1,
     borderColor: nihongoTheme.colors.successText,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 9,
-    alignItems: 'center',
   },
   milestoneClaimText: {
     fontSize: 12.5,

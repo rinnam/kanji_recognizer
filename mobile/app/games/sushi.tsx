@@ -695,7 +695,7 @@ export default function KaitenSushiScreen() {
         setHearts(nextHearts);
         setCombo(0);
         triggerOrderShake();
-        triggerFloatPopup(orderTimedOut ? '-1 ❤️ HẾT GIỜ!' : '-1 ❤️ TRÔI MẤT!', 'miss');
+        triggerFloatPopup(orderTimedOut ? '-1 TIM · HẾT GIỜ!' : '-1 TIM · TRÔI MẤT!', 'miss');
         setMissedWords((prev) =>
           prev.some((m) => m.id === curOrder.id) ? prev : [...prev, curOrder],
         );
@@ -800,14 +800,14 @@ export default function KaitenSushiScreen() {
 
       triggerFloatPopup(
         fever
-          ? `+${pts} FEVER!${isFast ? ' ⚡' : ''}`
+          ? `+${pts} FEVER!${isFast ? ' · SIÊU TỐC' : ''}`
           : isFast
             ? `+${pts} SIÊU TỐC!`
             : `+${pts}đ`,
         fever ? 'fever' : isFast ? 'speed' : 'good',
       );
       setFeedback(
-        `${fever ? 'FEVER ×2! ' : ''}${isFast ? '⚡ Siêu tốc! ' : ''}Phục vụ chuẩn "${plate.word.word}" (+${pts}đ)`,
+        `${fever ? 'FEVER ×2! ' : ''}${isFast ? 'Siêu tốc! ' : ''}Phục vụ chuẩn "${plate.word.word}" (+${pts}đ)`,
       );
 
       const nextOrd = pickNextOrder(targetsRef.current, curOrder.id);
@@ -858,7 +858,7 @@ export default function KaitenSushiScreen() {
       setHearts(nextHearts);
       setCombo(0);
       triggerOrderShake();
-      triggerFloatPopup('-1 ❤️ NHẦM MÓN!', 'miss');
+      triggerFloatPopup('-1 TIM · NHẦM MÓN!', 'miss');
       setMissedWords((prev) =>
         prev.some((m) => m.id === curOrder.id) ? prev : [...prev, curOrder],
       );
@@ -963,7 +963,7 @@ export default function KaitenSushiScreen() {
               • Băng chuyền chạy mượt 60fps: chạm đúng đĩa mang chữ Nhật khớp với nghĩa khách gọi trước khi hết giờ hoặc đĩa trôi mất.
             </Text>
             <Text style={styles.rulesText}>
-              • Phục vụ trong 45% thời gian đầu nhận thưởng ⚡ SIÊU TỐC (+5đ). Giữ chuỗi 3 đĩa kích hoạt FEVER ×2 điểm!
+              • Phục vụ trong 45% thời gian đầu nhận thưởng SIÊU TỐC (+5đ). Giữ chuỗi 3 đĩa kích hoạt FEVER ×2 điểm!
             </Text>
           </View>
 
@@ -1115,7 +1115,7 @@ export default function KaitenSushiScreen() {
         <View style={styles.card}>
           <Text style={styles.summaryTitle}>Hết ca phục vụ! Tổng điểm: {score}</Text>
           <Text style={styles.summarySub}>
-            Phục vụ chuẩn {servedCount} đĩa ({speedBonusCount} lần Siêu tốc ⚡) · Kỷ lục: {bestScore}đ
+            Phục vụ chuẩn {servedCount} đĩa ({speedBonusCount} lần Siêu tốc) · Kỷ lục: {bestScore}đ
           </Text>
 
           {ksMsg ? (

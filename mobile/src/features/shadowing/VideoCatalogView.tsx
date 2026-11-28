@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { nihongoTheme } from '../../theme/nihongo-theme';
+import { AlertCircleIcon, MicIcon } from '../../components/AppIcons';
 import type { SampleVideoItem } from './types';
 
 interface VideoCatalogViewProps {
@@ -44,7 +45,10 @@ export function VideoCatalogView({
     <View style={styles.container}>
       {errorMessage ? (
         <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
+          <View style={styles.errorRow}>
+            <AlertCircleIcon size={16} color="#DC2626" />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
         </View>
       ) : null}
 
@@ -134,7 +138,7 @@ export function VideoCatalogView({
                       </View>
                     ) : null}
                     <View style={styles.onlineBadge}>
-                      <Text style={styles.onlineBadgeText}>🎬 YouTube Shadowing</Text>
+                      <Text style={styles.onlineBadgeText}>YouTube Shadowing</Text>
                     </View>
                   </View>
 
@@ -143,9 +147,12 @@ export function VideoCatalogView({
                   </Text>
 
                   {video.channel ? (
-                    <Text style={styles.channelName} numberOfLines={1}>
-                      🎙️ {video.channel}
-                    </Text>
+                    <View style={styles.channelRow}>
+                      <MicIcon size={12} color={nihongoTheme.colors.textSecondary} />
+                      <Text style={styles.channelName} numberOfLines={1}>
+                        {video.channel}
+                      </Text>
+                    </View>
                   ) : null}
 
                   {video.description ? (
@@ -416,6 +423,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: nihongoTheme.colors.textPrimary,
     lineHeight: 21,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  channelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   channelName: {
     fontSize: 12,

@@ -10,6 +10,7 @@ import {
 import Svg, { Line, Path } from 'react-native-svg';
 import { nihongoTheme } from '../../theme/nihongo-theme';
 import { libraryEndpoint } from '../../library-source';
+import { SearchNavIcon, TrashIcon, UndoIcon } from '../../components/AppIcons';
 
 interface HandwritingModalProps {
   visible: boolean;
@@ -204,7 +205,10 @@ export function HandwritingModal({
               onPress={handleDeleteLast}
               disabled={strokes.length === 0}
             >
-              <Text style={styles.toolBtnText}>↩️ Lùi 1 nét</Text>
+              <View style={styles.toolBtnInner}>
+                <UndoIcon size={15} color={nihongoTheme.colors.textPrimary} />
+                <Text style={styles.toolBtnText}>Lùi 1 nét</Text>
+              </View>
             </Pressable>
 
             <Pressable
@@ -212,16 +216,22 @@ export function HandwritingModal({
               onPress={handleClearAll}
               disabled={strokes.length === 0}
             >
-              <Text style={styles.toolBtnText}>🗑️ Xóa hết</Text>
+              <View style={styles.toolBtnInner}>
+                <TrashIcon size={15} color={nihongoTheme.colors.textPrimary} />
+                <Text style={styles.toolBtnText}>Xóa hết</Text>
+              </View>
             </Pressable>
 
             <Pressable
               style={[styles.toolBtn, styles.recognizeBtn]}
               onPress={() => void recognize(strokes)}
             >
-              <Text style={styles.recognizeBtnText}>
-                {loading ? 'Đang nhận diện...' : '🔍 Nhận diện'}
-              </Text>
+              <View style={styles.toolBtnInner}>
+                <SearchNavIcon size={15} color={nihongoTheme.colors.accentHover} />
+                <Text style={styles.recognizeBtnText}>
+                  {loading ? 'Đang nhận diện...' : 'Nhận diện'}
+                </Text>
+              </View>
             </Pressable>
           </View>
 
@@ -355,6 +365,11 @@ const styles = StyleSheet.create({
     backgroundColor: nihongoTheme.colors.chipNeutralBg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  toolBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   toolBtnDisabled: {
     opacity: 0.5,

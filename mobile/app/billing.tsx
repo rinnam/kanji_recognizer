@@ -11,7 +11,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AppShell } from '../src/components/AppShell';
 import { TopHeader } from '../src/components/TopHeader';
-import { CoinKsIcon, CrownIcon, LockClosedIcon, ShieldCheckIcon } from '../src/components/AppIcons';
+import { CoinKsIcon, CrownIcon, InfoCircleIcon, LockClosedIcon, ShieldCheckIcon } from '../src/components/AppIcons';
 import { nihongoTheme } from '../src/theme/nihongo-theme';
 import {
   claimDailyGoal,
@@ -53,6 +53,7 @@ export default function BillingScreen() {
   );
   const [cycle, setCycle] = useState<BillingCycle>('monthly');
   const [checkoutTarget, setCheckoutTarget] = useState<PlanDefinitionDto | null>(null);
+  const [antiAfkModalOpen, setAntiAfkModalOpen] = useState(false);
   const [busyAction, setBusyAction] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -163,7 +164,7 @@ export default function BillingScreen() {
       <TopHeader
         mode="subpage"
         title="Gói sử dụng & Xu Kanji Smart"
-        subtitle="Mở khóa toàn bộ Luyện nói 3D AI · Nạp Demo tức thì hoặc đổi Xu KS"
+        subtitle={isPhone ? undefined : 'Gói học & Cửa hàng đổi Xu Kanji Smart'}
       />
 
       {/* Top Account Membership + Wallet Strip */}
@@ -364,12 +365,12 @@ export default function BillingScreen() {
 
             <View style={[styles.earnGrid, isWide && styles.earnGridWide]}>
               <View style={[styles.earnBox, isWide && styles.earnBoxWide]}>
-                <Text style={styles.earnHeading}>1. Mục tiêu hôm nay ({summary.todayGoalStatus.goalMinutes} phút)</Text>
+                <Text style={styles.earnHeading}>Mục tiêu hôm nay ({summary.todayGoalStatus.goalMinutes} phút)</Text>
                 <Text style={styles.earnRule}>
                   5p → 5 KS · 10p → 10 KS · 15p → 16 KS · 30p → 35 KS · 60p → 65 KS
                 </Text>
                 <Text style={styles.earnProgress}>
-                  Hôm nay: {Math.floor(summary.todayGoalStatus.todaySeconds / 60)}/{summary.todayGoalStatus.goalMinutes} phút · Phần thưởng: +{summary.todayGoalStatus.rewardKs} KS
+                  Hôm nay: {Math.floor(summary.todayGoalStatus.todaySeconds / 60)}/{summary.todayGoalStatus.goalMinutes} phút · Thưởng: +{summary.todayGoalStatus.rewardKs} KS
                 </Text>
                 <Pressable
                   style={[
@@ -397,10 +398,10 @@ export default function BillingScreen() {
               </View>
 
               <View style={[styles.earnBox, isWide && styles.earnBoxWide]}>
-                <Text style={styles.earnHeading}>2. Thử thách hôm nay (5 câu)</Text>
+                <Text style={styles.earnHeading}>Thử thách hôm nay (5 câu)</Text>
                 <Text style={styles.earnRule}>+4 KS / câu đúng + thưởng 5/5 câu (+10 KS) → Tối đa 30 KS × hệ số</Text>
                 <Text style={styles.earnProgress}>
-                  Trạng thái hôm nay: {summary.todayChallengeClaimed ? '✓ Đã hoàn thành & nhận Xu' : 'Chưa làm hôm nay'}
+                  Hôm nay: {summary.todayChallengeClaimed ? '✓ Đã hoàn thành & nhận Xu' : 'Chưa làm hôm nay'}
                 </Text>
                 <Pressable
                   style={[
@@ -422,9 +423,9 @@ export default function BillingScreen() {
               </View>
 
               <View style={[styles.earnBox, isWide && styles.earnBoxWide]}>
-                <Text style={styles.earnHeading}>3. Game học tập (Tối đa 3 game/ngày)</Text>
+                <Text style={styles.earnHeading}>Game học tập (Tối đa 3 game/ngày)</Text>
                 <Text style={styles.earnRule}>
-                  +8 KS × hệ số / game thắng (Xếp câu ★, Blitz 60s, Công thành Momo, Sushi) → Trần 24 KS gốc/ngày
+                  +8 KS × hệ số / game thắng (Xếp câu ★, Blitz 60s, Công thành, Sushi)
                 </Text>
                 <Text style={styles.earnProgress}>
                   Đã nhận hôm nay: {summary.todayGameRewardsClaimed ?? 0}/{summary.dailyGameRewardCap ?? 3} lượt game
@@ -437,7 +438,7 @@ export default function BillingScreen() {
 
             {/* Streak Milestones */}
             <Text style={[styles.earnHeading, { marginTop: 8 }]}>
-              4. Mốc chuỗi liên tiếp (Hiện tại: {summary.streakStatus.currentStreak} ngày)
+              Mốc chuỗi liên tiếp (Hiện tại: {summary.streakStatus.currentStreak} ngày)
             </Text>
             <View style={[styles.milestoneRow, isWide && styles.milestoneRowWide]}>
               {summary.streakStatus.milestones.map((m) => (
@@ -466,10 +467,16 @@ export default function BillingScreen() {
             </View>
 
             <View style={styles.antiAfkNote}>
-              <ShieldCheckIcon size={15} color={nihongoTheme.colors.successText} />
-              <Text style={styles.antiAfkNoteText}>
-                Chống treo máy 4 lớp: Chỉ tính giờ ở màn hình học thật (Flashcard, Bài học, Tra cứu, Nghe/Đọc/Viết/Nói, Game); tự dừng sau 45s không tương tác hoặc 3 phút không có thao tác học; kiểm tra tỉnh táo mỗi 12 phút; đồng bộ nhịp 30s lên PostgreSQL.
-              </Text>
+              <View style={styles.antiAfkLeft}>
+                <ShieldCheckIcon size={15} color={nihongoTheme.colors.successText} />
+                <Text style={styles.antiAfkNoteText} numberOfLines={1}>
+                  Chỉ tính giờ học thực trên hệ thống (Anti-AFK)
+                </Text>
+              </View>
+              <Pressable style={styles.antiAfkInfoBtn} onPress={() => setAntiAfkModalOpen(true)}>
+                <InfoCircleIcon size={14} color={nihongoTheme.colors.successText} />
+                <Text style={styles.antiAfkInfoText}>Chi tiết</Text>
+              </Pressable>
             </View>
           </View>
 
@@ -675,6 +682,35 @@ export default function BillingScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Anti-AFK Rules Detail Modal */}
+      <Modal
+        visible={antiAfkModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAntiAfkModalOpen(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setAntiAfkModalOpen(false)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalBadge}>CHỐNG TREO MÁY (ANTI-AFK)</Text>
+            <Text style={styles.modalTitle}>Cách hệ thống tính giờ học thực</Text>
+            <View style={styles.afkBulletList}>
+              <Text style={styles.afkBullet}>
+                • Chỉ tính thời gian khi bạn đang học trực tiếp trên các màn hình Flashcard, Bài học, Tra cứu, Nghe/Đọc/Viết/Nói hoặc Game.
+              </Text>
+              <Text style={styles.afkBullet}>
+                • Tự động tạm dừng nếu màn hình không có tương tác hoặc bạn rời khỏi bài học.
+              </Text>
+              <Text style={styles.afkBullet}>
+                • Xác nhận tỉnh táo định kỳ để đảm bảo tiến độ và Xu KS được ghi nhận công bằng.
+              </Text>
+            </View>
+            <Pressable style={styles.modalConfirmBtn} onPress={() => setAntiAfkModalOpen(false)}>
+              <Text style={styles.modalConfirmText}>Đã hiểu</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
       </Modal>
     </AppShell>
   );
@@ -1097,18 +1133,48 @@ const styles = StyleSheet.create({
   },
   antiAfkNote: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
     backgroundColor: nihongoTheme.colors.successBg,
     borderRadius: 12,
-    padding: 11,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  antiAfkLeft: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
   },
   antiAfkNoteText: {
-    flex: 1,
+    flexShrink: 1,
     fontSize: 12,
-    lineHeight: 18,
     color: nihongoTheme.colors.successText,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  antiAfkInfoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  antiAfkInfoText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: nihongoTheme.colors.successText,
+  },
+  afkBulletList: {
+    gap: 8,
+  },
+  afkBullet: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: nihongoTheme.colors.textSecondary,
   },
   shopGrid: {
     gap: 12,

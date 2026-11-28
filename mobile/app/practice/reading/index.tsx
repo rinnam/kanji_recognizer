@@ -47,6 +47,7 @@ export default function ReadingScreen() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [quotaBlocked, setQuotaBlocked] = useState(false);
   const [reading, setReading] = useState<GeneratedReading | null>(null);
+  const [configOpen, setConfigOpen] = useState(true);
 
   const [showKana, setShowKana] = useState(false);
   const [showVi, setShowVi] = useState(false);
@@ -69,6 +70,7 @@ export default function ReadingScreen() {
 
   const applyRestoredReading = async (data: GeneratedReading) => {
     setReading(data);
+    setConfigOpen(false);
     try {
       const pKey = await getUserScopedKey(READING_PROGRESS_KEY);
       const raw = await AsyncStorage.getItem(pKey);
@@ -278,21 +280,20 @@ export default function ReadingScreen() {
     <AppShell>
       <TopHeader
         mode="subpage"
-        title="Luyện đọc AI từ SRS"
-        subtitle="AI tự lấy các từ bạn cần ôn trong Flashcard để sáng tác bài đọc hiểu JLPT kèm câu hỏi A–D"
+        title="Luyện đọc AI"
       />
 
       <View style={styles.quotaStrip}>
         <Text style={styles.quotaText}>
           {summary.usage.readingLimitWeek === null
-            ? `${summary.subscription.planName}: Không giới hạn bài đọc AI`
-            : `${summary.subscription.planName}: Đã dùng ${summary.usage.readingUsedWeek}/${summary.usage.readingLimitWeek} bài tuần này`}
+            ? `${summary.subscription.planName} · Không giới hạn bài đọc AI`
+            : `${summary.subscription.planName} · Đã dùng ${summary.usage.readingUsedWeek}/${summary.usage.readingLimitWeek} bài tuần này`}
         </Text>
-        <Pressable style={styles.quotaUpgradeBtn} onPress={() => router.push('/billing?tab=plans')}>
-          <Text style={styles.quotaUpgradeText}>
-            {tier === 'pro' ? 'Xem gói' : 'Nâng cấp gói'}
-          </Text>
-        </Pressable>
+        {tier !== 'pro' ? (
+          <Pressable style={styles.quotaUpgradeBtn} onPress={() => router.push('/billing?tab=plans')}>
+            <Text style={styles.quotaUpgradeText}>Nâng cấp</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {recoveryNotice ? (
@@ -302,57 +303,75 @@ export default function ReadingScreen() {
         </View>
       ) : null}
 
-      {/* Config Panel */}
-      <View style={styles.card}>
-        <Text style={styles.sectionLabel}>1. Chọn cấp độ JLPT</Text>
-        <View style={styles.chipsRow}>
-          {LEVELS.map((lv) => (
-            <Pressable
-              key={lv}
-              style={[styles.chip, level === lv && styles.chipActive]}
-              onPress={() => {
-                recordMeaningfulStudyAction('reading_level');
-                setLevel(lv);
-              }}
-            >
-              <Text style={[styles.chipText, level === lv && styles.chipTextActive]}>{lv}</Text>
-            </Pressable>
-          ))}
+      {/* Config Panel (auto-collapses after passage loads so reading text sits above the fold) */}
+      {reading && !configOpen ? (
+        <View style={styles.configCollapsedBar}>
+          <Text style={styles.configCollapsedText}>
+            Đang đọc: {level} · {genre}
+          </Text>
+          <Pressable style={styles.configToggleBtn} onPress={() => setConfigOpen(true)}>
+            <Text style={styles.configToggleBtnText}>Tạo bài mới</Text>
+          </Pressable>
         </View>
+      ) : (
+        <View style={styles.card}>
+          <View style={styles.rowBetween}>
+            <Text style={styles.sectionLabel}>Cấp độ JLPT</Text>
+            {reading ? (
+              <Pressable onPress={() => setConfigOpen(false)}>
+                <Text style={styles.closeConfigText}>Thu gọn</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          <View style={styles.chipsRow}>
+            {LEVELS.map((lv) => (
+              <Pressable
+                key={lv}
+                style={[styles.chip, level === lv && styles.chipActive]}
+                onPress={() => {
+                  recordMeaningfulStudyAction('reading_level');
+                  setLevel(lv);
+                }}
+              >
+                <Text style={[styles.chipText, level === lv && styles.chipTextActive]}>{lv}</Text>
+              </Pressable>
+            ))}
+          </View>
 
-        <Text style={styles.sectionLabel}>2. Chọn thể loại bài đọc</Text>
-        <View style={styles.chipsRow}>
-          {GENRES.map((g) => (
-            <Pressable
-              key={g}
-              style={[styles.chip, genre === g && styles.chipActive]}
-              onPress={() => {
-                recordMeaningfulStudyAction('reading_genre');
-                setGenre(g);
-              }}
-            >
-              <Text style={[styles.chipText, genre === g && styles.chipTextActive]}>{g}</Text>
-            </Pressable>
-          ))}
+          <Text style={styles.sectionLabel}>Thể loại bài đọc</Text>
+          <View style={styles.chipsRow}>
+            {GENRES.map((g) => (
+              <Pressable
+                key={g}
+                style={[styles.chip, genre === g && styles.chipActive]}
+                onPress={() => {
+                  recordMeaningfulStudyAction('reading_genre');
+                  setGenre(g);
+                }}
+              >
+                <Text style={[styles.chipText, genre === g && styles.chipTextActive]}>{g}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Pressable
+            style={[styles.primaryBtn, loading && styles.btnDisabled]}
+            disabled={loading}
+            onPress={() => void handleGenerate()}
+          >
+            {loading ? (
+              <View style={styles.loadingInline}>
+                <ActivityIndicator color="#FFFFFF" size="small" />
+                <Text style={styles.primaryBtnText}>Đang tạo bài đọc từ từ vựng SRS...</Text>
+              </View>
+            ) : (
+              <Text style={styles.primaryBtnText}>
+                {reading ? 'Tạo bài đọc mới từ kho SRS →' : 'Tạo bài đọc từ kho SRS →'}
+              </Text>
+            )}
+          </Pressable>
         </View>
-
-        <Pressable
-          style={[styles.primaryBtn, loading && styles.btnDisabled]}
-          disabled={loading}
-          onPress={() => void handleGenerate()}
-        >
-          {loading ? (
-            <View style={styles.loadingInline}>
-              <ActivityIndicator color="#FFFFFF" size="small" />
-              <Text style={styles.primaryBtnText}>AI đang sáng tác bài đọc từ từ vựng SRS...</Text>
-            </View>
-          ) : (
-            <Text style={styles.primaryBtnText}>
-              {reading ? 'Tạo bài đọc mới từ kho SRS →' : 'Tạo bài đọc cá nhân hóa từ SRS →'}
-            </Text>
-          )}
-        </Pressable>
-      </View>
+      )}
 
       {errorMsg ? (
         <View style={styles.errorCard}>
@@ -946,6 +965,41 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11.5,
     fontWeight: '800',
+  },
+  configCollapsedBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    backgroundColor: nihongoTheme.colors.surface,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  configCollapsedText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  configToggleBtn: {
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  configToggleBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: nihongoTheme.colors.accentHover,
+  },
+  closeConfigText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: nihongoTheme.colors.accentHover,
   },
   recoveryBanner: {
     flexDirection: 'row',

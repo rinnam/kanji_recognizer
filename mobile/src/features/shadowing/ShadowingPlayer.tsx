@@ -2,6 +2,7 @@ import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } f
 import { View, StyleSheet, Platform, Text } from 'react-native';
 import { WebView as RNWebView, type WebViewProps, type WebViewMessageEvent } from 'react-native-webview';
 import { nihongoTheme } from '../../theme/nihongo-theme';
+import { AlertCircleIcon } from '../../components/AppIcons';
 import type { PlayerRef } from './ShadowingPlayer.web';
 
 export { type PlayerRef };
@@ -202,7 +203,10 @@ export const ShadowingPlayer = forwardRef<PlayerRef, ShadowingPlayerProps>(
 
         {playerError ? (
           <View style={styles.errorOverlay}>
-            <Text style={styles.errorText}>⚠️ {playerError}</Text>
+            <View style={styles.errorRow}>
+              <AlertCircleIcon size={16} color="#FFFFFF" />
+              <Text style={styles.errorText}>{playerError}</Text>
+            </View>
           </View>
         ) : null}
       </View>
@@ -234,6 +238,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   errorText: {
     color: '#FFFFFF',

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Animated, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams } from 'expo-router';
 import { AppShell } from '../../../src/components/AppShell';
@@ -8,6 +8,7 @@ import { TopHeader } from '../../../src/components/TopHeader';
 import {
   ClockIcon,
   CoinKsIcon,
+  FilterIcon,
   HeartIcon,
   LightningBoltIcon,
   ResetIcon,
@@ -79,8 +80,10 @@ export default function GrammarPracticeScreen() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | GrammarCategory>('all');
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>('all');
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [progressMap, setProgressMap] = useState<Record<string, ProgressMark>>({});
   const [visibleCount, setVisibleCount] = useState(18);
+  const activeFilterCount = (categoryFilter !== 'all' ? 1 : 0) + (progressFilter !== 'all' ? 1 : 0);
 
   // Tab 2: Star Sentence Builder + 25s reflex timer
   const [starRoundSize, setStarRoundSize] = useState<5 | 10 | 15>(5);
@@ -334,7 +337,7 @@ export default function GrammarPracticeScreen() {
     setStarTimedOut(true);
     setStarChecked('wrong');
     setStarCombo(0);
-    setStarFloatText('⏱️ Hết giờ!');
+    setStarFloatText('Hết giờ!');
     setStarFloatOk(false);
     triggerShake(starShakeAnim);
     triggerFloat(starFloatY, starFloatOpacity);
@@ -430,7 +433,7 @@ export default function GrammarPracticeScreen() {
       setStarScore((s) => s + pts);
       setStarCombo((c) => c + 1);
       setStarCorrectCount((c) => c + 1);
-      setStarFloatText(fastBonus > 0 ? `+${pts}đ ⚡ PHẢN XẠ!` : `+${pts}đ`);
+      setStarFloatText(fastBonus > 0 ? `+${pts}đ · PHẢN XẠ!` : `+${pts}đ`);
       setStarFloatOk(true);
       triggerFloat(starFloatY, starFloatOpacity);
     } else {
@@ -600,18 +603,18 @@ export default function GrammarPracticeScreen() {
       nextScore = blitzScore + pts;
       setBlitzScore(nextScore);
       setBlitzCombo(nextCombo);
-      setBlitzFloatText(fastBonus > 0 ? `+${pts}đ ⚡` : `+${pts}đ`);
+      setBlitzFloatText(fastBonus > 0 ? `+${pts}đ · SIÊU TỐC` : `+${pts}đ`);
       setBlitzFloatTone(fastBonus > 0 ? 'fast' : 'good');
       triggerFloat(blitzFloatY, blitzFloatOpacity);
       setBlitzTip(
-        `${fastBonus > 0 ? '⚡ Phản xạ nhanh (+5đ)! ' : ''}Chính xác! ${currentBlitz.tipVi}`,
+        `${fastBonus > 0 ? 'Phản xạ nhanh (+5đ)! ' : ''}Chính xác! ${currentBlitz.tipVi}`,
       );
     } else {
       hapticError();
       nextHearts = blitzHearts - 1;
       setBlitzHearts(nextHearts);
       setBlitzCombo(0);
-      setBlitzFloatText('-1 ❤️');
+      setBlitzFloatText('-1 TIM');
       setBlitzFloatTone('miss');
       triggerShake(blitzShakeAnim);
       triggerFloat(blitzFloatY, blitzFloatOpacity);
@@ -631,7 +634,7 @@ export default function GrammarPracticeScreen() {
     const nextHearts = blitzHearts - 1;
     setBlitzHearts(nextHearts);
     setBlitzCombo(0);
-    setBlitzFloatText('-1 ❤️ HẾT GIỜ!');
+    setBlitzFloatText('-1 TIM · HẾT GIỜ!');
     setBlitzFloatTone('miss');
     triggerShake(blitzShakeAnim);
     triggerFloat(blitzFloatY, blitzFloatOpacity);
@@ -784,9 +787,6 @@ export default function GrammarPracticeScreen() {
 
   const blitzTimerColor = blitzQTimeRatio > 0.5 ? '#1B873F' : blitzQTimeRatio > 0.25 ? '#D97706' : '#DC2626';
 
-  const hidePhoneHeaderSubtitle =
-    isPhone && ((activeTab === 'star' && !starRoundDone) || (activeTab === 'blitz' && blitzPhase === 'playing'));
-
   const filterProgressPct =
     filteredPoints.length > 0
       ? Math.round((filteredMasteredCount / filteredPoints.length) * 100)
@@ -796,21 +796,16 @@ export default function GrammarPracticeScreen() {
     <AppShell>
       <TopHeader
         mode="subpage"
-        title="Ngữ pháp JLPT & Game Thực chiến"
-        subtitle={
-          hidePhoneHeaderSubtitle
-            ? undefined
-            : `Full JLPT N3 (${levelCounts.N3} mẫu) · Xếp câu Dấu Sao ★ & Bắn Trợ từ 60s`
-        }
+        title="Ngữ pháp JLPT"
       />
 
-      {/* Mode Tabs */}
+      {/* Mode Tabs — Single Compact Segmented Row */}
       <View style={styles.tabsRow}>
         {(
           [
-            ['library', 'Kho Ngữ pháp N5–N1'],
-            ['star', 'Xếp Câu Dấu Sao (★)'],
-            ['blitz', 'Trợ Từ & Chia Thể 60s'],
+            ['library', 'Kho mẫu'],
+            ['star', 'Xếp câu ★'],
+            ['blitz', 'Blitz 60s'],
           ] as const
         ).map(([key, label]) => (
           <Pressable
@@ -822,17 +817,24 @@ export default function GrammarPracticeScreen() {
             }}
           >
             {key === 'star' ? (
-              <StarPuzzleIcon size={15} color={activeTab === key ? '#FFFFFF' : '#D97706'} />
+              <StarPuzzleIcon size={14} color={activeTab === key ? '#FFFFFF' : '#D97706'} />
             ) : key === 'blitz' ? (
-              <LightningBoltIcon size={15} color={activeTab === key ? '#FFFFFF' : '#4F46E5'} />
+              <LightningBoltIcon size={14} color={activeTab === key ? '#FFFFFF' : '#4F46E5'} />
             ) : null}
-            <Text style={[styles.tabText, activeTab === key && styles.tabTextActive]}>{label}</Text>
+            <Text style={[styles.tabText, activeTab === key && styles.tabTextActive]} numberOfLines={1}>
+              {label}
+            </Text>
           </Pressable>
         ))}
       </View>
 
-      {/* Level Filter Strip with Counts */}
-      <View style={styles.levelRow}>
+      {/* Level Filter Strip — Single Horizontal Scroll Row */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.levelScroll}
+        contentContainerStyle={styles.levelRow}
+      >
         {LEVELS.map((lv) => {
           const active = levelFilter === lv;
           return (
@@ -850,85 +852,167 @@ export default function GrammarPracticeScreen() {
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       {activeTab === 'library' ? (
         <View style={styles.sectionGap}>
           <View style={styles.summaryCard}>
             <View style={styles.rowBetween}>
-              <View style={{ flex: 1, gap: 4 }}>
+              <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
                 <Text style={styles.summaryTitle}>
-                  Đã thuộc {totalMasteredCount} / {GRAMMAR_POINTS.length} mẫu (Lọc hiện tại: {filteredMasteredCount}/{filteredPoints.length})
+                  Đã thuộc {totalMasteredCount} / {GRAMMAR_POINTS.length} mẫu
+                  {activeFilterCount > 0 ? ` · Đang lọc: ${filteredPoints.length}` : ''}
                 </Text>
                 <View style={styles.libProgressTrack}>
                   <View style={[styles.libProgressFill, { width: `${filterProgressPct}%` }]} />
                 </View>
               </View>
               <Pressable style={styles.quickGameBtn} onPress={() => setActiveTab('star')}>
-                <Text style={styles.quickGameText}>Chơi Xếp câu ★ →</Text>
+                <Text style={styles.quickGameText}>Xếp câu ★ →</Text>
               </Pressable>
             </View>
 
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Tìm mẫu ngữ pháp (vd: うちに, ために, わりに, っけ, nhượng bộ)..."
-              placeholderTextColor={nihongoTheme.colors.textMuted}
-              style={styles.searchInput}
-            />
-
-            {/* Category Filter Chips */}
-            <View style={styles.subFilterRow}>
+            <View style={styles.searchFilterRow}>
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Tìm mẫu ngữ pháp (vd: うちに, ために)..."
+                placeholderTextColor={nihongoTheme.colors.textMuted}
+                style={styles.searchInputFlex}
+              />
               <Pressable
-                style={[styles.subChip, categoryFilter === 'all' && styles.subChipActive]}
-                onPress={() => setCategoryFilter('all')}
+                style={[styles.filterTriggerBtn, activeFilterCount > 0 && styles.filterTriggerBtnActive]}
+                onPress={() => setFilterModalOpen(true)}
+                accessibilityLabel="Mở bộ lọc ngữ pháp"
               >
-                <Text style={[styles.subChipText, categoryFilter === 'all' && styles.subChipTextActive]}>
-                  Tất cả nhóm
+                <FilterIcon
+                  size={15}
+                  color={activeFilterCount > 0 ? nihongoTheme.colors.accentHover : nihongoTheme.colors.textPrimary}
+                />
+                <Text
+                  style={[
+                    styles.filterTriggerText,
+                    activeFilterCount > 0 && styles.filterTriggerTextActive,
+                  ]}
+                >
+                  Lọc{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
                 </Text>
               </Pressable>
-              {GRAMMAR_CATEGORIES.map((cat) => (
-                <Pressable
-                  key={cat.key}
-                  style={[styles.subChip, categoryFilter === cat.key && styles.subChipActive]}
-                  onPress={() => setCategoryFilter(cat.key)}
-                >
-                  <Text
-                    style={[styles.subChipText, categoryFilter === cat.key && styles.subChipTextActive]}
-                  >
-                    {cat.label}
-                  </Text>
-                </Pressable>
-              ))}
             </View>
 
-            {/* Progress Filter Pills */}
-            <View style={styles.subFilterRow}>
-              {(
-                [
-                  ['all', 'Tất cả trạng thái'],
-                  ['new', 'Mới'],
-                  ['learning', 'Đang ôn'],
-                  ['mastered', 'Đã thuộc'],
-                ] as const
-              ).map(([pKey, pLabel]) => (
+            {activeFilterCount > 0 ? (
+              <View style={styles.activeFiltersRow}>
+                {categoryFilter !== 'all' ? (
+                  <View style={styles.activeFilterPill}>
+                    <Text style={styles.activeFilterText}>{CATEGORY_LABEL_MAP[categoryFilter]}</Text>
+                  </View>
+                ) : null}
+                {progressFilter !== 'all' ? (
+                  <View style={styles.activeFilterPill}>
+                    <Text style={styles.activeFilterText}>
+                      {progressFilter === 'new' ? 'Mới' : progressFilter === 'learning' ? 'Đang ôn' : 'Đã thuộc'}
+                    </Text>
+                  </View>
+                ) : null}
                 <Pressable
-                  key={pKey}
-                  style={[styles.progChip, progressFilter === pKey && styles.progChipActive]}
-                  onPress={() => setProgressFilter(pKey)}
+                  onPress={() => {
+                    setCategoryFilter('all');
+                    setProgressFilter('all');
+                  }}
                 >
-                  <Text
-                    style={[
-                      styles.progChipText,
-                      progressFilter === pKey && styles.progChipTextActive,
-                    ]}
-                  >
-                    {pLabel}
-                  </Text>
+                  <Text style={styles.clearFiltersLink}>Xóa lọc</Text>
                 </Pressable>
-              ))}
-            </View>
+              </View>
+            ) : null}
           </View>
+
+          <Modal
+            visible={filterModalOpen}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setFilterModalOpen(false)}
+          >
+            <Pressable style={styles.filterModalOverlay} onPress={() => setFilterModalOpen(false)}>
+              <Pressable style={styles.filterModalCard} onPress={(e) => e.stopPropagation()}>
+                <View style={styles.filterModalHeader}>
+                  <Text style={styles.filterModalTitle}>Bộ lọc ngữ pháp</Text>
+                  <Pressable onPress={() => setFilterModalOpen(false)}>
+                    <Text style={styles.filterModalClose}>Đóng</Text>
+                  </Pressable>
+                </View>
+
+                <Text style={styles.filterModalLabel}>Nhóm ý nghĩa</Text>
+                <View style={styles.subFilterRow}>
+                  <Pressable
+                    style={[styles.subChip, categoryFilter === 'all' && styles.subChipActive]}
+                    onPress={() => setCategoryFilter('all')}
+                  >
+                    <Text style={[styles.subChipText, categoryFilter === 'all' && styles.subChipTextActive]}>
+                      Tất cả nhóm
+                    </Text>
+                  </Pressable>
+                  {GRAMMAR_CATEGORIES.map((cat) => (
+                    <Pressable
+                      key={cat.key}
+                      style={[styles.subChip, categoryFilter === cat.key && styles.subChipActive]}
+                      onPress={() => setCategoryFilter(cat.key)}
+                    >
+                      <Text
+                        style={[styles.subChipText, categoryFilter === cat.key && styles.subChipTextActive]}
+                      >
+                        {cat.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <Text style={styles.filterModalLabel}>Trạng thái học</Text>
+                <View style={styles.subFilterRow}>
+                  {(
+                    [
+                      ['all', 'Tất cả trạng thái'],
+                      ['new', 'Mới'],
+                      ['learning', 'Đang ôn'],
+                      ['mastered', 'Đã thuộc'],
+                    ] as const
+                  ).map(([pKey, pLabel]) => (
+                    <Pressable
+                      key={pKey}
+                      style={[styles.progChip, progressFilter === pKey && styles.progChipActive]}
+                      onPress={() => setProgressFilter(pKey)}
+                    >
+                      <Text
+                        style={[
+                          styles.progChipText,
+                          progressFilter === pKey && styles.progChipTextActive,
+                        ]}
+                      >
+                        {pLabel}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <View style={styles.filterModalActions}>
+                  <Pressable
+                    style={styles.filterResetBtn}
+                    onPress={() => {
+                      setCategoryFilter('all');
+                      setProgressFilter('all');
+                    }}
+                  >
+                    <Text style={styles.filterResetText}>Đặt lại</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.filterApplyBtn}
+                    onPress={() => setFilterModalOpen(false)}
+                  >
+                    <Text style={styles.filterApplyText}>Xem {filteredPoints.length} mẫu</Text>
+                  </Pressable>
+                </View>
+              </Pressable>
+            </Pressable>
+          </Modal>
 
           {filteredPoints.length === 0 ? (
             <View style={styles.card}>
@@ -1234,7 +1318,7 @@ export default function GrammarPracticeScreen() {
                     {starChecked === 'correct'
                       ? '✓ Chính xác! Vị trí ★ là: ' + currentStar.parts[currentStar.starIndex]
                       : starTimedOut
-                        ? `⏱️ Hết giờ! Thứ tự đúng: ${currentStar.prefixJa} ${currentStar.parts.join(' | ')} ${currentStar.suffixJa}`
+                        ? `Hết giờ! Thứ tự đúng: ${currentStar.prefixJa} ${currentStar.parts.join(' | ')} ${currentStar.suffixJa}`
                         : `✗ Thứ tự đúng: ${currentStar.prefixJa} ${currentStar.parts.join(' | ')} ${currentStar.suffixJa}`}
                   </Text>
                   <Text style={styles.feedbackBody}>{currentStar.explanationVi}</Text>
@@ -1504,19 +1588,21 @@ export default function GrammarPracticeScreen() {
 const styles = StyleSheet.create({
   tabsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
+    gap: 6,
+    marginBottom: 10,
   },
   tabPill: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 5,
     backgroundColor: nihongoTheme.colors.surface,
     borderWidth: 1,
     borderColor: nihongoTheme.colors.borderWarm,
     borderRadius: nihongoTheme.radius.pill,
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     paddingVertical: 9,
   },
   tabPillActive: {
@@ -1531,11 +1617,15 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#FFFFFF',
   },
+  levelScroll: {
+    flexGrow: 0,
+    marginBottom: 12,
+  },
   levelRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: 7,
-    marginBottom: 14,
+    paddingRight: 4,
   },
   lvChip: {
     backgroundColor: nihongoTheme.colors.surface,
@@ -1565,8 +1655,8 @@ const styles = StyleSheet.create({
     borderRadius: nihongoTheme.radius.card,
     borderWidth: 1,
     borderColor: nihongoTheme.colors.borderWarm,
-    padding: 16,
-    gap: 12,
+    padding: 14,
+    gap: 10,
     ...nihongoTheme.shadow.card,
   },
   rowBetween: {
@@ -1577,7 +1667,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   summaryTitle: {
-    fontSize: 15.5,
+    fontSize: 15,
     fontWeight: '800',
     color: nihongoTheme.colors.textPrimary,
   },
@@ -1609,15 +1699,136 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
-  searchInput: {
+  searchFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  searchInputFlex: {
+    flex: 1,
+    minWidth: 0,
     backgroundColor: nihongoTheme.colors.surfaceSubtle,
     borderWidth: 1,
     borderColor: nihongoTheme.colors.borderWarm,
     borderRadius: nihongoTheme.radius.button,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     fontSize: 13.5,
     color: nihongoTheme.colors.textPrimary,
+  },
+  filterTriggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: nihongoTheme.colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    borderRadius: nihongoTheme.radius.button,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  filterTriggerBtnActive: {
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderColor: nihongoTheme.colors.accent,
+  },
+  filterTriggerText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  filterTriggerTextActive: {
+    color: nihongoTheme.colors.accentHover,
+  },
+  activeFiltersRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+  },
+  activeFilterPill: {
+    backgroundColor: nihongoTheme.colors.accentSoft,
+    borderRadius: nihongoTheme.radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  activeFilterText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: nihongoTheme.colors.accentHover,
+  },
+  clearFiltersLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: nihongoTheme.colors.accentHover,
+    paddingHorizontal: 4,
+  },
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(20, 16, 12, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  filterModalCard: {
+    width: '100%',
+    maxWidth: 460,
+    backgroundColor: nihongoTheme.colors.surface,
+    borderRadius: nihongoTheme.radius.card,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+    padding: 18,
+    gap: 12,
+    ...nihongoTheme.shadow.dock,
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  filterModalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textPrimary,
+  },
+  filterModalClose: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.accentHover,
+  },
+  filterModalLabel: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  filterModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  filterResetBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: nihongoTheme.radius.button,
+    borderWidth: 1,
+    borderColor: nihongoTheme.colors.borderWarm,
+  },
+  filterResetText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: nihongoTheme.colors.textSecondary,
+  },
+  filterApplyBtn: {
+    flex: 1,
+    backgroundColor: nihongoTheme.colors.accent,
+    borderRadius: nihongoTheme.radius.button,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterApplyText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   subFilterRow: {
     flexDirection: 'row',

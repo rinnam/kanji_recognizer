@@ -4,6 +4,7 @@ import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { AppShell } from '../../src/components/AppShell';
 import { TopHeader } from '../../src/components/TopHeader';
 import { CatFrame } from '../../src/CatFrame';
+import { CrownIcon, TrophyArenaIcon } from '../../src/components/AppIcons';
 import { nihongoTheme } from '../../src/theme/nihongo-theme';
 import { libraryEndpoint } from '../../src/library-source';
 import { readAuthSession } from '../../src/features/auth/auth-store';
@@ -183,9 +184,10 @@ export default function KotobaLiveRoomScreen() {
             <Text style={styles.cardTitle}>Bảng xếp hạng</Text>
             {players.map((p, idx) => (
               <View key={p.id} style={styles.playerRow}>
-                <Text style={styles.playerName}>
-                  #{idx + 1} {p.name} {p.isHost ? '👑' : ''}
-                </Text>
+                <View style={styles.playerNameRow}>
+                  <Text style={styles.playerName}>#{idx + 1} {p.name}</Text>
+                  {p.isHost ? <CrownIcon size={13} color={nihongoTheme.colors.accentHover} /> : null}
+                </View>
                 <Text style={styles.playerScore}>{p.score}đ</Text>
               </View>
             ))}
@@ -228,7 +230,10 @@ export default function KotobaLiveRoomScreen() {
               <View style={StyleSheet.absoluteFill} pointerEvents="none">
                 <CatFrame color="#A89A8E" />
               </View>
-              <Text style={styles.bigTitle}>🏆 Trận đấu kết thúc!</Text>
+              <View style={styles.trophyRow}>
+                <TrophyArenaIcon size={24} color={nihongoTheme.colors.accentHover} />
+                <Text style={styles.bigTitle}>Trận đấu kết thúc!</Text>
+              </View>
               <Text style={styles.subText}>Người dẫn đầu: {players[0]?.name ?? '—'} ({players[0]?.score ?? 0}đ)</Text>
               <Pressable style={styles.primaryBtn} onPress={() => sendMsg({ type: 'start' })}>
                 <Text style={styles.primaryBtnText}>Chơi lại ván mới</Text>
@@ -409,6 +414,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: nihongoTheme.colors.textPrimary,
+  },
+  playerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  trophyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   playerScore: {
     fontSize: 13,

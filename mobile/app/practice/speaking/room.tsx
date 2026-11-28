@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AppShell } from '../../../src/components/AppShell';
 import { TopHeader } from '../../../src/components/TopHeader';
+import { LockClosedIcon, TicketIcon } from '../../../src/components/AppIcons';
 import { nihongoTheme } from '../../../src/theme/nihongo-theme';
 import { libraryEndpoint } from '../../../src/library-source';
 import {
@@ -950,7 +951,10 @@ export default function Interview3DRoomScreen() {
           subtitle="Tính năng dành riêng cho trình duyệt máy tính"
         />
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>🔒 Đã khóa trên điện thoại</Text>
+          <View style={styles.summaryTitleRow}>
+            <LockClosedIcon size={17} color={nihongoTheme.colors.textPrimary} />
+            <Text style={styles.summaryTitle}>Đã khóa trên điện thoại</Text>
+          </View>
           <Text style={styles.summaryScore}>
             Hãy mở Kanji Smart trên trình duyệt máy tính (Web PC) để trải nghiệm không gian 3D và hội thoại cùng AI.
           </Text>
@@ -971,7 +975,10 @@ export default function Interview3DRoomScreen() {
           subtitle="Tính năng yêu cầu gói Plus / Pro AI hoặc vé đổi bằng Xu KS"
         />
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>🔒 Chưa mở khóa kịch bản này</Text>
+          <View style={styles.summaryTitleRow}>
+            <LockClosedIcon size={17} color={nihongoTheme.colors.textPrimary} />
+            <Text style={styles.summaryTitle}>Chưa mở khóa kịch bản này</Text>
+          </View>
           <Text style={styles.summaryScore}>{accessBlockedMsg}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
             <Pressable style={styles.primaryBtn} onPress={() => router.replace('/billing?tab=plans')}>
@@ -1007,9 +1014,12 @@ export default function Interview3DRoomScreen() {
 
       {accessMode === 'free_ticket' ? (
         <View style={styles.ticketNoticeBar}>
-          <Text style={styles.ticketNoticeText}>
-            🎟️ {viaLabel || 'Đang dùng vé đổi từ Xu KS'} · Chế độ chấm cơ bản (nâng cấp Pro AI để mở trọn vẹn Rubric PREP/STAR &amp; không giới hạn lượt).
-          </Text>
+          <View style={styles.ticketLeftRow}>
+            <TicketIcon size={16} color={nihongoTheme.colors.accentHover} />
+            <Text style={styles.ticketNoticeText}>
+              {viaLabel || 'Đang dùng vé đổi từ Xu KS'} · Chế độ chấm cơ bản (nâng cấp Pro AI để mở trọn vẹn Rubric PREP/STAR &amp; không giới hạn lượt).
+            </Text>
+          </View>
           <Pressable onPress={() => router.push('/billing?tab=plans')}>
             <Text style={styles.ticketUpgradeLink}>Nâng cấp Pro →</Text>
           </Pressable>
@@ -2130,5 +2140,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: nihongoTheme.colors.accent,
+  },
+  summaryTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  ticketLeftRow: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
   },
 });

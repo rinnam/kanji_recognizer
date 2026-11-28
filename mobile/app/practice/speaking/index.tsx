@@ -316,7 +316,10 @@ export default function SpeakingLobbyScreen() {
           subtitle="Tính năng dành riêng cho trình duyệt máy tính"
         />
         <View style={styles.cvCard}>
-          <Text style={styles.cardTitle}>🔒 Đã khóa trên giao diện điện thoại</Text>
+          <View style={styles.cardTitleRow}>
+            <LockClosedIcon size={17} color={nihongoTheme.colors.textPrimary} />
+            <Text style={styles.cardTitle}>Đã khóa trên giao diện điện thoại</Text>
+          </View>
           <Text style={styles.cardDesc}>
             Không gian Phỏng vấn &amp; Roleplay 3D cùng AI yêu cầu màn hình rộng và âm thanh trình duyệt máy tính để thao tác với bối cảnh 3D chuẩn Nhật. Hãy mở Kanji Smart trên máy tính (Web PC) để luyện tập tính năng này nhé!
           </Text>
@@ -479,12 +482,13 @@ export default function SpeakingLobbyScreen() {
                   >
                     {parsingCv ? (
                       <ActivityIndicator size="small" color={nihongoTheme.colors.accentHover} />
+                    ) : tier === 'pro' ? (
+                      <Text style={styles.uploadBtnText}>+ Tải lên CV (PDF / Ảnh / TXT)</Text>
                     ) : (
-                      <Text style={styles.uploadBtnText}>
-                        {tier === 'pro'
-                          ? '+ Tải lên CV (PDF / Ảnh / TXT)'
-                          : '🔒 Tải lên CV (Chỉ gói Pro AI)'}
-                      </Text>
+                      <View style={styles.uploadBtnInner}>
+                        <LockClosedIcon size={13} color={nihongoTheme.colors.accentHover} />
+                        <Text style={styles.uploadBtnText}>Tải lên CV (Chỉ gói Pro AI)</Text>
+                      </View>
                     )}
                   </Pressable>
                   {selectedScenario ? (
@@ -765,6 +769,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: nihongoTheme.colors.accentHover,
+  },
+  uploadBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   cvTitle: {
     fontSize: 15,
