@@ -45,17 +45,21 @@ export function AppShell({ children, scroll = true, contentStyle }: AppShellProp
         {scroll ? (
           <ScrollView
             style={styles.flex}
-            contentContainerStyle={[
-              styles.scrollContent,
-              isDesktop ? styles.scrollContentDesktop : styles.scrollContentMobile,
-              !isDesktop && { paddingBottom: mobileBottomPad },
-              contentStyle,
-            ]}
+            contentContainerStyle={
+              isAuthPage
+                ? [styles.authScrollContent, contentStyle]
+                : [
+                    styles.scrollContent,
+                    isDesktop ? styles.scrollContentDesktop : styles.scrollContentMobile,
+                    !isDesktop && { paddingBottom: mobileBottomPad },
+                    contentStyle,
+                  ]
+            }
             nestedScrollEnabled
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={Platform.OS !== 'web'}
           >
-            <View style={styles.container}>{children}</View>
+            <View style={[styles.container, isAuthPage && styles.authContainer]}>{children}</View>
           </ScrollView>
         ) : (
           <View style={styles.flex}>
@@ -95,5 +99,17 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: nihongoTheme.layout.maxWidth,
     alignSelf: 'center',
+  },
+  authScrollContent: {
+    flexGrow: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  authContainer: {
+    maxWidth: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

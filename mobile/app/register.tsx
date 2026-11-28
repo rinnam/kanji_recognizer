@@ -102,6 +102,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 420,
+    alignSelf: 'center',
     backgroundColor: nihongoTheme.colors.surface,
     borderRadius: nihongoTheme.radius.card,
     borderWidth: 1,
