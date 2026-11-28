@@ -1,16 +1,29 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { extractBearerUser } from '../services/auth.service.js';
+import { extractBearerUser, resolveAuthenticatedUser } from '../services/auth.service.js';
 import {
   activateDemoSubscription,
   claimDailyChallengeReward,
   claimDailyGameReward,
   claimDailyGoalReward,
   claimStreakMilestoneReward,
+  confirmCheckoutOrder,
   getMembershipSummary,
+  initiateCheckoutOrder,
   recordStudyHeartbeat,
   redeemKsShopItem,
 } from '../services/membership.service.js';
+
+const initiateCheckoutSchema = z.object({
+  tier: z.enum(['plus', 'pro']),
+  billingCycle: z.enum(['monthly', 'yearly']).default('monthly'),
+  provider: z.enum(['bank_transfer', 'momo', 'vnpay']).default('bank_transfer'),
+});
+
+const confirmCheckoutSchema = z.object({
+  orderId: z.string().min(4).max(120),
+  dateKey: z.string().optional(),
+});
 
 const demoCheckoutSchema = z.object({
   tier: z.enum(['free', 'plus', 'pro']),
@@ -61,6 +74,22 @@ export const membershipRoutes: FastifyPluginAsync = async (app) => {
     const q = (req.query ?? {}) as { dateKey?: string };
     const summary = await getMembershipSummary(user.id, q.dateKey);
     return reply.send(summary);
+  });
+
+  app.post('/membership/checkout/initiate', async (req, reply) => {
+    const user = await resolveAuthenticatedUser(req.headers.authorization);
+    if (!user) return reply.status(401).send({ message: 'Vui lòng đăng nhập để đăng ký gói.' });
+    const parsed = initiateCheckoutSchema.parse(req.body ?? {});
+    const order = await initiateCheckoutOrder(user.id, parsed);
+    return reply.status(201).send({ ok: true, order });
+  });
+
+  app.post('/membership/checkout/confirm', async (req, reply) => {
+    const user = await resolveAuthenticatedUser(req.headers.authorization);
+    if (!user) return reply.status(401).send({ message: 'Vui lòng đăng nhập để thanh toán.' });
+    const parsed = confirmCheckoutSchema.parse(req.body ?? {});
+    const result = await confirmCheckoutOrder(user.id, parsed.orderId, parsed.dateKey);
+    return reply.send(result);
   });
 
   app.post('/membership/demo-checkout', async (req, reply) => {

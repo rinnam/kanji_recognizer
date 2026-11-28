@@ -10,8 +10,42 @@ import {
 
 export type SubscriptionTier = 'free' | 'plus' | 'pro';
 export type BillingCycle = 'monthly' | 'yearly';
+export type CheckoutProvider = 'bank_transfer' | 'momo' | 'vnpay';
 export type ShopItemCode = 'ticket_life' | 'ticket_work' | 'combo_life_4' | 'trial_plus_7d';
 export type GameRewardKey = 'grammar_star' | 'grammar_blitz' | 'momo_boss' | 'sushi_match';
+
+export interface CheckoutOrderDto {
+  id: string;
+  orderCode: string;
+  tier: 'plus' | 'pro';
+  planName: string;
+  billingCycle: BillingCycle;
+  durationDays: number;
+  amountVnd: number;
+  provider: CheckoutProvider;
+  status: 'pending';
+  transferContent: string;
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+  expiresAtPreview: string;
+  paymentHoldUntil: string;
+  createdAt: string;
+}
+
+export interface CheckoutReceiptDto {
+  id: string;
+  orderCode: string;
+  tier: 'plus' | 'pro';
+  planName: string;
+  billingCycle: BillingCycle;
+  amountVnd: number;
+  provider: string;
+  status: 'paid';
+  paidAt: string;
+  startedAt: string;
+  expiresAt: string;
+}
 
 export interface PlanDefinitionDto {
   tier: SubscriptionTier;
@@ -337,6 +371,36 @@ subscribeAuthSession((next) => {
   notifyListeners();
   void refreshMembership(true);
 });
+
+export async function initiateCheckout(
+  tier: 'plus' | 'pro',
+  billingCycle: BillingCycle,
+  provider: CheckoutProvider,
+): Promise<CheckoutOrderDto> {
+  const res = await authedRequest<{ ok: boolean; order: CheckoutOrderDto }>(
+    '/membership/checkout/initiate',
+    'POST',
+    { tier, billingCycle, provider },
+  );
+  return res.order;
+}
+
+export async function confirmCheckout(
+  orderId: string,
+): Promise<{ receipt: CheckoutReceiptDto; summary: MembershipSummaryDto }> {
+  const res = await authedRequest<{
+    ok: boolean;
+    receipt: CheckoutReceiptDto;
+    summary: MembershipSummaryDto;
+  }>('/membership/checkout/confirm', 'POST', {
+    orderId,
+    dateKey: getMembershipLocalDateKey(),
+  });
+  const uid = (await resolveSession())?.user.id ?? activeUid;
+  saveSummaryCache(uid, res.summary);
+  notifyListeners();
+  return { receipt: res.receipt, summary: res.summary };
+}
 
 export async function demoCheckout(
   tier: SubscriptionTier,

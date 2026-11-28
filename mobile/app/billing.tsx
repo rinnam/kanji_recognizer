@@ -13,10 +13,10 @@ import { AppShell } from '../src/components/AppShell';
 import { TopHeader } from '../src/components/TopHeader';
 import { CoinKsIcon, CrownIcon, InfoCircleIcon, LockClosedIcon, ShieldCheckIcon } from '../src/components/AppIcons';
 import { nihongoTheme } from '../src/theme/nihongo-theme';
+import { CheckoutFlowModal } from '../src/features/membership/CheckoutFlowModal';
 import {
   claimDailyGoal,
   claimStreakMilestone,
-  demoCheckout,
   redeemShopItem,
   useMembership,
   type BillingCycle,
@@ -71,26 +71,6 @@ export default function BillingScreen() {
   useEffect(() => {
     void refresh();
   }, []);
-
-  const handleConfirmDemoCheckout = async () => {
-    if (!checkoutTarget || busyAction) return;
-    setBusyAction(true);
-    setErrorMsg(null);
-    setNotice(null);
-    try {
-      const updated = await demoCheckout(checkoutTarget.tier, cycle);
-      setCheckoutTarget(null);
-      setNotice(
-        `Kích hoạt Demo thành công: Gói ${updated.subscription.planName}${
-          updated.subscription.demoOrderCode ? ` (Mã: ${updated.subscription.demoOrderCode})` : ''
-        }!`,
-      );
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Không kích hoạt được gói demo.');
-    } finally {
-      setBusyAction(false);
-    }
-  };
 
   const handleRedeem = async (item: ShopItemDto) => {
     if (busyAction) return;
@@ -306,7 +286,14 @@ export default function BillingScreen() {
                   ? 'Miễn phí trọn đời'
                   : cycle === 'yearly'
                     ? `Thanh toán ${formatVnd(plan.yearlyPriceVnd)} / 12 tháng`
-                    : 'Gia hạn linh hoạt từng tháng (Demo)';
+                    : 'Gia hạn linh hoạt từng tháng';
+              const isIncluded =
+                (tier === 'pro' && plan.tier === 'plus') ||
+                (plan.tier === 'free' && tier !== 'free');
+              const isLifetimeCurrent = isCurrent && isLifetimeSub;
+              const canRenewCurrent = isCurrent && !isLifetimeSub && plan.tier !== 'free';
+              const btnDisabled =
+                isLifetimeCurrent || isIncluded || plan.tier === 'free' || busyAction;
 
               return (
                 <View
@@ -346,17 +333,12 @@ export default function BillingScreen() {
                     style={[
                       styles.planBtn,
                       isPro && styles.planBtnPro,
-                      (isCurrent || plan.tier === 'free' || (tier === 'pro' && plan.tier === 'plus')) &&
-                        styles.planBtnDisabled,
+                      btnDisabled && styles.planBtnDisabled,
                     ]}
-                    disabled={
-                      isCurrent ||
-                      plan.tier === 'free' ||
-                      (tier === 'pro' && plan.tier === 'plus') ||
-                      busyAction
-                    }
+                    disabled={btnDisabled}
                     onPress={() => {
                       if (plan.tier !== 'free') {
+                        setErrorMsg(null);
                         setCheckoutTarget(plan);
                       }
                     }}
@@ -364,15 +346,18 @@ export default function BillingScreen() {
                     <Text
                       style={[
                         styles.planBtnText,
-                        (isCurrent || plan.tier === 'free' || (tier === 'pro' && plan.tier === 'plus')) &&
-                          styles.planBtnTextDisabled,
+                        btnDisabled && styles.planBtnTextDisabled,
                       ]}
                     >
-                      {isCurrent
+                      {isLifetimeCurrent || (plan.tier === 'free' && tier === 'free')
                         ? 'Đang sử dụng gói này'
-                        : plan.tier === 'free' || (tier === 'pro' && plan.tier === 'plus')
-                          ? 'Đã bao gồm trong gói hiện tại'
-                          : `Kích hoạt ${plan.name} (Demo)`}
+                        : canRenewCurrent
+                          ? 'Gia hạn thêm gói này'
+                          : isIncluded
+                            ? 'Đã bao gồm trong gói hiện tại'
+                            : tier === 'plus' && plan.tier === 'pro'
+                              ? `Nâng cấp ${plan.name}`
+                              : `Đăng ký ${plan.name}`}
                     </Text>
                   </Pressable>
                 </View>
@@ -651,63 +636,18 @@ export default function BillingScreen() {
         </View>
       )}
 
-      {/* Demo Payment Modal */}
-      <Modal
+      <CheckoutFlowModal
         visible={Boolean(checkoutTarget)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCheckoutTarget(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalBadge}>Thanh toán Demo · Kanji Smart</Text>
-            <Text style={styles.modalTitle}>
-              Kích hoạt gói {checkoutTarget?.name}
-            </Text>
-            <Text style={styles.modalSubtitle}>
-              Chu kỳ: {cycle === 'yearly' ? '12 tháng (Tiết kiệm 25%)' : '1 tháng'} · Số tiền:{' '}
-              <Text style={{ fontWeight: '800', color: nihongoTheme.colors.accentHover }}>
-                {checkoutTarget
-                  ? formatVnd(
-                      cycle === 'yearly'
-                        ? checkoutTarget.yearlyPriceVnd
-                        : checkoutTarget.monthlyPriceVnd,
-                    )
-                  : '0đ'}
-              </Text>
-            </Text>
-
-            <View style={styles.qrMockBox}>
-              <Text style={styles.qrMockTitle}>XÁC NHẬN DÙNG THỬ</Text>
-              <Text style={styles.qrMockCode}>KANJI-SMART-{checkoutTarget?.tier.toUpperCase()}-{cycle.toUpperCase()}</Text>
-              <Text style={styles.qrMockNote}>
-                Chế độ trải nghiệm: kích hoạt trực tiếp gói cước cho tài khoản hiện tại, không thu phí.
-              </Text>
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable
-                style={styles.modalCancelBtn}
-                disabled={busyAction}
-                onPress={() => setCheckoutTarget(null)}
-              >
-                <Text style={styles.modalCancelText}>Đóng</Text>
-              </Pressable>
-              <Pressable
-                style={styles.modalConfirmBtn}
-                disabled={busyAction}
-                onPress={() => void handleConfirmDemoCheckout()}
-              >
-                {busyAction ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.modalConfirmText}>Xác nhận thanh toán Demo</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        plan={checkoutTarget}
+        initialCycle={cycle}
+        currentTier={tier}
+        onClose={() => setCheckoutTarget(null)}
+        onCompleted={(_updatedSummary, receipt) => {
+          setNotice(
+            `Thanh toán thành công gói ${receipt.planName} (Mã đơn: ${receipt.orderCode})!`,
+          );
+        }}
+      />
 
       {/* Anti-AFK Rules Detail Modal */}
       <Modal

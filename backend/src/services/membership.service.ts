@@ -1054,6 +1054,230 @@ export async function getMembershipSummary(userId: string, dateKeyRaw?: string) 
   };
 }
 
+export type CheckoutProvider = 'bank_transfer' | 'momo' | 'vnpay';
+
+const CHECKOUT_PROVIDER_NOTES: Record<CheckoutProvider, string> = {
+  bank_transfer: 'Chuyển khoản VietQR',
+  momo: 'Ví MoMo',
+  vnpay: 'VNPay QR',
+};
+
+export async function initiateCheckoutOrder(
+  userId: string,
+  input: {
+    tier: 'plus' | 'pro';
+    billingCycle: BillingCycle;
+    provider: CheckoutProvider;
+  },
+) {
+  await ensureMembershipTables();
+  await ensureAdminAndLessonTables();
+
+  const plan = PLAN_CATALOG[input.tier];
+  const amountVnd =
+    input.billingCycle === 'yearly' ? plan.yearlyPriceVnd : plan.monthlyPriceVnd;
+  const durationDays = input.billingCycle === 'yearly' ? 365 : 30;
+  const orderId = `order_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+  const orderCode = `KS-ORD-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+  const now = new Date();
+
+  const existingSub = await pool.query<{
+    tier: string;
+    expires_at: Date | null;
+    deleted_at: Date | null;
+  }>(
+    `SELECT tier, expires_at, deleted_at FROM user_subscriptions WHERE user_id = $1`,
+    [userId],
+  );
+  const prev = existingSub.rows[0];
+  const isSameActiveFinite =
+    prev &&
+    prev.deleted_at === null &&
+    prev.tier === input.tier &&
+    prev.expires_at !== null &&
+    prev.expires_at.getTime() > now.getTime() &&
+    prev.expires_at.getUTCFullYear() < 2090;
+  const baseDate = isSameActiveFinite && prev?.expires_at ? prev.expires_at : now;
+  const expiresAtPreview = new Date(baseDate.getTime() + durationDays * 86_400_000);
+  const paymentHoldUntil = new Date(now.getTime() + 15 * 60_000);
+
+  await pool.query(
+    `INSERT INTO payment_orders
+      (id, order_code, user_id, tier, billing_cycle, amount_vnd, status, is_demo, provider, note, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, 'pending', false, $7, $8, $3)`,
+    [
+      orderId,
+      orderCode,
+      userId,
+      input.tier,
+      input.billingCycle,
+      amountVnd,
+      input.provider,
+      `Thanh toán ${CHECKOUT_PROVIDER_NOTES[input.provider]} gói ${plan.name} (${durationDays} ngày)`,
+    ],
+  );
+
+  return {
+    id: orderId,
+    orderCode,
+    tier: input.tier,
+    planName: plan.name,
+    billingCycle: input.billingCycle,
+    durationDays,
+    amountVnd,
+    provider: input.provider,
+    status: 'pending' as const,
+    transferContent: `KANJISMART ${orderCode}`,
+    bankName: 'Vietcombank (VCB)',
+    accountNumber: '1028 6688 9999',
+    accountHolder: 'KANJI SMART EDUCATION',
+    expiresAtPreview: expiresAtPreview.toISOString(),
+    paymentHoldUntil: paymentHoldUntil.toISOString(),
+    createdAt: now.toISOString(),
+  };
+}
+
+export async function confirmCheckoutOrder(
+  userId: string,
+  orderId: string,
+  dateKey?: string,
+) {
+  await ensureMembershipTables();
+  await ensureAdminAndLessonTables();
+
+  const client = await pool.connect();
+  let receipt: {
+    id: string;
+    orderCode: string;
+    tier: 'plus' | 'pro';
+    planName: string;
+    billingCycle: BillingCycle;
+    amountVnd: number;
+    provider: string;
+    status: 'paid';
+    paidAt: string;
+    startedAt: string;
+    expiresAt: string;
+  };
+
+  try {
+    await client.query('BEGIN');
+    const orderRes = await client.query<{
+      id: string;
+      order_code: string;
+      user_id: string;
+      tier: string;
+      billing_cycle: string;
+      amount_vnd: number;
+      status: string;
+      provider: string;
+      paid_at: Date | null;
+    }>(
+      `SELECT id, order_code, user_id, tier, billing_cycle, amount_vnd, status, provider, paid_at
+       FROM payment_orders
+       WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+       FOR UPDATE`,
+      [orderId, userId],
+    );
+    const order = orderRes.rows[0];
+    if (!order) {
+      throw new NotFoundError('Không tìm thấy đơn thanh toán.');
+    }
+    if (order.status === 'refunded') {
+      throw new ValidationFailedError('Đơn thanh toán này đã được hoàn tiền.');
+    }
+
+    const orderTier: 'plus' | 'pro' = order.tier === 'pro' ? 'pro' : 'plus';
+    const orderCycle: BillingCycle = order.billing_cycle === 'yearly' ? 'yearly' : 'monthly';
+    const durationDays = orderCycle === 'yearly' ? 365 : 30;
+    const plan = PLAN_CATALOG[orderTier];
+
+    const subRes = await client.query<{
+      tier: string;
+      started_at: Date;
+      expires_at: Date | null;
+      deleted_at: Date | null;
+    }>(
+      `SELECT tier, started_at, expires_at, deleted_at
+       FROM user_subscriptions
+       WHERE user_id = $1
+       FOR UPDATE`,
+      [userId],
+    );
+    const existingSub = subRes.rows[0];
+
+    let paidAtDate = order.paid_at ?? new Date();
+    let startedAtDate = existingSub?.started_at ?? new Date();
+    let expiresAtDate =
+      existingSub?.expires_at ?? new Date(Date.now() + durationDays * 86_400_000);
+
+    if (order.status !== 'paid') {
+      const paidUpdate = await client.query<{ paid_at: Date }>(
+        `UPDATE payment_orders
+         SET status = 'paid',
+             paid_at = COALESCE(paid_at, now()),
+             updated_at = now()
+         WHERE id = $1
+         RETURNING paid_at`,
+        [order.id],
+      );
+      paidAtDate = paidUpdate.rows[0]?.paid_at ?? new Date();
+
+      const now = new Date();
+      const canExtendExisting =
+        existingSub &&
+        existingSub.deleted_at === null &&
+        existingSub.tier === orderTier &&
+        existingSub.expires_at !== null &&
+        existingSub.expires_at.getTime() > now.getTime() &&
+        existingSub.expires_at.getUTCFullYear() < 2090;
+
+      startedAtDate = canExtendExisting ? existingSub.started_at : now;
+      const baseExpiry =
+        canExtendExisting && existingSub.expires_at ? existingSub.expires_at : now;
+      expiresAtDate = new Date(baseExpiry.getTime() + durationDays * 86_400_000);
+
+      await client.query(
+        `INSERT INTO user_subscriptions
+          (user_id, tier, billing_cycle, started_at, expires_at, demo_order_code, updated_at, deleted_at)
+         VALUES ($1, $2, $3, $4, $5, $6, now(), NULL)
+         ON CONFLICT (user_id) DO UPDATE SET
+           tier = EXCLUDED.tier,
+           billing_cycle = EXCLUDED.billing_cycle,
+           started_at = EXCLUDED.started_at,
+           expires_at = EXCLUDED.expires_at,
+           demo_order_code = EXCLUDED.demo_order_code,
+           updated_at = now(),
+           deleted_at = NULL`,
+        [userId, orderTier, orderCycle, startedAtDate, expiresAtDate, order.order_code],
+      );
+    }
+
+    await client.query('COMMIT');
+    receipt = {
+      id: order.id,
+      orderCode: order.order_code,
+      tier: orderTier,
+      planName: plan.name,
+      billingCycle: orderCycle,
+      amountVnd: Number(order.amount_vnd) || 0,
+      provider: order.provider,
+      status: 'paid',
+      paidAt: paidAtDate.toISOString(),
+      startedAt: startedAtDate.toISOString(),
+      expiresAt: expiresAtDate.toISOString(),
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  const summary = await getMembershipSummary(userId, dateKey);
+  return { ok: true, receipt, summary };
+}
+
 export async function activateDemoSubscription(
   userId: string,
   tier: SubscriptionTier,
